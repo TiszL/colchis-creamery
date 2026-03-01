@@ -7,7 +7,11 @@ export async function GET(req: NextRequest) {
     const code = searchParams.get("code");
     const state = searchParams.get("state");
 
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+    let siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+    if (!siteUrl && process.env.VERCEL_PROJECT_PRODUCTION_URL) {
+        siteUrl = `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
+    }
+    siteUrl = siteUrl || "http://localhost:3000";
 
     if (!code) {
         return NextResponse.redirect(new URL("/login?error=OAuthCodeMissing", siteUrl));

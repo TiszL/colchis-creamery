@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { MapPin, Users, TrendingUp, Globe, BarChart3, Eye, LogOut, Shield } from 'lucide-react';
 import Link from 'next/link';
 import { logoutAction } from '@/app/actions/auth';
+import { AnalyticsMap } from '@/components/admin/AnalyticsMap';
 
 export const dynamic = 'force-dynamic';
 
@@ -105,27 +106,12 @@ export default async function AnalyticsDashboardPage({ params }: { params: any }
                                 </button>
                             )}
                         </div>
-                        <div className="h-[500px] bg-[#0D0D0D] flex items-center justify-center relative">
-                            {/* Google Maps placeholder */}
-                            <div className="text-center">
-                                <Globe className="w-24 h-24 text-[#CBA153]/20 mx-auto mb-4" />
-                                <p className="text-gray-500 text-sm mb-2">Google Maps Integration</p>
-                                <p className="text-gray-600 text-xs">Provide your Google Maps API key in .env.local</p>
-                                <p className="text-gray-700 text-[10px] mt-2 font-mono">NEXT_PUBLIC_GOOGLE_MAPS_KEY=your_key</p>
-                            </div>
-                            {/* Pin dots overlay */}
-                            {pins.slice(0, 10).map((pin: any, i: number) => (
-                                <div
-                                    key={pin.id}
-                                    className="absolute w-3 h-3 rounded-full animate-pulse"
-                                    style={{
-                                        left: `${15 + (i * 8)}%`,
-                                        top: `${20 + ((i % 3) * 25)}%`,
-                                        backgroundColor: pin.pinType === 'PARTNER' ? '#34d399' : pin.pinType === 'PROSPECT' ? '#60a5fa' : '#CBA153',
-                                    }}
-                                    title={pin.name}
-                                ></div>
-                            ))}
+                        <div className="h-[500px] bg-[#0D0D0D] relative">
+                            <AnalyticsMap
+                                apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY || ""}
+                                initialPins={pins}
+                                canEdit={canEdit}
+                            />
                         </div>
                     </div>
 
@@ -142,8 +128,8 @@ export default async function AnalyticsDashboardPage({ params }: { params: any }
                                         <li key={pin.id} className="px-6 py-4 hover:bg-white/5 transition-colors">
                                             <div className="flex items-center gap-3">
                                                 <div className={`w-2 h-2 rounded-full shrink-0 ${pin.pinType === 'PARTNER' ? 'bg-emerald-400' :
-                                                        pin.pinType === 'PROSPECT' ? 'bg-blue-400' :
-                                                            'bg-[#CBA153]'
+                                                    pin.pinType === 'PROSPECT' ? 'bg-blue-400' :
+                                                        'bg-[#CBA153]'
                                                     }`}></div>
                                                 <div className="min-w-0">
                                                     <p className="text-white text-sm font-medium truncate">{pin.name}</p>

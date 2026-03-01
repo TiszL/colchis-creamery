@@ -33,6 +33,10 @@ export async function loginAction(formData: FormData) {
             return { error: "Staff accounts must use the staff login portal." };
         }
 
+        if (!user.passwordHash) {
+            return { error: "Please log in using your social account." };
+        }
+
         const passwordsMatch = await bcryptjs.compare(password, user.passwordHash);
 
         if (!passwordsMatch) {
@@ -178,6 +182,10 @@ export async function staffLoginAction(formData: FormData) {
         const allowedRoles = [...STAFF_ROLES, "ANALYTICS_VIEWER"];
         if (!allowedRoles.includes(user.role)) {
             return { error: "This portal is for staff only. Please use the customer login." };
+        }
+
+        if (!user.passwordHash) {
+            return { error: "Invalid credentials." };
         }
 
         const passwordsMatch = await bcryptjs.compare(password, user.passwordHash);
@@ -335,6 +343,7 @@ export async function changePasswordAction(formData: FormData) {
     try {
         const user = await prisma.user.findUnique({ where: { id: userId } });
         if (!user) return { error: "User not found." };
+        if (!user.passwordHash) return { error: "Social accounts do not have a password to change." };
 
         const passwordsMatch = await bcryptjs.compare(currentPassword, user.passwordHash);
         if (!passwordsMatch) return { error: "Current password is incorrect." };

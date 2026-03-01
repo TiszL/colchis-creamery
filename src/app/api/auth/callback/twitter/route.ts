@@ -40,7 +40,9 @@ export async function GET(req: NextRequest) {
         };
 
         if (clientSecret) {
-            const authHeader = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
+            const encodedId = encodeURIComponent(clientId);
+            const encodedSecret = encodeURIComponent(clientSecret);
+            const authHeader = Buffer.from(`${encodedId}:${encodedSecret}`).toString("base64");
             headers["Authorization"] = `Basic ${authHeader}`;
         }
 

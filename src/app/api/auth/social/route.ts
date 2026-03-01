@@ -4,10 +4,7 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const provider = searchParams.get("provider");
 
-    let siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
-    if (!siteUrl) {
-        siteUrl = process.env.NODE_ENV === "production" ? "https://colchiscreamery.com" : "http://localhost:3000";
-    }
+    const siteUrl = req.nextUrl.origin;
 
     if (provider === "google") {
         const clientId = process.env.GOOGLE_CLIENT_ID;

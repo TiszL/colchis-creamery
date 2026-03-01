@@ -7,10 +7,7 @@ export async function GET(req: NextRequest) {
     const code = searchParams.get("code");
     const state = searchParams.get("state");
 
-    let siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
-    if (!siteUrl) {
-        siteUrl = process.env.NODE_ENV === "production" ? "https://colchiscreamery.com" : "http://localhost:3000";
-    }
+    const siteUrl = req.nextUrl.origin;
 
     if (!code) {
         return NextResponse.redirect(new URL("/login?error=OAuthCodeMissing", siteUrl));

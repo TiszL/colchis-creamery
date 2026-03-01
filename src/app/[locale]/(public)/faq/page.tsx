@@ -1,0 +1,59 @@
+import { Metadata } from 'next';
+
+export const metadata: Metadata = {
+    title: 'FAQ | Colchis Creamery',
+    description: 'Frequently Asked Questions about Colchis Creamery, our artisanal Georgian cheese, shipping, and more.',
+};
+
+const faqs = [
+    {
+        question: 'Where is your cheese made?',
+        answer: 'Our cheese is handcrafted in Ohio, USA, using premium local milk, while strictly following ancient Georgian cheese-making traditions.'
+    },
+    {
+        question: 'How is the cheese shipped to ensure freshness?',
+        answer: 'We ship our cheese in insulated packaging with ice packs via expedited shipping to ensure it arrives at your doorstep in perfect condition.'
+    },
+    {
+        question: 'Are your cheeses pasteurized?',
+        answer: 'Yes, all Colchis Creamery cheeses are made from pasteurized milk to comply with FDA regulations while maintaining authentic flavor profiles.'
+    },
+    {
+        question: 'Do you offer wholesale pricing for restaurants?',
+        answer: 'Absolutely. We partner with premium restaurants, grocery stores, and distributors. Please visit our Wholesale page to apply for a B2B account.'
+    },
+    {
+        question: 'How long does Sulguni cheese last?',
+        answer: 'Unopened, our Sulguni cheese will last up to 60 days in the refrigerator. Once opened, we recommend consuming it within 5-7 days for optimal taste.'
+    }
+];
+
+export default function FAQPage() {
+    return (
+        <main className="min-h-screen bg-[#FDFBF7] py-20 px-4">
+            <div className="max-w-3xl mx-auto">
+
+                <div className="text-center mb-16">
+                    <h1 className="text-5xl font-serif text-[#2C2A29] mb-4">Frequently Asked Questions</h1>
+                    <p className="text-xl text-[#2C2A29] opacity-80">
+                        Find answers to common questions about our heritage, products, and services.
+                    </p>
+                </div>
+
+                <div className="space-y-6">
+                    {faqs.map((faq, index) => (
+                        <div key={index} className="bg-white p-8 rounded shadow-sm border border-gray-100">
+                            <h3 className="text-xl font-serif text-[#CBA153] mb-3">
+                                {faq.question}
+                            </h3>
+                            <p className="text-[#2C2A29] leading-relaxed opacity-90">
+                                {faq.answer}
+                            </p>
+                        </div>
+                    ))}
+                </div>
+
+            </div>
+        </main>
+    );
+}

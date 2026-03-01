@@ -1,0 +1,65 @@
+@import "tailwindcss";
+
+@theme inline {
+  /* Brand Colors */
+  --color-cream: #FDFBF7;
+  --color-offwhite: #FAFAFA;
+  --color-gold: #CBA153;
+  --color-gold-dark: #B08A3E;
+  --color-charcoal: #2C2A29;
+  --color-charcoal-light: #4A4745;
+
+  /* Semantic Colors */
+  --color-background: var(--color-cream);
+  --color-foreground: var(--color-charcoal);
+  --color-primary: var(--color-gold);
+  --color-primary-dark: var(--color-gold-dark);
+  --color-muted: #6B7280;
+  --color-border: #E5E7EB;
+  --color-border-light: #F3F4F6;
+
+  /* B2B Dark Theme Colors */
+  --color-b2b-bg: #0F0F0F;
+  --color-b2b-surface: #1A1A1A;
+  --color-b2b-border: #2A2A2A;
+  --color-b2b-text: #FAFAFA;
+
+  /* Fonts */
+  --font-serif: var(--font-playfair), Georgia, "Times New Roman", serif;
+  --font-sans: var(--font-inter), system-ui, -apple-system, sans-serif;
+  --font-serif-ka: var(--font-noto-serif-georgian), Georgia, serif;
+  --font-sans-ka: var(--font-noto-sans-georgian), system-ui, sans-serif;
+}
+
+body {
+  background: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Georgian locale font override */
+html[lang="ka"] body {
+  font-family: var(--font-sans-ka);
+}
+
+html[lang="ka"] h1,
+html[lang="ka"] h2,
+html[lang="ka"] h3,
+html[lang="ka"] h4,
+html[lang="ka"] h5,
+html[lang="ka"] h6 {
+  font-family: var(--font-serif-ka);
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Selection color */
+::selection {
+  background-color: var(--color-gold);
+  color: white;
+}

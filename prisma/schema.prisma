@@ -1,0 +1,267 @@
+// Colchis Creamery - Prisma Schema
+// Georgian artisanal cheese e-commerce platform
+// ─── Multi-Role RBAC Architecture ────────────────────────────────────────────
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ─── User ────────────────────────────────────────────────────────────────────
+// Roles: MASTER_ADMIN | PRODUCT_MANAGER | CONTENT_MANAGER | SALES
+//        B2B_PARTNER | B2C_CUSTOMER | ANALYTICS_VIEWER
+
+model User {
+  id                String     @id @default(uuid())
+  email             String     @unique
+  passwordHash      String
+  name              String?
+  phone             String?
+  avatarUrl         String?
+  role              String     @default("B2C_CUSTOMER")
+  companyName       String?
+  stripeCustomerId  String?
+  isActiveB2b       Boolean    @default(false)
+  isActive          Boolean    @default(true)
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+
+  orders           Order[]
+  contracts        Contract[]
+  profile          UserProfile?
+  dashboardAccess  DashboardAccess[]
+  analyticsPins    AnalyticsPin[]
+}
+
+// ─── UserProfile ─────────────────────────────────────────────────────────────
+// Extended profile for B2C customers (shipping, billing)
+
+model UserProfile {
+  id                String   @id @default(uuid())
+  userId            String   @unique
+  shippingAddress   String?
+  shippingCity      String?
+  shippingState     String?
+  shippingZip       String?
+  shippingCountry   String?  @default("US")
+  billingAddress    String?
+  billingCity       String?
+  billingState      String?
+  billingZip        String?
+  billingCountry    String?  @default("US")
+  preferredLanguage String?  @default("en")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ─── Product ─────────────────────────────────────────────────────────────────
+
+model Product {
+  id             String      @id @default(uuid())
+  sku            String      @unique
+  name           String
+  slug           String      @unique
+  description    String
+  flavorProfile  String?
+  pairsWith      String?
+  weight         String?
+  ingredients    String?
+  imageUrl       String
+  priceB2c       String
+  priceB2b       String
+  stockQuantity  Int
+  category       String?     @default("cheese")
+  isActive       Boolean     @default(true)
+  isB2cVisible   Boolean     @default(true)
+  isB2bVisible   Boolean     @default(true)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  orderItems OrderItem[]
+}
+
+// ─── Contract ────────────────────────────────────────────────────────────────
+// status: "PENDING" | "OUT_FOR_SIGNATURE" | "SIGNED" | "EXPIRED"
+
+model Contract {
+  id                     String    @id @default(uuid())
+  partnerId              String
+  adobeSignAgreementId   String?
+  status                 String    @default("PENDING")
+  signedDocumentUrl      String?
+  discountPercentage     String    @default("0")
+  validUntil             DateTime?
+  createdAt              DateTime  @default(now())
+
+  partner User @relation(fields: [partnerId], references: [id])
+}
+
+// ─── Order ───────────────────────────────────────────────────────────────────
+// orderType: "B2C" | "B2B"
+// paymentStatus: "UNPAID" | "PAID" | "REFUNDED"
+// orderStatus: "PROCESSING" | "READY_FOR_PICKUP" | "SHIPPED" | "IN_TRANSIT" | "DELIVERED"
+
+model Order {
+  id                     String      @id @default(uuid())
+  userId                 String
+  orderType              String      @default("B2C")
+  totalAmount            String
+  stripePaymentIntentId  String?
+  stripeInvoiceId        String?
+  paymentStatus          String      @default("UNPAID")
+  orderStatus            String      @default("PROCESSING")
+  shippingAddress        String?
+  notes                  String?
+  createdAt              DateTime    @default(now())
+
+  user       User        @relation(fields: [userId], references: [id])
+  orderItems OrderItem[]
+  shipment   Shipment?
+}
+
+// ─── OrderItem ───────────────────────────────────────────────────────────────
+
+model OrderItem {
+  id        String @id @default(uuid())
+  orderId   String
+  productId String
+  quantity  Int
+  unitPrice String
+
+  order   Order   @relation(fields: [orderId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+}
+
+// ─── Shipment ────────────────────────────────────────────────────────────────
+
+model Shipment {
+  id                    String    @id @default(uuid())
+  orderId               String    @unique
+  carrierName           String?
+  trackingNumber        String?
+  dispatchDate          DateTime?
+  estimatedDeliveryDate DateTime?
+  deliveryAddress       String?
+  createdAt             DateTime  @default(now())
+
+  order Order @relation(fields: [orderId], references: [id])
+}
+
+// ─── B2bLead ─────────────────────────────────────────────────────────────────
+// status: "NEW" | "CONTACTED" | "CONVERTED" | "REJECTED"
+
+model B2bLead {
+  id             String   @id @default(uuid())
+  companyName    String
+  email          String
+  phone          String?
+  expectedVolume String?
+  message        String?
+  status         String   @default("NEW")
+  assignedTo     String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+// ─── Recipe ──────────────────────────────────────────────────────────────────
+
+model Recipe {
+  id          String   @id @default(uuid())
+  title       String
+  slug        String   @unique
+  description String
+  content     String
+  prepTime    String?
+  cookTime    String?
+  servings    String?
+  difficulty  String?
+  imageUrl    String?
+  isPublished Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ─── Article ─────────────────────────────────────────────────────────────────
+// CMS-managed blog/news articles
+
+model Article {
+  id          String   @id @default(uuid())
+  title       String
+  slug        String   @unique
+  excerpt     String?
+  content     String
+  coverImage  String?
+  authorId    String?
+  tags        String?
+  isPublished Boolean  @default(false)
+  publishedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ─── AccessCode ──────────────────────────────────────────────────────────────
+// type: "B2B" | "STAFF" | "ANALYTICS_VIEWER"
+// targetRole: The role assigned when the code is redeemed
+
+model AccessCode {
+  id         String    @id @default(uuid())
+  code       String    @unique
+  type       String    @default("B2B")
+  targetRole String    @default("B2B_PARTNER")
+  email      String?
+  isUsed     Boolean   @default(false)
+  createdAt  DateTime  @default(now())
+  expiresAt  DateTime?
+}
+
+// ─── AnalyticsPin ────────────────────────────────────────────────────────────
+// Google Maps markers for business development
+
+model AnalyticsPin {
+  id          String   @id @default(uuid())
+  name        String
+  latitude    Float
+  longitude   Float
+  pinType     String   @default("PROSPECT")  // PROSPECT | PARTNER | SUPPLIER | ZONE
+  status      String   @default("ACTIVE")    // ACTIVE | INACTIVE | CONVERTED
+  notes       String?
+  contactInfo String?
+  revenue     String?
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  createdBy User? @relation(fields: [createdById], references: [id])
+}
+
+// ─── DashboardAccess ─────────────────────────────────────────────────────────
+// Admin-controlled per-user access to analytics
+
+model DashboardAccess {
+  id          String   @id @default(uuid())
+  userId      String
+  dashboard   String   @default("ANALYTICS")
+  canView     Boolean  @default(true)
+  canEdit     Boolean  @default(false)
+  grantedBy   String?
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ─── SiteConfig ──────────────────────────────────────────────────────────────
+// Key-value store for website content managed by admin/content manager
+
+model SiteConfig {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     String
+  updatedAt DateTime @updatedAt
+}

@@ -1,0 +1,147 @@
+{
+  "common": {
+    "shopNow": "Comprar queso artesanal",
+    "wholesale": "Socios mayoristas",
+    "addToCart": "Agregar al carrito",
+    "buyOnAmazon": "Comprar en Amazon",
+    "viewDetails": "Ver detalles",
+    "learnMore": "Más información",
+    "submit": "Enviar",
+    "loading": "Cargando...",
+    "backToHome": "Volver al inicio",
+    "currency": "USD",
+    "readMore": "Leer más"
+  },
+  "nav": {
+    "home": "Inicio",
+    "heritage": "Nuestra herencia",
+    "shop": "Tienda",
+    "recipes": "Recetas y maridajes",
+    "wholesale": "Mayoristas",
+    "contact": "Contacto",
+    "faq": "Preguntas frecuentes",
+    "cart": "Carrito",
+    "login": "Iniciar sesión",
+    "register": "Crear cuenta"
+  },
+  "home": {
+    "heroTitle": "Herencia milenaria, sabor fresco",
+    "heroSubtitle": "Auténtico queso artesanal georgiano, elaborado a mano en Ohio con leche local de primera calidad",
+    "shopCta": "Comprar queso artesanal",
+    "wholesaleCta": "Socios mayoristas",
+    "trustFda": "Cumplimiento FDA",
+    "trustOhio": "Elaborado en Ohio",
+    "trustNatural": "100% natural",
+    "featuredTitle": "Nuestra colección artesanal",
+    "featuredSubtitle": "Cada queso es elaborado a mano utilizando técnicas georgianas centenarias",
+    "heritageTitle": "Una tradición milenaria",
+    "heritageText": "Desde la antigua tierra de Cólquida hasta el corazón de Ohio, le ofrecemos auténtico queso georgiano elaborado con pasión y respeto por la herencia.",
+    "heritageCta": "Descubra nuestra historia"
+  },
+  "heritage": {
+    "title": "Nuestra herencia",
+    "subtitle": "La historia de Colchis Creamery",
+    "intro": "En la antigua tierra de Cólquida, donde se buscó el Vellocino de Oro, una tradición quesera ha florecido durante milenios. Llevamos esa tradición a Ohio.",
+    "traditionTitle": "Tradición quesera georgiana",
+    "traditionText": "Georgia es una de las regiones queseras más antiguas del mundo. Durante más de 8.000 años, los queseros georgianos han perfeccionado el arte de elaborar quesos únicos que no se encuentran en ningún otro lugar.",
+    "ohioTitle": "Elaborado en Ohio",
+    "ohioText": "Utilizamos la mejor leche local de las granjas lecheras de primera calidad de Ohio, combinando técnicas georgianas ancestrales con estándares modernos de seguridad alimentaria para crear un queso que honra la tradición y cumple con los más altos estándares de calidad.",
+    "processTitle": "Nuestro proceso",
+    "processText": "Cada lote de queso de Colchis Creamery se elabora a mano en pequeñas cantidades, garantizando una atención meticulosa al detalle. Desde el estirado y la salmuera hasta la maduración, cada paso sigue métodos consagrados por el tiempo."
+  },
+  "shop": {
+    "title": "Nuestra colección de quesos",
+    "subtitle": "Queso artesanal georgiano hecho a mano",
+    "filterAll": "Todos los quesos",
+    "inStock": "En stock",
+    "outOfStock": "Agotado",
+    "addedToCart": "¡Agregado al carrito!",
+    "flavorProfile": "Perfil de sabor",
+    "pairsWith": "Marida bien con",
+    "weight": "Peso",
+    "ingredients": "Ingredientes"
+  },
+  "cart": {
+    "title": "Carrito de compras",
+    "empty": "Su carrito está vacío",
+    "continueShopping": "Seguir comprando",
+    "subtotal": "Subtotal",
+    "shipping": "Envío",
+    "shippingCalc": "Calculado al finalizar la compra",
+    "total": "Total",
+    "checkout": "Proceder al pago",
+    "remove": "Eliminar",
+    "quantity": "Cantidad"
+  },
+  "checkout": {
+    "title": "Finalizar compra",
+    "comingSoon": "Integración de pago próximamente",
+    "comingSoonText": "Actualmente estamos configurando nuestro sistema de procesamiento de pagos. Por favor, vuelva pronto o contáctenos directamente para realizar un pedido.",
+    "contactUs": "Contáctenos para hacer un pedido"
+  },
+  "recipes": {
+    "title": "Recetas y maridajes",
+    "subtitle": "Descubra deliciosas formas de disfrutar nuestro queso artesanal georgiano",
+    "prepTime": "Tiempo de preparación",
+    "cookTime": "Tiempo de cocción",
+    "servings": "Porciones",
+    "difficulty": "Dificultad",
+    "ingredientsTitle": "Ingredientes",
+    "instructionsTitle": "Instrucciones",
+    "tipsTitle": "Consejos del chef"
+  },
+  "wholesale": {
+    "title": "Alianza mayorista",
+    "subtitle": "Ofrezca auténtico queso georgiano a sus clientes",
+    "heroText": "Asóciese con Colchis Creamery para la distribución de queso artesanal de primera calidad en el Medio Oeste y más allá.",
+    "benefitsTitle": "Por qué asociarse con nosotros",
+    "benefit1Title": "Calidad premium",
+    "benefit1Text": "Queso artesanal hecho a mano con la mejor leche de Ohio",
+    "benefit2Title": "Suministro confiable",
+    "benefit2Text": "Producción consistente desde nuestra planta en Ohio con horarios de entrega flexibles",
+    "benefit3Title": "Precios competitivos",
+    "benefit3Text": "Precios basados en volumen con soporte B2B dedicado",
+    "formTitle": "Solicitar alianza",
+    "companyName": "Nombre de la empresa",
+    "email": "Correo electrónico de contacto",
+    "volume": "Volumen mensual esperado",
+    "volumeSmall": "Menos de 50 libras",
+    "volumeMedium": "50 - 200 libras",
+    "volumeLarge": "Más de 200 libras",
+    "message": "Información adicional",
+    "submitBtn": "Solicitar alianza",
+    "submitting": "Enviando...",
+    "successTitle": "¡Solicitud recibida!",
+    "successText": "Gracias por su interés. Nuestro equipo de ventas se comunicará con usted dentro de 2 días hábiles."
+  },
+  "contact": {
+    "title": "Contáctenos",
+    "subtitle": "Nos encantaría saber de usted",
+    "emailLabel": "Correo electrónico",
+    "phoneLabel": "Teléfono",
+    "addressLabel": "Dirección",
+    "formName": "Su nombre",
+    "formEmail": "Su correo electrónico",
+    "formSubject": "Asunto",
+    "formMessage": "Mensaje",
+    "formSubmit": "Enviar mensaje"
+  },
+  "faq": {
+    "title": "Preguntas frecuentes",
+    "subtitle": "Encuentre respuestas a las preguntas más comunes sobre nuestros productos y servicios"
+  },
+  "legal": {
+    "privacy": "Política de privacidad",
+    "terms": "Términos de servicio",
+    "returns": "Política de devoluciones"
+  },
+  "footer": {
+    "tagline": "Herencia milenaria, sabor fresco",
+    "description": "Auténtico queso artesanal georgiano, elaborado a mano en Ohio con leche local de primera calidad.",
+    "quickLinks": "Enlaces rápidos",
+    "support": "Soporte",
+    "connect": "Conectar",
+    "copyright": "© {year} Colchis Creamery. Todos los derechos reservados.",
+    "madeIn": "Elaborado con amor en Ohio, EE. UU."
+  }
+}

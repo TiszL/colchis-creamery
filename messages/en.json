@@ -1,0 +1,147 @@
+{
+  "common": {
+    "shopNow": "Shop Artisanal Cheese",
+    "wholesale": "Wholesale Partners",
+    "addToCart": "Add to Cart",
+    "buyOnAmazon": "Buy on Amazon",
+    "viewDetails": "View Details",
+    "learnMore": "Learn More",
+    "submit": "Submit",
+    "loading": "Loading...",
+    "backToHome": "Back to Home",
+    "currency": "USD",
+    "readMore": "Read More"
+  },
+  "nav": {
+    "home": "Home",
+    "heritage": "Our Heritage",
+    "shop": "Shop",
+    "recipes": "Recipes & Pairings",
+    "wholesale": "Wholesale",
+    "contact": "Contact",
+    "faq": "FAQ",
+    "cart": "Cart",
+    "login": "Sign In",
+    "register": "Create Account"
+  },
+  "home": {
+    "heroTitle": "Ancient Heritage, Fresh Taste",
+    "heroSubtitle": "Authentic Georgian artisanal cheese, handcrafted in Ohio with premium local milk",
+    "shopCta": "Shop Artisanal Cheese",
+    "wholesaleCta": "Wholesale Partners",
+    "trustFda": "FDA Compliant",
+    "trustOhio": "Crafted in Ohio",
+    "trustNatural": "100% Natural",
+    "featuredTitle": "Our Artisanal Collection",
+    "featuredSubtitle": "Each cheese is handcrafted using centuries-old Georgian techniques",
+    "heritageTitle": "A Tradition Spanning Millennia",
+    "heritageText": "From the ancient land of Colchis to the heartland of Ohio, we bring you authentic Georgian cheese crafted with passion and heritage.",
+    "heritageCta": "Discover Our Story"
+  },
+  "heritage": {
+    "title": "Our Heritage",
+    "subtitle": "The Story of Colchis Creamery",
+    "intro": "In the ancient land of Colchis, where the Golden Fleece was sought, a tradition of cheesemaking has flourished for millennia. We bring that tradition to Ohio.",
+    "traditionTitle": "Georgian Cheesemaking Tradition",
+    "traditionText": "Georgia is one of the oldest cheesemaking regions in the world. For over 8,000 years, Georgian cheesemakers have perfected the art of crafting unique cheeses that are unlike anything found elsewhere.",
+    "ohioTitle": "Crafted in Ohio",
+    "ohioText": "We source the finest local milk from Ohio's premium dairy farms, combining ancient Georgian techniques with modern food safety standards to create cheese that honors tradition while meeting the highest quality benchmarks.",
+    "processTitle": "Our Process",
+    "processText": "Every batch of Colchis Creamery cheese is handcrafted in small quantities, ensuring meticulous attention to detail. From stretching and brining to aging — each step follows time-honored methods."
+  },
+  "shop": {
+    "title": "Our Cheese Collection",
+    "subtitle": "Handcrafted artisanal Georgian cheese",
+    "filterAll": "All Cheeses",
+    "inStock": "In Stock",
+    "outOfStock": "Out of Stock",
+    "addedToCart": "Added to cart!",
+    "flavorProfile": "Flavor Profile",
+    "pairsWith": "Pairs Well With",
+    "weight": "Weight",
+    "ingredients": "Ingredients"
+  },
+  "cart": {
+    "title": "Shopping Cart",
+    "empty": "Your cart is empty",
+    "continueShopping": "Continue Shopping",
+    "subtotal": "Subtotal",
+    "shipping": "Shipping",
+    "shippingCalc": "Calculated at checkout",
+    "total": "Total",
+    "checkout": "Proceed to Checkout",
+    "remove": "Remove",
+    "quantity": "Quantity"
+  },
+  "checkout": {
+    "title": "Checkout",
+    "comingSoon": "Payment Integration Coming Soon",
+    "comingSoonText": "We are currently setting up our payment processing. Please check back soon or contact us directly to place an order.",
+    "contactUs": "Contact Us to Order"
+  },
+  "recipes": {
+    "title": "Recipes & Pairings",
+    "subtitle": "Discover delicious ways to enjoy our artisanal Georgian cheese",
+    "prepTime": "Prep Time",
+    "cookTime": "Cook Time",
+    "servings": "Servings",
+    "difficulty": "Difficulty",
+    "ingredientsTitle": "Ingredients",
+    "instructionsTitle": "Instructions",
+    "tipsTitle": "Chef's Tips"
+  },
+  "wholesale": {
+    "title": "Wholesale Partnership",
+    "subtitle": "Bring authentic Georgian cheese to your customers",
+    "heroText": "Partner with Colchis Creamery for premium artisanal cheese distribution across the Midwest and beyond.",
+    "benefitsTitle": "Why Partner With Us",
+    "benefit1Title": "Premium Quality",
+    "benefit1Text": "Handcrafted artisanal cheese made with the finest Ohio dairy",
+    "benefit2Title": "Reliable Supply",
+    "benefit2Text": "Consistent production from our Ohio facility with flexible delivery schedules",
+    "benefit3Title": "Competitive Pricing",
+    "benefit3Text": "Volume-based pricing with dedicated B2B support",
+    "formTitle": "Apply for Partnership",
+    "companyName": "Company Name",
+    "email": "Contact Email",
+    "volume": "Expected Monthly Volume",
+    "volumeSmall": "Under 50 lbs",
+    "volumeMedium": "50 - 200 lbs",
+    "volumeLarge": "200+ lbs",
+    "message": "Additional Information",
+    "submitBtn": "Request Partnership",
+    "submitting": "Submitting...",
+    "successTitle": "Application Received!",
+    "successText": "Thank you for your interest. Our sales team will contact you within 2 business days."
+  },
+  "contact": {
+    "title": "Contact Us",
+    "subtitle": "We'd love to hear from you",
+    "emailLabel": "Email",
+    "phoneLabel": "Phone",
+    "addressLabel": "Address",
+    "formName": "Your Name",
+    "formEmail": "Your Email",
+    "formSubject": "Subject",
+    "formMessage": "Message",
+    "formSubmit": "Send Message"
+  },
+  "faq": {
+    "title": "Frequently Asked Questions",
+    "subtitle": "Find answers to common questions about our products and services"
+  },
+  "legal": {
+    "privacy": "Privacy Policy",
+    "terms": "Terms of Service",
+    "returns": "Return Policy"
+  },
+  "footer": {
+    "tagline": "Ancient Heritage, Fresh Taste",
+    "description": "Authentic Georgian artisanal cheese, handcrafted in Ohio with premium local milk.",
+    "quickLinks": "Quick Links",
+    "support": "Support",
+    "connect": "Connect",
+    "copyright": "© {year} Colchis Creamery. All rights reserved.",
+    "madeIn": "Handcrafted with love in Ohio, USA"
+  }
+}

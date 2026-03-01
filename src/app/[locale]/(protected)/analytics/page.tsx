@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation';
 import { MapPin, Users, TrendingUp, Globe, BarChart3, Eye, LogOut, Shield } from 'lucide-react';
 import Link from 'next/link';
 import { logoutAction } from '@/app/actions/auth';
-import { AnalyticsMap } from '@/components/admin/AnalyticsMap';
+import { AnalyticsView } from '@/components/admin/AnalyticsView';
 
 export const dynamic = 'force-dynamic';
 
@@ -91,63 +91,13 @@ export default async function AnalyticsDashboardPage({ params }: { params: any }
                     ))}
                 </div>
 
-                {/* Map Placeholder + Pins Table */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* Map */}
-                    <div className="lg:col-span-2 bg-[#111111] rounded-xl border border-white/5 overflow-hidden">
-                        <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <Globe className="w-5 h-5 text-[#CBA153]" />
-                                <h2 className="text-white font-bold">Coverage Map</h2>
-                            </div>
-                            {canEdit && (
-                                <button className="text-xs bg-[#CBA153] text-black px-4 py-2 rounded-lg font-bold uppercase tracking-wider hover:bg-white transition-all">
-                                    + Add Pin
-                                </button>
-                            )}
-                        </div>
-                        <div className="h-[500px] bg-[#0D0D0D] relative">
-                            <AnalyticsMap
-                                apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY || ""}
-                                initialPins={pins}
-                                canEdit={canEdit}
-                            />
-                        </div>
-                    </div>
-
-                    {/* Pin Listings */}
-                    <div className="bg-[#111111] rounded-xl border border-white/5 overflow-hidden flex flex-col">
-                        <div className="px-6 py-4 border-b border-white/5">
-                            <h2 className="text-white font-bold">Targets & Partners</h2>
-                            <p className="text-gray-600 text-xs mt-1">{totalPins} total locations</p>
-                        </div>
-                        <div className="flex-1 overflow-y-auto max-h-[500px]">
-                            {pins.length > 0 ? (
-                                <ul className="divide-y divide-white/5">
-                                    {pins.map((pin: any) => (
-                                        <li key={pin.id} className="px-6 py-4 hover:bg-white/5 transition-colors">
-                                            <div className="flex items-center gap-3">
-                                                <div className={`w-2 h-2 rounded-full shrink-0 ${pin.pinType === 'PARTNER' ? 'bg-emerald-400' :
-                                                    pin.pinType === 'PROSPECT' ? 'bg-blue-400' :
-                                                        'bg-[#CBA153]'
-                                                    }`}></div>
-                                                <div className="min-w-0">
-                                                    <p className="text-white text-sm font-medium truncate">{pin.name}</p>
-                                                    <p className="text-gray-600 text-xs">{pin.pinType} • {pin.status}</p>
-                                                </div>
-                                            </div>
-                                            {pin.notes && (
-                                                <p className="text-gray-500 text-xs mt-2 pl-5">{pin.notes}</p>
-                                            )}
-                                        </li>
-                                    ))}
-                                </ul>
-                            ) : (
-                                <p className="p-6 text-gray-500 text-sm text-center">No pins added yet.</p>
-                            )}
-                        </div>
-                    </div>
-                </div>
+                {/* Map and Pin Listings */}
+                <AnalyticsView
+                    apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY || ""}
+                    initialPins={pins}
+                    canEdit={canEdit}
+                    totalPins={totalPins}
+                />
 
                 {/* Viewer mode watermark */}
                 {isViewerOnly && (

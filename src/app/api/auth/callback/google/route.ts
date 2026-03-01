@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
     if (!code) {
-        return NextResponse.redirect(new URL(`${siteUrl}/login?error=OAuthCodeMissing`));
+        return NextResponse.redirect(new URL("/login?error=OAuthCodeMissing", req.url));
     }
 
     const clientId = process.env.GOOGLE_CLIENT_ID;
@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
     const redirectUri = `${siteUrl}/api/auth/callback/google`;
 
     if (!clientId || !clientSecret) {
-        return NextResponse.redirect(new URL(`${siteUrl}/login?error=ConfigurationMissing`));
+        return NextResponse.redirect(new URL("/login?error=ConfigurationMissing", req.url));
     }
 
     try {
@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
         const tokenData = await tokenRes.json();
         if (tokenData.error) {
             console.error("Google token error:", tokenData);
-            return NextResponse.redirect(new URL(`${siteUrl}/login?error=OAuthTokenFailed`));
+            return NextResponse.redirect(new URL("/login?error=OAuthTokenFailed", req.url));
         }
 
         // 2. Fetch user profile
@@ -48,7 +48,7 @@ export async function GET(req: NextRequest) {
         const userData = await userRes.json();
 
         if (!userData.email) {
-            return NextResponse.redirect(new URL(`${siteUrl}/login?error=EmailRequired`));
+            return NextResponse.redirect(new URL("/login?error=EmailRequired", req.url));
         }
 
         // 3. Find or create user
@@ -96,10 +96,10 @@ export async function GET(req: NextRequest) {
         await setSession(user.id, user.role, user.email, user.name || undefined);
 
         // 5. Redirect to account page
-        return NextResponse.redirect(new URL(`${siteUrl}/account`));
+        return NextResponse.redirect(new URL("/account", req.url));
 
     } catch (error) {
         console.error("Google OAuth callback error:", error);
-        return NextResponse.redirect(new URL(`${siteUrl}/login?error=OAuthFailed`));
+        return NextResponse.redirect(new URL("/login?error=OAuthFailed", req.url));
     }
 }

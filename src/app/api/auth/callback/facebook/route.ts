@@ -14,7 +14,6 @@ export async function GET(req: NextRequest) {
 
     const clientId = process.env.FACEBOOK_APP_ID;
     const clientSecret = process.env.FACEBOOK_APP_SECRET;
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
     const redirectUri = `${siteUrl}/api/auth/callback/facebook`;
 
     if (!clientId || !clientSecret) {

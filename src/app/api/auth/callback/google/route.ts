@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
     if (!code) {
-        return NextResponse.redirect(new URL("/login?error=OAuthCodeMissing", req.url));
+        return NextResponse.redirect(new URL("/login?error=OAuthCodeMissing", siteUrl));
     }
 
     const clientId = process.env.GOOGLE_CLIENT_ID;
@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
     const redirectUri = `${siteUrl}/api/auth/callback/google`;
 
     if (!clientId || !clientSecret) {
-        return NextResponse.redirect(new URL("/login?error=ConfigurationMissing", req.url));
+        return NextResponse.redirect(new URL("/login?error=ConfigurationMissing", siteUrl));
     }
 
     try {
@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
         const tokenData = await tokenRes.json();
         if (tokenData.error) {
             console.error("Google token error:", tokenData);
-            return NextResponse.redirect(new URL("/login?error=OAuthTokenFailed", req.url));
+            return NextResponse.redirect(new URL("/login?error=OAuthTokenFailed", siteUrl));
         }
 
         // 2. Fetch user profile
@@ -48,7 +48,7 @@ export async function GET(req: NextRequest) {
         const userData = await userRes.json();
 
         if (!userData.email) {
-            return NextResponse.redirect(new URL("/login?error=EmailRequired", req.url));
+            return NextResponse.redirect(new URL("/login?error=EmailRequired", siteUrl));
         }
 
         // 3. Find or create user
@@ -96,7 +96,7 @@ export async function GET(req: NextRequest) {
         const token = await getSessionTokenValue(user.id, user.role, user.email, user.name || undefined);
 
         // 5. Redirect to account page
-        const response = NextResponse.redirect(new URL("/account", req.url));
+        const response = NextResponse.redirect(new URL("/account", siteUrl));
         response.cookies.set("auth_token", token, getSessionOptions());
         return response;
 

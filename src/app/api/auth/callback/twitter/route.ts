@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
     if (!code) {
-        return NextResponse.redirect(new URL("/login?error=OAuthCodeMissing", req.url));
+        return NextResponse.redirect(new URL("/login?error=OAuthCodeMissing", siteUrl));
     }
 
     const clientId = process.env.TWITTER_CLIENT_ID;
@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
     const redirectUri = `${siteUrl}/api/auth/callback/twitter`;
 
     if (!clientId) {
-        return NextResponse.redirect(new URL("/login?error=ConfigurationMissing", req.url));
+        return NextResponse.redirect(new URL("/login?error=ConfigurationMissing", siteUrl));
     }
 
     try {
@@ -51,7 +51,7 @@ export async function GET(req: NextRequest) {
 
         if (tokenData.error) {
             console.error("Twitter token error:", tokenData);
-            return NextResponse.redirect(new URL("/login?error=OAuthTokenFailed", req.url));
+            return NextResponse.redirect(new URL("/login?error=OAuthTokenFailed", siteUrl));
         }
 
         // 2. Fetch user profile
@@ -115,7 +115,7 @@ export async function GET(req: NextRequest) {
         const token = await getSessionTokenValue(user.id, user.role, user.email, user.name || undefined);
 
         // 5. Redirect to account page
-        const response = NextResponse.redirect(new URL("/account", req.url));
+        const response = NextResponse.redirect(new URL("/account", siteUrl));
         response.cookies.set("auth_token", token, getSessionOptions());
         return response;
 

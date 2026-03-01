@@ -1,24 +1,36 @@
 import { signToken, verifyToken } from "./auth";
 import { cookies } from "next/headers";
 
+export function getSessionOptions() {
+    const expiry = new Date();
+    expiry.setDate(expiry.getDate() + 7); // 7 days
+
+    return {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax" as const,
+        expires: expiry,
+        path: "/",
+    };
+}
+
+export async function getSessionTokenValue(
+    userId: string,
+    role: string,
+    email: string,
+    name?: string
+) {
+    return signToken({ userId, role, email, name: name || "" });
+}
+
 export async function setSession(
     userId: string,
     role: string,
     email: string,
     name?: string
 ) {
-    const token = await signToken({ userId, role, email, name: name || "" });
-
-    const expiry = new Date();
-    expiry.setDate(expiry.getDate() + 7); // 7 days
-
-    (await cookies()).set("auth_token", token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        expires: expiry,
-        path: "/",
-    });
+    const token = await getSessionTokenValue(userId, role, email, name);
+    (await cookies()).set("auth_token", token, getSessionOptions());
 }
 
 export async function clearSession() {

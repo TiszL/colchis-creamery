@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { setSession } from "@/lib/session";
+import { getSessionTokenValue, getSessionOptions } from "@/lib/session";
 
 export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
@@ -112,13 +112,20 @@ export async function GET(req: NextRequest) {
         }
 
         // 4. Set session via standard JWT system
-        await setSession(user.id, user.role, user.email, user.name || undefined);
+        const token = await getSessionTokenValue(user.id, user.role, user.email, user.name || undefined);
 
         // 5. Redirect to account page
-        return NextResponse.redirect(new URL("/account", req.url));
+        const response = NextResponse.redirect(new URL("/account", req.url));
+        response.cookies.set("auth_token", token, getSessionOptions());
+        return response;
 
-    } catch (error) {
+    } catch (error: any) {
         console.error("Twitter OAuth callback error:", error);
-        return NextResponse.redirect(new URL("/login?error=OAuthFailed", req.url));
+        return NextResponse.json({
+            error: "OAuthFailed",
+            message: error?.message,
+            stack: error?.stack,
+            name: error?.name
+        }, { status: 500 });
     }
 }

@@ -88,7 +88,7 @@ function LoginContent() {
                     </div>
                 )}
 
-                <form className="space-y-5" action={handleSubmit}>
+                <form className="space-y-5" action={handleSubmit} suppressHydrationWarning>
                     <div>
                         <label htmlFor="email" className="block text-sm font-medium text-charcoal mb-1">Email Address</label>
                         <div className="relative">
@@ -96,6 +96,7 @@ function LoginContent() {
                                 <Mail size={18} />
                             </div>
                             <input
+                                suppressHydrationWarning
                                 type="email"
                                 id="email"
                                 name="email"
@@ -112,6 +113,7 @@ function LoginContent() {
                             <Link href="/forgot-password" className="text-xs text-gold hover:text-charcoal transition-colors">Forgot?</Link>
                         </div>
                         <input
+                            suppressHydrationWarning
                             type="password"
                             id="password"
                             name="password"

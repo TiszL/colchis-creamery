@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
     const clientId = process.env.TWITTER_CLIENT_ID;
     // Twitter PKCE often works with just client ID (public client), but we can pass secret if needed
     const clientSecret = process.env.TWITTER_CLIENT_SECRET || "";
-    const siteUrl = req.nextUrl.origin || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
     const redirectUri = `${siteUrl}/api/auth/callback/twitter`;
 
     if (!clientId) {

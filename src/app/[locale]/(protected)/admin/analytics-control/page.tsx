@@ -2,7 +2,9 @@ import { prisma } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 import { getSession } from '@/lib/session';
 import { redirect } from 'next/navigation';
-import { MapPin, Plus, Trash2, Globe, TrendingUp, Users } from 'lucide-react';
+import { Trash2, Globe } from 'lucide-react';
+import { AnalyticsPinForm } from '@/components/admin/AnalyticsPinForm';
+import Script from 'next/script';
 
 export const dynamic = 'force-dynamic';
 
@@ -58,78 +60,25 @@ export default async function AnalyticsControlPage({ params }: { params: any }) 
         orderBy: { createdAt: 'desc' }
     });
 
+    // We load the script with the API key
+    const googleMapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY;
+
     return (
         <div className="space-y-8">
+            {googleMapsApiKey && (
+                <Script
+                    src={`https://maps.googleapis.com/maps/api/js?key=${googleMapsApiKey}&libraries=places`}
+                    strategy="beforeInteractive"
+                />
+            )}
+
             <div>
                 <h1 className="text-3xl font-serif text-white mb-2">Analytics Control</h1>
                 <p className="text-gray-500 font-light">Manage coverage map pins and business intelligence data targets.</p>
             </div>
 
-            {/* Add Pin Form */}
-            <div className="bg-[#1A1A1A] rounded-xl border border-white/5 overflow-hidden">
-                <div className="px-6 py-4 border-b border-white/5 flex items-center gap-3">
-                    <Plus className="w-5 h-5 text-[#CBA153]" />
-                    <h2 className="text-white font-bold">Add New Target Pin</h2>
-                </div>
-                <form action={addPin} className="p-6 space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Location Name</label>
-                                <input type="text" name="name" required placeholder="e.g. Artisan Cheese Shop" className="w-full bg-[#0D0D0D] border border-white/10 text-white py-3 px-4 rounded-lg focus:outline-none focus:border-[#CBA153]" />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Latitude</label>
-                                    <input type="number" step="any" name="latitude" required placeholder="41.7151" className="w-full bg-[#0D0D0D] border border-white/10 text-white py-3 px-4 rounded-lg focus:outline-none focus:border-[#CBA153]" />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Longitude</label>
-                                    <input type="number" step="any" name="longitude" required placeholder="44.8271" className="w-full bg-[#0D0D0D] border border-white/10 text-white py-3 px-4 rounded-lg focus:outline-none focus:border-[#CBA153]" />
-                                </div>
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Pin Type</label>
-                                    <select name="pinType" className="w-full bg-[#0D0D0D] border border-white/10 text-white py-3 px-4 rounded-lg focus:outline-none focus:border-[#CBA153]">
-                                        <option value="PROSPECT">Prospect</option>
-                                        <option value="PARTNER">Partner</option>
-                                        <option value="SUPPLIER">Supplier</option>
-                                        <option value="ZONE">Zone</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Status</label>
-                                    <select name="status" className="w-full bg-[#0D0D0D] border border-white/10 text-white py-3 px-4 rounded-lg focus:outline-none focus:border-[#CBA153]">
-                                        <option value="ACTIVE">Active</option>
-                                        <option value="INACTIVE">Inactive</option>
-                                        <option value="CONVERTED">Converted</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Contact Info</label>
-                                <input type="text" name="contactInfo" placeholder="Email or Phone" className="w-full bg-[#0D0D0D] border border-white/10 text-white py-3 px-4 rounded-lg focus:outline-none focus:border-[#CBA153]" />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Expected Revenue</label>
-                                <input type="text" name="revenue" placeholder="e.g. $5,000/mo" className="w-full bg-[#0D0D0D] border border-white/10 text-white py-3 px-4 rounded-lg focus:outline-none focus:border-[#CBA153]" />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Internal Notes</label>
-                                <textarea name="notes" placeholder="Meeting details, next steps..." rows={3} className="w-full bg-[#0D0D0D] border border-white/10 text-white py-3 px-4 rounded-lg focus:outline-none focus:border-[#CBA153] resize-none"></textarea>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="pt-2">
-                        <button type="submit" className="bg-[#CBA153] text-black px-8 py-3 rounded-lg font-bold text-sm uppercase tracking-wider hover:bg-white transition-all">
-                            Save Map Pin
-                        </button>
-                    </div>
-                </form>
-            </div>
+            {/* Smart Autocomplete Form Component */}
+            <AnalyticsPinForm action={addPin} />
 
             {/* List of Pins */}
             <div className="bg-[#1A1A1A] rounded-xl border border-white/5 overflow-hidden">

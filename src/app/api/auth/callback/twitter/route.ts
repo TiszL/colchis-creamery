@@ -7,18 +7,19 @@ export async function GET(req: NextRequest) {
     const code = searchParams.get("code");
     const state = searchParams.get("state");
 
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+
     if (!code) {
-        return NextResponse.redirect(new URL("/login?error=OAuthCodeMissing", req.url));
+        return NextResponse.redirect(new URL(`${siteUrl}/login?error=OAuthCodeMissing`));
     }
 
     const clientId = process.env.TWITTER_CLIENT_ID;
     // Twitter PKCE often works with just client ID (public client), but we can pass secret if needed
     const clientSecret = process.env.TWITTER_CLIENT_SECRET || "";
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
     const redirectUri = `${siteUrl}/api/auth/callback/twitter`;
 
     if (!clientId) {
-        return NextResponse.redirect(new URL("/login?error=ConfigurationMissing", req.url));
+        return NextResponse.redirect(new URL(`${siteUrl}/login?error=ConfigurationMissing`));
     }
 
     try {
@@ -50,7 +51,7 @@ export async function GET(req: NextRequest) {
 
         if (tokenData.error) {
             console.error("Twitter token error:", tokenData);
-            return NextResponse.redirect(new URL("/login?error=OAuthTokenFailed", req.url));
+            return NextResponse.redirect(new URL(`${siteUrl}/login?error=OAuthTokenFailed`));
         }
 
         // 2. Fetch user profile
@@ -114,10 +115,10 @@ export async function GET(req: NextRequest) {
         await setSession(user.id, user.role, user.email, user.name || undefined);
 
         // 5. Redirect to account page
-        return NextResponse.redirect(new URL("/account", req.url));
+        return NextResponse.redirect(new URL(`${siteUrl}/account`));
 
     } catch (error) {
         console.error("Twitter OAuth callback error:", error);
-        return NextResponse.redirect(new URL("/login?error=OAuthFailed", req.url));
+        return NextResponse.redirect(new URL(`${siteUrl}/login?error=OAuthFailed`));
     }
 }

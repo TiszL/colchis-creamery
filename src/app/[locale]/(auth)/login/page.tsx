@@ -2,16 +2,27 @@
 
 import { useTranslations } from "next-intl";
 import Link from "next/link";
-import { Mail, Apple } from "lucide-react";
+import { Mail, Facebook } from "lucide-react";
 import { loginAction } from "@/app/actions/auth";
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect, Suspense } from "react";
 import { useRouter } from "@/i18n/routing";
+import { useSearchParams } from "next/navigation";
 
-export default function B2CLoginPage() {
+function LoginContent() {
     const t = useTranslations("auth");
+    const searchParams = useSearchParams();
     const [error, setError] = useState<string | null>(null);
     const [isPending, startTransition] = useTransition();
     const router = useRouter();
+
+    useEffect(() => {
+        const errorParam = searchParams.get("error");
+        if (errorParam) {
+            setError(errorParam === "OAuthFailed" ? "Social login failed. Please try again." :
+                errorParam === "EmailRequired" ? "Social login requires email access." :
+                    "An authenticaton error occurred.");
+        }
+    }, [searchParams]);
 
     const handleSubmit = (formData: FormData) => {
         setError(null);
@@ -43,7 +54,7 @@ export default function B2CLoginPage() {
                 </div>
 
                 <div className="space-y-4">
-                    <button className="w-full flex items-center justify-center gap-3 border border-border-light hover:bg-gray-50 text-charcoal font-medium py-3 px-4 rounded transition">
+                    <a href="/api/auth/social?provider=google" className="w-full flex items-center justify-center gap-3 border border-border-light hover:bg-gray-50 text-charcoal font-medium py-3 px-4 rounded transition">
                         <svg width="20" height="20" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                             <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
                             <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
@@ -51,20 +62,20 @@ export default function B2CLoginPage() {
                             <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
                         </svg>
                         Continue with Google
-                    </button>
+                    </a>
 
-                    <button className="w-full flex items-center justify-center gap-3 bg-black text-white hover:bg-gray-900 font-medium py-3 px-4 rounded transition">
-                        <Apple size={20} />
-                        Continue with Apple
-                    </button>
+                    <a href="/api/auth/social?provider=facebook" className="w-full flex items-center justify-center gap-3 bg-[#1877F2] text-white hover:bg-[#1877F2]/90 font-medium py-3 px-4 rounded transition">
+                        <Facebook size={20} className="fill-current" />
+                        Continue with Facebook
+                    </a>
 
-                    <button className="w-full flex items-center justify-center gap-3 border border-border-light hover:bg-gray-50 text-charcoal font-medium py-3 px-4 rounded transition">
+                    <a href="/api/auth/social?provider=twitter" className="w-full flex items-center justify-center gap-3 border border-border-light hover:bg-gray-50 text-charcoal font-medium py-3 px-4 rounded transition">
                         {/* X Logo SVG */}
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
                             <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
                         </svg>
                         Continue with X
-                    </button>
+                    </a>
                 </div>
 
                 <div className="relative my-8">
@@ -131,5 +142,13 @@ export default function B2CLoginPage() {
 
             </div>
         </main>
+    );
+}
+
+export default function B2CLoginPage() {
+    return (
+        <Suspense>
+            <LoginContent />
+        </Suspense>
     );
 }

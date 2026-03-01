@@ -19,7 +19,7 @@ datasource db {
 model User {
   id                String     @id @default(uuid())
   email             String     @unique
-  passwordHash      String
+  passwordHash      String?
   name              String?
   phone             String?
   avatarUrl         String?
@@ -36,6 +36,22 @@ model User {
   profile          UserProfile?
   dashboardAccess  DashboardAccess[]
   analyticsPins    AnalyticsPin[]
+  accounts         Account[]
+}
+
+model Account {
+  id                String  @id @default(uuid())
+  userId            String
+  provider          String
+  providerAccountId String
+  accessToken       String?
+  refreshToken      String?
+  expiresAt         Int?
+  createdAt         DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
 }
 
 // ─── UserProfile ─────────────────────────────────────────────────────────────

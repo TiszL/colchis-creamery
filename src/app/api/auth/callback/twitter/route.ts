@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
             grant_type: "authorization_code",
             client_id: clientId,
             redirect_uri: redirectUri,
-            code_verifier: "challenge", // Same as in initiator route (plain method)
+            code_verifier: "colchiscreamery-twitter-oauth-pkce-challenge-string", // Matches the 53-char plain string from initiator
         });
 
         const headers: Record<string, string> = {

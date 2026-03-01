@@ -50,9 +50,9 @@ export async function GET(req: NextRequest) {
             return NextResponse.json({ error: "Twitter Client ID not configured" }, { status: 500 });
         }
 
-        // Twitter requires code_challenge and state for OAuth 2.0 PKCE
-        const state = Math.random().toString(36).substring(7);
-        const codeChallenge = "challenge"; // Simplified testing challenge, full PKCE better for prod
+        // Twitter requires code_challenge and state for OAuth 2.0 PKCE. Length must be 43-128 chars.
+        const state = Math.random().toString(36).substring(2, 15);
+        const codeChallenge = "colchiscreamery-twitter-oauth-pkce-challenge-string"; // 53 chars, valid length
 
         const url = new URL("https://twitter.com/i/oauth2/authorize");
         url.searchParams.append("response_type", "code");

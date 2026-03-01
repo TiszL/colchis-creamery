@@ -4,7 +4,7 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const provider = searchParams.get("provider");
 
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+    const siteUrl = req.nextUrl.origin || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
     if (provider === "google") {
         const clientId = process.env.GOOGLE_CLIENT_ID;

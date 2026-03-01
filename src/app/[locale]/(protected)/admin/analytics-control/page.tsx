@@ -4,7 +4,6 @@ import { getSession } from '@/lib/session';
 import { redirect } from 'next/navigation';
 import { Trash2, Globe } from 'lucide-react';
 import { AnalyticsPinForm } from '@/components/admin/AnalyticsPinForm';
-import Script from 'next/script';
 
 export const dynamic = 'force-dynamic';
 
@@ -65,20 +64,13 @@ export default async function AnalyticsControlPage({ params }: { params: any }) 
 
     return (
         <div className="space-y-8">
-            {googleMapsApiKey && (
-                <Script
-                    src={`https://maps.googleapis.com/maps/api/js?key=${googleMapsApiKey}&libraries=places`}
-                    strategy="beforeInteractive"
-                />
-            )}
-
             <div>
                 <h1 className="text-3xl font-serif text-white mb-2">Analytics Control</h1>
                 <p className="text-gray-500 font-light">Manage coverage map pins and business intelligence data targets.</p>
             </div>
 
             {/* Smart Autocomplete Form Component */}
-            <AnalyticsPinForm action={addPin} />
+            <AnalyticsPinForm action={addPin} apiKey={googleMapsApiKey || ""} />
 
             {/* List of Pins */}
             <div className="bg-[#1A1A1A] rounded-xl border border-white/5 overflow-hidden">

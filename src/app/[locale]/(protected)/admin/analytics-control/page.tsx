@@ -93,7 +93,7 @@ export default async function AnalyticsControlPage({ params }: { params: any }) 
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5">
-                            {pins.length > 0 ? pins.map((pin) => (
+                            {pins.length > 0 ? pins.map((pin: any) => (
                                 <tr key={pin.id} className="hover:bg-white/5 transition-colors group">
                                     <td className="p-4">
                                         <div className="flex items-center gap-3">

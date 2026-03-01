@@ -32,6 +32,9 @@ export async function GET(req: NextRequest) {
             code_verifier: "colchiscreamery-twitter-oauth-pkce-challenge-string", // Matches the 53-char plain string from initiator
         });
 
+        // For Twitter OAuth 2.0 PKCE, if it is a Confidential Client, you need the Basic Auth header.
+        // If it is a Public Client, you ONLY need the client_id in the body.
+        // By default, let's pass it strictly in the body and use Basic Auth ONLY if secret exists.
         const headers: Record<string, string> = {
             "Content-Type": "application/x-www-form-urlencoded"
         };
@@ -49,9 +52,9 @@ export async function GET(req: NextRequest) {
 
         const tokenData = await tokenRes.json();
 
-        if (tokenData.error) {
-            console.error("Twitter token error:", tokenData);
-            return NextResponse.redirect(new URL("/login?error=OAuthTokenFailed", siteUrl));
+        if (!tokenRes.ok || tokenData.error) {
+            console.error("Twitter token error FULL RESPONSE:", JSON.stringify(tokenData, null, 2));
+            return NextResponse.redirect(new URL(`/login?error=OAuthTokenFailed&details=${encodeURIComponent(tokenData.error_description || tokenData.error || "Unknown")}`, siteUrl));
         }
 
         // 2. Fetch user profile

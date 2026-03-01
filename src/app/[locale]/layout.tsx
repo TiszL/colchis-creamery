@@ -76,7 +76,7 @@ export default async function LocaleLayout({
       lang={locale}
       className={`${playfair.variable} ${inter.variable} ${notoSerifGeorgian.variable} ${notoSansGeorgian.variable}`}
     >
-      <body className="antialiased min-h-screen bg-cream text-charcoal">
+      <body className="antialiased min-h-screen bg-cream text-charcoal" suppressHydrationWarning>
         <NextIntlClientProvider locale={locale} messages={messages}>
           <CartProvider>
             {children}

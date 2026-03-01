@@ -50,16 +50,18 @@ export function Header() {
     <header className="sticky top-0 z-40 bg-cream/95 backdrop-blur-sm border-b border-border-light">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-20 sm:h-28 py-2">
-          {/* Logo */}
-          <Link href={`${prefix}/`} className="flex items-center gap-3">
-            <img src="/logo-optimized.png" alt="Colchis Creamery Logo" className="w-[70px] h-[70px] sm:w-[90px] sm:h-[90px] object-contain rounded-full border border-gold/30 shadow-md" />
-            <span className="font-serif text-xl sm:text-2xl font-bold text-charcoal tracking-tight hidden sm:block">
-              Colchis<span className="text-gold"> Creamery</span>
-            </span>
-          </Link>
+          {/* Left: Logo (flex-1 to push nav to center) */}
+          <div className="flex-1 flex items-center justify-start">
+            <Link href={`${prefix}/`} className="flex items-center gap-3">
+              <img src="/logo-optimized.png" alt="Colchis Creamery Logo" className="w-[70px] h-[70px] sm:w-[90px] sm:h-[90px] object-contain rounded-full border border-gold/30 shadow-md" />
+              <span className="font-serif text-xl sm:text-2xl font-bold text-charcoal tracking-tight hidden sm:block">
+                Colchis<span className="text-gold"> Creamery</span>
+              </span>
+            </Link>
+          </div>
 
-          {/* Desktop Navigation */}
-          <nav className="hidden lg:flex items-center gap-1">
+          {/* Center: Desktop Navigation */}
+          <nav className="hidden lg:flex items-center justify-center shrink-0 gap-1">
             {navLinks.map((link) => (
               <Link
                 key={link.href}
@@ -71,8 +73,8 @@ export function Header() {
             ))}
           </nav>
 
-          {/* Right side: locale, cart, auth */}
-          <div className="flex items-center gap-2">
+          {/* Right side (flex-1): locale, cart, auth */}
+          <div className="flex-1 flex items-center justify-end gap-2">
             <LocaleSwitcher />
 
             <Link
@@ -102,17 +104,12 @@ export function Header() {
                   <div className="hidden lg:block relative" ref={dropdownRef}>
                     <button
                       onClick={() => setDropdownOpen(!dropdownOpen)}
-                      className="flex items-center gap-2 px-3 py-2 rounded-full border border-charcoal/20 hover:border-gold hover:bg-cream transition-all"
+                      className="flex items-center justify-center w-10 h-10 rounded-full border-2 border-transparent hover:border-gold transition-all focus:outline-none focus:ring-2 focus:ring-gold/50"
+                      aria-label="User Menu"
                     >
-                      <div className="w-7 h-7 rounded-full bg-gold flex items-center justify-center">
-                        <span className="text-white text-xs font-bold">{userInitial}</span>
+                      <div className="w-9 h-9 rounded-full bg-gold flex items-center justify-center shadow-sm">
+                        <span className="text-white text-sm font-bold">{userInitial}</span>
                       </div>
-                      <span className="text-sm font-medium text-charcoal max-w-[100px] truncate">
-                        {user.name || user.email.split("@")[0]}
-                      </span>
-                      <svg className={`w-3.5 h-3.5 text-charcoal/50 transition-transform ${dropdownOpen ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
                     </button>
 
                     {/* Dropdown */}

@@ -3,6 +3,12 @@
 import { useEffect, useRef, useState } from "react";
 import { Plus } from "lucide-react";
 
+declare global {
+    interface Window {
+        google: any;
+    }
+}
+
 export function AnalyticsPinForm({ action }: { action: (formData: FormData) => void }) {
     const inputRef = useRef<HTMLInputElement>(null);
     const [lat, setLat] = useState("");

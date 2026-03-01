@@ -4,12 +4,10 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const provider = searchParams.get("provider");
 
-    // Use NEXT_PUBLIC_SITE_URL or Vercel's production URL to avoid localhost mismatches
     let siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
-    if (!siteUrl && process.env.VERCEL_PROJECT_PRODUCTION_URL) {
-        siteUrl = `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
+    if (!siteUrl) {
+        siteUrl = process.env.NODE_ENV === "production" ? "https://colchiscreamery.com" : "http://localhost:3000";
     }
-    siteUrl = siteUrl || "http://localhost:3000";
 
     if (provider === "google") {
         const clientId = process.env.GOOGLE_CLIENT_ID;

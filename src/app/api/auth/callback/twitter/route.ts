@@ -8,10 +8,9 @@ export async function GET(req: NextRequest) {
     const state = searchParams.get("state");
 
     let siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
-    if (!siteUrl && process.env.VERCEL_PROJECT_PRODUCTION_URL) {
-        siteUrl = `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
+    if (!siteUrl) {
+        siteUrl = process.env.NODE_ENV === "production" ? "https://colchiscreamery.com" : "http://localhost:3000";
     }
-    siteUrl = siteUrl || "http://localhost:3000";
 
     if (!code) {
         return NextResponse.redirect(new URL("/login?error=OAuthCodeMissing", siteUrl));

@@ -64,11 +64,6 @@ function LoginContent() {
                         Continue with Google
                     </a>
 
-                    <a href="/api/auth/social?provider=facebook" className="w-full flex items-center justify-center gap-3 bg-[#1877F2] text-white hover:bg-[#1877F2]/90 font-medium py-3 px-4 rounded transition">
-                        <Facebook size={20} className="fill-current" />
-                        Continue with Facebook
-                    </a>
-
                     <a href="/api/auth/social?provider=twitter" className="w-full flex items-center justify-center gap-3 border border-border-light hover:bg-gray-50 text-charcoal font-medium py-3 px-4 rounded transition">
                         {/* X Logo SVG */}
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">

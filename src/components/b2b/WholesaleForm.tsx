@@ -1,6 +1,7 @@
 'use client';
 
-import { useFormState, useFormStatus } from 'react-dom';
+import { useActionState } from 'react';
+import { useFormStatus } from 'react-dom';
 import { submitWholesaleLead } from '@/actions/wholesale';
 
 function SubmitButton() {
@@ -19,7 +20,7 @@ function SubmitButton() {
 }
 
 export default function WholesaleForm() {
-    const [state, formAction] = useFormState(submitWholesaleLead, null);
+    const [state, formAction] = useActionState(submitWholesaleLead, null);
 
     return (
         <div className="max-w-2xl mx-auto p-8 md:p-12 bg-[#2C2A29] text-white shadow-2xl rounded-sm border border-[#1a1918]">

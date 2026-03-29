@@ -28,7 +28,9 @@ function LoginContent() {
         setError(null);
         startTransition(async () => {
             const result = await loginAction(formData);
-            if (result?.error) {
+            if (result?.needsVerification) {
+                router.push(`/verify-email?email=${encodeURIComponent(result.email || '')}`);
+            } else if (result?.error) {
                 setError(result.error);
             } else if (result?.success) {
                 if (result.role === "B2B_PARTNER") {

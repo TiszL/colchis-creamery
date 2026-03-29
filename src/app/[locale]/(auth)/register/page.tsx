@@ -30,8 +30,10 @@ function RegisterContent() {
             const result = await registerB2CAction(formData);
             if (result?.error) {
                 setError(result.error);
+            } else if (result?.success && result?.needsVerification) {
+                router.push(`/verify-email?email=${encodeURIComponent(result.email || '')}`);
             } else if (result?.success) {
-                router.push("/shop"); // Redirect to retail shop on success
+                router.push("/shop");
             }
         });
     };

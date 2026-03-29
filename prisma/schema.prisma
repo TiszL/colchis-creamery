@@ -28,6 +28,12 @@ model User {
   stripeCustomerId  String?
   isActiveB2b       Boolean    @default(false)
   isActive          Boolean    @default(true)
+  emailVerified     Boolean    @default(false)
+  verificationCode  String?
+  verificationExpiry DateTime?
+  twoFactorCode     String?
+  twoFactorExpiry   DateTime?
+  totpSecret        String?
   createdAt         DateTime   @default(now())
   updatedAt         DateTime   @updatedAt
 
@@ -246,10 +252,39 @@ model AnalyticsPin {
   latitude    Float
   longitude   Float
   pinType     String   @default("PROSPECT")  // PROSPECT | PARTNER | SUPPLIER | ZONE
-  status      String   @default("ACTIVE")    // ACTIVE | INACTIVE | CONVERTED
+  status      String   @default("ACTIVE")    // ACTIVE | INACTIVE | CONVERTED | TEMPORARILY_CLOSED | UNVERIFIED
   notes       String?
   contactInfo String?
   revenue     String?
+
+  // ─── Prospect Intelligence Fields ──────────────────────────────────────────
+  prospectId      String?           // CC-XXXX format from JSON data
+  brandName       String?           // Parent brand name (e.g., "Chama Mama")
+  category        String?           // GEO_REST | GEO_BAKERY | EE_MARKET | DISTRIBUTOR | etc.
+  categoryLabel   String?           // Human-readable: "Georgian Restaurant", etc.
+  tier            Int?              // 1-5 (Core to Experimental)
+  tierLabel       String?           // CORE | ADJACENT | STRATEGIC | GROWTH | EXPERIMENTAL
+  priorityScore   Float?            // 0-100 weighted composite score
+  priorityRank    String?           // CRITICAL | HIGH | MEDIUM | LOW | EXPLORATORY
+
+  // ─── Contact & Location Detail ─────────────────────────────────────────────
+  phone           String?
+  website         String?
+  address         String?
+  city            String?
+  state           String?
+  googleRating    Float?
+
+  // ─── Revenue Model ─────────────────────────────────────────────────────────
+  revenueMonthlyLow   Int?          // USD low estimate per location
+  revenueMonthlyHigh  Int?          // USD high estimate per location
+  cheeseLbsLow        Int?          // lbs/month low
+  cheeseLbsHigh       Int?          // lbs/month high
+
+  // ─── Logistics ─────────────────────────────────────────────────────────────
+  distanceMiles   Float?            // from Columbus, OH
+  driveHours      Float?
+
   createdById String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

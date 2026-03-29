@@ -3,19 +3,30 @@
 import { useEffect, useRef, useState } from "react";
 import { APIProvider, Map, AdvancedMarker, Pin, useMap, useMapsLibrary, InfoWindow } from "@vis.gl/react-google-maps";
 import { addAnalyticsPin } from "@/app/actions/analytics";
-import { Plus, Search, Star, ExternalLink, Globe as GlobeIcon } from "lucide-react";
+import { Search, Star, ExternalLink, Globe as GlobeIcon, Phone, MapPin, Truck } from "lucide-react";
+import type { PinData } from './AnalyticsDashboard';
 
-type PinData = {
-    id: string;
-    latitude: number;
-    longitude: number;
-    name: string;
-    pinType: string;
-    status: string;
-    contactInfo: string | null;
-    revenue: string | null;
-    notes: string | null;
+// Tier color mapping
+const TIER_COLORS: Record<number, string> = {
+  1: '#e8614a', // CORE - red/hot
+  2: '#c9a84c', // ADJACENT - gold
+  3: '#4d9a5a', // STRATEGIC - green
+  4: '#4a7a9a', // GROWTH - blue
+  5: '#7a6a8a', // EXPERIMENTAL - purple
 };
+
+const PRIORITY_COLORS: Record<string, string> = {
+  CRITICAL: '#e8614a',
+  HIGH: '#c9a84c',
+  MEDIUM: '#4d9a5a',
+  LOW: '#4a7a9a',
+  EXPLORATORY: '#7a6a8a',
+};
+
+function fmtMoney(v: number) {
+  if (v >= 1_000) return '$' + (v / 1_000).toFixed(0) + 'K';
+  return '$' + v;
+}
 
 // Component that renders the Places Autocomplete search bar on top of the map
 function PlacesAutocomplete({
@@ -30,17 +41,14 @@ function PlacesAutocomplete({
 
     useEffect(() => {
         if (!places || !inputRef.current) return;
-
         const options = {
-            fields: ['geometry', 'name', 'formatted_address']
+            fields: ['geometry', 'name', 'formatted_address', 'rating', 'user_ratings_total', 'formatted_phone_number', 'website']
         };
-
         setPlaceAutocomplete(new places.Autocomplete(inputRef.current, options));
     }, [places]);
 
     useEffect(() => {
         if (!placeAutocomplete) return;
-
         placeAutocomplete.addListener('place_changed', () => {
             const place = placeAutocomplete.getPlace();
             if (place.geometry?.location && map) {
@@ -49,7 +57,7 @@ function PlacesAutocomplete({
                 onPlaceSelect(place);
             }
         });
-    }, [placeAutocomplete, placeAutocomplete, map, onPlaceSelect]);
+    }, [placeAutocomplete, map, onPlaceSelect]);
 
     return (
         <div className="absolute top-4 left-4 right-4 md:left-1/2 md:-translate-x-1/2 md:w-[400px] z-10 bg-[#1A1A1A] rounded-xl shadow-2xl border border-white/10 flex items-center overflow-hidden">
@@ -59,7 +67,7 @@ function PlacesAutocomplete({
             <input
                 ref={inputRef}
                 type="text"
-                placeholder="Search Places API..."
+                placeholder="Search Google Places to add prospect..."
                 className="w-full bg-transparent border-none py-4 text-white placeholder-gray-500 focus:outline-none focus:ring-0"
             />
         </div>
@@ -71,53 +79,19 @@ function MapEffect({ selectedPin }: { selectedPin: PinData | null }) {
     useEffect(() => {
         if (map && selectedPin) {
             map.panTo({ lat: selectedPin.latitude, lng: selectedPin.longitude });
+            map.setZoom(14);
         }
     }, [map, selectedPin]);
     return null;
 }
 
+// Rich InfoWindow using our own DB data (no Places API fetch)
 function RichInfoWindow({ pin, onClose }: { pin: PinData, onClose: () => void }) {
-    const map = useMap();
-    const places = useMapsLibrary('places');
-    const [richData, setRichData] = useState<google.maps.places.PlaceResult | null>(null);
-    const [loading, setLoading] = useState(false);
+    const priorityColor = PRIORITY_COLORS[pin.priorityRank || ''] || '#888888';
+    const tierColor = TIER_COLORS[pin.tier || 3] || '#4d9a5a';
 
-    useEffect(() => {
-        if (!map || !places || !pin) return;
-        setLoading(true);
-        setRichData(null);
-
-        const service = new places.PlacesService(map);
-
-        // Search by name and proximity to the pin
-        const request: google.maps.places.FindPlaceFromQueryRequest = {
-            query: pin.name,
-            fields: ['place_id'],
-            locationBias: {
-                radius: 50,
-                center: { lat: pin.latitude, lng: pin.longitude },
-            },
-        };
-
-        service.findPlaceFromQuery(request, (results, status) => {
-            if (status === places.PlacesServiceStatus.OK && results && results[0] && results[0].place_id) {
-                // Fetch rich details
-                service.getDetails({
-                    placeId: results[0].place_id,
-                    fields: ['name', 'formatted_address', 'rating', 'user_ratings_total', 'url', 'website', 'photos']
-                }, (details, detailsStatus) => {
-                    if (detailsStatus === places.PlacesServiceStatus.OK && details) {
-                        setRichData(details);
-                    }
-                    setLoading(false);
-                });
-            } else {
-                setLoading(false);
-            }
-        });
-    }, [map, places, pin]);
-
-    const photoUrl = richData?.photos?.[0]?.getUrl({ maxWidth: 400, maxHeight: 200 });
+    // Build Google Maps URL
+    const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(pin.name + ' ' + (pin.address || ''))}`;
 
     return (
         <InfoWindow
@@ -125,80 +99,109 @@ function RichInfoWindow({ pin, onClose }: { pin: PinData, onClose: () => void })
             onCloseClick={onClose}
             pixelOffset={[0, -30]}
         >
-            <div className="max-w-[280px] text-zinc-900 font-sans flex flex-col -m-3 overflow-hidden rounded-lg bg-white shadow-xl">
-                {photoUrl ? (
-                    <div className="h-32 w-full bg-gray-100 relative">
-                        <img src={photoUrl} alt={pin.name} className="w-full h-full object-cover" />
+            <div className="max-w-[320px] text-zinc-900 font-sans flex flex-col -m-3 overflow-hidden rounded-lg bg-white shadow-xl">
+                {/* Visual header with tier color gradient and brand initial */}
+                <div
+                    className="relative h-24 w-full flex items-end px-4 pb-3"
+                    style={{
+                        background: `linear-gradient(135deg, ${tierColor}ee 0%, ${tierColor}88 50%, ${priorityColor}88 100%)`,
+                    }}
+                >
+                    {/* Brand initial circle */}
+                    <div
+                        className="absolute top-3 right-3 w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md"
+                        style={{ backgroundColor: 'rgba(0,0,0,0.3)', backdropFilter: 'blur(4px)' }}
+                    >
+                        {(pin.brandName || pin.name).charAt(0).toUpperCase()}
                     </div>
-                ) : (
-                    <div className="h-4 bg-gray-50 w-full" />
-                )}
-
-                <div className="p-4 flex flex-col gap-3">
                     <div>
-                        <h3 className="font-bold text-lg leading-tight mb-1">{pin.name}</h3>
-
-                        {loading && <p className="text-xs text-gray-500 animate-pulse">Fetching Maps data...</p>}
-
-                        {!loading && richData && (
-                            <div className="flex flex-col gap-2">
-                                {richData.rating && (
-                                    <div className="flex items-center gap-1 text-sm">
-                                        <span className="font-bold">{richData.rating}</span>
-                                        <Star className="w-3.5 h-3.5 fill-yellow-400 text-yellow-400 -mt-0.5" />
-                                        <span className="text-xs text-gray-500 ml-1">({richData.user_ratings_total} reviews)</span>
-                                    </div>
-                                )}
-                                {richData.formatted_address && (
-                                    <p className="text-xs text-gray-600 leading-snug">{richData.formatted_address}</p>
-                                )}
-                                <div className="flex gap-4 mt-1 border-b border-gray-100 pb-3">
-                                    {richData.url && (
-                                        <a href={richData.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors">
-                                            <ExternalLink className="w-3 h-3" /> View on Maps
-                                        </a>
-                                    )}
-                                    {richData.website && (
-                                        <a href={richData.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors">
-                                            <GlobeIcon className="w-3 h-3" /> Website
-                                        </a>
-                                    )}
-                                </div>
-                            </div>
+                        <h3 className="font-bold text-base leading-tight text-white drop-shadow-sm">{pin.name}</h3>
+                        {pin.categoryLabel && (
+                            <span className="text-[10px] text-white/80 font-medium">{pin.categoryLabel}</span>
                         )}
                     </div>
+                </div>
 
-                    <div className="flex flex-col gap-2 pt-1">
-                        <div className="flex gap-2 items-center">
-                            <span style={{ backgroundColor: pin.pinType === 'PARTNER' ? '#34d399' : pin.pinType === 'PROSPECT' ? '#60a5fa' : '#CBA153' }} className="w-2.5 h-2.5 rounded-full inline-block shadow-sm"></span>
-                            <span className="text-[10px] uppercase font-bold tracking-wider text-gray-500">
-                                {pin.pinType} • {pin.status}
+                <div className="p-4 flex flex-col gap-2.5">
+                    {/* Tags */}
+                    <div className="flex flex-wrap gap-1.5">
+                        <span
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold text-white"
+                            style={{ backgroundColor: priorityColor }}
+                        >
+                            {pin.priorityRank} {pin.priorityScore?.toFixed(0)}
+                        </span>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-medium">{pin.tierLabel}</span>
+                        {pin.googleRating != null && (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-yellow-50 text-yellow-700 font-medium inline-flex items-center gap-0.5">
+                                <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
+                                {pin.googleRating}
                             </span>
-                        </div>
+                        )}
+                    </div>
 
-                        {(pin.revenue || pin.contactInfo) && (
-                            <div className="bg-gray-50 p-2.5 rounded-md border border-gray-100 flex flex-col gap-1.5 mt-1">
-                                {pin.revenue && (
-                                    <div className="text-sm flex justify-between gap-4">
-                                        <span className="font-semibold text-gray-500 text-[10px] uppercase">Est. Value:</span>
-                                        <span className="font-medium text-xs">{pin.revenue}</span>
-                                    </div>
-                                )}
-                                {pin.contactInfo && (
-                                    <div className="text-sm flex justify-between gap-4">
-                                        <span className="font-semibold text-gray-500 text-[10px] uppercase">Contact:</span>
-                                        <span className="font-medium text-xs">{pin.contactInfo}</span>
-                                    </div>
-                                )}
+                    {/* Address */}
+                    {pin.address && (
+                        <p className="text-xs text-gray-600 leading-snug flex items-start gap-1.5">
+                            <MapPin className="w-3 h-3 mt-0.5 shrink-0 text-gray-400" />
+                            {pin.address}
+                        </p>
+                    )}
+
+                    {/* Phone + Website */}
+                    <div className="flex gap-3 text-xs">
+                        {pin.phone && (
+                            <a href={`tel:${pin.phone}`} className="flex items-center gap-1 text-blue-600 hover:text-blue-800 font-medium">
+                                <Phone className="w-3 h-3" /> {pin.phone}
+                            </a>
+                        )}
+                        {pin.website && (
+                            <a href={pin.website.startsWith('http') ? pin.website : `https://${pin.website}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-blue-600 hover:text-blue-800 font-medium">
+                                <GlobeIcon className="w-3 h-3" /> Website
+                            </a>
+                        )}
+                    </div>
+
+                    {/* Revenue & Volume */}
+                    <div className="bg-gray-50 p-2.5 rounded-md border border-gray-100 flex flex-col gap-1">
+                        {(pin.revenueMonthlyLow != null || pin.revenueMonthlyHigh != null) && (
+                            <div className="text-sm flex justify-between gap-4">
+                                <span className="font-semibold text-gray-500 text-[10px] uppercase">Est. Revenue:</span>
+                                <span className="font-medium text-xs">{fmtMoney(pin.revenueMonthlyLow || 0)}–{fmtMoney(pin.revenueMonthlyHigh || 0)}/mo</span>
                             </div>
                         )}
-
-                        {pin.notes && (
-                            <div className="text-xs text-gray-600 mt-1 italic">
-                                "{pin.notes}"
+                        {(pin.cheeseLbsLow != null || pin.cheeseLbsHigh != null) && (
+                            <div className="text-sm flex justify-between gap-4">
+                                <span className="font-semibold text-gray-500 text-[10px] uppercase">Cheese Vol:</span>
+                                <span className="font-medium text-xs">{pin.cheeseLbsLow}–{pin.cheeseLbsHigh} lbs/mo</span>
+                            </div>
+                        )}
+                        {pin.distanceMiles != null && (
+                            <div className="text-sm flex justify-between gap-4">
+                                <span className="font-semibold text-gray-500 text-[10px] uppercase">Distance:</span>
+                                <span className="font-medium text-xs">{pin.distanceMiles.toFixed(0)} mi ({pin.driveHours?.toFixed(1)} hrs)</span>
                             </div>
                         )}
                     </div>
+
+                    {/* Notes */}
+                    {pin.notes && (
+                        <div className="text-xs text-gray-600 italic leading-snug line-clamp-3">
+                            &ldquo;{pin.notes}&rdquo;
+                        </div>
+                    )}
+
+                    {/* View on Google Maps button */}
+                    <a
+                        href={googleMapsUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-center gap-1.5 w-full py-2 px-3 rounded-lg text-xs font-semibold text-white transition-all hover:opacity-90"
+                        style={{ backgroundColor: tierColor }}
+                    >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        View on Google Maps
+                    </a>
                 </div>
             </div>
         </InfoWindow>
@@ -218,14 +221,12 @@ export function AnalyticsMap({
     selectedPinId?: string | null,
     onPinSelect?: (id: string | null) => void
 }) {
-    // Default center to Tbilisi
-    const defaultCenter = { lat: 41.7151, lng: 44.8271 };
+    // Default center: Columbus, OH (supply hub)
+    const defaultCenter = { lat: 39.96, lng: -83.0 };
 
-    // For storing a newly searched, but not yet saved, location
     const [selectedPlace, setSelectedPlace] = useState<google.maps.places.PlaceResult | null>(null);
     const [isSaving, setIsSaving] = useState(false);
 
-    // Support controlled or uncontrolled selection mode
     const [localSelectedPin, setLocalSelectedPin] = useState<PinData | null>(null);
 
     const controlledSelectedPin = selectedPinId
@@ -250,8 +251,11 @@ export function AnalyticsMap({
                 longitude: selectedPlace.geometry.location.lng(),
                 pinType: 'PROSPECT',
                 status: 'ACTIVE',
+                address: selectedPlace.formatted_address || undefined,
+                phone: selectedPlace.formatted_phone_number || undefined,
+                website: selectedPlace.website || undefined,
+                googleRating: selectedPlace.rating || undefined,
             });
-            // Clear the temporary selection once saved so it renders from the DB
             setSelectedPlace(null);
         } catch (err) {
             console.error(err);
@@ -264,7 +268,7 @@ export function AnalyticsMap({
         <div className="w-full h-full relative font-sans">
             <APIProvider apiKey={apiKey}>
                 <Map
-                    defaultZoom={11}
+                    defaultZoom={5}
                     defaultCenter={defaultCenter}
                     mapId="colchis_creamery_admin_map"
                     disableDefaultUI={true}
@@ -272,7 +276,6 @@ export function AnalyticsMap({
                     zoomControl={true}
                 >
                     <MapEffect selectedPin={selectedPin} />
-                    {/* Only show search bar if the user has edit permissions */}
                     {canEdit && (
                         <PlacesAutocomplete onPlaceSelect={setSelectedPlace} />
                     )}
@@ -293,6 +296,9 @@ export function AnalyticsMap({
                                 {canEdit && (
                                     <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-[#1A1A1A] p-3 rounded-lg border border-[#CBA153]/30 shadow-2xl whitespace-nowrap z-50 flex flex-col items-center gap-2 transition-all">
                                         <span className="text-white font-bold text-sm block">{selectedPlace.name}</span>
+                                        {selectedPlace.formatted_address && (
+                                            <span className="text-gray-400 text-xs">{selectedPlace.formatted_address}</span>
+                                        )}
                                         <button
                                             onClick={handleSaveProspect}
                                             disabled={isSaving}
@@ -312,28 +318,28 @@ export function AnalyticsMap({
                         </AdvancedMarker>
                     )}
 
-                    {/* Render saved pins from DB */}
-                    {initialPins.map((pin) => (
-                        <AdvancedMarker
-                            key={pin.id}
-                            position={{ lat: pin.latitude, lng: pin.longitude }}
-                            title={pin.name}
-                            onClick={() => handlePinSelect(pin)}
-                        >
-                            <Pin
-                                background={
-                                    pin.pinType === 'PARTNER' ? '#34d399' :
-                                        pin.pinType === 'PROSPECT' ? '#60a5fa' :
-                                            '#CBA153'
-                                }
-                                borderColor="rgba(0,0,0,0.5)"
-                                glyphColor="#111"
-                                scale={1.0}
-                            />
-                        </AdvancedMarker>
-                    ))}
+                    {/* Render pins from DB — colored by tier */}
+                    {initialPins.map((pin) => {
+                        const tierColor = TIER_COLORS[pin.tier || 3] || '#4d9a5a';
+                        const isCritical = pin.priorityRank === 'CRITICAL';
+                        return (
+                            <AdvancedMarker
+                                key={pin.id}
+                                position={{ lat: pin.latitude, lng: pin.longitude }}
+                                title={`${pin.name} — ${pin.tierLabel} — ${pin.priorityRank}`}
+                                onClick={() => handlePinSelect(pin)}
+                            >
+                                <Pin
+                                    background={tierColor}
+                                    borderColor="rgba(0,0,0,0.4)"
+                                    glyphColor="#fff"
+                                    scale={isCritical ? 1.1 : 0.85}
+                                />
+                            </AdvancedMarker>
+                        );
+                    })}
 
-                    {/* Pin Details InfoWindow */}
+                    {/* Pin Details InfoWindow — uses our DB data, no Places API call */}
                     {selectedPin && (
                         <RichInfoWindow pin={selectedPin} onClose={() => handlePinSelect(null)} />
                     )}

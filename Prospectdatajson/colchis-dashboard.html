@@ -1,0 +1,1195 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Colchis Creamery — Prospect Intelligence Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="data.js"></script>
+<style>
+/* ============================================================
+   COLCHIS CREAMERY DESIGN SYSTEM
+   Palette: Deep Forest Green | Aged Gold | Warm Cream | Bark Brown
+   ============================================================ */
+:root,[data-theme="dark"]{
+  --color-bg:          #0e110e;
+  --color-surface:     #141814;
+  --color-surface-2:   #1a1f1a;
+  --color-surface-off: #1f251f;
+  --color-surface-dyn: #273027;
+  --color-border:      #2e352e;
+  --color-divider:     #242b24;
+  --color-text:        #e8e4d8;
+  --color-text-muted:  #9a9886;
+  --color-text-faint:  #5c5c4e;
+  --color-text-inv:    #0e110e;
+  /* Brand colors */
+  --color-gold:        #c9a84c;
+  --color-gold-dim:    #a07a28;
+  --color-gold-hl:     #3d3018;
+  --color-green:       #3d7a47;
+  --color-green-bright:#4d9a5a;
+  --color-green-hl:    #1a2e1e;
+  --color-cream:       #f0ead8;
+  --color-cream-dim:   #c8c2a8;
+  --color-bark:        #7a5c3a;
+  --color-bark-dim:    #5a4028;
+  /* Semantic */
+  --color-critical:    #e8614a;
+  --color-high:        #c9a84c;
+  --color-medium:      #4d9a5a;
+  --color-low:         #4a7a9a;
+  --color-expl:        #7a6a8a;
+  /* Radius, spacing, transitions */
+  --r-sm:  4px;
+  --r-md:  8px;
+  --r-lg:  12px;
+  --r-xl:  16px;
+  --r-full:9999px;
+  --t: 160ms cubic-bezier(0.16,1,0.3,1);
+  --shadow-sm: 0 1px 3px rgba(0,0,0,.35);
+  --shadow-md: 0 4px 16px rgba(0,0,0,.45);
+  --shadow-lg: 0 12px 40px rgba(0,0,0,.55);
+}
+[data-theme="light"]{
+  --color-bg:          #f7f4ec;
+  --color-surface:     #faf8f2;
+  --color-surface-2:   #fff;
+  --color-surface-off: #f0ece0;
+  --color-surface-dyn: #e8e4d4;
+  --color-border:      #d8d2be;
+  --color-divider:     #e4e0d0;
+  --color-text:        #1e1c14;
+  --color-text-muted:  #5a5648;
+  --color-text-faint:  #9e9886;
+  --color-text-inv:    #faf8f2;
+  --color-gold:        #9a6a1a;
+  --color-gold-dim:    #c8920a;
+  --color-gold-hl:     #f8ead0;
+  --color-green:       #2a6030;
+  --color-green-bright:#3a7a48;
+  --color-green-hl:    #d8ecd8;
+  --color-cream:       #3c3828;
+  --color-cream-dim:   #6a6454;
+  --color-bark:        #7a5030;
+  --color-bark-dim:    #9a6840;
+  --color-critical:    #c83820;
+  --color-high:        #9a6a1a;
+  --color-medium:      #2a6030;
+  --color-low:         #2a5a7a;
+  --color-expl:        #5a4a6a;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,.10);
+  --shadow-md: 0 4px 16px rgba(0,0,0,.12);
+  --shadow-lg: 0 12px 40px rgba(0,0,0,.16);
+}
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:14px;-webkit-font-smoothing:antialiased;scroll-behavior:smooth}
+body{background:var(--color-bg);color:var(--color-text);font-family:'Inter',sans-serif;min-height:100vh;overflow-x:hidden}
+button,input,select{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
+ul{list-style:none}
+img{display:block;max-width:100%}
+a{color:inherit;text-decoration:none}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:var(--color-surface)}
+::-webkit-scrollbar-thumb{background:var(--color-border);border-radius:var(--r-full)}
+
+/* ===================== LAYOUT ===================== */
+.app{display:flex;min-height:100vh}
+
+/* Sidebar */
+.sidebar{
+  width:220px;min-width:220px;background:var(--color-surface);border-right:1px solid var(--color-border);
+  display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto;z-index:100;
+  transition:width var(--t);
+}
+.sidebar-logo{padding:18px 16px 14px;border-bottom:1px solid var(--color-divider);display:flex;align-items:center;gap:10px}
+.sidebar-logo svg{flex-shrink:0}
+.logo-text{display:flex;flex-direction:column}
+.logo-name{font-family:'Cormorant Garamond',serif;font-size:15px;font-weight:600;color:var(--color-gold);letter-spacing:.02em;line-height:1.2}
+.logo-sub{font-size:9px;color:var(--color-text-faint);letter-spacing:.08em;text-transform:uppercase;line-height:1}
+.sidebar-nav{padding:12px 8px;flex:1}
+.nav-section{margin-bottom:16px}
+.nav-label{font-size:9px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--color-text-faint);padding:0 8px 6px}
+.nav-item{
+  display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:var(--r-md);
+  font-size:12px;color:var(--color-text-muted);transition:background var(--t),color var(--t);cursor:pointer;
+  margin-bottom:2px;
+}
+.nav-item:hover{background:var(--color-surface-off);color:var(--color-text)}
+.nav-item.active{background:var(--color-green-hl);color:var(--color-green-bright);font-weight:500}
+.nav-item.active .nav-icon{color:var(--color-green-bright)}
+.nav-icon{width:16px;height:16px;flex-shrink:0;opacity:.7}
+.nav-item.active .nav-icon{opacity:1}
+.sidebar-bottom{padding:12px 8px;border-top:1px solid var(--color-divider)}
+.theme-toggle{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:var(--r-md);font-size:11px;color:var(--color-text-muted);transition:all var(--t);width:100%}
+.theme-toggle:hover{background:var(--color-surface-off);color:var(--color-text)}
+
+/* Main content */
+.main{flex:1;overflow-x:hidden;min-width:0}
+.topbar{
+  position:sticky;top:0;z-index:90;background:var(--color-surface);border-bottom:1px solid var(--color-border);
+  padding:12px 24px;display:flex;align-items:center;gap:16px;
+}
+.topbar-title{font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:600;color:var(--color-text)}
+.topbar-badge{font-size:10px;padding:3px 8px;border-radius:var(--r-full);background:var(--color-green-hl);color:var(--color-green-bright);font-weight:500;letter-spacing:.02em}
+.topbar-right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.topbar-stat{font-size:11px;color:var(--color-text-muted);display:flex;align-items:center;gap:5px}
+.topbar-stat strong{color:var(--color-gold);font-weight:600}
+.content{padding:24px}
+
+/* Pages */
+.page{display:none}
+.page.active{display:block}
+
+/* ===================== CARDS ===================== */
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px;margin-bottom:24px}
+.kpi-card{
+  background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--r-lg);padding:16px;
+  display:flex;flex-direction:column;gap:6px;transition:box-shadow var(--t),transform var(--t);
+}
+.kpi-card:hover{box-shadow:var(--shadow-md);transform:translateY(-1px)}
+.kpi-label{font-size:10px;font-weight:500;color:var(--color-text-faint);letter-spacing:.06em;text-transform:uppercase}
+.kpi-value{font-size:26px;font-weight:600;color:var(--color-text);font-variant-numeric:tabular-nums;line-height:1}
+.kpi-sub{font-size:11px;color:var(--color-text-muted)}
+.kpi-card.accent .kpi-value{color:var(--color-gold)}
+.kpi-card.green .kpi-value{color:var(--color-green-bright)}
+.kpi-card.red .kpi-value{color:var(--color-critical)}
+
+/* Charts grid */
+.charts-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px;margin-bottom:24px}
+.chart-card{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--r-lg);padding:20px}
+.chart-title{font-size:12px;font-weight:600;color:var(--color-text);margin-bottom:4px;letter-spacing:.02em}
+.chart-sub{font-size:10px;color:var(--color-text-faint);margin-bottom:14px}
+.chart-wrap{position:relative}
+.chart-wrap canvas{max-height:240px}
+.chart-card.full{grid-column:1/-1}
+.chart-card.half{grid-column:span 1}
+
+/* Section title */
+.section-title{font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:600;color:var(--color-text);margin-bottom:4px}
+.section-sub{font-size:12px;color:var(--color-text-muted);margin-bottom:20px}
+
+/* ===================== TABLES ===================== */
+.table-wrap{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--r-lg);overflow:hidden;margin-bottom:20px}
+.table-header{padding:14px 16px 10px;border-bottom:1px solid var(--color-divider);display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.table-header-title{font-size:13px;font-weight:600;color:var(--color-text)}
+.table-header-count{font-size:11px;color:var(--color-text-faint);background:var(--color-surface-off);padding:2px 8px;border-radius:var(--r-full)}
+.table-filters{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+.filter-select{
+  background:var(--color-surface-off);border:1px solid var(--color-border);border-radius:var(--r-md);
+  padding:5px 10px;font-size:11px;color:var(--color-text-muted);outline:none;
+}
+.filter-select:focus{border-color:var(--color-green)}
+table{width:100%;border-collapse:collapse}
+thead th{
+  font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--color-text-faint);
+  padding:10px 14px;text-align:left;border-bottom:1px solid var(--color-divider);white-space:nowrap;cursor:pointer;
+  user-select:none;
+}
+thead th:hover{color:var(--color-text-muted)}
+thead th.sorted{color:var(--color-gold)}
+tbody tr{cursor:pointer;transition:background var(--t)}
+tbody tr:hover td{background:var(--color-surface-off)}
+tbody td{padding:10px 14px;font-size:12px;color:var(--color-text-muted);border-bottom:1px solid var(--color-divider);vertical-align:middle}
+tbody td:first-child{color:var(--color-text);font-weight:500}
+tbody tr:last-child td{border-bottom:none}
+.score-pill{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:var(--r-full);font-size:10px;font-weight:600}
+.score-pill.CRITICAL{background:rgba(232,97,74,.15);color:var(--color-critical)}
+.score-pill.HIGH{background:rgba(201,168,76,.15);color:var(--color-high)}
+.score-pill.MEDIUM{background:rgba(77,154,90,.15);color:var(--color-medium)}
+.score-pill.LOW{background:rgba(74,122,154,.15);color:var(--color-low)}
+.score-pill.EXPLORATORY{background:rgba(122,106,138,.15);color:var(--color-expl)}
+.tier-tag{font-size:10px;padding:2px 7px;border-radius:var(--r-full);font-weight:500;background:var(--color-surface-off);color:var(--color-text-muted)}
+
+/* Pagination */
+.pagination{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;font-size:11px;color:var(--color-text-muted);border-top:1px solid var(--color-divider)}
+.pagination-btns{display:flex;gap:6px}
+.pag-btn{padding:4px 10px;border-radius:var(--r-md);background:var(--color-surface-off);transition:all var(--t);font-size:11px}
+.pag-btn:hover{background:var(--color-border);color:var(--color-text)}
+.pag-btn:disabled{opacity:.4;cursor:default}
+.pag-btn.active{background:var(--color-green-hl);color:var(--color-green-bright)}
+
+/* ===================== MODAL ===================== */
+.modal-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:999;display:none;
+  align-items:flex-start;justify-content:center;padding:32px 16px;overflow-y:auto;
+}
+.modal-overlay.open{display:flex}
+.modal{
+  background:var(--color-surface-2);border:1px solid var(--color-border);border-radius:var(--r-xl);
+  max-width:680px;width:100%;padding:28px;position:relative;box-shadow:var(--shadow-lg);
+  animation:slideUp .2s ease;
+}
+@keyframes slideUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+.modal-close{
+  position:absolute;top:16px;right:16px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;
+  border-radius:var(--r-full);background:var(--color-surface-off);color:var(--color-text-muted);transition:all var(--t);font-size:16px;
+}
+.modal-close:hover{background:var(--color-border);color:var(--color-text)}
+.modal-brand{font-family:'Cormorant Garamond',serif;font-size:26px;font-weight:600;color:var(--color-text);margin-bottom:4px}
+.modal-meta{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px}
+.modal-tag{font-size:11px;padding:3px 9px;border-radius:var(--r-full);background:var(--color-surface-off);color:var(--color-text-muted)}
+.modal-section{margin-bottom:18px}
+.modal-section-title{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--color-text-faint);margin-bottom:8px}
+.modal-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px}
+.modal-kpi{background:var(--color-surface-off);border-radius:var(--r-md);padding:12px 10px;text-align:center}
+.modal-kpi-v{font-size:18px;font-weight:600;color:var(--color-gold);font-variant-numeric:tabular-nums}
+.modal-kpi-l{font-size:9px;color:var(--color-text-faint);text-transform:uppercase;letter-spacing:.05em;margin-top:2px}
+.modal-reason{font-size:12px;color:var(--color-text-muted);line-height:1.7;background:var(--color-surface-off);border-left:2px solid var(--color-green);padding:12px 14px;border-radius:0 var(--r-md) var(--r-md) 0}
+.products-list{display:flex;flex-wrap:wrap;gap:6px}
+.product-tag{font-size:10px;padding:3px 9px;border-radius:var(--r-full);background:var(--color-green-hl);color:var(--color-green-bright);font-weight:500}
+
+/* ===================== PLAYBOOK ===================== */
+.playbook-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;margin-bottom:24px}
+.playbook-card{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--r-lg);padding:20px}
+.playbook-tier{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px}
+.playbook-tier.t1{color:var(--color-critical)}
+.playbook-tier.t2{color:var(--color-high)}
+.playbook-tier.t3{color:var(--color-medium)}
+.playbook-tier.t4{color:var(--color-low)}
+.playbook-heading{font-family:'Cormorant Garamond',serif;font-size:17px;font-weight:600;color:var(--color-text);margin-bottom:8px}
+.playbook-approach{font-size:11px;color:var(--color-text-muted);margin-bottom:12px;line-height:1.5}
+.sequence-step{
+  display:flex;gap:10px;margin-bottom:10px;padding:10px;
+  background:var(--color-surface-off);border-radius:var(--r-md);
+}
+.step-num{
+  width:20px;height:20px;flex-shrink:0;border-radius:var(--r-full);background:var(--color-green-hl);
+  color:var(--color-green-bright);font-size:10px;font-weight:600;display:flex;align-items:center;justify-content:center;
+}
+.step-body{flex:1}
+.step-day{font-size:9px;color:var(--color-text-faint);margin-bottom:2px}
+.step-channel{font-size:11px;font-weight:600;color:var(--color-text);margin-bottom:2px}
+.step-subject{font-size:10px;color:var(--color-text-muted);font-style:italic}
+.step-script-toggle{font-size:10px;color:var(--color-green-bright);margin-top:4px;cursor:pointer;text-decoration:underline}
+.step-script{font-size:10px;color:var(--color-text-muted);margin-top:6px;line-height:1.6;background:var(--color-surface-2);border-radius:var(--r-md);padding:8px;white-space:pre-wrap;display:none}
+.step-script.open{display:block}
+.vp-list{display:flex;flex-direction:column;gap:6px;margin-top:12px}
+.vp-item{font-size:11px;color:var(--color-text-muted);display:flex;align-items:flex-start;gap:6px;line-height:1.4}
+.vp-item::before{content:"→";color:var(--color-green-bright);flex-shrink:0;font-size:10px;margin-top:1px}
+
+/* Funnel */
+.funnel-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-bottom:24px}
+.funnel-stage{
+  background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--r-lg);padding:14px;
+  text-align:center;position:relative;
+}
+.funnel-arrow{position:absolute;right:-11px;top:50%;transform:translateY(-50%);color:var(--color-text-faint);font-size:16px;z-index:1}
+.funnel-name{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--color-text-faint);margin-bottom:6px}
+.funnel-conv{font-size:22px;font-weight:600;color:var(--color-gold);font-variant-numeric:tabular-nums}
+.funnel-action{font-size:10px;color:var(--color-text-muted);margin-top:4px;line-height:1.3}
+.funnel-notes{font-size:10px;color:var(--color-text-faint);margin-top:4px;line-height:1.4;font-style:italic}
+
+/* Best practices */
+.bp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;margin-bottom:24px}
+.bp-card{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--r-lg);padding:16px;display:flex;gap:12px}
+.bp-num{
+  width:28px;height:28px;flex-shrink:0;border-radius:var(--r-full);background:var(--color-gold-hl);
+  color:var(--color-gold);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;
+}
+.bp-body{}
+.bp-practice{font-size:12px;font-weight:600;color:var(--color-text);margin-bottom:4px}
+.bp-detail{font-size:11px;color:var(--color-text-muted);line-height:1.5}
+
+/* Cheese usage */
+.usage-table-wrap{overflow-x:auto}
+.usage-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;margin-bottom:24px}
+.usage-card{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--r-lg);padding:16px}
+.usage-dish{font-size:13px;font-weight:600;color:var(--color-text);margin-bottom:4px}
+.usage-product{font-size:10px;color:var(--color-green-bright);font-weight:500;margin-bottom:8px}
+.usage-metric{display:flex;align-items:baseline;gap:6px;margin-bottom:4px}
+.usage-val{font-size:24px;font-weight:600;color:var(--color-gold);font-variant-numeric:tabular-nums}
+.usage-unit{font-size:11px;color:var(--color-text-faint)}
+.usage-note{font-size:10px;color:var(--color-text-faint);line-height:1.4;margin-top:6px}
+
+/* Validation table */
+.val-row{display:grid;grid-template-columns:200px 1fr 1fr auto;gap:12px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--color-divider);font-size:11px}
+.val-row:last-child{border-bottom:none}
+.val-row:hover{background:var(--color-surface-off)}
+.val-tier-name{font-weight:500;color:var(--color-text)}
+.val-range{font-variant-numeric:tabular-nums;color:var(--color-text-muted)}
+.val-verdict{font-size:10px;font-weight:500}
+.val-verdict.ok{color:var(--color-green-bright)}
+.val-verdict.warn{color:var(--color-high)}
+
+/* State cards */
+.state-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-bottom:24px}
+.state-card{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--r-lg);padding:16px;cursor:pointer;transition:all var(--t)}
+.state-card:hover{box-shadow:var(--shadow-md);border-color:var(--color-green)}
+.state-name{font-size:16px;font-weight:600;color:var(--color-text);margin-bottom:8px;display:flex;align-items:center;justify-content:space-between}
+.state-bar-wrap{height:4px;background:var(--color-border);border-radius:2px;margin-bottom:8px;overflow:hidden}
+.state-bar{height:100%;background:linear-gradient(90deg,var(--color-green),var(--color-gold));border-radius:2px;transition:width .5s}
+.state-stats{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.state-stat-val{font-size:14px;font-weight:600;color:var(--color-gold);font-variant-numeric:tabular-nums}
+.state-stat-lab{font-size:9px;color:var(--color-text-faint);text-transform:uppercase;letter-spacing:.06em}
+
+/* Distributor cards */
+.dist-grid{display:grid;gap:12px;margin-bottom:24px}
+.dist-card{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--r-lg);padding:20px;display:flex;gap:20px;align-items:flex-start}
+.dist-badge{
+  width:44px;height:44px;flex-shrink:0;border-radius:var(--r-lg);background:var(--color-green-hl);
+  color:var(--color-green-bright);font-size:18px;display:flex;align-items:center;justify-content:center;
+  font-family:'Cormorant Garamond',serif;font-weight:600;
+}
+.dist-body{flex:1}
+.dist-name{font-size:15px;font-weight:600;color:var(--color-text);margin-bottom:4px}
+.dist-meta{font-size:11px;color:var(--color-text-muted);margin-bottom:8px}
+.dist-tam{display:flex;gap:16px;flex-wrap:wrap}
+.dist-tam-item{}
+.dist-tam-val{font-size:18px;font-weight:600;color:var(--color-gold);font-variant-numeric:tabular-nums}
+.dist-tam-lab{font-size:9px;color:var(--color-text-faint);text-transform:uppercase;letter-spacing:.05em}
+.dist-reason{font-size:11px;color:var(--color-text-muted);line-height:1.5;margin-top:8px;padding:8px 10px;background:var(--color-surface-off);border-radius:var(--r-md)}
+
+/* Products demand */
+.product-demand-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-bottom:24px}
+.product-demand-card{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--r-lg);padding:16px}
+.pd-name{font-size:13px;font-weight:600;color:var(--color-text);margin-bottom:4px}
+.pd-count{font-size:28px;font-weight:600;color:var(--color-gold);font-variant-numeric:tabular-nums;line-height:1}
+.pd-label{font-size:10px;color:var(--color-text-faint);margin-bottom:8px}
+.pd-bar-wrap{height:4px;background:var(--color-border);border-radius:2px;overflow:hidden}
+.pd-bar{height:100%;background:var(--color-green);border-radius:2px}
+
+/* Benchmark cards */
+.bench-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:24px}
+.bench-card{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--r-lg);padding:14px;text-align:center}
+.bench-value{font-size:22px;font-weight:600;color:var(--color-gold);font-variant-numeric:tabular-nums}
+.bench-label{font-size:10px;color:var(--color-text-faint);text-transform:uppercase;letter-spacing:.06em;margin-top:4px}
+.bench-note{font-size:10px;color:var(--color-text-muted);margin-top:4px;line-height:1.4}
+
+/* Responsive */
+@media(max-width:768px){
+  .sidebar{display:none}
+  .modal-kpis{grid-template-columns:repeat(2,1fr)}
+  .charts-grid{grid-template-columns:1fr}
+  .kpi-grid{grid-template-columns:repeat(2,1fr)}
+  .content{padding:16px}
+  .val-row{grid-template-columns:1fr;gap:4px}
+}
+</style>
+</head>
+<body>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal">
+  <div class="modal" id="modal-content">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<div class="app">
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <svg width="32" height="32" viewBox="0 0 32 32" fill="none" aria-label="Colchis Creamery">
+        <circle cx="16" cy="16" r="15" stroke="#3d7a47" stroke-width="1.5"/>
+        <path d="M8 14 Q16 8 24 14 Q16 22 8 14Z" fill="#3d7a47" opacity=".3"/>
+        <path d="M9 15 Q16 9.5 23 15" stroke="#c9a84c" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+        <circle cx="16" cy="15" r="2.5" fill="#c9a84c"/>
+        <path d="M13 18 Q16 16.5 19 18" stroke="#c9a84c" stroke-width="1" fill="none" stroke-linecap="round" opacity=".6"/>
+      </svg>
+      <div class="logo-text">
+        <span class="logo-name">Colchis Creamery</span>
+        <span class="logo-sub">Intelligence</span>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section">
+        <div class="nav-label">Overview</div>
+        <div class="nav-item active" onclick="showPage('overview')">
+          <svg class="nav-icon" fill="none" viewBox="0 0 16 16" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>
+          Dashboard
+        </div>
+        <div class="nav-item" onclick="showPage('tam')">
+          <svg class="nav-icon" fill="none" viewBox="0 0 16 16" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 4v4l3 2"/></svg>
+          Market Sizing
+        </div>
+      </div>
+      <div class="nav-section">
+        <div class="nav-label">Prospects</div>
+        <div class="nav-item" onclick="showPage('critical')">
+          <svg class="nav-icon" fill="none" viewBox="0 0 16 16" stroke="currentColor" stroke-width="1.5"><path d="M8 2L10 6H14L11 9L12 13L8 10.5L4 13L5 9L2 6H6Z"/></svg>
+          Critical Prospects
+        </div>
+        <div class="nav-item" onclick="showPage('allprospects')">
+          <svg class="nav-icon" fill="none" viewBox="0 0 16 16" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M2 8h12M2 12h8"/></svg>
+          All Prospects
+        </div>
+        <div class="nav-item" onclick="showPage('distributors')">
+          <svg class="nav-icon" fill="none" viewBox="0 0 16 16" stroke="currentColor" stroke-width="1.5"><circle cx="4" cy="8" r="2"/><circle cx="12" cy="4" r="2"/><circle cx="12" cy="12" r="2"/><path d="M6 8h2m2-2.5L9 7M10 9l1.5 1.5"/></svg>
+          Distributors
+        </div>
+        <div class="nav-item" onclick="showPage('geo')">
+          <svg class="nav-icon" fill="none" viewBox="0 0 16 16" stroke="currentColor" stroke-width="1.5"><path d="M8 2C5.8 2 4 3.8 4 6c0 3.5 4 8 4 8s4-4.5 4-8c0-2.2-1.8-4-4-4z"/><circle cx="8" cy="6" r="1.5"/></svg>
+          Geography
+        </div>
+        <div class="nav-item" onclick="showPage('categories')">
+          <svg class="nav-icon" fill="none" viewBox="0 0 16 16" stroke="currentColor" stroke-width="1.5"><path d="M2 12V6l6-4 6 4v6M5 16v-5h6v5"/></svg>
+          Categories
+        </div>
+      </div>
+      <div class="nav-section">
+        <div class="nav-label">Intelligence</div>
+        <div class="nav-item" onclick="showPage('cheese')">
+          <svg class="nav-icon" fill="none" viewBox="0 0 16 16" stroke="currentColor" stroke-width="1.5"><path d="M2 10L8 3 14 10H2zM3 10l1 4h8l1-4"/></svg>
+          Cheese Usage
+        </div>
+        <div class="nav-item" onclick="showPage('playbook')">
+          <svg class="nav-icon" fill="none" viewBox="0 0 16 16" stroke="currentColor" stroke-width="1.5"><path d="M4 2h8a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1zM6 6h4M6 9h3"/></svg>
+          Sales Playbook
+        </div>
+        <div class="nav-item" onclick="showPage('validation')">
+          <svg class="nav-icon" fill="none" viewBox="0 0 16 16" stroke="currentColor" stroke-width="1.5"><path d="M3 8l3.5 3.5L13 4.5"/></svg>
+          TAM Validation
+        </div>
+      </div>
+    </nav>
+    <div class="sidebar-bottom">
+      <button class="theme-toggle" data-theme-toggle onclick="toggleTheme()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="theme-icon"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        <span id="theme-label">Light Mode</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+    <div class="topbar">
+      <div class="topbar-title" id="page-title">Overview</div>
+      <div class="topbar-badge" id="page-badge">Live Data</div>
+      <div class="topbar-right">
+        <div class="topbar-stat"><span>Prospects</span><strong>281</strong></div>
+        <div class="topbar-stat"><span>TAM High</span><strong>$20.8M</strong></div>
+        <div class="topbar-stat"><span>Updated</span><strong>Mar 2026</strong></div>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- ==================== PAGE: OVERVIEW ==================== -->
+      <div class="page active" id="page-overview">
+        <div class="section-title">Prospect Intelligence Overview</div>
+        <div class="section-sub">281 qualified B2B prospects | 14 states | $5.2M–$20.8M annual TAM</div>
+
+        <div class="kpi-grid" id="kpi-grid"></div>
+        <div class="charts-grid">
+          <div class="chart-card">
+            <div class="chart-title">Priority Distribution</div>
+            <div class="chart-sub">Prospects by score label</div>
+            <div class="chart-wrap"><canvas id="chart-priority"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-title">Annual Revenue by Tier</div>
+            <div class="chart-sub">TAM low–high range ($USD)</div>
+            <div class="chart-wrap"><canvas id="chart-tier-rev"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-title">Top 8 States by Prospects</div>
+            <div class="chart-sub">Prospect count</div>
+            <div class="chart-wrap"><canvas id="chart-states"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-title">Top Categories by Revenue</div>
+            <div class="chart-sub">Monthly high ($)</div>
+            <div class="chart-wrap"><canvas id="chart-cat-rev"></canvas></div>
+          </div>
+        </div>
+
+        <div class="section-title" style="font-size:17px;margin-bottom:4px">Top 10 Prospects by Score</div>
+        <div class="section-sub">Click any row to view detailed profile</div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Company</th><th>Category</th><th>State</th><th>Score</th>
+                <th>Monthly Revenue</th><th>Locations</th><th>Rating</th>
+              </tr>
+            </thead>
+            <tbody id="top10-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ==================== PAGE: TAM ==================== -->
+      <div class="page" id="page-tam">
+        <div class="section-title">Market Sizing & TAM Analysis</div>
+        <div class="section-sub">Total Addressable Market across 281 qualified prospects in 14 states</div>
+        <div class="kpi-grid" id="tam-kpis"></div>
+        <div class="charts-grid">
+          <div class="chart-card">
+            <div class="chart-title">Annual Revenue by Tier</div>
+            <div class="chart-sub">Low / High range ($USD annual)</div>
+            <div class="chart-wrap"><canvas id="chart-tam-tier"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-title">Monthly Revenue by Category</div>
+            <div class="chart-sub">Top 10 categories — high estimate</div>
+            <div class="chart-wrap"><canvas id="chart-tam-cat"></canvas></div>
+          </div>
+          <div class="chart-card full">
+            <div class="chart-title">Monthly Revenue by State (Low–High)</div>
+            <div class="chart-sub">All 14 states — range bars</div>
+            <div class="chart-wrap" style="height:260px"><canvas id="chart-tam-state"></canvas></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== PAGE: CRITICAL ==================== -->
+      <div class="page" id="page-critical">
+        <div class="section-title">Critical & High Priority Prospects</div>
+        <div class="section-sub">Score ≥50 — Immediate outreach targets</div>
+        <div id="critical-table-container"></div>
+      </div>
+
+      <!-- ==================== PAGE: ALL PROSPECTS ==================== -->
+      <div class="page" id="page-allprospects">
+        <div class="section-title">All Prospects</div>
+        <div class="section-sub">Complete database — filterable and sortable</div>
+        <div id="all-table-container"></div>
+      </div>
+
+      <!-- ==================== PAGE: DISTRIBUTORS ==================== -->
+      <div class="page" id="page-distributors">
+        <div class="section-title">Strategic Distributor Targets</div>
+        <div class="section-sub">7 specialty food distributors — each worth up to $900K/year. Single deal = access to 50-500+ end accounts.</div>
+        <div class="dist-grid" id="dist-grid"></div>
+      </div>
+
+      <!-- ==================== PAGE: GEO ==================== -->
+      <div class="page" id="page-geo">
+        <div class="section-title">Geographic Coverage</div>
+        <div class="section-sub">14 states within 10-hour drive radius from Columbus, OH</div>
+        <div class="state-grid" id="state-grid"></div>
+        <div class="chart-card" style="margin-bottom:24px">
+          <div class="chart-title">Revenue Potential by State</div>
+          <div class="chart-sub">Monthly low–high range ($USD)</div>
+          <div class="chart-wrap" style="height:280px"><canvas id="chart-geo-state"></canvas></div>
+        </div>
+      </div>
+
+      <!-- ==================== PAGE: CATEGORIES ==================== -->
+      <div class="page" id="page-categories">
+        <div class="section-title">Business Category Analysis</div>
+        <div class="section-sub">17 prospect categories — sorted by monthly revenue potential</div>
+        <div class="charts-grid">
+          <div class="chart-card">
+            <div class="chart-title">Prospects per Category</div>
+            <div class="chart-sub">Count</div>
+            <div class="chart-wrap"><canvas id="chart-cat-count"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-title">Monthly Revenue High by Category</div>
+            <div class="chart-sub">Ceiling estimate ($)</div>
+            <div class="chart-wrap"><canvas id="chart-cat-mhigh"></canvas></div>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Category</th><th>Tier</th><th>Count</th><th>Frequency</th><th>Price/lb</th><th>lbs/mo (Low)</th><th>lbs/mo (High)</th><th>Monthly Low</th><th>Monthly High</th><th>Annual High</th></tr></thead>
+            <tbody id="cat-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ==================== PAGE: CHEESE USAGE ==================== -->
+      <div class="page" id="page-cheese">
+        <div class="section-title">Cheese Usage Metrics (Researched)</div>
+        <div class="section-sub">Per-dish and per-category cheese consumption — validated against professional recipes and restaurant production standards</div>
+        <div class="section-title" style="font-size:15px;margin-bottom:4px;margin-top:0">Per-Dish Cheese Requirements</div>
+        <div class="section-sub" style="margin-top:0">Based on Georgian professional bakery and restaurant recipes</div>
+        <div class="usage-grid" id="usage-dish-grid"></div>
+        <div class="section-title" style="font-size:15px;margin-bottom:4px">Per-Category Monthly Volume</div>
+        <div class="section-sub">Calculated from daily production rates and purchase frequency</div>
+        <div class="table-wrap">
+          <div class="table-header"><div class="table-header-title">Category Volume Validation</div></div>
+          <table>
+            <thead><tr><th>Category</th><th>Daily Production</th><th>lbs/Day</th><th>lbs/Month</th><th>Monthly Rev Low</th><th>Monthly Rev High</th><th>Validated?</th></tr></thead>
+            <tbody id="usage-cat-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ==================== PAGE: PLAYBOOK ==================== -->
+      <div class="page" id="page-playbook">
+        <div class="section-title">B2B Sales Playbook</div>
+        <div class="section-sub">Research-backed outreach strategies for maximum conversion — tiered by prospect priority</div>
+
+        <div class="section-title" style="font-size:15px;margin-bottom:12px;margin-top:0">Conversion Benchmarks</div>
+        <div class="bench-grid" id="bench-grid"></div>
+
+        <div class="section-title" style="font-size:15px;margin-bottom:4px">Conversion Funnel</div>
+        <div class="section-sub">Expected conversion rates at each stage of the B2B sales process</div>
+        <div class="funnel-grid" id="funnel-grid"></div>
+
+        <div class="section-title" style="font-size:15px;margin-bottom:12px">Outreach Sequences by Tier</div>
+        <div class="playbook-grid" id="playbook-grid"></div>
+
+        <div class="section-title" style="font-size:15px;margin-bottom:12px">8 Best Practices</div>
+        <div class="bp-grid" id="bp-grid"></div>
+      </div>
+
+      <!-- ==================== PAGE: VALIDATION ==================== -->
+      <div class="page" id="page-validation">
+        <div class="section-title">TAM Validation</div>
+        <div class="section-sub">Cross-checking revenue model assumptions against dish-level cheese usage research</div>
+        <div class="kpi-grid" id="val-kpis"></div>
+        <div class="chart-card" style="margin-bottom:24px">
+          <div class="chart-title">Model vs. Research-Validated Revenue Range</div>
+          <div class="chart-sub">Monthly high ($) — model estimate vs. researched ceiling</div>
+          <div class="chart-wrap" style="height:260px"><canvas id="chart-validation"></canvas></div>
+        </div>
+        <div class="table-wrap">
+          <div class="table-header"><div class="table-header-title">Tier-by-Tier Validation</div></div>
+          <div id="val-table"></div>
+        </div>
+        <div style="margin-top:16px;padding:16px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--r-lg)">
+          <div class="chart-title" style="margin-bottom:8px">Validation Conclusion</div>
+          <p style="font-size:12px;color:var(--color-text-muted);line-height:1.7">
+            <strong style="color:var(--color-green-bright)">Overall: The revenue model is CONSERVATIVE to ACCURATE.</strong> Dish-level research confirms that all tier estimates are within realistic range. The most significant upside opportunity is in high-volume flagship restaurants (Saperavi 4 locations, Chama Mama 4 locations) where actual consumption may be 2-3× the per-location model estimate. Georgian bakeries at full production (200+ khachapuri/day) also have upside potential. Distributor TAM is validated as accurate — a single distribution partnership at 2,000-10,000 lbs/month wholesale represents the single highest-impact revenue event.
+          </p>
+        </div>
+      </div>
+
+    </div><!-- /content -->
+  </main>
+</div>
+
+<script>
+const D = window.CC_DATA;
+
+// ===================== THEME =====================
+function toggleTheme(){
+  const html = document.documentElement;
+  const curr = html.getAttribute('data-theme');
+  const next = curr === 'dark' ? 'light' : 'dark';
+  html.setAttribute('data-theme', next);
+  document.getElementById('theme-label').textContent = next === 'dark' ? 'Light Mode' : 'Dark Mode';
+  document.getElementById('theme-icon').innerHTML = next === 'dark'
+    ? '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>'
+    : '<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>';
+  // Re-render charts with new colors
+  setTimeout(()=>{ Object.values(chartInstances).forEach(c=>c&&c.destroy&&c.destroy()); buildAllCharts(); }, 50);
+}
+
+// ===================== NAV =====================
+function showPage(id){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n=>{
+    if(n.getAttribute('onclick')===`showPage('${id}')`) n.classList.add('active');
+  });
+  const titles={overview:'Overview',tam:'Market Sizing',critical:'Critical Prospects',allprospects:'All Prospects',distributors:'Distributors',geo:'Geography',categories:'Categories',cheese:'Cheese Usage Metrics',playbook:'Sales Playbook',validation:'TAM Validation'};
+  document.getElementById('page-title').textContent = titles[id]||id;
+}
+
+// ===================== CHART HELPERS =====================
+const chartInstances = {};
+function getColors(){
+  const s = getComputedStyle(document.documentElement);
+  return {
+    gold: s.getPropertyValue('--color-gold').trim() || '#c9a84c',
+    green: s.getPropertyValue('--color-green-bright').trim() || '#4d9a5a',
+    critical: s.getPropertyValue('--color-critical').trim() || '#e8614a',
+    high: s.getPropertyValue('--color-high').trim() || '#c9a84c',
+    medium: s.getPropertyValue('--color-medium').trim() || '#4d9a5a',
+    low: s.getPropertyValue('--color-low').trim() || '#4a7a9a',
+    expl: s.getPropertyValue('--color-expl').trim() || '#7a6a8a',
+    text: s.getPropertyValue('--color-text-muted').trim() || '#9a9886',
+    border: s.getPropertyValue('--color-border').trim() || '#2e352e',
+    surface: s.getPropertyValue('--color-surface-off').trim() || '#1f251f'
+  };
+}
+const CHART_DEFAULTS = ()=>({
+  plugins:{ legend:{ labels:{ color: getColors().text, font:{size:11,family:'Inter'}, boxWidth:12, padding:16 } } },
+  scales:{
+    x:{ grid:{color:getColors().border+'55'}, ticks:{color:getColors().text,font:{size:10}} },
+    y:{ grid:{color:getColors().border+'55'}, ticks:{color:getColors().text,font:{size:10}} }
+  }
+});
+function mkChart(id,cfg){
+  if(chartInstances[id]){ chartInstances[id].destroy(); }
+  const el = document.getElementById(id);
+  if(!el) return;
+  chartInstances[id] = new Chart(el, cfg);
+  return chartInstances[id];
+}
+function fmtMoney(v){
+  if(v>=1000000) return '$'+(v/1000000).toFixed(1)+'M';
+  if(v>=1000) return '$'+(v/1000).toFixed(0)+'K';
+  return '$'+v;
+}
+
+// ===================== KPIs =====================
+function buildKPIs(){
+  const g = document.getElementById('kpi-grid');
+  const kpis=[
+    {label:'Total Prospects',value:'281',sub:'Qualified B2B targets',cls:''},
+    {label:'Annual TAM Low',value:'$5.2M',sub:'Conservative estimate',cls:'accent'},
+    {label:'Annual TAM High',value:'$20.8M',sub:'Full-capture scenario',cls:'accent'},
+    {label:'Critical Prospects',value:'74',sub:'Score 70-100',cls:'red'},
+    {label:'High Prospects',value:'89',sub:'Score 50-69',cls:''},
+    {label:'Avg Priority Score',value:'59.1',sub:'Out of 100',cls:''},
+    {label:'States Covered',value:'14',sub:'10-hr drive radius',cls:'green'},
+    {label:'Total Locations',value:'287',sub:'285 active',cls:''},
+  ];
+  g.innerHTML = kpis.map(k=>`
+    <div class="kpi-card ${k.cls}">
+      <div class="kpi-label">${k.label}</div>
+      <div class="kpi-value">${k.value}</div>
+      <div class="kpi-sub">${k.sub}</div>
+    </div>`).join('');
+}
+
+function buildTAMKPIs(){
+  const g = document.getElementById('tam-kpis');
+  g.innerHTML=`
+    <div class="kpi-card accent"><div class="kpi-label">Monthly TAM Low</div><div class="kpi-value">$435K</div><div class="kpi-sub">Conservative estimate</div></div>
+    <div class="kpi-card accent"><div class="kpi-label">Monthly TAM High</div><div class="kpi-value">$1.74M</div><div class="kpi-sub">Full-capture scenario</div></div>
+    <div class="kpi-card"><div class="kpi-label">Annual TAM Low</div><div class="kpi-value">$5.2M</div><div class="kpi-sub">All 281 prospects, low</div></div>
+    <div class="kpi-card"><div class="kpi-label">Annual TAM High</div><div class="kpi-value">$20.8M</div><div class="kpi-sub">All 281 prospects, high</div></div>
+    <div class="kpi-card green"><div class="kpi-label">CORE Tier Annual</div><div class="kpi-value">$8.0M</div><div class="kpi-sub">High estimate — 91 prospects</div></div>
+    <div class="kpi-card"><div class="kpi-label">STRATEGIC Annual</div><div class="kpi-value">$6.3M</div><div class="kpi-sub">High — 7 distributors</div></div>
+  `;
+}
+
+function buildValKPIs(){
+  const g = document.getElementById('val-kpis');
+  g.innerHTML=`
+    <div class="kpi-card green"><div class="kpi-label">Model Status</div><div class="kpi-value" style="font-size:16px">Conservative</div><div class="kpi-sub">Validated against dish-level data</div></div>
+    <div class="kpi-card accent"><div class="kpi-label">Imeruli Khachapuri</div><div class="kpi-value">300g</div><div class="kpi-sub">Per piece — standard recipe</div></div>
+    <div class="kpi-card accent"><div class="kpi-label">Adjaruli Khachapuri</div><div class="kpi-value">200g</div><div class="kpi-sub">Per boat — Sulguni+Imeruli</div></div>
+    <div class="kpi-card"><div class="kpi-label">Bakery Daily (min)</div><div class="kpi-value">33 lbs</div><div class="kpi-sub">50 khachapuri × 0.66 lbs</div></div>
+    <div class="kpi-card"><div class="kpi-label">Bakery Daily (max)</div><div class="kpi-value">154 lbs</div><div class="kpi-sub">200 megruli × 0.77 lbs</div></div>
+    <div class="kpi-card red"><div class="kpi-label">Flagship Upside</div><div class="kpi-value">2-3×</div><div class="kpi-sub">Model may underestimate flagships</div></div>
+  `;
+}
+
+// ===================== TOP 10 TABLE =====================
+function buildTop10(){
+  const tbody = document.getElementById('top10-body');
+  const top = D.topProspects.slice(0,10);
+  tbody.innerHTML = top.map(p=>`
+    <tr onclick="openModal(${JSON.stringify(p).replace(/"/g,'&quot;')})">
+      <td>${p.name}</td>
+      <td style="color:var(--color-text-faint);font-size:11px">${p.cat}</td>
+      <td>${p.state}</td>
+      <td><span class="score-pill ${p.label}">${p.score} ${p.label}</span></td>
+      <td style="font-variant-numeric:tabular-nums">${fmtMoney(p.mLow)}–${fmtMoney(p.mHigh)}</td>
+      <td>${p.locs} loc${p.locs>1?'s':''}</td>
+      <td>${p.rating?'⭐ '+p.rating:'–'}</td>
+    </tr>`).join('');
+}
+
+// ===================== PROSPECT TABLES =====================
+function buildProspectTable(containerId, filterFn, title){
+  let data = D.topProspects.filter(filterFn);
+  let page = 0, perPage = 20, sortCol = 'score', sortDir = -1;
+  function renderTable(){
+    const sorted = [...data].sort((a,b)=>{
+      const av=a[sortCol]??0,bv=b[sortCol]??0;
+      return sortDir*(typeof av==='string'?av.localeCompare(bv):bv-av);
+    });
+    const pages = Math.ceil(sorted.length/perPage);
+    const slice = sorted.slice(page*perPage,(page+1)*perPage);
+    document.getElementById(containerId).innerHTML=`
+      <div class="table-wrap">
+        <div class="table-header">
+          <div class="table-header-title">${title}</div>
+          <div class="table-header-count">${sorted.length} prospects</div>
+          <div class="table-filters">
+            <select class="filter-select" id="${containerId}-tier-filter" onchange="applyFilter_${containerId}()">
+              <option value="">All Tiers</option>
+              <option value="CORE">CORE</option><option value="ADJACENT">ADJACENT</option>
+              <option value="STRATEGIC">STRATEGIC</option><option value="GROWTH">GROWTH</option>
+              <option value="EXPERIMENTAL">EXPERIMENTAL</option>
+            </select>
+          </div>
+        </div>
+        <div style="overflow-x:auto">
+        <table>
+          <thead><tr>
+            <th onclick="sortPT_${containerId}('name')">Company</th>
+            <th onclick="sortPT_${containerId}('cat')">Category</th>
+            <th onclick="sortPT_${containerId}('state')">State</th>
+            <th onclick="sortPT_${containerId}('score')" class="sorted">Score ↓</th>
+            <th onclick="sortPT_${containerId}('mHigh')">Monthly High</th>
+            <th>Locations</th>
+            <th onclick="sortPT_${containerId}('rating')">Rating</th>
+            <th>Frequency</th>
+          </tr></thead>
+          <tbody>
+            ${slice.map(p=>`
+              <tr onclick="openModal(${JSON.stringify(p).replace(/"/g,'&quot;')})">
+                <td>${p.name}</td>
+                <td style="font-size:11px;color:var(--color-text-faint)">${p.cat}</td>
+                <td>${p.state}</td>
+                <td><span class="score-pill ${p.label}">${p.score}</span></td>
+                <td style="font-variant-numeric:tabular-nums">${fmtMoney(p.mHigh)}</td>
+                <td>${p.locs}</td>
+                <td>${p.rating?'⭐ '+p.rating:'–'}</td>
+                <td style="font-size:10px;color:var(--color-text-faint)">${p.freq}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+        </div>
+        <div class="pagination">
+          <span>Page ${page+1} of ${pages||1}</span>
+          <div class="pagination-btns">
+            <button class="pag-btn" ${page===0?'disabled':''} onclick="pagePT_${containerId}(-1)">← Prev</button>
+            <button class="pag-btn" ${page>=pages-1?'disabled':''} onclick="pagePT_${containerId}(1)">Next →</button>
+          </div>
+        </div>
+      </div>`;
+  }
+  window[`sortPT_${containerId}`] = (col)=>{ sortCol=col; sortDir=-sortDir; renderTable(); };
+  window[`pagePT_${containerId}`] = (d)=>{ page=Math.max(0,Math.min(page+d,Math.ceil(data.length/perPage)-1)); renderTable(); };
+  window[`applyFilter_${containerId}`] = ()=>{
+    const tierVal = document.getElementById(`${containerId}-tier-filter`)?.value||'';
+    data = D.topProspects.filter(p=>filterFn(p)&&(!tierVal||p.tier===tierVal));
+    page=0; renderTable();
+  };
+  renderTable();
+}
+
+// ===================== MODAL =====================
+function openModal(p){
+  const prods = (p.prods||[]).map(pr=>`<span class="product-tag">${pr.replace(/_/g,' ')}</span>`).join('');
+  document.getElementById('modal-body').innerHTML=`
+    <div class="modal-brand">${p.name}</div>
+    <div class="modal-meta">
+      <span class="score-pill ${p.label}" style="font-size:12px;padding:4px 12px">${p.label} — ${p.score}</span>
+      <span class="modal-tag">${p.tier}</span>
+      <span class="modal-tag">${p.cat}</span>
+      <span class="modal-tag">${p.city}, ${p.state}</span>
+      ${p.miles?`<span class="modal-tag">${p.miles} mi from Columbus</span>`:''}
+    </div>
+    <div class="modal-kpis">
+      <div class="modal-kpi"><div class="modal-kpi-v">${fmtMoney(p.mLow)}</div><div class="modal-kpi-l">Mo. Low</div></div>
+      <div class="modal-kpi"><div class="modal-kpi-v">${fmtMoney(p.mHigh)}</div><div class="modal-kpi-l">Mo. High</div></div>
+      <div class="modal-kpi"><div class="modal-kpi-v">${fmtMoney(p.aLow)}</div><div class="modal-kpi-l">Annual Low</div></div>
+      <div class="modal-kpi"><div class="modal-kpi-v">${fmtMoney(p.aHigh)}</div><div class="modal-kpi-l">Annual High</div></div>
+    </div>
+    ${p.prods&&p.prods.length?`<div class="modal-section"><div class="modal-section-title">Applicable Products</div><div class="products-list">${prods}</div></div>`:''}
+    <div class="modal-section"><div class="modal-section-title">Why This Prospect</div><div class="modal-reason">${p.reason||'–'}</div></div>
+    <div class="modal-section">
+      <div class="modal-section-title">Details</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px">
+        <div><span style="color:var(--color-text-faint)">Frequency:</span> ${p.freq||'–'}</div>
+        <div><span style="color:var(--color-text-faint)">Locations:</span> ${p.locs} (${p.active} active)</div>
+        <div><span style="color:var(--color-text-faint)">Google Rating:</span> ${p.rating?'⭐ '+p.rating:'–'}</div>
+        <div><span style="color:var(--color-text-faint)">Drive Time:</span> ${p.miles?Math.round(p.miles/55*10)/10+' hrs':'–'}</div>
+      </div>
+    </div>`;
+  document.getElementById('modal').classList.add('open');
+}
+function closeModal(){ document.getElementById('modal').classList.remove('open'); }
+document.getElementById('modal').addEventListener('click',e=>{ if(e.target===document.getElementById('modal')) closeModal(); });
+
+// ===================== DISTRIBUTORS =====================
+function buildDistributors(){
+  const dists = D.topProspects.filter(p=>p.catCode==='DISTRIBUTOR');
+  // Add some static distributor data
+  const extra = [
+    { name:"Chef's Warehouse", city:"Ridgefield", state:"CT", reason:"Largest US specialty food distributor to independent restaurants. Premium cheese specialty division. East Coast coverage aligns with Georgian restaurant cluster in NY/NJ/CT.", mLow:15000, mHigh:75000, aLow:180000, aHigh:900000 },
+    { name:"Atalanta Corporation", city:"Elizabeth", state:"NJ", reason:"Major Eastern European specialty food importer/distributor. Existing relationships with EE delis and Russian grocery stores. Natural fit for Georgian cheese category.", mLow:15000, mHigh:75000, aLow:180000, aHigh:900000 },
+    { name:"JJK Distributors", city:"Moonachie", state:"NJ", reason:"German and Eastern European specialty food distributor since 1977. Distributes specialty European cheeses to Eastern European delis, restaurants, and stores. Customer base perfectly matches Colchis target segment.", mLow:15000, mHigh:75000, aLow:180000, aHigh:900000 },
+    { name:"BRT Laboratories", city:"New York", state:"NY", reason:"Specialty cheese importer serving NYC tri-state market. Existing cheese buyers relationships at Georgian and Eastern European restaurants.", mLow:10000, mHigh:50000, aLow:120000, aHigh:600000 },
+    { name:"Sid Wainer & Son", city:"New Bedford", state:"MA", reason:"Premier specialty food purveyor to restaurants. Carries artisan and international cheeses. Boston/New England market + NYC coverage.", mLow:10000, mHigh:50000, aLow:120000, aHigh:600000 },
+    { name:"Baldor Specialty Foods", city:"Bronx", state:"NY", reason:"Major NYC specialty food distributor. Serves top NYC restaurants. Strong cheese department. One contract = access to hundreds of high-end NYC accounts.", mLow:15000, mHigh:75000, aLow:180000, aHigh:900000 },
+    { name:"Lancaster Farm Fresh", city:"Lancaster", state:"PA", reason:"Regional specialty food co-op. Artisan cheese specialist. PA/NJ/MD market. Strong relationships with independent restaurants and specialty grocers.", mLow:8000, mHigh:40000, aLow:96000, aHigh:480000 }
+  ];
+  const grid = document.getElementById('dist-grid');
+  grid.innerHTML = extra.map((d,i)=>`
+    <div class="dist-card">
+      <div class="dist-badge">${d.name.charAt(0)}</div>
+      <div class="dist-body">
+        <div class="dist-name">${d.name}</div>
+        <div class="dist-meta">${d.city}, ${d.state} · Specialty Food Distributor · Weekly Purchase Frequency</div>
+        <div class="dist-tam">
+          <div class="dist-tam-item"><div class="dist-tam-val">${fmtMoney(d.mLow)}–${fmtMoney(d.mHigh)}</div><div class="dist-tam-lab">Monthly Revenue</div></div>
+          <div class="dist-tam-item"><div class="dist-tam-val">${fmtMoney(d.aLow)}–${fmtMoney(d.aHigh)}</div><div class="dist-tam-lab">Annual Revenue</div></div>
+        </div>
+        <div class="dist-reason">${d.reason}</div>
+      </div>
+    </div>`).join('');
+}
+
+// ===================== GEOGRAPHY =====================
+function buildGeo(){
+  const st = D.byState;
+  const maxCount = Math.max(...Object.values(st).map(s=>s.count));
+  const grid = document.getElementById('state-grid');
+  const sorted = Object.entries(st).sort((a,b)=>b[1].count-a[1].count);
+  grid.innerHTML = sorted.map(([code,s])=>`
+    <div class="state-card" onclick="showPage('allprospects')">
+      <div class="state-name">${code} <span style="font-size:12px;color:var(--color-text-faint)">${s.count} prospects</span></div>
+      <div class="state-bar-wrap"><div class="state-bar" style="width:${s.count/maxCount*100}%"></div></div>
+      <div class="state-stats">
+        <div><div class="state-stat-val">${s.locs}</div><div class="state-stat-lab">Locations</div></div>
+        <div><div class="state-stat-val">${fmtMoney(s.mHigh)}</div><div class="state-stat-lab">Mo. High</div></div>
+      </div>
+    </div>`).join('');
+}
+
+// ===================== CATEGORIES TABLE =====================
+function buildCategories(){
+  const cats = Object.entries(D.byCategory).sort((a,b)=>b[1].mHigh-a[1].mHigh);
+  const tbody = document.getElementById('cat-table-body');
+  tbody.innerHTML = cats.map(([code,c])=>`
+    <tr>
+      <td>${c.label}</td>
+      <td><span class="tier-tag">T${c.tier}</span></td>
+      <td>${c.count}</td>
+      <td style="font-size:10px;color:var(--color-text-faint)">${c.freq}</td>
+      <td>$${c.price}</td>
+      <td>${c.lbsLow?.toLocaleString()||'–'}</td>
+      <td>${c.lbsHigh?.toLocaleString()||'–'}</td>
+      <td>${fmtMoney(c.mLow)}</td>
+      <td>${fmtMoney(c.mHigh)}</td>
+      <td>${fmtMoney(c.mHigh*12)}</td>
+    </tr>`).join('');
+}
+
+// ===================== CHEESE USAGE =====================
+function buildCheeseUsage(){
+  const dishes = D.cheeseUsageMetrics.byDish;
+  const grid = document.getElementById('usage-dish-grid');
+  grid.innerHTML = dishes.map(d=>`
+    <div class="usage-card">
+      <div class="usage-dish">${d.dish}</div>
+      <div class="usage-product">${d.product}</div>
+      <div class="usage-metric"><span class="usage-val">${d.grams}g</span><span class="usage-unit">/ ${(d.lbs).toFixed(2)} lbs per piece</span></div>
+      <div class="usage-note">${d.notes}</div>
+    </div>`).join('');
+  const cats = D.cheeseUsageMetrics.byCategory;
+  const tbody = document.getElementById('usage-cat-body');
+  tbody.innerHTML = cats.map(c=>`
+    <tr>
+      <td>${c.cat}</td>
+      <td style="font-size:11px;color:var(--color-text-faint)">${c.dailyPieces}</td>
+      <td>${c.lbsPerDay}</td>
+      <td>${c.lbsPerMonth}</td>
+      <td>${fmtMoney(c.monthlyRevLow)}</td>
+      <td>${fmtMoney(c.monthlyRevHigh)}</td>
+      <td><span style="font-size:10px;font-weight:600;color:${c.validated?'var(--color-green-bright)':'var(--color-high)'}">${c.validated?'✓ Validated':'△ Estimate'}</span></td>
+    </tr>`).join('');
+}
+
+// ===================== PLAYBOOK =====================
+function buildPlaybook(){
+  const pb = D.salesPlaybook;
+  // Benchmarks
+  const bg = document.getElementById('bench-grid');
+  const bench = [
+    {v:'8–12%', l:'Cold Email Reply Rate', n:'Highly personalized campaigns'},
+    {v:'5–10×', l:'Warm vs Cold Conversion', n:'Warm outreach advantage'},
+    {v:'5–9', l:'Touches to Convert', n:'Average touchpoints to close'},
+    {v:'2–4%', l:'Meeting Booked Rate', n:'Of qualified cold contacts'},
+    {v:'+45%', l:'Social Proof Boost', n:'Reply rate increase with peer testimonials'},
+    {v:'$42', l:'Email ROI per $1 Spent', n:'B2B cold email average return'},
+  ];
+  bg.innerHTML = bench.map(b=>`
+    <div class="bench-card">
+      <div class="bench-value">${b.v}</div>
+      <div class="bench-label">${b.l}</div>
+      <div class="bench-note">${b.n}</div>
+    </div>`).join('');
+
+  // Funnel
+  const fg = document.getElementById('funnel-grid');
+  fg.innerHTML = pb.conversionFunnel.map((f,i)=>`
+    <div class="funnel-stage">
+      <div class="funnel-name">${f.stage}</div>
+      <div class="funnel-conv">${f.targetConv}</div>
+      <div class="funnel-action">${f.action}</div>
+      <div class="funnel-notes">${f.notes}</div>
+      ${i<pb.conversionFunnel.length-1?'<div class="funnel-arrow">→</div>':''}
+    </div>`).join('');
+
+  // Playbook cards
+  const pg = document.getElementById('playbook-grid');
+  const tierCls = ['t1','t2','t3','t4'];
+  pg.innerHTML = pb.tiers.map((t,i)=>`
+    <div class="playbook-card">
+      <div class="playbook-tier ${tierCls[i]}">${t.tier}</div>
+      <div class="playbook-heading">${t.targets}</div>
+      <div class="playbook-approach">${t.approach}</div>
+      <div>
+        ${t.sequence.map((s,si)=>`
+          <div class="sequence-step">
+            <div class="step-num">${s.touch}</div>
+            <div class="step-body">
+              <div class="step-day">Day ${s.day}</div>
+              <div class="step-channel">${s.channel}</div>
+              <div class="step-subject">${s.subject}</div>
+              <div class="step-script-toggle" onclick="toggleScript('script-${i}-${si}')">View script ↓</div>
+              <div class="step-script" id="script-${i}-${si}">${s.script}</div>
+            </div>
+          </div>`).join('')}
+      </div>
+      <div class="vp-list">
+        <div style="font-size:10px;font-weight:600;color:var(--color-text-faint);letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px;margin-top:8px">Key Value Props</div>
+        ${t.keyValueProps.map(v=>`<div class="vp-item">${v}</div>`).join('')}
+      </div>
+    </div>`).join('');
+
+  // Best practices
+  const bpg = document.getElementById('bp-grid');
+  bpg.innerHTML = pb.bestPractices.map((b,i)=>`
+    <div class="bp-card">
+      <div class="bp-num">${i+1}</div>
+      <div class="bp-body">
+        <div class="bp-practice">${b.practice}</div>
+        <div class="bp-detail">${b.detail}</div>
+      </div>
+    </div>`).join('');
+}
+
+function toggleScript(id){
+  const el = document.getElementById(id);
+  el.classList.toggle('open');
+}
+
+// ===================== VALIDATION =====================
+function buildValidation(){
+  const vd = D.cheeseUsageMetrics.tamValidation;
+  const vt = document.getElementById('val-table');
+  vt.innerHTML = `
+    <div style="padding:0 2px">
+      <div class="val-row" style="background:var(--color-surface-off);font-weight:600;font-size:10px;color:var(--color-text-faint);letter-spacing:.06em">
+        <div>TIER / CATEGORY</div><div>MODEL RANGE</div><div>RESEARCHED RANGE</div><div>VERDICT</div>
+      </div>
+      ${vd.items.map(it=>`
+        <div class="val-row">
+          <div class="val-tier-name">${it.tier}</div>
+          <div class="val-range">${fmtMoney(it.modelLow)}–${fmtMoney(it.modelHigh)} /mo</div>
+          <div class="val-range">${fmtMoney(it.researchedLow)}–${fmtMoney(it.researchedHigh)} /mo</div>
+          <div class="val-verdict ${it.verdict.startsWith('✓')?'ok':'warn'}">${it.verdict}</div>
+        </div>`).join('')}
+    </div>`;
+}
+
+// ===================== CHARTS =====================
+function buildAllCharts(){
+  const c = getColors();
+  const isDark = document.documentElement.getAttribute('data-theme')==='dark';
+  const gridColor = isDark ? 'rgba(100,120,100,0.15)' : 'rgba(0,0,0,0.07)';
+  const tickColor = c.text;
+
+  function scaleOpts(){ return {
+    x:{ grid:{color:gridColor}, ticks:{color:tickColor,font:{size:10}} },
+    y:{ grid:{color:gridColor}, ticks:{color:tickColor,font:{size:10},callback:v=>v>=1000?(v/1000)+'K':v} }
+  };}
+
+  // Priority doughnut
+  mkChart('chart-priority',{type:'doughnut',data:{
+    labels:['CRITICAL','HIGH','MEDIUM','LOW','EXPLORATORY'],
+    datasets:[{data:[74,89,65,40,13],backgroundColor:[c.critical,c.high,c.medium,c.low,c.expl],borderWidth:2,borderColor:isDark?'#141814':'#faf8f2'}]
+  },options:{plugins:{legend:{labels:{color:c.text,font:{size:10},boxWidth:10}}}}});
+
+  // Tier revenue bars
+  const tiers = Object.entries(D.byTier);
+  mkChart('chart-tier-rev',{type:'bar',data:{
+    labels:tiers.map(([k])=>k),
+    datasets:[
+      {label:'Annual Low',data:tiers.map(([,v])=>v.aLow),backgroundColor:c.medium+'99',borderRadius:4},
+      {label:'Annual High',data:tiers.map(([,v])=>v.aHigh),backgroundColor:c.gold+'cc',borderRadius:4}
+    ]
+  },options:{plugins:{legend:{labels:{color:c.text,font:{size:10}}}},scales:scaleOpts()}});
+
+  // States bar
+  const statesSorted = Object.entries(D.byState).sort((a,b)=>b[1].count-a[1].count).slice(0,8);
+  mkChart('chart-states',{type:'bar',data:{
+    labels:statesSorted.map(([k])=>k),
+    datasets:[{label:'Prospects',data:statesSorted.map(([,v])=>v.count),backgroundColor:c.green+'cc',borderRadius:4}]
+  },options:{plugins:{legend:{display:false}},scales:{...scaleOpts(),y:{...scaleOpts().y,ticks:{...scaleOpts().y.ticks,callback:v=>v}}}}});
+
+  // Category revenue
+  const catsSorted = Object.entries(D.byCategory).sort((a,b)=>b[1].mHigh-a[1].mHigh).slice(0,8);
+  mkChart('chart-cat-rev',{type:'bar',data:{
+    labels:catsSorted.map(([,v])=>v.label.split(' ').slice(0,2).join(' ')),
+    datasets:[{label:'Monthly High',data:catsSorted.map(([,v])=>v.mHigh),backgroundColor:c.gold+'cc',borderRadius:4}]
+  },options:{indexAxis:'y',plugins:{legend:{display:false}},scales:{...scaleOpts(),x:{...scaleOpts().x,ticks:{...scaleOpts().x.ticks,callback:v=>v>=1000?(v/1000)+'K':v}}}}});
+
+  // TAM tier
+  mkChart('chart-tam-tier',{type:'bar',data:{
+    labels:Object.keys(D.byTier),
+    datasets:[
+      {label:'Annual Low',data:Object.values(D.byTier).map(v=>v.aLow),backgroundColor:c.medium+'88',borderRadius:4},
+      {label:'Annual High',data:Object.values(D.byTier).map(v=>v.aHigh),backgroundColor:c.gold+'bb',borderRadius:4}
+    ]
+  },options:{plugins:{legend:{labels:{color:c.text,font:{size:10}}}},scales:scaleOpts()}});
+
+  // TAM category
+  const catH = Object.entries(D.byCategory).sort((a,b)=>b[1].mHigh-a[1].mHigh).slice(0,10);
+  mkChart('chart-tam-cat',{type:'bar',data:{
+    labels:catH.map(([,v])=>v.label.split(' ').slice(0,2).join(' ')),
+    datasets:[{label:'Monthly High',data:catH.map(([,v])=>v.mHigh),backgroundColor:catH.map((_,i)=>i<3?c.critical+'cc':c.gold+'99'),borderRadius:4}]
+  },options:{indexAxis:'y',plugins:{legend:{display:false}},scales:{...scaleOpts(),x:{...scaleOpts().x,ticks:{...scaleOpts().x.ticks,callback:v=>v>=1000?(v/1000)+'K':v}}}}});
+
+  // TAM by state
+  const stAll = Object.entries(D.byState).sort((a,b)=>b[1].mHigh-a[1].mHigh);
+  mkChart('chart-tam-state',{type:'bar',data:{
+    labels:stAll.map(([k])=>k),
+    datasets:[
+      {label:'Monthly Low',data:stAll.map(([,v])=>v.mLow),backgroundColor:c.medium+'66',borderRadius:3},
+      {label:'Monthly High',data:stAll.map(([,v])=>v.mHigh),backgroundColor:c.gold+'aa',borderRadius:3}
+    ]
+  },options:{plugins:{legend:{labels:{color:c.text,font:{size:10}}}},scales:scaleOpts()}});
+
+  // Geo state
+  mkChart('chart-geo-state',{type:'bar',data:{
+    labels:stAll.map(([k])=>k),
+    datasets:[
+      {label:'Monthly Low',data:stAll.map(([,v])=>v.mLow),backgroundColor:c.green+'66',borderRadius:3},
+      {label:'Monthly High',data:stAll.map(([,v])=>v.mHigh),backgroundColor:c.green+'bb',borderRadius:3}
+    ]
+  },options:{plugins:{legend:{labels:{color:c.text,font:{size:10}}}},scales:scaleOpts()}});
+
+  // Categories
+  const catAll = Object.entries(D.byCategory).sort((a,b)=>b[1].count-a[1].count);
+  mkChart('chart-cat-count',{type:'bar',data:{
+    labels:catAll.map(([,v])=>v.label.split('/')[0].trim().split(' ').slice(0,2).join(' ')),
+    datasets:[{label:'Prospects',data:catAll.map(([,v])=>v.count),backgroundColor:c.green+'aa',borderRadius:4}]
+  },options:{indexAxis:'y',plugins:{legend:{display:false}},scales:{...scaleOpts(),y:{...scaleOpts().y,ticks:{...scaleOpts().y.ticks,font:{size:9},callback:v=>v}}}}});
+  const catMH = Object.entries(D.byCategory).sort((a,b)=>b[1].mHigh-a[1].mHigh);
+  mkChart('chart-cat-mhigh',{type:'bar',data:{
+    labels:catMH.map(([,v])=>v.label.split('/')[0].trim().split(' ').slice(0,2).join(' ')),
+    datasets:[{label:'Monthly High',data:catMH.map(([,v])=>v.mHigh),backgroundColor:c.gold+'aa',borderRadius:4}]
+  },options:{indexAxis:'y',plugins:{legend:{display:false}},scales:{...scaleOpts(),y:{...scaleOpts().y,ticks:{...scaleOpts().y.ticks,font:{size:9},callback:v=>v}},x:{...scaleOpts().x,ticks:{...scaleOpts().x.ticks,callback:v=>v>=1000?(v/1000)+'K':v}}}}});
+
+  // Validation chart
+  const valItems = D.cheeseUsageMetrics.tamValidation.items;
+  mkChart('chart-validation',{type:'bar',data:{
+    labels:valItems.map(v=>v.tier.split('(')[0].trim()),
+    datasets:[
+      {label:'Model High /mo',data:valItems.map(v=>v.modelHigh),backgroundColor:c.medium+'88',borderRadius:4},
+      {label:'Researched High /mo',data:valItems.map(v=>v.researchedHigh),backgroundColor:c.gold+'bb',borderRadius:4}
+    ]
+  },options:{plugins:{legend:{labels:{color:c.text,font:{size:10}}}},scales:scaleOpts()}});
+}
+
+// ===================== INIT =====================
+function init(){
+  buildKPIs();
+  buildTAMKPIs();
+  buildTop10();
+  buildDistributors();
+  buildGeo();
+  buildCategories();
+  buildCheeseUsage();
+  buildPlaybook();
+  buildValidation();
+  buildValKPIs();
+  buildProspectTable('critical-table-container', p=>p.score>=50, 'Critical & High Prospects');
+  buildProspectTable('all-table-container', ()=>true, 'All Prospects');
+  setTimeout(buildAllCharts, 100);
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

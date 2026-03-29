@@ -2,8 +2,9 @@
 
 import bcryptjs from "bcryptjs";
 import { prisma } from "@/lib/db";
-import { setSession, clearSession } from "@/lib/session";
+import { setSession, clearSession, getSession } from "@/lib/session";
 import { revalidatePath } from "next/cache";
+import { sendVerificationEmail, send2FAEmail, generateVerificationCode } from "@/lib/email";
 
 // ── Role Constants ────────────────────────────────────────────────────────────
 const STAFF_ROLES = ["MASTER_ADMIN", "PRODUCT_MANAGER", "CONTENT_MANAGER", "SALES"];
@@ -43,6 +44,26 @@ export async function loginAction(formData: FormData) {
             return { error: "Invalid credentials." };
         }
 
+        // Check email verification
+        if (!user.emailVerified) {
+            // Generate new code and send
+            const code = generateVerificationCode();
+            const expiry = new Date(Date.now() + 15 * 60 * 1000);
+
+            await prisma.user.update({
+                where: { id: user.id },
+                data: { verificationCode: code, verificationExpiry: expiry },
+            });
+
+            await sendVerificationEmail(user.email, code, user.name || undefined);
+
+            return {
+                error: "Please verify your email first. We've sent a new code.",
+                needsVerification: true,
+                email: user.email,
+            };
+        }
+
         await setSession(user.id, user.role, user.email, user.name || undefined);
 
         return { success: true, role: user.role };
@@ -68,6 +89,8 @@ export async function registerB2CAction(formData: FormData) {
         }
 
         const passwordHash = await bcryptjs.hash(password, 12);
+        const code = generateVerificationCode();
+        const expiry = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
 
         const user = await prisma.user.create({
             data: {
@@ -75,6 +98,9 @@ export async function registerB2CAction(formData: FormData) {
                 name,
                 passwordHash,
                 role: "B2C_CUSTOMER",
+                emailVerified: false,
+                verificationCode: code,
+                verificationExpiry: expiry,
             },
         });
 
@@ -83,12 +109,121 @@ export async function registerB2CAction(formData: FormData) {
             data: { userId: user.id },
         });
 
-        await setSession(user.id, user.role, user.email, user.name || undefined);
+        // Send verification email
+        const emailResult = await sendVerificationEmail(email, code, name);
 
-        return { success: true };
+        if (!emailResult.success) {
+            console.error("Failed to send verification email:", emailResult.error);
+            // Still allow registration but warn
+            return {
+                success: true,
+                needsVerification: true,
+                email,
+                warning: "Account created but verification email could not be sent. Please try resending.",
+            };
+        }
+
+        return { success: true, needsVerification: true, email };
     } catch (error) {
         console.error("Register B2C error:", error);
         return { error: "Failed to create account." };
+    }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Email Verification Actions
+// ──────────────────────────────────────────────────────────────────────────────
+
+export async function verifyEmailAction(email: string, code: string) {
+    if (!email || !code || code.length !== 6) {
+        return { error: "Please enter a valid 6-digit code." };
+    }
+
+    try {
+        const user = await prisma.user.findUnique({ where: { email } });
+
+        if (!user) {
+            return { error: "Account not found." };
+        }
+
+        if (user.emailVerified) {
+            return { success: true, alreadyVerified: true };
+        }
+
+        if (!user.verificationCode || !user.verificationExpiry) {
+            return { error: "No verification code found. Please request a new one." };
+        }
+
+        if (new Date() > user.verificationExpiry) {
+            return { error: "Verification code has expired. Please request a new one." };
+        }
+
+        if (user.verificationCode !== code) {
+            return { error: "Incorrect verification code. Please try again." };
+        }
+
+        // Verify the email
+        await prisma.user.update({
+            where: { id: user.id },
+            data: {
+                emailVerified: true,
+                verificationCode: null,
+                verificationExpiry: null,
+            },
+        });
+
+        // Set session (log them in)
+        await setSession(user.id, user.role, user.email, user.name || undefined);
+
+        return { success: true, role: user.role };
+    } catch (error) {
+        console.error("Verify email error:", error);
+        return { error: "Verification failed. Please try again." };
+    }
+}
+
+export async function resendVerificationAction(email: string) {
+    if (!email) {
+        return { error: "Email is required." };
+    }
+
+    try {
+        const user = await prisma.user.findUnique({ where: { email } });
+
+        if (!user) {
+            // Don't reveal if email exists or not
+            return { success: true };
+        }
+
+        if (user.emailVerified) {
+            return { success: true, alreadyVerified: true };
+        }
+
+        // Rate limit: check if last code was sent less than 60 seconds ago
+        if (user.verificationExpiry) {
+            const lastSent = new Date(user.verificationExpiry.getTime() - 15 * 60 * 1000);
+            const secondsSince = (Date.now() - lastSent.getTime()) / 1000;
+            if (secondsSince < 60) {
+                return {
+                    error: `Please wait ${Math.ceil(60 - secondsSince)} seconds before requesting a new code.`,
+                };
+            }
+        }
+
+        const code = generateVerificationCode();
+        const expiry = new Date(Date.now() + 15 * 60 * 1000);
+
+        await prisma.user.update({
+            where: { id: user.id },
+            data: { verificationCode: code, verificationExpiry: expiry },
+        });
+
+        await sendVerificationEmail(email, code, user.name || undefined);
+
+        return { success: true };
+    } catch (error) {
+        console.error("Resend verification error:", error);
+        return { error: "Failed to resend verification code." };
     }
 }
 
@@ -146,6 +281,7 @@ export async function registerB2BAction(formData: FormData) {
                     companyName,
                     role: "B2B_PARTNER",
                     isActiveB2b: true,
+                    emailVerified: true, // B2B access code = trusted
                 },
             }),
         ]);
@@ -164,15 +300,20 @@ export async function registerB2BAction(formData: FormData) {
 // ──────────────────────────────────────────────────────────────────────────────
 
 export async function staffLoginAction(formData: FormData) {
-    const email = formData.get("email") as string;
+    const loginInput = (formData.get("email") as string)?.trim();
     const password = formData.get("password") as string;
 
-    if (!email || !password) {
-        return { error: "Email and password are required." };
+    if (!loginInput || !password) {
+        return { error: "Login ID and password are required." };
     }
 
     try {
-        const user = await prisma.user.findUnique({ where: { email } });
+        // Support both email and username login
+        // If no @ sign, try appending @staff.local for username-based accounts
+        let user = await prisma.user.findUnique({ where: { email: loginInput } });
+        if (!user && !loginInput.includes("@")) {
+            user = await prisma.user.findUnique({ where: { email: `${loginInput.toLowerCase()}@staff.local` } });
+        }
 
         if (!user || !user.isActive) {
             return { error: "Invalid credentials." };
@@ -194,12 +335,106 @@ export async function staffLoginAction(formData: FormData) {
             return { error: "Invalid credentials." };
         }
 
+        // 2FA for MASTER_ADMIN accounts
+        if (user.role === "MASTER_ADMIN") {
+            // Check if TOTP (Google Auth) is enabled
+            if (user.totpSecret) {
+                return {
+                    success: false,
+                    needs2FA: true,
+                    totpEnabled: true,
+                    email: user.email,
+                    message: "Enter your Google Authenticator code.",
+                };
+            }
+
+            // Fall back to email-based 2FA
+            const code = generateVerificationCode();
+            const expiry = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+
+            await prisma.user.update({
+                where: { id: user.id },
+                data: { twoFactorCode: code, twoFactorExpiry: expiry },
+            });
+
+            await send2FAEmail(user.email, code, user.name || undefined);
+
+            return {
+                success: false,
+                needs2FA: true,
+                totpEnabled: false,
+                email: user.email,
+                message: "Two-factor code sent to your email.",
+            };
+        }
+
         await setSession(user.id, user.role, user.email, user.name || undefined);
 
         return { success: true, role: user.role };
     } catch (error) {
         console.error("Staff login error:", error);
         return { error: "An unexpected error occurred during login." };
+    }
+}
+
+export async function verify2FAAction(email: string, code: string) {
+    if (!email || !code || code.length !== 6) {
+        return { error: "Please enter a valid 6-digit code." };
+    }
+
+    try {
+        const user = await prisma.user.findUnique({ where: { email } });
+
+        if (!user || user.role !== "MASTER_ADMIN") {
+            return { error: "Account not found." };
+        }
+
+        // If TOTP is enabled, verify with Google Auth
+        if (user.totpSecret) {
+            const { TOTP } = await import("otpauth");
+            const totp = new TOTP({
+                issuer: "Colchis Creamery",
+                label: user.email,
+                algorithm: "SHA1",
+                digits: 6,
+                period: 30,
+                secret: user.totpSecret,
+            });
+
+            const delta = totp.validate({ token: code, window: 1 });
+            if (delta === null) {
+                return { error: "Invalid authenticator code. Please try again." };
+            }
+
+            await setSession(user.id, user.role, user.email, user.name || undefined);
+            return { success: true, role: user.role };
+        }
+
+        // Email-based 2FA verification
+        if (!user.twoFactorCode || !user.twoFactorExpiry) {
+            return { error: "No 2FA code found. Please log in again." };
+        }
+
+        if (new Date() > user.twoFactorExpiry) {
+            return { error: "2FA code has expired. Please log in again." };
+        }
+
+        if (user.twoFactorCode !== code) {
+            return { error: "Incorrect code. Please try again." };
+        }
+
+        // Clear 2FA code and set session
+        await prisma.user.update({
+            where: { id: user.id },
+            data: { twoFactorCode: null, twoFactorExpiry: null },
+        });
+
+        await setSession(user.id, user.role, user.email, user.name || undefined);
+
+        return { success: true, role: user.role };
+    } catch (error) {
+        console.error("2FA verification error:", error);
+        return { error: "Verification failed. Please try again." };
     }
 }
 
@@ -252,6 +487,7 @@ export async function registerStaffAction(formData: FormData) {
                     name,
                     passwordHash,
                     role: validCode.targetRole,
+                    emailVerified: true, // Staff access code = trusted
                 },
             }),
         ]);
@@ -358,6 +594,249 @@ export async function changePasswordAction(formData: FormData) {
     } catch (error) {
         console.error("Change password error:", error);
         return { error: "Failed to change password." };
+    }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// TOTP (Google Authenticator) Setup
+// ──────────────────────────────────────────────────────────────────────────────
+
+export async function setupTOTPAction() {
+    const session = await getSession();
+    if (!session || session.role !== "MASTER_ADMIN") {
+        return { error: "Unauthorized." };
+    }
+
+    try {
+        const { TOTP, Secret } = await import("otpauth");
+        const secret = new Secret({ size: 20 });
+
+        const totp = new TOTP({
+            issuer: "Colchis Creamery",
+            label: session.email,
+            algorithm: "SHA1",
+            digits: 6,
+            period: 30,
+            secret: secret,
+        });
+
+        const uri = totp.toString();
+        const secretBase32 = secret.base32;
+
+        return { success: true, uri, secret: secretBase32 };
+    } catch (error) {
+        console.error("TOTP setup error:", error);
+        return { error: "Failed to generate TOTP secret." };
+    }
+}
+
+export async function enableTOTPAction(secret: string, code: string) {
+    const session = await getSession();
+    if (!session || session.role !== "MASTER_ADMIN") {
+        return { error: "Unauthorized." };
+    }
+
+    if (!secret || !code || code.length !== 6) {
+        return { error: "Please enter a valid 6-digit code." };
+    }
+
+    try {
+        const { TOTP } = await import("otpauth");
+        const totp = new TOTP({
+            issuer: "Colchis Creamery",
+            label: session.email,
+            algorithm: "SHA1",
+            digits: 6,
+            period: 30,
+            secret: secret,
+        });
+
+        const delta = totp.validate({ token: code, window: 1 });
+        if (delta === null) {
+            return { error: "Invalid code. Please scan the QR code again and enter the current code." };
+        }
+
+        await prisma.user.update({
+            where: { id: session.userId },
+            data: { totpSecret: secret },
+        });
+
+        return { success: true };
+    } catch (error) {
+        console.error("Enable TOTP error:", error);
+        return { error: "Failed to enable TOTP." };
+    }
+}
+
+export async function disableTOTPAction(code: string) {
+    const session = await getSession();
+    if (!session || session.role !== "MASTER_ADMIN") {
+        return { error: "Unauthorized." };
+    }
+
+    try {
+        const user = await prisma.user.findUnique({ where: { id: session.userId } });
+        if (!user || !user.totpSecret) {
+            return { error: "TOTP is not enabled." };
+        }
+
+        const { TOTP } = await import("otpauth");
+        const totp = new TOTP({
+            issuer: "Colchis Creamery",
+            label: user.email,
+            algorithm: "SHA1",
+            digits: 6,
+            period: 30,
+            secret: user.totpSecret,
+        });
+
+        const delta = totp.validate({ token: code, window: 1 });
+        if (delta === null) {
+            return { error: "Invalid code. Must verify to disable TOTP." };
+        }
+
+        await prisma.user.update({
+            where: { id: user.id },
+            data: { totpSecret: null },
+        });
+
+        return { success: true };
+    } catch (error) {
+        console.error("Disable TOTP error:", error);
+        return { error: "Failed to disable TOTP." };
+    }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Admin: Create / Delete Staff Accounts
+// ──────────────────────────────────────────────────────────────────────────────
+
+function generateTempPassword(): string {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
+    let password = "";
+    for (let i = 0; i < 12; i++) {
+        password += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return password;
+}
+
+export async function createStaffAccountAction(formData: FormData) {
+    const session = await getSession();
+    if (!session || session.role !== "MASTER_ADMIN") {
+        return { error: "Unauthorized." };
+    }
+
+    const name = formData.get("name") as string;
+    const loginId = (formData.get("loginId") as string)?.trim();
+    const role = formData.get("role") as string;
+
+    if (!name || !role) {
+        return { error: "Name and role are required." };
+    }
+
+    // Viewer can be created without login credentials
+    // Staff must have a username or email
+    const isViewer = role === "ANALYTICS_VIEWER";
+    if (!isViewer && !loginId) {
+        return { error: "Staff accounts require a username or email." };
+    }
+
+    const validRoles = ["PRODUCT_MANAGER", "CONTENT_MANAGER", "SALES", "ANALYTICS_VIEWER"];
+    if (!validRoles.includes(role)) {
+        return { error: "Invalid role." };
+    }
+
+    // Determine email: if loginId looks like email use it, otherwise generate a placeholder
+    const isEmail = loginId && loginId.includes("@");
+    const email = isEmail ? loginId : loginId ? `${loginId.toLowerCase().replace(/\s+/g, "")}@staff.local` : `viewer-${Date.now()}@viewer.local`;
+
+    try {
+        const existing = await prisma.user.findUnique({ where: { email } });
+        if (existing) {
+            return { error: `An account with this ${isEmail ? "email" : "username"} already exists.` };
+        }
+
+        const tempPassword = generateTempPassword();
+        const passwordHash = await bcryptjs.hash(tempPassword, 12);
+
+        const newUser = await prisma.user.create({
+            data: {
+                name,
+                email,
+                role,
+                passwordHash,
+                emailVerified: true,
+                isActive: true,
+            },
+        });
+
+        revalidatePath("/admin/staff");
+        return {
+            success: true,
+            tempPassword,
+            createdUser: {
+                id: newUser.id,
+                name: newUser.name,
+                email: newUser.email,
+                role: newUser.role,
+                isActive: newUser.isActive,
+                createdAt: newUser.createdAt.toISOString(),
+            },
+        };
+    } catch (error) {
+        console.error("Create staff account error:", error);
+        return { error: "Failed to create account." };
+    }
+}
+
+export async function resetStaffPasswordAction(userId: string, newPassword?: string) {
+    const session = await getSession();
+    if (!session || session.role !== "MASTER_ADMIN") {
+        return { error: "Unauthorized." };
+    }
+
+    try {
+        const user = await prisma.user.findUnique({ where: { id: userId } });
+        if (!user) return { error: "User not found." };
+        if (user.role === "MASTER_ADMIN") return { error: "Use the Security page to change your own password." };
+
+        const password = newPassword && newPassword.length >= 4 ? newPassword : generateTempPassword();
+        const passwordHash = await bcryptjs.hash(password, 12);
+
+        await prisma.user.update({
+            where: { id: userId },
+            data: { passwordHash },
+        });
+
+        revalidatePath("/admin/staff");
+        return { success: true, newPassword: password };
+    } catch (error) {
+        console.error("Reset staff password error:", error);
+        return { error: "Failed to reset password." };
+    }
+}
+
+export async function deleteStaffAccountAction(userId: string) {
+    const session = await getSession();
+    if (!session || session.role !== "MASTER_ADMIN") {
+        return { error: "Unauthorized." };
+    }
+
+    try {
+        const user = await prisma.user.findUnique({ where: { id: userId } });
+        if (!user) return { error: "User not found." };
+        if (user.role === "MASTER_ADMIN") return { error: "Cannot delete admin accounts." };
+
+        await prisma.userProfile.deleteMany({ where: { userId } });
+        await prisma.dashboardAccess.deleteMany({ where: { userId } });
+        await prisma.account.deleteMany({ where: { userId } });
+        await prisma.user.delete({ where: { id: userId } });
+
+        revalidatePath("/admin/staff");
+        return { success: true };
+    } catch (error) {
+        console.error("Delete staff account error:", error);
+        return { error: "Failed to delete account." };
     }
 }
 

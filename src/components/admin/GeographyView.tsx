@@ -34,13 +34,13 @@ export function GeographyView({ pins, stats }: { pins: PinData[]; stats: Dashboa
       {
         label: 'Monthly Low',
         data: statesSorted.map(([, v]) => v.revLow),
-        backgroundColor: '#4d9a5a66',
+        backgroundColor: '#CBA15366',
         borderRadius: 3,
       },
       {
         label: 'Monthly High',
         data: statesSorted.map(([, v]) => v.revHigh),
-        backgroundColor: '#4d9a5abb',
+        backgroundColor: '#CBA153bb',
         borderRadius: 3,
       },
     ],

@@ -12,7 +12,7 @@ function fmtMoney(v: number) {
 const PRIORITY_COLORS: Record<string, string> = {
   CRITICAL: 'bg-[#e8614a]/15 text-[#e8614a]',
   HIGH: 'bg-[#c9a84c]/15 text-[#c9a84c]',
-  MEDIUM: 'bg-[#4d9a5a]/15 text-[#4d9a5a]',
+  MEDIUM: 'bg-[#CBA153]/15 text-[#CBA153]',
   LOW: 'bg-[#4a7a9a]/15 text-[#4a7a9a]',
   EXPLORATORY: 'bg-[#7a6a8a]/15 text-[#7a6a8a]',
 };
@@ -67,12 +67,12 @@ export function ProspectModal({ pin, onClose }: { pin: PinData; onClose: () => v
             <div className="text-[10px] font-semibold uppercase tracking-widest text-[#666666] mb-2">Contact & Location</div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-[#888888]">
               {pin.phone && (
-                <a href={`tel:${pin.phone}`} className="flex items-center gap-2 hover:text-[#4d9a5a] transition-colors">
+                <a href={`tel:${pin.phone}`} className="flex items-center gap-2 hover:text-[#CBA153] transition-colors">
                   <Phone className="w-3 h-3" /> {pin.phone}
                 </a>
               )}
               {pin.website && (
-                <a href={pin.website.startsWith('http') ? pin.website : `https://${pin.website}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:text-[#4d9a5a] transition-colors truncate">
+                <a href={pin.website.startsWith('http') ? pin.website : `https://${pin.website}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:text-[#CBA153] transition-colors truncate">
                   <Globe className="w-3 h-3" /> {pin.website}
                 </a>
               )}

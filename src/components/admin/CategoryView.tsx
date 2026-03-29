@@ -32,7 +32,7 @@ export function CategoryView({ pins, stats }: { pins: PinData[]; stats: Dashboar
     datasets: [{
       label: 'Prospects',
       data: catsSorted.map(([, v]) => v.count),
-      backgroundColor: '#4d9a5aaa',
+      backgroundColor: '#CBA153aa',
       borderRadius: 4,
     }],
   };

@@ -10,7 +10,7 @@ const TIER_BUTTONS = [
   { value: '', label: 'All', color: 'bg-[#1F1F1F] text-[#888888]' },
   { value: 'CORE', label: 'Core', color: 'bg-[#e8614a]/15 text-[#e8614a]' },
   { value: 'ADJACENT', label: 'Adjacent', color: 'bg-[#c9a84c]/15 text-[#c9a84c]' },
-  { value: 'STRATEGIC', label: 'Strategic', color: 'bg-[#4d9a5a]/15 text-[#4d9a5a]' },
+  { value: 'STRATEGIC', label: 'Strategic', color: 'bg-[#CBA153]/15 text-[#CBA153]' },
   { value: 'GROWTH', label: 'Growth', color: 'bg-[#4a7a9a]/15 text-[#4a7a9a]' },
   { value: 'EXPERIMENTAL', label: 'Experimental', color: 'bg-[#7a6a8a]/15 text-[#7a6a8a]' },
 ];
@@ -18,7 +18,7 @@ const TIER_BUTTONS = [
 const PRIORITY_BG: Record<string, string> = {
   CRITICAL: 'bg-[#e8614a]/15 text-[#e8614a]',
   HIGH: 'bg-[#c9a84c]/15 text-[#c9a84c]',
-  MEDIUM: 'bg-[#4d9a5a]/15 text-[#4d9a5a]',
+  MEDIUM: 'bg-[#CBA153]/15 text-[#CBA153]',
   LOW: 'bg-[#4a7a9a]/15 text-[#4a7a9a]',
   EXPLORATORY: 'bg-[#7a6a8a]/15 text-[#7a6a8a]',
 };
@@ -124,7 +124,7 @@ export function AnalyticsMapView({
                       <div className={`w-2 h-2 rounded-full shrink-0 ${
                         pin.tier === 1 ? 'bg-[#e8614a]' :
                         pin.tier === 2 ? 'bg-[#c9a84c]' :
-                        pin.tier === 3 ? 'bg-[#4d9a5a]' :
+                        pin.tier === 3 ? 'bg-[#CBA153]' :
                         pin.tier === 4 ? 'bg-[#4a7a9a]' : 'bg-[#7a6a8a]'
                       }`}></div>
                       <div className="min-w-0 flex-1">

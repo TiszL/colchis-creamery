@@ -65,7 +65,7 @@ const PLAYBOOK_TIERS = [
   },
   {
     tier: 'TIER 3 — EDUCATIONAL APPROACH (MEDIUM Score 35-49)',
-    tierClass: 'text-[#4d9a5a]',
+    tierClass: 'text-[#CBA153]',
     targets: 'Artisan Pizzerias, International Markets, Uzbek/Armenian Restaurants',
     approach: 'Content-led. Educate on sulguni-as-halloumi substitution. Taste test critical.',
     sequence: [
@@ -119,7 +119,7 @@ function SequenceStep({ step, tierIndex, stepIndex }: { step: any; tierIndex: nu
 
   return (
     <div className="flex gap-2.5 p-3 bg-[#1F1F1F] rounded-lg">
-      <div className="w-6 h-6 rounded-full bg-[#1a2e1e] text-[#4d9a5a] text-[10px] font-bold flex items-center justify-center shrink-0">
+      <div className="w-6 h-6 rounded-full bg-[#2C2A29] text-[#CBA153] text-[10px] font-bold flex items-center justify-center shrink-0">
         {step.touch}
       </div>
       <div className="flex-1 min-w-0">
@@ -128,7 +128,7 @@ function SequenceStep({ step, tierIndex, stepIndex }: { step: any; tierIndex: nu
         <div className="text-[10px] text-[#888888] italic mt-0.5">{step.subject}</div>
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="text-[10px] text-[#4d9a5a] mt-1.5 flex items-center gap-1 hover:text-[#6dba7a] transition-colors"
+          className="text-[10px] text-[#CBA153] mt-1.5 flex items-center gap-1 hover:text-[#D8B87B] transition-colors"
         >
           {isOpen ? 'Hide' : 'View'} script
           {isOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
@@ -172,7 +172,7 @@ export function PlaybookView() {
       {/* Conversion Funnel */}
       <div className="mb-6">
         <h3 className="text-xs font-semibold text-[#F0EDE6] tracking-wide mb-1 flex items-center gap-2">
-          <Target className="w-3.5 h-3.5 text-[#4d9a5a]" />
+          <Target className="w-3.5 h-3.5 text-[#CBA153]" />
           Conversion Funnel
         </h3>
         <p className="text-[10px] text-[#666666] mb-3">Expected conversion rates at each stage of the B2B sales process</p>
@@ -219,7 +219,7 @@ export function PlaybookView() {
                 <div className="space-y-1.5">
                   {tier.valueProps.map((vp, vi) => (
                     <div key={vi} className="flex items-start gap-1.5 text-[11px] text-[#888888] leading-snug">
-                      <span className="text-[#4d9a5a] shrink-0 text-[10px] mt-px">→</span>
+                      <span className="text-[#CBA153] shrink-0 text-[10px] mt-px">→</span>
                       {vp}
                     </div>
                   ))}

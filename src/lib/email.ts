@@ -20,15 +20,15 @@ export async function sendVerificationEmail(to: string, code: string, name?: str
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
-<body style="margin:0;padding:0;background-color:#FAF8F2;font-family:'Georgia',serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#FAF8F2;padding:40px 20px;">
+<body style="margin:0;padding:0;background-color:#FDFBF7;font-family:'Georgia',serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#FDFBF7;padding:40px 20px;">
     <tr>
       <td align="center">
         <table width="480" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
           
           <!-- Header -->
           <tr>
-            <td style="background:linear-gradient(135deg,#1a2e1e 0%,#2d4a32 100%);padding:32px 40px;text-align:center;">
+            <td style="background:linear-gradient(135deg,#2C2A29 0%,#4A4745 100%);padding:32px 40px;text-align:center;">
               <h1 style="color:#CBA153;margin:0;font-size:24px;font-weight:700;letter-spacing:1px;">COLCHIS CREAMERY</h1>
               <p style="color:rgba(255,255,255,0.6);margin:6px 0 0;font-size:11px;letter-spacing:3px;text-transform:uppercase;">Authentic Georgian Cheese</p>
             </td>
@@ -43,9 +43,9 @@ export async function sendVerificationEmail(to: string, code: string, name?: str
               </p>
               
               <!-- Code Box -->
-              <div style="background:linear-gradient(135deg,#FAF8F2 0%,#F5F0E5 100%);border:2px solid #CBA153;border-radius:12px;padding:28px;text-align:center;margin:0 0 28px;">
+              <div style="background:linear-gradient(135deg,#FDFBF7 0%,#FAFAFA 100%);border:2px solid #CBA153;border-radius:12px;padding:28px;text-align:center;margin:0 0 28px;">
                 <p style="color:#999;font-size:11px;letter-spacing:3px;text-transform:uppercase;margin:0 0 12px;">Your Verification Code</p>
-                <p style="color:#1a2e1e;font-size:36px;font-weight:700;letter-spacing:8px;margin:0;font-family:'Courier New',monospace;">${code}</p>
+                <p style="color:#2C2A29;font-size:36px;font-weight:700;letter-spacing:8px;margin:0;font-family:'Courier New',monospace;">${code}</p>
               </div>
               
               <p style="color:#999;font-size:12px;line-height:1.5;margin:0 0 24px;text-align:center;">
@@ -64,7 +64,7 @@ export async function sendVerificationEmail(to: string, code: string, name?: str
           
           <!-- Footer -->
           <tr>
-            <td style="background-color:#1a2e1e;padding:20px 40px;text-align:center;">
+            <td style="background-color:#2C2A29;padding:20px 40px;text-align:center;">
               <p style="color:rgba(255,255,255,0.4);font-size:10px;margin:0;letter-spacing:1px;">
                 © ${new Date().getFullYear()} Colchis Creamery · Columbus, Ohio · Authentic Georgian Cheese
               </p>
@@ -112,15 +112,15 @@ export async function send2FAEmail(to: string, code: string, name?: string) {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
-<body style="margin:0;padding:0;background-color:#FAF8F2;font-family:'Georgia',serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#FAF8F2;padding:40px 20px;">
+<body style="margin:0;padding:0;background-color:#FDFBF7;font-family:'Georgia',serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#FDFBF7;padding:40px 20px;">
     <tr>
       <td align="center">
         <table width="480" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
           
           <!-- Header -->
           <tr>
-            <td style="background:linear-gradient(135deg,#1a2e1e 0%,#2d4a32 100%);padding:32px 40px;text-align:center;">
+            <td style="background:linear-gradient(135deg,#2C2A29 0%,#4A4745 100%);padding:32px 40px;text-align:center;">
               <h1 style="color:#CBA153;margin:0;font-size:24px;font-weight:700;letter-spacing:1px;">COLCHIS CREAMERY</h1>
               <p style="color:rgba(255,255,255,0.6);margin:6px 0 0;font-size:11px;letter-spacing:3px;text-transform:uppercase;">Admin Security Verification</p>
             </td>
@@ -137,7 +137,7 @@ export async function send2FAEmail(to: string, code: string, name?: string) {
               <!-- Code Box -->
               <div style="background:#FFF8F0;border:2px solid #E8614A;border-radius:12px;padding:28px;text-align:center;margin:0 0 28px;">
                 <p style="color:#E8614A;font-size:11px;letter-spacing:3px;text-transform:uppercase;margin:0 0 4px;">🔐 Two-Factor Code</p>
-                <p style="color:#1a2e1e;font-size:36px;font-weight:700;letter-spacing:8px;margin:8px 0 0;font-family:'Courier New',monospace;">${code}</p>
+                <p style="color:#2C2A29;font-size:36px;font-weight:700;letter-spacing:8px;margin:8px 0 0;font-family:'Courier New',monospace;">${code}</p>
               </div>
               
               <p style="color:#999;font-size:12px;line-height:1.5;margin:0 0 16px;text-align:center;">
@@ -161,7 +161,7 @@ export async function send2FAEmail(to: string, code: string, name?: string) {
           
           <!-- Footer -->
           <tr>
-            <td style="background-color:#1a2e1e;padding:20px 40px;text-align:center;">
+            <td style="background-color:#2C2A29;padding:20px 40px;text-align:center;">
               <p style="color:rgba(255,255,255,0.4);font-size:10px;margin:0;letter-spacing:1px;">
                 © ${new Date().getFullYear()} Colchis Creamery · Columbus, Ohio · Admin Security
               </p>

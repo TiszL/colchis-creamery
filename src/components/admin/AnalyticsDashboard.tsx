@@ -89,7 +89,7 @@ export function AnalyticsDashboard({
             onClick={() => setActiveTab(tab.id)}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-semibold tracking-wide transition-all whitespace-nowrap ${
               activeTab === tab.id
-                ? 'bg-[#1a2e1e] text-[#4d9a5a] shadow-sm'
+                ? 'bg-[#2C2A29] text-[#CBA153] shadow-sm'
                 : 'text-[#888888] hover:text-[#F0EDE6] hover:bg-[#1F1F1F]'
             }`}
           >

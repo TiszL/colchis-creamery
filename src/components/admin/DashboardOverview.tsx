@@ -26,7 +26,7 @@ function fmtMoney(v: number) {
 const PRIORITY_COLORS: Record<string, string> = {
   CRITICAL: '#e8614a',
   HIGH: '#c9a84c',
-  MEDIUM: '#4d9a5a',
+  MEDIUM: '#CBA153',
   LOW: '#4a7a9a',
   EXPLORATORY: '#7a6a8a',
 };
@@ -34,7 +34,7 @@ const PRIORITY_COLORS: Record<string, string> = {
 const PRIORITY_BG: Record<string, string> = {
   CRITICAL: 'bg-[#e8614a]/15 text-[#e8614a]',
   HIGH: 'bg-[#c9a84c]/15 text-[#c9a84c]',
-  MEDIUM: 'bg-[#4d9a5a]/15 text-[#4d9a5a]',
+  MEDIUM: 'bg-[#CBA153]/15 text-[#CBA153]',
   LOW: 'bg-[#4a7a9a]/15 text-[#4a7a9a]',
   EXPLORATORY: 'bg-[#7a6a8a]/15 text-[#7a6a8a]',
 };
@@ -80,7 +80,7 @@ export function DashboardOverview({ pins, stats }: { pins: PinData[]; stats: Das
       {
         label: 'Annual Low',
         data: tierOrder.map(t => ((stats.byTier[t]?.revLow || 0) * 12)),
-        backgroundColor: '#4d9a5a88',
+        backgroundColor: '#CBA15388',
         borderRadius: 4,
       },
       {
@@ -101,7 +101,7 @@ export function DashboardOverview({ pins, stats }: { pins: PinData[]; stats: Das
     datasets: [{
       label: 'Prospects',
       data: statesSorted.map(([, v]) => v.count),
-      backgroundColor: '#4d9a5acc',
+      backgroundColor: '#CBA153cc',
       borderRadius: 4,
     }],
   };
@@ -143,7 +143,7 @@ export function DashboardOverview({ pins, stats }: { pins: PinData[]; stats: Das
             <span className={`text-2xl font-semibold tabular-nums leading-none ${
               k.cls === 'accent' ? 'text-[#c9a84c]' :
               k.cls === 'red' ? 'text-[#e8614a]' :
-              k.cls === 'green' ? 'text-[#4d9a5a]' : 'text-[#F0EDE6]'
+              k.cls === 'green' ? 'text-[#CBA153]' : 'text-[#F0EDE6]'
             }`}>{k.value}</span>
             <span className="text-[11px] text-[#888888]">{k.sub}</span>
           </div>

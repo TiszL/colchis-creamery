@@ -136,8 +136,8 @@ export default async function AnalyticsDashboardPage({ params }: { params: any }
             <div className="bg-[#141414] border-b border-[#2A2A2A]">
                 <div className="max-w-[1600px] mx-auto px-6 py-4 flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-full bg-[#1a2e1e] border border-[#3d7a47]/30 flex items-center justify-center">
-                            <Globe className="w-5 h-5 text-[#4d9a5a]" />
+                        <div className="w-10 h-10 rounded-full bg-[#2C2A29] border border-[#3d7a47]/30 flex items-center justify-center">
+                            <Globe className="w-5 h-5 text-[#CBA153]" />
                         </div>
                         <div>
                             <h1 className="font-serif text-xl text-[#F0EDE6]">Prospect Intelligence</h1>

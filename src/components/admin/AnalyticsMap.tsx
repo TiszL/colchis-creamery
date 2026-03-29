@@ -10,7 +10,7 @@ import type { PinData } from './AnalyticsDashboard';
 const TIER_COLORS: Record<number, string> = {
   1: '#e8614a', // CORE - red/hot
   2: '#c9a84c', // ADJACENT - gold
-  3: '#4d9a5a', // STRATEGIC - green
+  3: '#CBA153', // STRATEGIC - green
   4: '#4a7a9a', // GROWTH - blue
   5: '#7a6a8a', // EXPERIMENTAL - purple
 };
@@ -18,7 +18,7 @@ const TIER_COLORS: Record<number, string> = {
 const PRIORITY_COLORS: Record<string, string> = {
   CRITICAL: '#e8614a',
   HIGH: '#c9a84c',
-  MEDIUM: '#4d9a5a',
+  MEDIUM: '#CBA153',
   LOW: '#4a7a9a',
   EXPLORATORY: '#7a6a8a',
 };
@@ -88,7 +88,7 @@ function MapEffect({ selectedPin }: { selectedPin: PinData | null }) {
 // Rich InfoWindow using our own DB data (no Places API fetch)
 function RichInfoWindow({ pin, onClose }: { pin: PinData, onClose: () => void }) {
     const priorityColor = PRIORITY_COLORS[pin.priorityRank || ''] || '#888888';
-    const tierColor = TIER_COLORS[pin.tier || 3] || '#4d9a5a';
+    const tierColor = TIER_COLORS[pin.tier || 3] || '#CBA153';
 
     // Build Google Maps URL
     const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(pin.name + ' ' + (pin.address || ''))}`;
@@ -320,7 +320,7 @@ export function AnalyticsMap({
 
                     {/* Render pins from DB — colored by tier */}
                     {initialPins.map((pin) => {
-                        const tierColor = TIER_COLORS[pin.tier || 3] || '#4d9a5a';
+                        const tierColor = TIER_COLORS[pin.tier || 3] || '#CBA153';
                         const isCritical = pin.priorityRank === 'CRITICAL';
                         return (
                             <AdvancedMarker

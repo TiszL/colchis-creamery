@@ -1,6 +1,6 @@
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const resend = new Resend(process.env.RESEND_API_KEY || 're_dummy_string_for_build_time');
 
 const FROM_EMAIL = process.env.EMAIL_FROM || 'noreply@updates.colchiscreamery.com';
 const FROM_NAME = 'Colchis Creamery';

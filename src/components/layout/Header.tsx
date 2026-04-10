@@ -23,6 +23,7 @@ export function Header() {
     { href: `${prefix}/heritage`, label: t("heritage") },
     { href: `${prefix}/shop`, label: t("shop") },
     { href: `${prefix}/recipes`, label: t("recipes") },
+    { href: `${prefix}/journal`, label: "Journal" },
     { href: `${prefix}/wholesale`, label: t("wholesale") },
     { href: `${prefix}/contact`, label: t("contact") },
   ];

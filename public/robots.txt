@@ -1,0 +1,19 @@
+# https://colchiscreamery.com
+User-agent: *
+Allow: /
+
+# Sitemaps
+Sitemap: https://colchiscreamery.com/sitemap.xml
+
+# AI/LLM Crawlers
+User-agent: GPTBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /

@@ -1,7 +1,7 @@
 import { HeroSection } from "@/components/home/HeroSection";
 import { TrustBadges } from "@/components/home/TrustBadges";
 import { FeaturedProducts } from "@/components/home/FeaturedProducts";
-import { getActiveProducts } from "@/lib/products";
+import { prisma } from "@/lib/db";
 import { getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
@@ -23,8 +23,31 @@ export async function generateMetadata({ params }: HomePageProps) {
 export default async function HomePage({ params }: HomePageProps) {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "home" });
-  const products = getActiveProducts().slice(0, 3);
   const prefix = locale === "en" ? "" : `/${locale}`;
+
+  // Fetch featured products from database (same source as shop page)
+  const dbProducts = await prisma.product.findMany({
+    where: { isActive: true, isB2cVisible: true },
+    orderBy: { name: 'asc' },
+    take: 3,
+  });
+
+  const products = dbProducts.map(p => ({
+    id: p.id,
+    sku: p.sku,
+    name: p.name,
+    slug: p.slug,
+    description: p.description,
+    flavorProfile: p.flavorProfile,
+    pairsWith: p.pairsWith,
+    weight: p.weight,
+    ingredients: p.ingredients,
+    imageUrl: p.imageUrl,
+    priceB2c: parseFloat(p.priceB2c) || 0,
+    priceB2b: parseFloat(p.priceB2b) || 0,
+    stockQuantity: p.stockQuantity,
+    isActive: p.isActive,
+  }));
 
   return (
     <>

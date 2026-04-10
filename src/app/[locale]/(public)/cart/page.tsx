@@ -6,6 +6,14 @@ import { Button } from "@/components/ui/Button";
 import { formatCurrency } from "@/lib/utils";
 import Link from "next/link";
 
+// Derive thumbnail URL for small display sizes
+function getThumbUrl(url: string): string {
+    if (url && url.includes('/uploads/') && url.endsWith('.webp')) {
+        return url.replace(/\.webp$/, '-thumb.webp');
+    }
+    return url;
+}
+
 export default function CartPage() {
   const t = useTranslations("cart");
   const locale = useLocale();
@@ -39,9 +47,9 @@ export default function CartPage() {
               key={item.product.id}
               className="bg-white rounded-lg p-6 shadow-sm border border-border-light flex flex-col sm:flex-row items-start sm:items-center gap-4"
             >
-              {/* Product image placeholder */}
-              <div className="w-20 h-20 bg-gradient-to-br from-cream to-gold/10 rounded flex items-center justify-center flex-shrink-0">
-                <span className="font-serif text-2xl text-gold/30">C</span>
+              {/* Product image */}
+              <div className="w-20 h-20 bg-cream rounded flex items-center justify-center flex-shrink-0 overflow-hidden border border-border-light">
+                <img src={getThumbUrl(item.product.imageUrl)} alt={item.product.name} className="w-full h-full object-cover" />
               </div>
 
               {/* Info */}

@@ -1,5 +1,5 @@
 import { getTranslations } from "next-intl/server";
-import { getProduct, getActiveProducts } from "@/lib/products";
+import { prisma } from "@/lib/db";
 import { notFound } from "next/navigation";
 import { AddToCartButton } from "@/components/shop/AddToCartButton";
 import { JsonLdProduct } from "@/components/seo/JsonLdProduct";
@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { formatCurrency } from "@/lib/utils";
 import Link from "next/link";
 import type { Metadata } from "next";
+import { ProductGallery } from "@/components/shop/ProductGallery";
 
 interface ProductPageProps {
   params: Promise<{ locale: string; productId: string }>;
@@ -15,7 +16,9 @@ interface ProductPageProps {
 
 export async function generateMetadata({ params }: ProductPageProps): Promise<Metadata> {
   const { locale, productId } = await params;
-  const product = getProduct(productId);
+  const product = await prisma.product.findFirst({
+    where: { OR: [{ slug: productId }, { id: productId }], isActive: true },
+  });
 
   if (!product) {
     return { title: "Product Not Found" };
@@ -34,7 +37,9 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
 
 export default async function ProductPage({ params }: ProductPageProps) {
   const { locale, productId } = await params;
-  const product = getProduct(productId);
+  const product = await prisma.product.findFirst({
+    where: { OR: [{ slug: productId }, { id: productId }], isActive: true, isB2cVisible: true },
+  });
   const t = await getTranslations({ locale, namespace: "shop" });
   const common = await getTranslations({ locale, namespace: "common" });
   const prefix = locale === "en" ? "" : `/${locale}`;
@@ -45,9 +50,31 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://colchiscreamery.com";
 
+  // Build gallery: primary image + additional images
+  const allImages = [product.imageUrl, ...(product.images || [])].filter(Boolean);
+  const allVideos = (product.videoUrls || []).filter(Boolean);
+
+  // For AddToCartButton and JsonLdProduct, build a compatible product object
+  const productForCart = {
+    id: product.id,
+    sku: product.sku,
+    name: product.name,
+    slug: product.slug,
+    description: product.description,
+    flavorProfile: product.flavorProfile,
+    pairsWith: product.pairsWith,
+    weight: product.weight,
+    ingredients: product.ingredients,
+    imageUrl: product.imageUrl,
+    priceB2c: parseFloat(product.priceB2c) || 0,
+    priceB2b: parseFloat(product.priceB2b) || 0,
+    stockQuantity: product.stockQuantity,
+    isActive: product.isActive,
+  };
+
   return (
     <div className="bg-cream min-h-screen">
-      <JsonLdProduct product={product} url={`${siteUrl}/${locale}/shop/${product.slug}`} />
+      <JsonLdProduct product={productForCart} url={`${siteUrl}/${locale}/shop/${product.slug}`} />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
         {/* Breadcrumb */}
@@ -60,19 +87,8 @@ export default async function ProductPage({ params }: ProductPageProps) {
         </nav>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-          {/* Image */}
-          <div className="aspect-square relative bg-cream rounded-lg overflow-hidden border border-border-light shadow-sm">
-            <img
-              src={product.slug === 'aged-sulguni'
-                ? 'https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80'
-                : product.slug === 'smoked-sulguni'
-                  ? 'https://images.unsplash.com/photo-1559561853-08451507cbe7?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80'
-                  : 'https://images.unsplash.com/photo-1447078806655-40579c2520d6?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80'
-              }
-              alt={product.name}
-              className="w-full h-full object-cover mix-blend-multiply"
-            />
-          </div>
+          {/* Image Gallery */}
+          <ProductGallery images={allImages} videos={allVideos} productName={product.name} />
 
           {/* Details */}
           <div className="flex flex-col justify-center">
@@ -88,7 +104,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
             </h1>
 
             <p className="text-2xl text-gold font-semibold mb-6">
-              {formatCurrency(product.priceB2c)}
+              {formatCurrency(parseFloat(product.priceB2c) || 0)}
             </p>
 
             <p className="text-charcoal/70 leading-relaxed mb-8">
@@ -133,7 +149,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
             {/* Actions */}
             <div className="flex flex-col sm:flex-row gap-4">
-              <AddToCartButton product={product} />
+              <AddToCartButton product={productForCart} />
               <Button variant="secondary" size="lg" className="w-full sm:w-auto">
                 {common("buyOnAmazon")}
               </Button>

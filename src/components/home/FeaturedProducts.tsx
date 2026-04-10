@@ -35,15 +35,10 @@ export function FeaturedProducts({ products, locale }: FeaturedProductsProps) {
               className="group"
             >
               <div className="bg-white rounded-lg overflow-hidden shadow-sm border border-border-light hover:shadow-md transition-shadow duration-300">
-                {/* Image placeholder */}
+                {/* Product Image */}
                 <div className="aspect-[4/3] relative bg-cream">
                   <img
-                    src={product.slug === 'aged-sulguni'
-                      ? 'https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'
-                      : product.slug === 'smoked-sulguni'
-                        ? 'https://images.unsplash.com/photo-1559561853-08451507cbe7?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'
-                        : 'https://images.unsplash.com/photo-1447078806655-40579c2520d6?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'
-                    }
+                    src={product.imageUrl || 'https://images.unsplash.com/photo-1447078806655-40579c2520d6?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'}
                     alt={product.name}
                     className="w-full h-full object-cover mix-blend-multiply group-hover:scale-105 transition duration-500"
                   />

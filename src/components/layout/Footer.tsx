@@ -1,12 +1,20 @@
-import { useTranslations, useLocale } from "next-intl";
+import { getTranslations, getLocale } from "next-intl/server";
 import Link from "next/link";
+import { prisma } from "@/lib/db";
 
-export function Footer() {
-  const t = useTranslations("footer");
-  const nav = useTranslations("nav");
-  const locale = useLocale();
+export async function Footer() {
+  const t = await getTranslations("footer");
+  const nav = await getTranslations("nav");
+  const locale = await getLocale();
   const prefix = locale === "en" ? "" : `/${locale}`;
   const year = new Date().getFullYear();
+
+  const configs = await prisma.siteConfig.findMany({
+    where: { key: { in: ['contact.email', 'contact.phone', 'contact.address'] } }
+  });
+  const emailConfig = configs.find(c => c.key === 'contact.email')?.value || 'sales@colchiscreamery.com';
+  const phoneConfig = configs.find(c => c.key === 'contact.phone')?.value || '+1 (614) 555-0123';
+  const addressConfig = configs.find(c => c.key === 'contact.address')?.value || 'Columbus, Ohio, USA';
 
   return (
     <footer className="bg-charcoal text-white/90">
@@ -32,6 +40,7 @@ export function Footer() {
                 { href: `${prefix}/heritage`, label: nav("heritage") },
                 { href: `${prefix}/shop`, label: nav("shop") },
                 { href: `${prefix}/recipes`, label: nav("recipes") },
+                { href: `${prefix}/journal`, label: "Journal" },
                 { href: `${prefix}/wholesale`, label: nav("wholesale") },
               ].map((link) => (
                 <li key={link.href}>
@@ -77,8 +86,9 @@ export function Footer() {
               {t("connect")}
             </h4>
             <div className="space-y-3 text-sm text-white/60">
-              <p>sales@colchiscreamery.com</p>
-              <p>Columbus, Ohio, USA</p>
+              <p>{emailConfig}</p>
+              <p>{phoneConfig}</p>
+              <p>{addressConfig}</p>
             </div>
           </div>
         </div>

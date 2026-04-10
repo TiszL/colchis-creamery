@@ -41,3 +41,6 @@ next-env.d.ts
 # test files
 prisma/test-*.js
 .env.vercel.local
+
+# Uploaded media
+/public/uploads/

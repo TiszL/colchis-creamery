@@ -1,11 +1,20 @@
 import { Metadata } from 'next';
+import { prisma } from '@/lib/db';
 
 export const metadata: Metadata = {
     title: 'Contact Us | Colchis Creamery',
     description: 'Get in touch with the Colchis Creamery team for inquiries, support, or feedback.',
 };
 
-export default function ContactPage() {
+export default async function ContactPage() {
+    const configs = await prisma.siteConfig.findMany({
+        where: { key: { in: ['contact.email', 'contact.phone', 'contact.address'] } }
+    });
+    
+    const emailConfig = configs.find(c => c.key === 'contact.email')?.value || 'support@colchiscreamery.com';
+    const phoneConfig = configs.find(c => c.key === 'contact.phone')?.value || '+1 (555) 123-4567';
+    const addressConfig = configs.find(c => c.key === 'contact.address')?.value || '123 Heritage Way, Columbus, OH 43215';
+
     return (
         <main className="min-h-screen bg-[#FDFBF7] py-20 px-4">
             <div className="max-w-4xl mx-auto">
@@ -24,15 +33,15 @@ export default function ContactPage() {
                         <div className="space-y-6 text-[#2C2A29]">
                             <div>
                                 <strong className="block uppercase tracking-wider text-xs text-gray-400 mb-1">Address</strong>
-                                <p>123 Heritage Way<br />Columbus, OH 43215</p>
+                                <p>{addressConfig}</p>
                             </div>
                             <div>
                                 <strong className="block uppercase tracking-wider text-xs text-gray-400 mb-1">Email</strong>
-                                <p>support@colchiscreamery.com</p>
+                                <p>{emailConfig}</p>
                             </div>
                             <div>
                                 <strong className="block uppercase tracking-wider text-xs text-gray-400 mb-1">Phone</strong>
-                                <p>+1 (555) 123-4567</p>
+                                <p>{phoneConfig}</p>
                             </div>
                             <div>
                                 <strong className="block uppercase tracking-wider text-xs text-gray-400 mb-1">Hours</strong>

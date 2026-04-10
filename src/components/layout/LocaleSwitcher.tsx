@@ -4,6 +4,7 @@ import { useLocale } from "next-intl";
 import { useRouter, usePathname } from "next/navigation";
 import { routing } from "@/i18n/routing";
 import { useState, useRef, useEffect } from "react";
+import "flag-icons/css/flag-icons.min.css";
 
 const localeNames: Record<string, string> = {
   en: "English",
@@ -13,10 +14,10 @@ const localeNames: Record<string, string> = {
 };
 
 const localeFlags: Record<string, string> = {
-  en: "🇺🇸",
-  ka: "🇬🇪",
-  ru: "🇷🇺",
-  es: "🇪🇸",
+  en: "fi fi-us border border-black/10 text-lg rounded-sm",
+  ka: "fi fi-ge border border-black/10 text-lg rounded-sm",
+  ru: "fi fi-ru border border-black/10 text-lg rounded-sm",
+  es: "fi fi-es border border-black/10 text-lg rounded-sm",
 };
 
 export function LocaleSwitcher() {
@@ -54,8 +55,8 @@ export function LocaleSwitcher() {
         className="flex items-center gap-2 px-3 py-2 text-sm rounded hover:bg-charcoal/5 transition"
         aria-label="Switch language"
       >
-        <span>{localeFlags[locale]}</span>
-        <span className="hidden sm:inline">{localeNames[locale]}</span>
+        <span className={localeFlags[locale]}></span>
+        <span className="hidden sm:inline pt-0.5">{localeNames[locale]}</span>
         <svg
           className={`w-4 h-4 transition-transform ${open ? "rotate-180" : ""}`}
           fill="none"
@@ -76,8 +77,8 @@ export function LocaleSwitcher() {
                 loc === locale ? "text-gold font-medium" : "text-charcoal"
               }`}
             >
-              <span>{localeFlags[loc]}</span>
-              <span>{localeNames[loc]}</span>
+              <span className={localeFlags[loc]}></span>
+              <span className="pt-0.5">{localeNames[loc]}</span>
             </button>
           ))}
         </div>

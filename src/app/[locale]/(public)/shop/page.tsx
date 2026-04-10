@@ -1,5 +1,5 @@
 import { getTranslations } from "next-intl/server";
-import { getActiveProducts } from "@/lib/products";
+import { prisma } from "@/lib/db";
 import { ProductGrid } from "@/components/shop/ProductGrid";
 import type { Metadata } from "next";
 
@@ -20,7 +20,29 @@ export async function generateMetadata({ params }: ShopPageProps): Promise<Metad
 export default async function ShopPage({ params }: ShopPageProps) {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "shop" });
-  const products = getActiveProducts();
+
+  const dbProducts = await prisma.product.findMany({
+    where: { isActive: true, isB2cVisible: true },
+    orderBy: { name: 'asc' },
+  });
+
+  // Map DB products to the Product type expected by ProductGrid
+  const products = dbProducts.map(p => ({
+    id: p.id,
+    sku: p.sku,
+    name: p.name,
+    slug: p.slug,
+    description: p.description,
+    flavorProfile: p.flavorProfile,
+    pairsWith: p.pairsWith,
+    weight: p.weight,
+    ingredients: p.ingredients,
+    imageUrl: p.imageUrl,
+    priceB2c: parseFloat(p.priceB2c) || 0,
+    priceB2b: parseFloat(p.priceB2b) || 0,
+    stockQuantity: p.stockQuantity,
+    isActive: p.isActive,
+  }));
 
   return (
     <div className="bg-cream min-h-screen">

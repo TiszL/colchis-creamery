@@ -22,7 +22,7 @@ export default async function ShopPage({ params }: ShopPageProps) {
   const t = await getTranslations({ locale, namespace: "shop" });
 
   const dbProducts = await prisma.product.findMany({
-    where: { isActive: true, isB2cVisible: true },
+    where: { status: { in: ['ACTIVE', 'COMING_SOON'] }, isB2cVisible: true },
     orderBy: { name: 'asc' },
   });
 
@@ -42,6 +42,7 @@ export default async function ShopPage({ params }: ShopPageProps) {
     priceB2b: parseFloat(p.priceB2b) || 0,
     stockQuantity: p.stockQuantity,
     isActive: p.isActive,
+    status: p.status as 'ACTIVE' | 'INACTIVE' | 'COMING_SOON',
   }));
 
   return (

@@ -17,7 +17,7 @@ interface ProductPageProps {
 export async function generateMetadata({ params }: ProductPageProps): Promise<Metadata> {
   const { locale, productId } = await params;
   const product = await prisma.product.findFirst({
-    where: { OR: [{ slug: productId }, { id: productId }], isActive: true },
+    where: { OR: [{ slug: productId }, { id: productId }], status: { in: ['ACTIVE', 'COMING_SOON'] } },
   });
 
   if (!product) {
@@ -38,7 +38,7 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
 export default async function ProductPage({ params }: ProductPageProps) {
   const { locale, productId } = await params;
   const product = await prisma.product.findFirst({
-    where: { OR: [{ slug: productId }, { id: productId }], isActive: true, isB2cVisible: true },
+    where: { OR: [{ slug: productId }, { id: productId }], status: { in: ['ACTIVE', 'COMING_SOON'] }, isB2cVisible: true },
   });
   const t = await getTranslations({ locale, namespace: "shop" });
   const common = await getTranslations({ locale, namespace: "common" });
@@ -70,7 +70,10 @@ export default async function ProductPage({ params }: ProductPageProps) {
     priceB2b: parseFloat(product.priceB2b) || 0,
     stockQuantity: product.stockQuantity,
     isActive: product.isActive,
+    status: product.status as 'ACTIVE' | 'INACTIVE' | 'COMING_SOON',
   };
+
+  const isComingSoon = product.status === 'COMING_SOON';
 
   return (
     <div className="bg-cream min-h-screen">
@@ -92,20 +95,32 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
           {/* Details */}
           <div className="flex flex-col justify-center">
-            <Badge
-              variant={product.stockQuantity > 0 ? "success" : "error"}
-              className="mb-4 self-start"
-            >
-              {product.stockQuantity > 0 ? t("inStock") : t("outOfStock")}
-            </Badge>
+            {isComingSoon ? (
+              <Badge variant="warning" className="mb-4 self-start">
+                {t("comingSoon")}
+              </Badge>
+            ) : (
+              <Badge
+                variant={product.stockQuantity > 0 ? "success" : "error"}
+                className="mb-4 self-start"
+              >
+                {product.stockQuantity > 0 ? t("inStock") : t("outOfStock")}
+              </Badge>
+            )}
 
             <h1 className="font-serif text-3xl sm:text-4xl text-charcoal mb-4">
               {product.name}
             </h1>
 
-            <p className="text-2xl text-gold font-semibold mb-6">
-              {formatCurrency(parseFloat(product.priceB2c) || 0)}
-            </p>
+            {isComingSoon ? (
+              <p className="text-lg text-amber-600 font-semibold mb-6">
+                {t("comingSoon")}
+              </p>
+            ) : (
+              <p className="text-2xl text-gold font-semibold mb-6">
+                {formatCurrency(parseFloat(product.priceB2c) || 0)}
+              </p>
+            )}
 
             <p className="text-charcoal/70 leading-relaxed mb-8">
               {product.description}
@@ -149,10 +164,18 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
             {/* Actions */}
             <div className="flex flex-col sm:flex-row gap-4">
-              <AddToCartButton product={productForCart} />
-              <Button variant="secondary" size="lg" className="w-full sm:w-auto">
-                {common("buyOnAmazon")}
-              </Button>
+              {isComingSoon ? (
+                <div className="w-full sm:w-auto px-10 py-4 bg-amber-100 text-amber-700 font-bold rounded-sm tracking-widest uppercase text-center text-sm">
+                  {t("comingSoon")}
+                </div>
+              ) : (
+                <>
+                  <AddToCartButton product={productForCart} />
+                  <Button variant="secondary" size="lg" className="w-full sm:w-auto">
+                    {common("buyOnAmazon")}
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         </div>

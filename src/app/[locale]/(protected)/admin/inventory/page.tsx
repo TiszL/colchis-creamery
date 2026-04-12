@@ -29,7 +29,8 @@ async function saveProductAction(formData: FormData) {
         priceB2b: formData.get('priceB2b') as string,
         stockQuantity: parseInt(formData.get('stockQuantity') as string, 10) || 0,
         category: (formData.get('category') as string) || 'cheese',
-        isActive: formData.get('isActive') === 'on',
+        status: (formData.get('status') as any) || 'ACTIVE',
+        isActive: (formData.get('status') as string) !== 'INACTIVE',
         isB2cVisible: formData.get('isB2cVisible') === 'on',
         isB2bVisible: formData.get('isB2bVisible') === 'on',
     };
@@ -94,6 +95,7 @@ export default async function AdminInventoryPage({ params }: { params: any }) {
         priceB2b: p.priceB2b,
         stockQuantity: p.stockQuantity,
         category: p.category,
+        status: p.status,
         isActive: p.isActive,
         isB2cVisible: p.isB2cVisible,
         isB2bVisible: p.isB2bVisible,

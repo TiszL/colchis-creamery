@@ -19,6 +19,7 @@ export const PRODUCTS: Product[] = [
     priceB2b: 18.99,
     stockQuantity: 150,
     isActive: true,
+    status: 'ACTIVE' as const,
   },
   {
     id: "2",
@@ -36,6 +37,7 @@ export const PRODUCTS: Product[] = [
     priceB2b: 21.99,
     stockQuantity: 120,
     isActive: true,
+    status: 'ACTIVE' as const,
   },
   {
     id: "3",
@@ -53,6 +55,7 @@ export const PRODUCTS: Product[] = [
     priceB2b: 16.99,
     stockQuantity: 200,
     isActive: true,
+    status: 'ACTIVE' as const,
   },
   {
     id: "4",
@@ -70,6 +73,7 @@ export const PRODUCTS: Product[] = [
     priceB2b: 27.99,
     stockQuantity: 80,
     isActive: true,
+    status: 'ACTIVE' as const,
   },
   {
     id: "5",
@@ -87,6 +91,7 @@ export const PRODUCTS: Product[] = [
     priceB2b: 14.99,
     stockQuantity: 250,
     isActive: true,
+    status: 'ACTIVE' as const,
   },
 ];
 

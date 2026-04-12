@@ -85,28 +85,35 @@ model UserProfile {
 
 // ─── Product ─────────────────────────────────────────────────────────────────
 
+enum ProductStatus {
+  ACTIVE
+  INACTIVE
+  COMING_SOON
+}
+
 model Product {
-  id             String      @id @default(uuid())
-  sku            String      @unique
+  id             String        @id @default(uuid())
+  sku            String        @unique
   name           String
-  slug           String      @unique
+  slug           String        @unique
   description    String
   flavorProfile  String?
   pairsWith      String?
   weight         String?
   ingredients    String?
   imageUrl       String
-  images         String[]    @default([])
-  videoUrls      String[]    @default([])
+  images         String[]      @default([])
+  videoUrls      String[]      @default([])
   priceB2c       String
   priceB2b       String
   stockQuantity  Int
-  category       String?     @default("cheese")
-  isActive       Boolean     @default(true)
-  isB2cVisible   Boolean     @default(true)
-  isB2bVisible   Boolean     @default(true)
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
+  category       String?       @default("cheese")
+  status         ProductStatus @default(ACTIVE)
+  isActive       Boolean       @default(true)
+  isB2cVisible   Boolean       @default(true)
+  isB2bVisible   Boolean       @default(true)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
   orderItems OrderItem[]
 }

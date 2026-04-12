@@ -30,9 +30,9 @@ export default async function B2BOrderPage({ params }: { params: Promise<{ local
         redirect(`/${locale}/b2b-portal`);
     }
 
-    // Fetch all active products
+    // Fetch all active products (B2B only shows purchasable products, not Coming Soon)
     const products = await db.product.findMany({
-        where: { isActive: true },
+        where: { status: 'ACTIVE', isB2bVisible: true },
         orderBy: { name: 'asc' }
     });
 

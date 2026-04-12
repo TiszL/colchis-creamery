@@ -30,7 +30,7 @@ export default async function HomePage({ params }: HomePageProps) {
   let products: Product[] = [];
   try {
     const dbProducts = await prisma.product.findMany({
-      where: { isActive: true, isB2cVisible: true },
+      where: { status: { in: ['ACTIVE', 'COMING_SOON'] }, isB2cVisible: true },
       orderBy: { name: 'asc' },
       take: 3,
     });
@@ -49,6 +49,7 @@ export default async function HomePage({ params }: HomePageProps) {
       priceB2b: parseFloat(p.priceB2b) || 0,
       stockQuantity: p.stockQuantity,
       isActive: p.isActive,
+      status: p.status as 'ACTIVE' | 'INACTIVE' | 'COMING_SOON',
     }));
   } catch (err) {
     console.error('[HomePage] DB unreachable, showing empty products:', (err as Error).message);

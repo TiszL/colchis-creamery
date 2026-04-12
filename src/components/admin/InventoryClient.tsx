@@ -21,6 +21,7 @@ interface Product {
     priceB2b: string;
     stockQuantity: number;
     category: string | null;
+    status: string;
     isActive: boolean;
     isB2cVisible: boolean;
     isB2bVisible: boolean;
@@ -243,10 +244,12 @@ export default function InventoryClient({ products, locale, saveAction, deleteAc
                                     <td className="px-5 py-4 text-right text-gray-300 text-xs">${product.priceB2b}</td>
                                     {/* Status */}
                                     <td className="px-5 py-4 text-center">
-                                        {product.isActive ? (
+                                        {product.status === 'ACTIVE' ? (
                                             <span className="text-xs bg-emerald-900/30 text-emerald-400 px-2 py-0.5 rounded-full flex items-center justify-center gap-1 w-fit mx-auto"><Eye className="w-3 h-3" /> Active</span>
+                                        ) : product.status === 'COMING_SOON' ? (
+                                            <span className="text-xs bg-amber-900/30 text-amber-400 px-2 py-0.5 rounded-full flex items-center justify-center gap-1 w-fit mx-auto"><AlertTriangle className="w-3 h-3" /> Coming Soon</span>
                                         ) : (
-                                            <span className="text-xs bg-red-900/30 text-red-400 px-2 py-0.5 rounded-full flex items-center justify-center gap-1 w-fit mx-auto"><EyeOff className="w-3 h-3" /> Off</span>
+                                            <span className="text-xs bg-red-900/30 text-red-400 px-2 py-0.5 rounded-full flex items-center justify-center gap-1 w-fit mx-auto"><EyeOff className="w-3 h-3" /> Inactive</span>
                                         )}
                                     </td>
                                     {/* Visibility */}
@@ -478,10 +481,15 @@ export default function InventoryClient({ products, locale, saveAction, deleteAc
                         </div>
 
                         <div className="flex flex-wrap gap-5">
-                            <label className="flex items-center gap-2.5 text-sm text-gray-300 cursor-pointer">
-                                <input type="checkbox" name="isActive" defaultChecked={editProduct?.isActive ?? true} className="accent-[#CBA153] w-4 h-4" />
-                                Active
-                            </label>
+                            <div className="flex-1 min-w-[160px]">
+                                <label className="block text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wider">Status</label>
+                                <select name="status" defaultValue={editProduct?.status || 'ACTIVE'}
+                                    className="w-full bg-[#0D0D0D] border border-white/10 text-white py-2.5 px-4 rounded-lg focus:outline-none focus:border-[#CBA153] text-sm">
+                                    <option value="ACTIVE">✅ Active — Visible & purchasable</option>
+                                    <option value="COMING_SOON">🔜 Coming Soon — Visible but not purchasable</option>
+                                    <option value="INACTIVE">🚫 Inactive — Hidden from shop</option>
+                                </select>
+                            </div>
                             <label className="flex items-center gap-2.5 text-sm text-gray-300 cursor-pointer">
                                 <input type="checkbox" name="isB2cVisible" defaultChecked={editProduct?.isB2cVisible ?? true} className="accent-[#CBA153] w-4 h-4" />
                                 B2C Shop

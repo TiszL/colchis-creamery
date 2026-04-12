@@ -34,6 +34,7 @@ export interface Product {
   priceB2b: number;
   stockQuantity: number;
   isActive: boolean;
+  status: 'ACTIVE' | 'INACTIVE' | 'COMING_SOON';
 }
 
 export interface CartItem {

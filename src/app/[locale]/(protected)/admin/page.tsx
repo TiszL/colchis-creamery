@@ -21,7 +21,7 @@ export default async function AdminDashboardPage() {
         prisma.user.count({ where: { role: 'B2B_PARTNER' } }),
         prisma.b2bLead.count({ where: { status: 'NEW' } }),
         prisma.product.findMany({
-            where: { stockQuantity: { lt: 20 }, isActive: true },
+            where: { stockQuantity: { lt: 20 }, status: { in: ['ACTIVE', 'COMING_SOON'] } },
             orderBy: { stockQuantity: 'asc' },
             take: 8,
         }),

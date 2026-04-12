@@ -43,8 +43,8 @@ function getYouTubeId(url: string) {
 // Helper: derive thumbnail URL from full image URL
 function getThumbUrl(url: string): string {
     if (!url) return url;
-    // For our uploaded files: /uploads/products/xxx.webp → /uploads/products/xxx-thumb.webp
-    if (url.includes('/uploads/') && url.endsWith('.webp')) {
+    // For uploaded files (local or Vercel Blob): xxx.webp → xxx-thumb.webp
+    if (url.endsWith('.webp')) {
         return url.replace(/\.webp$/, '-thumb.webp');
     }
     return url; // External URLs: use as-is

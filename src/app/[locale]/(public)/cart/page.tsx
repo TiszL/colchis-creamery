@@ -8,7 +8,7 @@ import Link from "next/link";
 
 // Derive thumbnail URL for small display sizes
 function getThumbUrl(url: string): string {
-    if (url && url.includes('/uploads/') && url.endsWith('.webp')) {
+    if (url && url.endsWith('.webp')) {
         return url.replace(/\.webp$/, '-thumb.webp');
     }
     return url;

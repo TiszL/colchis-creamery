@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import sharp from 'sharp';
-import { writeFile, mkdir } from 'fs/promises';
-import path from 'path';
+import { put } from '@vercel/blob';
 import { getSession } from '@/lib/session';
 
 // Optimal settings for product images (square 1:1)
@@ -35,7 +34,7 @@ export async function POST(request: NextRequest) {
     try {
         const formData = await request.formData();
         const file = formData.get('file') as File | null;
-        const type = formData.get('type') as string || 'product'; // product | video
+        const type = formData.get('type') as string || 'product'; // product | video | hero | cover
 
         if (!file) {
             return NextResponse.json({ error: 'No file provided' }, { status: 400 });
@@ -106,13 +105,16 @@ export async function POST(request: NextRequest) {
             const outputName = `${baseName}.webp`;
             const thumbName = `${baseName}-thumb.webp`;
 
-            const uploadDir = path.join(process.cwd(), 'public', 'uploads', subDir);
-            await mkdir(uploadDir, { recursive: true });
-
-            // Write both files
-            await Promise.all([
-                writeFile(path.join(uploadDir, outputName), optimized),
-                writeFile(path.join(uploadDir, thumbName), thumbnail),
+            // Upload both files to Vercel Blob
+            const [mainBlob, thumbBlob] = await Promise.all([
+                put(`${subDir}/${outputName}`, optimized, {
+                    access: 'public',
+                    contentType: 'image/webp',
+                }),
+                put(`${subDir}/${thumbName}`, thumbnail, {
+                    access: 'public',
+                    contentType: 'image/webp',
+                }),
             ]);
 
             // Calculate compression stats
@@ -122,8 +124,8 @@ export async function POST(request: NextRequest) {
             const savings = ((1 - optimized.length / buffer.length) * 100).toFixed(0);
 
             return NextResponse.json({
-                url: `/uploads/${subDir}/${outputName}`,
-                thumbUrl: `/uploads/${subDir}/${thumbName}`,
+                url: mainBlob.url,
+                thumbUrl: thumbBlob.url,
                 originalSize: `${originalKB} KB`,
                 optimizedSize: `${optimizedKB} KB`,
                 thumbSize: `${thumbKB} KB`,
@@ -133,16 +135,16 @@ export async function POST(request: NextRequest) {
                 format: 'webp',
             });
         } else {
-            // ─── VIDEO — save as-is (no server-side transcoding) ───
+            // ─── VIDEO — upload as-is to Vercel Blob ───
             const outputName = `${timestamp}-${safeName}`;
-            const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'videos');
-            await mkdir(uploadDir, { recursive: true });
 
-            const outputPath = path.join(uploadDir, outputName);
-            await writeFile(outputPath, buffer);
+            const videoBlob = await put(`videos/${outputName}`, buffer, {
+                access: 'public',
+                contentType: file.type,
+            });
 
             return NextResponse.json({
-                url: `/uploads/videos/${outputName}`,
+                url: videoBlob.url,
                 originalSize: `${(file.size / 1024 / 1024).toFixed(1)} MB`,
                 format: file.type,
             });

@@ -1,8 +1,8 @@
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 import type { Product } from "@/types";
-import { formatCurrency } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
+import { ProductCard } from "@/components/shop/ProductCard";
 
 interface FeaturedProductsProps {
   products: Product[];
@@ -29,39 +29,7 @@ export function FeaturedProducts({ products, locale }: FeaturedProductsProps) {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
           {products.map((product) => (
-            <Link
-              key={product.id}
-              href={`${prefix}/shop/${product.slug}`}
-              className="group"
-            >
-              <div className="bg-white rounded-lg overflow-hidden shadow-sm border border-border-light hover:shadow-md transition-shadow duration-300">
-                {/* Product Image */}
-                <div className="aspect-[4/3] relative bg-cream">
-                  <img
-                    src={product.imageUrl || 'https://images.unsplash.com/photo-1447078806655-40579c2520d6?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'}
-                    alt={product.name}
-                    className="w-full h-full object-cover mix-blend-multiply group-hover:scale-105 transition duration-500"
-                  />
-                </div>
-
-                <div className="p-6">
-                  <h3 className="font-serif text-xl text-charcoal mb-2 group-hover:text-gold transition">
-                    {product.name}
-                  </h3>
-                  <p className="text-sm text-charcoal/60 mb-4 line-clamp-2">
-                    {product.description}
-                  </p>
-                  <div className="flex items-center justify-between">
-                    <span className="text-lg font-semibold text-gold">
-                      {formatCurrency(product.priceB2c)}
-                    </span>
-                    <span className="text-sm text-charcoal/50">
-                      {common("viewDetails")} &rarr;
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </Link>
+            <ProductCard key={product.id} product={product} locale={locale} />
           ))}
         </div>
 

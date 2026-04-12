@@ -56,7 +56,7 @@ export function LocaleSwitcher() {
         aria-label="Switch language"
       >
         <span className={localeFlags[locale]}></span>
-        <span className="hidden sm:inline pt-0.5">{localeNames[locale]}</span>
+        <span className="hidden sm:inline lg:hidden xl:inline pt-0.5">{localeNames[locale]}</span>
         <svg
           className={`w-4 h-4 transition-transform ${open ? "rotate-180" : ""}`}
           fill="none"

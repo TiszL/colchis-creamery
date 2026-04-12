@@ -18,6 +18,7 @@
     "shop": "Tienda",
     "recipes": "Recetas y maridajes",
     "wholesale": "Mayoristas",
+    "journal": "Diario",
     "contact": "Contacto",
     "faq": "Preguntas frecuentes",
     "cart": "Carrito",
@@ -89,6 +90,12 @@
     "ingredientsTitle": "Ingredientes",
     "instructionsTitle": "Instrucciones",
     "tipsTitle": "Consejos del chef"
+  },
+  "journal": {
+    "title": "Diario",
+    "subtitle": "Historias, herencia e ideas del corazón de la quesería georgiana.",
+    "readArticle": "Leer artículo",
+    "empty": "Aún no se han publicado artículos. ¡Vuelva pronto!"
   },
   "wholesale": {
     "title": "Alianza mayorista",

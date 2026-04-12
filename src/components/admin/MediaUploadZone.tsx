@@ -27,6 +27,10 @@ interface MediaUploadZoneProps {
     multiple?: boolean;
     /** Max number of files allowed */
     maxFiles?: number;
+    /** Aspect ratio for image cropping */
+    aspectRatio?: '1:1' | '16:9' | 'free';
+    /** Show thumbnails as landscape (16:9) instead of square */
+    landscapeThumbs?: boolean;
 }
 
 export default function MediaUploadZone({
@@ -36,6 +40,8 @@ export default function MediaUploadZone({
     label,
     multiple = true,
     maxFiles = 10,
+    aspectRatio = '1:1',
+    landscapeThumbs = false,
 }: MediaUploadZoneProps) {
     const [isDragging, setIsDragging] = useState(false);
     const [uploading, setUploading] = useState(false);
@@ -105,7 +111,6 @@ export default function MediaUploadZone({
         if (cropQueue.length > 0) {
             const next = cropQueue[0];
             setCropQueue(prev => prev.slice(1));
-            // Small delay to let the UI breathe
             setTimeout(() => setCropFile(next), 300);
         }
     }, [cropFile, cropQueue, uploadBlob]);
@@ -145,7 +150,7 @@ export default function MediaUploadZone({
     const onFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
             handleFiles(e.target.files);
-            e.target.value = ''; // Reset input
+            e.target.value = '';
         }
     }, [handleFiles]);
 
@@ -161,6 +166,13 @@ export default function MediaUploadZone({
         }
     };
 
+    const ratioHint = aspectRatio === '16:9' ? 'Auto-cropped to 16:9 landscape · Converted to WebP'
+        : aspectRatio === '1:1' ? 'Auto-cropped to square 1:1 · Converted to WebP'
+        : 'Free crop · Converted to WebP';
+
+    const thumbAspect = landscapeThumbs ? 'aspect-video' : 'aspect-square';
+    const gridCols = landscapeThumbs ? 'grid-cols-2 lg:grid-cols-3' : 'grid-cols-4';
+
     return (
         <>
             {/* Image Cropper Modal */}
@@ -169,6 +181,7 @@ export default function MediaUploadZone({
                     file={cropFile}
                     onCrop={handleCroppedImage}
                     onCancel={handleCropCancel}
+                    aspectRatio={aspectRatio}
                 />
             )}
 
@@ -227,17 +240,10 @@ export default function MediaUploadZone({
                             <div className="text-xs text-gray-400">
                                 <span className="text-[#CBA153] font-medium">Click to browse</span> or drag & drop
                             </div>
-                            {type === 'image' ? (
-                                <div className="flex items-center gap-1 text-[10px] text-gray-600">
-                                    <Info className="w-3 h-3 flex-shrink-0" />
-                                    Any size accepted · Auto-cropped to square 1:1 · Converted to WebP
-                                </div>
-                            ) : (
-                                <div className="flex items-center gap-1 text-[10px] text-gray-600">
-                                    <Info className="w-3 h-3 flex-shrink-0" />
-                                    MP4/WebM up to 100MB · Or paste a YouTube URL below
-                                </div>
-                            )}
+                            <div className="flex items-center gap-1 text-[10px] text-gray-600">
+                                <Info className="w-3 h-3 flex-shrink-0" />
+                                {type === 'image' ? ratioHint : 'MP4/WebM up to 100MB · Or paste a YouTube URL below'}
+                            </div>
                         </div>
                     )}
                 </div>
@@ -261,7 +267,7 @@ export default function MediaUploadZone({
                     </div>
                 )}
 
-                {/* Manual URL input (for pasting external URLs or YouTube links) */}
+                {/* Manual URL input */}
                 {showManual && (
                     <div className="flex gap-2">
                         <input
@@ -283,11 +289,11 @@ export default function MediaUploadZone({
 
                 {/* Uploaded Gallery / Thumbnails */}
                 {value.length > 0 && (
-                    <div className="grid grid-cols-4 gap-2">
+                    <div className={`grid ${gridCols} gap-2`}>
                         {value.map((url, idx) => (
                             <div key={idx} className="relative group">
                                 {type === 'image' ? (
-                                    <div className="aspect-square rounded-lg overflow-hidden bg-[#0D0D0D] border border-white/10 group-hover:border-[#CBA153]/40 transition-colors">
+                                    <div className={`${thumbAspect} rounded-lg overflow-hidden bg-[#0D0D0D] border border-white/10 group-hover:border-[#CBA153]/40 transition-colors`}>
                                         <img
                                             src={url}
                                             alt={`Gallery ${idx + 1}`}

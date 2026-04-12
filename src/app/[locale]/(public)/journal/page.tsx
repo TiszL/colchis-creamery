@@ -1,6 +1,7 @@
 import { Metadata } from 'next';
 import Link from 'next/link';
 import { prisma } from '@/lib/db';
+import { getTranslations } from 'next-intl/server';
 
 export const metadata: Metadata = {
     title: 'Journal | Colchis Creamery',
@@ -12,6 +13,7 @@ export const dynamic = 'force-dynamic';
 export default async function JournalPage({ params }: { params: Promise<{ locale: string }> }) {
     const { locale } = await params;
     const prefix = locale === 'en' ? '' : `/${locale}`;
+    const t = await getTranslations({ locale, namespace: 'journal' });
 
     const articles = await prisma.article.findMany({
         where: { isPublished: true },
@@ -23,15 +25,15 @@ export default async function JournalPage({ params }: { params: Promise<{ locale
             <div className="max-w-7xl mx-auto">
                 <div className="text-center mb-16 max-w-3xl mx-auto">
                     <span className="inline-block w-12 h-0.5 bg-[#CBA153] mb-6" />
-                    <h1 className="text-5xl font-serif text-[#2C2A29] mb-4">Journal</h1>
+                    <h1 className="text-5xl font-serif text-[#2C2A29] mb-4">{t('title')}</h1>
                     <p className="text-xl text-[#2C2A29] leading-relaxed opacity-80">
-                        Stories, heritage, and insights from the heart of Georgian cheesemaking.
+                        {t('subtitle')}
                     </p>
                 </div>
 
                 {articles.length === 0 ? (
                     <div className="text-center py-20 text-[#2C2A29]/50">
-                        <p className="text-lg">No articles published yet. Check back soon!</p>
+                        <p className="text-lg">{t('empty')}</p>
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
@@ -70,12 +72,12 @@ export default async function JournalPage({ params }: { params: Promise<{ locale
                                     )}
                                     <div className="flex items-center justify-between mt-auto pt-4">
                                         <span className="text-sm font-medium text-[#CBA153] uppercase tracking-wide flex items-center">
-                                            Read Article
+                                            {t('readArticle')}
                                             <span className="ml-2 transform group-hover:translate-x-1 transition">→</span>
                                         </span>
                                         {article.publishedAt && (
                                             <span className="text-xs text-[#2C2A29]/40">
-                                                {new Date(article.publishedAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                                                {new Date(article.publishedAt).toLocaleDateString(locale === 'ka' ? 'ka-GE' : locale === 'ru' ? 'ru-RU' : locale === 'es' ? 'es-ES' : 'en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
                                             </span>
                                         )}
                                     </div>

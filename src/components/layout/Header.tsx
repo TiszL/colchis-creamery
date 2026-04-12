@@ -5,7 +5,7 @@ import { useTranslations, useLocale } from "next-intl";
 import { LocaleSwitcher } from "./LocaleSwitcher";
 import { useCart } from "@/providers/CartProvider";
 import { useAuth } from "@/providers/AuthProvider";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 
 export function Header() {
   const t = useTranslations("nav");
@@ -16,6 +16,13 @@ export function Header() {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  // Priority+ nav state
+  const [visibleCount, setVisibleCount] = useState(7); // show all by default
+  const [moreOpen, setMoreOpen] = useState(false);
+  const navContainerRef = useRef<HTMLElement>(null);
+  const navItemsRef = useRef<(HTMLAnchorElement | null)[]>([]);
+  const moreButtonRef = useRef<HTMLDivElement>(null);
+
   const prefix = locale === "en" ? "" : `/${locale}`;
 
   const navLinks = [
@@ -23,16 +30,98 @@ export function Header() {
     { href: `${prefix}/heritage`, label: t("heritage") },
     { href: `${prefix}/shop`, label: t("shop") },
     { href: `${prefix}/recipes`, label: t("recipes") },
-    { href: `${prefix}/journal`, label: "Journal" },
+    { href: `${prefix}/journal`, label: t("journal") },
     { href: `${prefix}/wholesale`, label: t("wholesale") },
     { href: `${prefix}/contact`, label: t("contact") },
   ];
+
+  // Calculate how many nav items fit in the available space
+  const calculateVisibleItems = useCallback(() => {
+    const container = navContainerRef.current;
+    if (!container) return;
+
+    // Only run on desktop (lg+)
+    if (window.innerWidth < 1024) {
+      setVisibleCount(navLinks.length);
+      return;
+    }
+
+    const containerWidth = container.offsetWidth;
+    const moreButtonWidth = 48; // approximate width of "•••" button
+    let totalWidth = 0;
+    let count = 0;
+
+    for (let i = 0; i < navItemsRef.current.length; i++) {
+      const item = navItemsRef.current[i];
+      if (!item) continue;
+      const itemWidth = item.scrollWidth + 4; // + gap
+      if (totalWidth + itemWidth <= containerWidth) {
+        totalWidth += itemWidth;
+        count++;
+      } else {
+        // Check if remaining items need a "more" button
+        // Re-evaluate: can we fit this item if we don't need more button?
+        break;
+      }
+    }
+
+    // If not all items fit, we need space for the "more" button
+    if (count < navLinks.length) {
+      // Recalculate with space reserved for the more button
+      totalWidth = 0;
+      count = 0;
+      for (let i = 0; i < navItemsRef.current.length; i++) {
+        const item = navItemsRef.current[i];
+        if (!item) continue;
+        const itemWidth = item.scrollWidth + 4;
+        if (totalWidth + itemWidth + moreButtonWidth <= containerWidth) {
+          totalWidth += itemWidth;
+          count++;
+        } else {
+          break;
+        }
+      }
+    }
+
+    setVisibleCount(Math.max(count, 1)); // Always show at least 1
+  }, [navLinks.length]);
+
+  // Observe container resize
+  useEffect(() => {
+    const container = navContainerRef.current;
+    if (!container) return;
+
+    // Initial calculation after fonts load
+    const timer = setTimeout(calculateVisibleItems, 100);
+
+    const observer = new ResizeObserver(() => {
+      calculateVisibleItems();
+    });
+    observer.observe(container);
+
+    window.addEventListener("resize", calculateVisibleItems);
+
+    return () => {
+      clearTimeout(timer);
+      observer.disconnect();
+      window.removeEventListener("resize", calculateVisibleItems);
+    };
+  }, [calculateVisibleItems]);
+
+  // Recalculate when locale changes (labels change width)
+  useEffect(() => {
+    const timer = setTimeout(calculateVisibleItems, 50);
+    return () => clearTimeout(timer);
+  }, [locale, calculateVisibleItems]);
 
   // Close dropdown on outside click
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setDropdownOpen(false);
+      }
+      if (moreButtonRef.current && !moreButtonRef.current.contains(event.target as Node)) {
+        setMoreOpen(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -47,35 +136,88 @@ export function Header() {
 
   const userInitial = user?.name?.charAt(0)?.toUpperCase() || user?.email?.charAt(0)?.toUpperCase() || "U";
 
+  const visibleLinks = navLinks.slice(0, visibleCount);
+  const overflowLinks = navLinks.slice(visibleCount);
+
   return (
     <header className="sticky top-0 z-40 bg-cream/95 backdrop-blur-sm border-b border-border-light">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-20 sm:h-28 py-2">
-          {/* Left: Logo (flex-1 to push nav to center) */}
-          <div className="flex-1 flex items-center justify-start">
+          {/* Left: Logo — fixed width, doesn't expand */}
+          <div className="flex items-center shrink-0">
             <Link href={`${prefix}/`} className="flex items-center gap-3">
               <img src="/logo-optimized.png" alt="Colchis Creamery Logo" className="w-[70px] h-[70px] sm:w-[90px] sm:h-[90px] object-contain rounded-full border border-gold/30 shadow-md" />
-              <span className="font-serif text-xl sm:text-2xl font-bold text-charcoal tracking-tight hidden sm:block">
+              <span className="font-serif text-xl sm:text-2xl font-bold text-charcoal tracking-tight hidden xl:block">
                 Colchis<span className="text-gold"> Creamery</span>
               </span>
             </Link>
           </div>
 
-          {/* Center: Desktop Navigation */}
-          <nav className="hidden lg:flex items-center justify-center shrink-0 gap-1">
-            {navLinks.map((link) => (
+          {/* Center: Desktop Navigation with Priority+ overflow */}
+          <nav
+            ref={navContainerRef}
+            className="hidden lg:flex items-center justify-center flex-1 min-w-0 mx-2 xl:mx-4"
+          >
+            {/* Visible nav items */}
+            {visibleLinks.map((link, i) => (
               <Link
                 key={link.href}
+                ref={(el) => { navItemsRef.current[i] = el; }}
                 href={link.href}
-                className="px-3 py-2 text-sm font-medium text-charcoal/80 hover:text-gold transition rounded"
+                className="px-2 xl:px-3 py-2 text-[13px] xl:text-sm font-medium text-charcoal/80 hover:text-gold transition rounded whitespace-nowrap"
               >
                 {link.label}
               </Link>
             ))}
+
+            {/* Hidden measurement refs for items not currently visible */}
+            {overflowLinks.map((link, i) => (
+              <Link
+                key={`measure-${link.href}`}
+                ref={(el) => { navItemsRef.current[visibleCount + i] = el; }}
+                href={link.href}
+                className="px-2 xl:px-3 py-2 text-[13px] xl:text-sm font-medium whitespace-nowrap"
+                style={{ position: 'absolute', visibility: 'hidden', pointerEvents: 'none' }}
+                tabIndex={-1}
+                aria-hidden
+              >
+                {link.label}
+              </Link>
+            ))}
+
+            {/* "More" dropdown button */}
+            {overflowLinks.length > 0 && (
+              <div ref={moreButtonRef} className="relative">
+                <button
+                  onClick={() => setMoreOpen(!moreOpen)}
+                  className="px-2 py-2 text-sm font-medium text-charcoal/80 hover:text-gold transition rounded flex items-center gap-1"
+                  aria-label="More pages"
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h.01M12 12h.01M19 12h.01" />
+                  </svg>
+                </button>
+
+                {moreOpen && (
+                  <div className="absolute right-0 top-full mt-1 w-52 bg-white rounded-lg shadow-xl border border-border-light py-1.5 z-50 animate-fade-in">
+                    {overflowLinks.map((link) => (
+                      <Link
+                        key={link.href}
+                        href={link.href}
+                        onClick={() => setMoreOpen(false)}
+                        className="block px-4 py-2.5 text-sm text-charcoal/80 hover:bg-cream hover:text-gold transition"
+                      >
+                        {link.label}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </nav>
 
-          {/* Right side (flex-1): locale, cart, auth */}
-          <div className="flex-1 flex items-center justify-end gap-2">
+          {/* Right side: locale, cart, auth — fixed width */}
+          <div className="flex items-center shrink-0 gap-2">
             <LocaleSwitcher />
 
             <Link
@@ -181,7 +323,7 @@ export function Header() {
           </div>
         </div>
 
-        {/* Mobile Navigation */}
+        {/* Mobile Navigation — completely unchanged */}
         {mobileOpen && (
           <nav className="lg:hidden pb-4 border-t border-border-light pt-4">
             {navLinks.map((link) => (

@@ -2,6 +2,7 @@ import { HeroSection } from "@/components/home/HeroSection";
 import { TrustBadges } from "@/components/home/TrustBadges";
 import { FeaturedProducts } from "@/components/home/FeaturedProducts";
 import { prisma } from "@/lib/db";
+import type { Product } from "@/types";
 import { getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
@@ -26,28 +27,32 @@ export default async function HomePage({ params }: HomePageProps) {
   const prefix = locale === "en" ? "" : `/${locale}`;
 
   // Fetch featured products from database (same source as shop page)
-  const dbProducts = await prisma.product.findMany({
-    where: { isActive: true, isB2cVisible: true },
-    orderBy: { name: 'asc' },
-    take: 3,
-  });
-
-  const products = dbProducts.map(p => ({
-    id: p.id,
-    sku: p.sku,
-    name: p.name,
-    slug: p.slug,
-    description: p.description,
-    flavorProfile: p.flavorProfile,
-    pairsWith: p.pairsWith,
-    weight: p.weight,
-    ingredients: p.ingredients,
-    imageUrl: p.imageUrl,
-    priceB2c: parseFloat(p.priceB2c) || 0,
-    priceB2b: parseFloat(p.priceB2b) || 0,
-    stockQuantity: p.stockQuantity,
-    isActive: p.isActive,
-  }));
+  let products: Product[] = [];
+  try {
+    const dbProducts = await prisma.product.findMany({
+      where: { isActive: true, isB2cVisible: true },
+      orderBy: { name: 'asc' },
+      take: 3,
+    });
+    products = dbProducts.map(p => ({
+      id: p.id,
+      sku: p.sku,
+      name: p.name,
+      slug: p.slug,
+      description: p.description || '',
+      flavorProfile: p.flavorProfile,
+      pairsWith: p.pairsWith,
+      weight: p.weight,
+      ingredients: p.ingredients,
+      imageUrl: p.imageUrl || '',
+      priceB2c: parseFloat(p.priceB2c) || 0,
+      priceB2b: parseFloat(p.priceB2b) || 0,
+      stockQuantity: p.stockQuantity,
+      isActive: p.isActive,
+    }));
+  } catch (err) {
+    console.error('[HomePage] DB unreachable, showing empty products:', (err as Error).message);
+  }
 
   return (
     <>

@@ -18,6 +18,7 @@
     "shop": "Shop",
     "recipes": "Recipes & Pairings",
     "wholesale": "Wholesale",
+    "journal": "Journal",
     "contact": "Contact",
     "faq": "FAQ",
     "cart": "Cart",
@@ -89,6 +90,12 @@
     "ingredientsTitle": "Ingredients",
     "instructionsTitle": "Instructions",
     "tipsTitle": "Chef's Tips"
+  },
+  "journal": {
+    "title": "Journal",
+    "subtitle": "Stories, heritage, and insights from the heart of Georgian cheesemaking.",
+    "readArticle": "Read Article",
+    "empty": "No articles published yet. Check back soon!"
   },
   "wholesale": {
     "title": "Wholesale Partnership",

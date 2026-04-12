@@ -9,12 +9,19 @@ export async function Footer() {
   const prefix = locale === "en" ? "" : `/${locale}`;
   const year = new Date().getFullYear();
 
-  const configs = await prisma.siteConfig.findMany({
-    where: { key: { in: ['contact.email', 'contact.phone', 'contact.address'] } }
-  });
-  const emailConfig = configs.find(c => c.key === 'contact.email')?.value || 'sales@colchiscreamery.com';
-  const phoneConfig = configs.find(c => c.key === 'contact.phone')?.value || '+1 (614) 555-0123';
-  const addressConfig = configs.find(c => c.key === 'contact.address')?.value || 'Columbus, Ohio, USA';
+  let emailConfig = 'sales@colchiscreamery.com';
+  let phoneConfig = '+1 (614) 555-0123';
+  let addressConfig = 'Columbus, Ohio, USA';
+  try {
+    const configs = await prisma.siteConfig.findMany({
+      where: { key: { in: ['contact.email', 'contact.phone', 'contact.address'] } }
+    });
+    emailConfig = configs.find(c => c.key === 'contact.email')?.value || emailConfig;
+    phoneConfig = configs.find(c => c.key === 'contact.phone')?.value || phoneConfig;
+    addressConfig = configs.find(c => c.key === 'contact.address')?.value || addressConfig;
+  } catch (err) {
+    console.error('[Footer] DB unreachable, using defaults:', (err as Error).message);
+  }
 
   return (
     <footer className="bg-charcoal text-white/90">

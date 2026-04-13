@@ -4,6 +4,8 @@ import { prisma } from '@/lib/db';
 import Link from 'next/link';
 import ContentBlockRenderer from '@/components/content/ContentBlockRenderer';
 
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://colchiscreamery.com';
+
 interface RecipePageProps {
     params: Promise<{ locale: string; slug: string }>;
 }
@@ -11,20 +13,24 @@ interface RecipePageProps {
 export const dynamic = 'force-dynamic';
 
 export async function generateMetadata({ params }: RecipePageProps): Promise<Metadata> {
-    const { slug } = await params;
+    const { locale, slug } = await params;
     const recipe = await prisma.recipe.findFirst({ where: { slug, isPublished: true } });
 
     if (!recipe) return { title: 'Recipe Not Found | Colchis Creamery' };
 
+    const canonicalPath = locale === 'en' ? `/recipes/${slug}` : `/${locale}/recipes/${slug}`;
+
     return {
         title: `${recipe.title} | Recipes & Pairings | Colchis Creamery`,
         description: recipe.description,
+        keywords: ['Georgian cheese recipe', recipe.title, 'Colchis Creamery', 'artisanal cheese', recipe.difficulty || 'cooking'].filter(Boolean),
         openGraph: {
             title: recipe.title,
             description: recipe.description,
-            images: recipe.imageUrl ? [recipe.imageUrl] : [],
+            images: recipe.imageUrl ? [{ url: recipe.imageUrl, width: 1200, height: 675, alt: recipe.title }] : [],
             type: 'article',
             siteName: 'Colchis Creamery',
+            url: `${SITE_URL}${canonicalPath}`,
         },
         twitter: {
             card: 'summary_large_image',
@@ -33,7 +39,13 @@ export async function generateMetadata({ params }: RecipePageProps): Promise<Met
             images: recipe.imageUrl ? [recipe.imageUrl] : [],
         },
         alternates: {
-            canonical: `/recipes/${slug}`,
+            canonical: `${SITE_URL}${canonicalPath}`,
+            languages: {
+                'en': `${SITE_URL}/recipes/${slug}`,
+                'ka': `${SITE_URL}/ka/recipes/${slug}`,
+                'ru': `${SITE_URL}/ru/recipes/${slug}`,
+                'es': `${SITE_URL}/es/recipes/${slug}`,
+            },
         },
     };
 }
@@ -90,6 +102,7 @@ export default async function SingleRecipePage({ params }: RecipePageProps) {
                             <img
                                 src={recipe.imageUrl}
                                 alt={recipe.title}
+                                loading="lazy"
                                 className="w-full h-full object-cover"
                                 itemProp="image"
                             />

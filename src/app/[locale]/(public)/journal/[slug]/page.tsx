@@ -4,6 +4,8 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import ContentBlockRenderer from '@/components/content/ContentBlockRenderer';
 
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://colchiscreamery.com';
+
 interface ArticlePageProps {
     params: Promise<{ locale: string; slug: string }>;
 }
@@ -11,20 +13,24 @@ interface ArticlePageProps {
 export const dynamic = 'force-dynamic';
 
 export async function generateMetadata({ params }: ArticlePageProps): Promise<Metadata> {
-    const { slug } = await params;
+    const { locale, slug } = await params;
     const article = await prisma.article.findFirst({ where: { slug, isPublished: true } });
 
     if (!article) return { title: 'Article Not Found | Colchis Creamery' };
 
+    const canonicalPath = locale === 'en' ? `/journal/${slug}` : `/${locale}/journal/${slug}`;
+
     return {
         title: `${article.title} | Journal | Colchis Creamery`,
         description: article.excerpt || article.title,
+        keywords: article.tags ? article.tags.split(',').map(t => t.trim()) : ['Colchis Creamery', 'Georgian cheese'],
         openGraph: {
             title: article.title,
             description: article.excerpt || article.title,
-            images: article.coverImage ? [article.coverImage] : [],
+            images: article.coverImage ? [{ url: article.coverImage, width: 1200, height: 675, alt: article.title }] : [],
             type: 'article',
             siteName: 'Colchis Creamery',
+            url: `${SITE_URL}${canonicalPath}`,
             publishedTime: article.publishedAt?.toISOString(),
             modifiedTime: article.updatedAt.toISOString(),
             ...(article.tags && { tags: article.tags.split(',').map(t => t.trim()) }),
@@ -36,7 +42,13 @@ export async function generateMetadata({ params }: ArticlePageProps): Promise<Me
             images: article.coverImage ? [article.coverImage] : [],
         },
         alternates: {
-            canonical: `/journal/${slug}`,
+            canonical: `${SITE_URL}${canonicalPath}`,
+            languages: {
+                'en': `${SITE_URL}/journal/${slug}`,
+                'ka': `${SITE_URL}/ka/journal/${slug}`,
+                'ru': `${SITE_URL}/ru/journal/${slug}`,
+                'es': `${SITE_URL}/es/journal/${slug}`,
+            },
         },
     };
 }
@@ -93,6 +105,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
                             <img
                                 src={article.coverImage}
                                 alt={article.title}
+                                loading="lazy"
                                 className="w-full h-full object-cover"
                                 itemProp="image"
                             />

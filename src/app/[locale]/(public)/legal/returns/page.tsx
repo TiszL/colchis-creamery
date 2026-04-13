@@ -1,9 +1,27 @@
 import { Metadata } from 'next';
 import { prisma } from '@/lib/db';
 
-export const metadata: Metadata = {
-    title: 'Return Policy | Colchis Creamery',
-};
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://colchiscreamery.com';
+
+export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
+    const { locale } = await params;
+    const canonicalPath = locale === 'en' ? '/legal/returns' : `/${locale}/legal/returns`;
+    return {
+        title: 'Return Policy | Colchis Creamery',
+        description: 'Read the return and refund policy for Colchis Creamery artisanal cheese. Learn about our quality guarantee and how to file a claim.',
+        keywords: ['Colchis Creamery returns', 'return policy', 'cheese refund', 'quality guarantee', 'wholesale returns'],
+        alternates: {
+            canonical: `${SITE_URL}${canonicalPath}`,
+            languages: { 'en': `${SITE_URL}/legal/returns`, 'ka': `${SITE_URL}/ka/legal/returns`, 'ru': `${SITE_URL}/ru/legal/returns`, 'es': `${SITE_URL}/es/legal/returns` },
+        },
+        openGraph: {
+            type: 'website', title: 'Return Policy | Colchis Creamery',
+            description: 'Our return and quality guarantee policy.',
+            url: `${SITE_URL}${canonicalPath}`, siteName: 'Colchis Creamery',
+        },
+        twitter: { card: 'summary', title: 'Return Policy | Colchis Creamery', description: 'Our return policy and quality guarantee.' },
+    };
+}
 
 export const dynamic = 'force-dynamic';
 
@@ -27,26 +45,43 @@ export default async function ReturnPolicyPage() {
         }
     } catch { /* use defaults */ }
 
+    const jsonLd = {
+        '@context': 'https://schema.org',
+        '@type': 'WebPage',
+        name: 'Return Policy',
+        description: 'Return and refund policy for Colchis Creamery',
+        url: `${SITE_URL}/legal/returns`,
+        isPartOf: { '@type': 'WebSite', name: 'Colchis Creamery', url: SITE_URL },
+        publisher: { '@type': 'Organization', name: 'Colchis Creamery', url: SITE_URL },
+        mainContentOfPage: {
+            '@type': 'WebPageElement',
+            text: sections.map(s => `${s.heading}: ${s.body}`).join(' '),
+        },
+    };
+
     return (
-        <main className="min-h-screen bg-[#FAFAFA] py-20 px-4">
-            <div className="max-w-3xl mx-auto bg-white p-10 md:p-16 shadow-sm rounded border border-gray-100">
+        <>
+            <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+            <main className="min-h-screen bg-[#FAFAFA] py-20 px-4">
+                <div className="max-w-3xl mx-auto bg-white p-10 md:p-16 shadow-sm rounded border border-gray-100">
 
-                <h1 className="text-4xl font-serif text-[#2C2A29] mb-8 border-b-2 border-[#CBA153] pb-4 inline-block">
-                    Return Policy
-                </h1>
+                    <h1 className="text-4xl font-serif text-[#2C2A29] mb-8 border-b-2 border-[#CBA153] pb-4 inline-block">
+                        Return Policy
+                    </h1>
 
-                <div className="prose prose-lg text-[#2C2A29] opacity-80">
-                    <p className="mb-6">Last updated: October 2025</p>
+                    <div className="prose prose-lg text-[#2C2A29] opacity-80">
+                        <p className="mb-6">Last updated: October 2025</p>
 
-                    {sections.map((section, idx) => (
-                        <div key={idx}>
-                            <h2 className="text-2xl font-serif text-[#CBA153] mt-8 mb-4">{section.heading}</h2>
-                            <p className="mb-6">{section.body}</p>
-                        </div>
-                    ))}
+                        {sections.map((section, idx) => (
+                            <div key={idx}>
+                                <h2 className="text-2xl font-serif text-[#CBA153] mt-8 mb-4">{section.heading}</h2>
+                                <p className="mb-6">{section.body}</p>
+                            </div>
+                        ))}
+                    </div>
+
                 </div>
-
-            </div>
-        </main>
+            </main>
+        </>
     );
 }

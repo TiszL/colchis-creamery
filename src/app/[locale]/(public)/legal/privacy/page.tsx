@@ -1,9 +1,27 @@
 import { Metadata } from 'next';
 import { prisma } from '@/lib/db';
 
-export const metadata: Metadata = {
-    title: 'Privacy Policy | Colchis Creamery',
-};
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://colchiscreamery.com';
+
+export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
+    const { locale } = await params;
+    const canonicalPath = locale === 'en' ? '/legal/privacy' : `/${locale}/legal/privacy`;
+    return {
+        title: 'Privacy Policy | Colchis Creamery',
+        description: 'Learn how Colchis Creamery collects, uses, and protects your personal information. Read our full privacy policy.',
+        keywords: ['Colchis Creamery privacy policy', 'data protection', 'personal information', 'cheese shop privacy'],
+        alternates: {
+            canonical: `${SITE_URL}${canonicalPath}`,
+            languages: { 'en': `${SITE_URL}/legal/privacy`, 'ka': `${SITE_URL}/ka/legal/privacy`, 'ru': `${SITE_URL}/ru/legal/privacy`, 'es': `${SITE_URL}/es/legal/privacy` },
+        },
+        openGraph: {
+            type: 'website', title: 'Privacy Policy | Colchis Creamery',
+            description: 'How Colchis Creamery handles your personal data.',
+            url: `${SITE_URL}${canonicalPath}`, siteName: 'Colchis Creamery',
+        },
+        twitter: { card: 'summary', title: 'Privacy Policy | Colchis Creamery', description: 'Our data privacy practices.' },
+    };
+}
 
 export const dynamic = 'force-dynamic';
 
@@ -27,26 +45,44 @@ export default async function PrivacyPolicyPage() {
         }
     } catch { /* use defaults */ }
 
+    // JSON-LD for AI crawlers and search engines
+    const jsonLd = {
+        '@context': 'https://schema.org',
+        '@type': 'WebPage',
+        name: 'Privacy Policy',
+        description: 'Privacy policy for Colchis Creamery',
+        url: `${SITE_URL}/legal/privacy`,
+        isPartOf: { '@type': 'WebSite', name: 'Colchis Creamery', url: SITE_URL },
+        publisher: { '@type': 'Organization', name: 'Colchis Creamery', url: SITE_URL },
+        mainContentOfPage: {
+            '@type': 'WebPageElement',
+            text: sections.map(s => `${s.heading}: ${s.body}`).join(' '),
+        },
+    };
+
     return (
-        <main className="min-h-screen bg-[#FAFAFA] py-20 px-4">
-            <div className="max-w-3xl mx-auto bg-white p-10 md:p-16 shadow-sm rounded border border-gray-100">
+        <>
+            <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+            <main className="min-h-screen bg-[#FAFAFA] py-20 px-4">
+                <div className="max-w-3xl mx-auto bg-white p-10 md:p-16 shadow-sm rounded border border-gray-100">
 
-                <h1 className="text-4xl font-serif text-[#2C2A29] mb-8 border-b-2 border-[#CBA153] pb-4 inline-block">
-                    Privacy Policy
-                </h1>
+                    <h1 className="text-4xl font-serif text-[#2C2A29] mb-8 border-b-2 border-[#CBA153] pb-4 inline-block">
+                        Privacy Policy
+                    </h1>
 
-                <div className="prose prose-lg text-[#2C2A29] opacity-80">
-                    <p className="mb-6">Last updated: October 2025</p>
+                    <div className="prose prose-lg text-[#2C2A29] opacity-80">
+                        <p className="mb-6">Last updated: October 2025</p>
 
-                    {sections.map((section, idx) => (
-                        <div key={idx}>
-                            <h2 className="text-2xl font-serif text-[#CBA153] mt-8 mb-4">{section.heading}</h2>
-                            <p className="mb-6">{section.body}</p>
-                        </div>
-                    ))}
+                        {sections.map((section, idx) => (
+                            <div key={idx}>
+                                <h2 className="text-2xl font-serif text-[#CBA153] mt-8 mb-4">{section.heading}</h2>
+                                <p className="mb-6">{section.body}</p>
+                            </div>
+                        ))}
+                    </div>
+
                 </div>
-
-            </div>
-        </main>
+            </main>
+        </>
     );
 }

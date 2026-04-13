@@ -1,10 +1,27 @@
 import { Metadata } from 'next';
 import { prisma } from '@/lib/db';
 
-export const metadata: Metadata = {
-    title: 'FAQ | Colchis Creamery',
-    description: 'Frequently Asked Questions about Colchis Creamery, our artisanal Georgian cheese, shipping, and more.',
-};
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://colchiscreamery.com';
+
+export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
+    const { locale } = await params;
+    const canonicalPath = locale === 'en' ? '/faq' : `/${locale}/faq`;
+    return {
+        title: 'Frequently Asked Questions | Colchis Creamery',
+        description: 'Find answers to common questions about Colchis Creamery — Georgian cheese ordering, shipping, wholesale accounts, storage, and more.',
+        keywords: ['Colchis Creamery FAQ', 'Georgian cheese questions', 'cheese shipping', 'wholesale cheese', 'Sulguni storage'],
+        alternates: {
+            canonical: `${SITE_URL}${canonicalPath}`,
+            languages: { 'en': `${SITE_URL}/faq`, 'ka': `${SITE_URL}/ka/faq`, 'ru': `${SITE_URL}/ru/faq`, 'es': `${SITE_URL}/es/faq` },
+        },
+        openGraph: {
+            type: 'website', title: 'FAQ | Colchis Creamery',
+            description: 'Find answers to common questions about Colchis Creamery.',
+            url: `${SITE_URL}${canonicalPath}`, siteName: 'Colchis Creamery',
+        },
+        twitter: { card: 'summary', title: 'FAQ | Colchis Creamery', description: 'Frequently asked questions about Georgian artisanal cheese.' },
+    };
+}
 
 export const dynamic = 'force-dynamic';
 
@@ -28,31 +45,45 @@ export default async function FAQPage() {
         }
     } catch { /* use defaults */ }
 
+    // JSON-LD: FAQPage schema — directly consumed by Google & AI bots
+    const jsonLd = {
+        '@context': 'https://schema.org',
+        '@type': 'FAQPage',
+        mainEntity: faqs.map(faq => ({
+            '@type': 'Question',
+            name: faq.question,
+            acceptedAnswer: { '@type': 'Answer', text: faq.answer },
+        })),
+    };
+
     return (
-        <main className="min-h-screen bg-[#FDFBF7] py-20 px-4">
-            <div className="max-w-3xl mx-auto">
+        <>
+            <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+            <main className="min-h-screen bg-[#FDFBF7] py-20 px-4">
+                <div className="max-w-3xl mx-auto">
 
-                <div className="text-center mb-16">
-                    <h1 className="text-5xl font-serif text-[#2C2A29] mb-4">Frequently Asked Questions</h1>
-                    <p className="text-xl text-[#2C2A29] opacity-80">
-                        Find answers to common questions about our heritage, products, and services.
-                    </p>
+                    <div className="text-center mb-16">
+                        <h1 className="text-5xl font-serif text-[#2C2A29] mb-4">Frequently Asked Questions</h1>
+                        <p className="text-xl text-[#2C2A29] opacity-80">
+                            Find answers to common questions about our heritage, products, and services.
+                        </p>
+                    </div>
+
+                    <div className="space-y-6">
+                        {faqs.map((faq, index) => (
+                            <div key={index} className="bg-white p-8 rounded shadow-sm border border-gray-100">
+                                <h3 className="text-xl font-serif text-[#CBA153] mb-3">
+                                    {faq.question}
+                                </h3>
+                                <p className="text-[#2C2A29] leading-relaxed opacity-90">
+                                    {faq.answer}
+                                </p>
+                            </div>
+                        ))}
+                    </div>
+
                 </div>
-
-                <div className="space-y-6">
-                    {faqs.map((faq, index) => (
-                        <div key={index} className="bg-white p-8 rounded shadow-sm border border-gray-100">
-                            <h3 className="text-xl font-serif text-[#CBA153] mb-3">
-                                {faq.question}
-                            </h3>
-                            <p className="text-[#2C2A29] leading-relaxed opacity-90">
-                                {faq.answer}
-                            </p>
-                        </div>
-                    ))}
-                </div>
-
-            </div>
-        </main>
+            </main>
+        </>
     );
 }

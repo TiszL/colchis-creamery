@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { NextIntlClientProvider, hasLocale } from "next-intl";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 export const metadata: Metadata = {
   title: {
@@ -82,6 +83,7 @@ export default async function LocaleLayout({
             {children}
           </CartProvider>
         </NextIntlClientProvider>
+        <SpeedInsights />
       </body>
     </html>
   );

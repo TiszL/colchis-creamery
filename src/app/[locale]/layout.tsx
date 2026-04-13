@@ -30,6 +30,7 @@ import { notFound } from "next/navigation";
 import { routing } from "@/i18n/routing";
 import { Playfair_Display, Inter, Noto_Serif_Georgian, Noto_Sans_Georgian } from "next/font/google";
 import { CartProvider } from "@/providers/CartProvider";
+import { Analytics } from "@vercel/analytics/next";
 import "../globals.css";
 
 const playfair = Playfair_Display({
@@ -82,6 +83,7 @@ export default async function LocaleLayout({
             {children}
           </CartProvider>
         </NextIntlClientProvider>
+        <Analytics />
       </body>
     </html>
   );

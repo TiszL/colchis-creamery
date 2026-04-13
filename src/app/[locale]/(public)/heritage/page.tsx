@@ -24,6 +24,8 @@ interface HeritageSection {
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://colchiscreamery.com';
+
 function getVal(configs: { key: string; value: string }[], key: string): string {
   return configs.find(c => c.key === key)?.value || '';
 }
@@ -48,14 +50,65 @@ function getYouTubeId(url: string): string | null {
   return match ? match[1] : null;
 }
 
-// ─── Metadata ────────────────────────────────────────────────────────────────
+// ─── Metadata (SEO) ──────────────────────────────────────────────────────────
 export async function generateMetadata({ params }: HeritagePageProps): Promise<Metadata> {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "heritage" });
 
+  // Load CMS content for dynamic descriptions
+  const configs = await prisma.siteConfig.findMany({
+    where: { key: { startsWith: 'heritage.' } },
+  });
+
+  const title = localizedText(getVal(configs, 'heritage.pageTitle'), locale, t("title"));
+  const description = localizedText(getVal(configs, 'heritage.pageIntro'), locale, t("intro"));
+
+  // Find first image from sections for OG image
+  let ogImage: string | undefined;
+  const sectionsRaw = getVal(configs, 'heritage.sections');
+  if (sectionsRaw) {
+    try {
+      const sections: HeritageSection[] = JSON.parse(sectionsRaw);
+      for (const s of sections) {
+        if (s.images?.length > 0) { ogImage = s.images[0]; break; }
+      }
+    } catch { /* ignore */ }
+  }
+
+  const canonicalPath = locale === 'en' ? '/heritage' : `/${locale}/heritage`;
+
   return {
-    title: t("title"),
-    description: t("intro"),
+    title,
+    description,
+    keywords: [
+      'Georgian cheese heritage', 'Colchis Creamery story', 'artisanal cheesemaking',
+      'Georgian tradition', 'Ohio cheese', 'Sulguni history', 'handcrafted cheese',
+      'ancient cheesemaking', 'Georgian dairy', 'Colchis heritage',
+    ],
+    alternates: {
+      canonical: `${SITE_URL}${canonicalPath}`,
+      languages: {
+        'en': `${SITE_URL}/heritage`,
+        'ka': `${SITE_URL}/ka/heritage`,
+        'ru': `${SITE_URL}/ru/heritage`,
+        'es': `${SITE_URL}/es/heritage`,
+      },
+    },
+    openGraph: {
+      type: 'website',
+      title: `${title} | Colchis Creamery`,
+      description,
+      url: `${SITE_URL}${canonicalPath}`,
+      siteName: 'Colchis Creamery',
+      locale: locale === 'en' ? 'en_US' : locale === 'ka' ? 'ka_GE' : locale === 'ru' ? 'ru_RU' : 'es_ES',
+      ...(ogImage ? { images: [{ url: ogImage, width: 1200, height: 900, alt: title }] } : {}),
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: `${title} | Colchis Creamery`,
+      description,
+      ...(ogImage ? { images: [ogImage] } : {}),
+    },
   };
 }
 
@@ -87,8 +140,43 @@ export default async function HeritagePage({ params }: HeritagePageProps) {
   // Fallback: if no sections exist, use i18n-based defaults
   const hasSections = sections.length > 0;
 
+  // ── JSON-LD Structured Data for Search Engines & AI Crawlers ──
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'AboutPage',
+    name: pageTitle,
+    description: pageIntro,
+    url: `${SITE_URL}${locale === 'en' ? '' : `/${locale}`}/heritage`,
+    inLanguage: locale === 'en' ? 'en-US' : locale === 'ka' ? 'ka-GE' : locale === 'ru' ? 'ru-RU' : 'es-ES',
+    isPartOf: {
+      '@type': 'WebSite',
+      name: 'Colchis Creamery',
+      url: SITE_URL,
+    },
+    about: {
+      '@type': 'Organization',
+      name: 'Colchis Creamery',
+      description: 'Authentic Georgian artisanal cheese, handcrafted in Ohio with premium local milk.',
+      url: SITE_URL,
+      foundingDate: '2024',
+      areaServed: 'United States',
+      knowsAbout: ['Georgian cheese', 'Sulguni', 'Imeretian cheese', 'artisanal cheesemaking', 'Georgian cuisine'],
+    },
+    mainEntity: hasSections ? sections.map(s => ({
+      '@type': 'WebPageElement',
+      name: locStr(s.heading, locale),
+      text: locStr(s.text, locale),
+      ...(s.images?.length > 0 ? { image: s.images[0] } : {}),
+    })) : undefined,
+  };
+
   return (
     <div className="bg-cream">
+      {/* JSON-LD Structured Data — invisible, read by search engines & AI bots */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       {/* Hero */}
       <section className="relative py-20 sm:py-28 bg-gradient-to-b from-cream to-white">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
@@ -139,6 +227,7 @@ export default async function HeritagePage({ params }: HeritagePageProps) {
                               <img
                                 src={section.images[0]}
                                 alt={heading}
+                                loading="lazy"
                                 className="w-full h-full object-cover"
                               />
                             </div>
@@ -149,13 +238,14 @@ export default async function HeritagePage({ params }: HeritagePageProps) {
                                 <img
                                   src={section.images[0]}
                                   alt={heading}
+                                  loading="lazy"
                                   className="w-full h-full object-cover"
                                 />
                               </div>
                               <div className="grid grid-cols-3 gap-2">
                                 {section.images.slice(1, 4).map((img, imgIdx) => (
                                   <div key={imgIdx} className="aspect-[4/3] rounded-md overflow-hidden border border-border-light">
-                                    <img src={img} alt="" className="w-full h-full object-cover" />
+                                    <img src={img} alt={`${heading} — image ${imgIdx + 2}`} loading="lazy" className="w-full h-full object-cover" />
                                   </div>
                                 ))}
                               </div>

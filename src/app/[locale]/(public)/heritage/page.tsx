@@ -1,5 +1,6 @@
 import { getTranslations } from "next-intl/server";
 import { prisma } from "@/lib/db";
+import Image from "next/image";
 import type { Metadata } from "next";
 
 interface HeritagePageProps {
@@ -223,29 +224,31 @@ export default async function HeritagePage({ params }: HeritagePageProps) {
                         {/* Primary image */}
                         {hasImages && (
                           section.images.length === 1 ? (
-                            <div className="aspect-[4/3] rounded-lg overflow-hidden shadow-lg border border-border-light">
-                              <img
+                            <div className="aspect-[4/3] relative rounded-lg overflow-hidden shadow-lg border border-border-light">
+                              <Image
                                 src={section.images[0]}
                                 alt={heading}
-                                loading="lazy"
-                                className="w-full h-full object-cover"
+                                fill
+                                sizes="(max-width: 768px) 100vw, 50vw"
+                                className="object-cover"
                               />
                             </div>
                           ) : (
                             /* Image gallery (2+ images) */
                             <div className="space-y-3">
-                              <div className="aspect-[4/3] rounded-lg overflow-hidden shadow-lg border border-border-light">
-                                <img
+                              <div className="aspect-[4/3] relative rounded-lg overflow-hidden shadow-lg border border-border-light">
+                                <Image
                                   src={section.images[0]}
                                   alt={heading}
-                                  loading="lazy"
-                                  className="w-full h-full object-cover"
+                                  fill
+                                  sizes="(max-width: 768px) 100vw, 50vw"
+                                  className="object-cover"
                                 />
                               </div>
                               <div className="grid grid-cols-3 gap-2">
                                 {section.images.slice(1, 4).map((img, imgIdx) => (
-                                  <div key={imgIdx} className="aspect-[4/3] rounded-md overflow-hidden border border-border-light">
-                                    <img src={img} alt={`${heading} — image ${imgIdx + 2}`} loading="lazy" className="w-full h-full object-cover" />
+                                  <div key={imgIdx} className="aspect-[4/3] relative rounded-md overflow-hidden border border-border-light">
+                                    <Image src={img} alt={`${heading} — image ${imgIdx + 2}`} fill sizes="33vw" className="object-cover" />
                                   </div>
                                 ))}
                               </div>
@@ -295,11 +298,13 @@ export default async function HeritagePage({ params }: HeritagePageProps) {
                   <h2 className="font-serif text-3xl text-charcoal mb-6">{t("traditionTitle")}</h2>
                   <p className="text-charcoal/70 leading-relaxed text-lg">{t("traditionText")}</p>
                 </div>
-                <div className="aspect-[4/3] rounded-lg overflow-hidden shadow-lg border border-border-light">
-                  <img
+                <div className="aspect-[4/3] relative rounded-lg overflow-hidden shadow-lg border border-border-light">
+                  <Image
                     src="https://images.unsplash.com/photo-1481070555726-e2fe8357725c?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80"
                     alt="Georgian Countryside"
-                    className="w-full h-full object-cover"
+                    fill
+                    sizes="(max-width: 768px) 100vw, 50vw"
+                    className="object-cover"
                   />
                 </div>
               </div>
@@ -308,11 +313,13 @@ export default async function HeritagePage({ params }: HeritagePageProps) {
           <section className="py-16 bg-cream">
             <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
-                <div className="order-2 md:order-1 aspect-[4/3] rounded-lg overflow-hidden shadow-lg border border-border-light">
-                  <img
+                <div className="order-2 md:order-1 aspect-[4/3] relative rounded-lg overflow-hidden shadow-lg border border-border-light">
+                  <Image
                     src="https://images.unsplash.com/photo-1559561853-08451507cbe7?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80"
                     alt="Artisanal Cheesemaking"
-                    className="w-full h-full object-cover"
+                    fill
+                    sizes="(max-width: 768px) 100vw, 50vw"
+                    className="object-cover"
                   />
                 </div>
                 <div className="order-1 md:order-2">

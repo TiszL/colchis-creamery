@@ -2,6 +2,7 @@ import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import Link from 'next/link';
+import Image from 'next/image';
 import ContentBlockRenderer from '@/components/content/ContentBlockRenderer';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://colchiscreamery.com';
@@ -99,12 +100,13 @@ export default async function SingleRecipePage({ params }: RecipePageProps) {
                     {/* Cover Photo */}
                     {recipe.imageUrl && (
                         <div className="relative w-full h-[400px]">
-                            <img
+                            <Image
                                 src={recipe.imageUrl}
                                 alt={recipe.title}
-                                loading="lazy"
-                                className="w-full h-full object-cover"
-                                itemProp="image"
+                                fill
+                                priority
+                                sizes="(max-width: 768px) 100vw, 896px"
+                                className="object-cover"
                             />
                         </div>
                     )}

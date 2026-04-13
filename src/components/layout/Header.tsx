@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useTranslations, useLocale } from "next-intl";
 import { LocaleSwitcher } from "./LocaleSwitcher";
 import { useCart } from "@/providers/CartProvider";
@@ -146,7 +147,7 @@ export function Header() {
           {/* Left: Logo — fixed width, doesn't expand */}
           <div className="flex items-center shrink-0">
             <Link href={`${prefix}/`} className="flex items-center gap-3">
-              <img src="/logo-optimized.png" alt="Colchis Creamery Logo" className="w-[70px] h-[70px] sm:w-[90px] sm:h-[90px] object-contain rounded-full border border-gold/30 shadow-md" />
+              <Image src="/logo-optimized.png" alt="Colchis Creamery Logo" width={90} height={90} priority className="w-[70px] h-[70px] sm:w-[90px] sm:h-[90px] object-contain rounded-full border border-gold/30 shadow-md" />
               <span className="font-serif text-xl sm:text-2xl font-bold text-charcoal tracking-tight hidden xl:block">
                 Colchis<span className="text-gold"> Creamery</span>
               </span>

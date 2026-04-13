@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import type { Product } from "@/types";
 import { getTranslations } from "next-intl/server";
 import Link from "next/link";
+import Image from "next/image";
 import { Button } from "@/components/ui/Button";
 import { getOgImage, buildOgImages } from "@/lib/seo";
 
@@ -108,11 +109,12 @@ export default async function HomePage({ params }: HomePageProps) {
           <div className="flex flex-col lg:flex-row items-center gap-16">
             <div className="w-full lg:w-1/2 relative">
               <div className="aspect-[4/5] md:aspect-square relative w-full overflow-hidden rounded-lg shadow-xl border border-border-light">
-                <img
+                <Image
                   src={heritageImage}
                   alt={heritageTitle}
-                  loading="lazy"
-                  className="w-full h-full object-cover"
+                  fill
+                  sizes="(max-width: 1024px) 100vw, 50vw"
+                  className="object-cover"
                 />
               </div>
               <div className="absolute -bottom-6 -right-6 w-32 h-32 bg-gold/10 rounded-full -z-10 blur-2xl"></div>

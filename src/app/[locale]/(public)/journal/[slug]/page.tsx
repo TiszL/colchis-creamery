@@ -2,6 +2,7 @@ import { Metadata } from 'next';
 import { prisma } from '@/lib/db';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import ContentBlockRenderer from '@/components/content/ContentBlockRenderer';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://colchiscreamery.com';
@@ -102,12 +103,13 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
                 <article className="max-w-4xl mx-auto bg-white shadow-xl rounded-lg overflow-hidden" itemScope itemType="https://schema.org/Article">
                     {article.coverImage && (
                         <div className="relative w-full h-[400px]">
-                            <img
+                            <Image
                                 src={article.coverImage}
                                 alt={article.title}
-                                loading="lazy"
-                                className="w-full h-full object-cover"
-                                itemProp="image"
+                                fill
+                                priority
+                                sizes="(max-width: 768px) 100vw, 896px"
+                                className="object-cover"
                             />
                         </div>
                     )}

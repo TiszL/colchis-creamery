@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import Image from 'next/image';
 
 interface HeroCarouselProps {
     images: string[];
@@ -43,17 +44,24 @@ export default function HeroCarousel({
                     else if (isPrev) translateX = '-100%';
 
                     return (
-                        <img
+                        <div
                             key={idx}
-                            src={src}
-                            alt={`Hero ${idx + 1}`}
-                            className="absolute inset-0 w-full h-full object-cover"
+                            className="absolute inset-0"
                             style={{
                                 transform: `translateX(${translateX})`,
                                 transition: isActive || isPrev ? `transform ${transitionDuration}ms ease-in-out` : 'none',
                                 zIndex: isActive ? 2 : isPrev ? 1 : 0,
                             }}
-                        />
+                        >
+                            <Image
+                                src={src}
+                                alt={`Hero ${idx + 1}`}
+                                fill
+                                sizes="100vw"
+                                priority={idx === 0}
+                                className="object-cover"
+                            />
+                        </div>
                     );
                 })}
             </div>
@@ -67,17 +75,24 @@ export default function HeroCarousel({
                 {images.map((src, idx) => {
                     const isActive = idx === current;
                     return (
-                        <img
+                        <div
                             key={idx}
-                            src={src}
-                            alt={`Hero ${idx + 1}`}
-                            className="absolute inset-0 w-full h-full object-cover"
+                            className="absolute inset-0"
                             style={{
                                 opacity: isActive ? 1 : 0,
                                 transform: isActive ? 'scale(1.08)' : 'scale(1)',
                                 transition: `opacity ${transitionDuration}ms ease-in-out, transform ${interval + transitionDuration}ms ease-out`,
                             }}
-                        />
+                        >
+                            <Image
+                                src={src}
+                                alt={`Hero ${idx + 1}`}
+                                fill
+                                sizes="100vw"
+                                priority={idx === 0}
+                                className="object-cover"
+                            />
+                        </div>
                     );
                 })}
             </div>
@@ -88,16 +103,23 @@ export default function HeroCarousel({
     return (
         <div className="relative w-full h-full">
             {images.map((src, idx) => (
-                <img
+                <div
                     key={idx}
-                    src={src}
-                    alt={`Hero ${idx + 1}`}
-                    className="absolute inset-0 w-full h-full object-cover"
+                    className="absolute inset-0"
                     style={{
                         opacity: idx === current ? 1 : 0,
                         transition: `opacity ${transitionDuration}ms ease-in-out`,
                     }}
-                />
+                >
+                    <Image
+                        src={src}
+                        alt={`Hero ${idx + 1}`}
+                        fill
+                        sizes="100vw"
+                        priority={idx === 0}
+                        className="object-cover"
+                    />
+                </div>
             ))}
         </div>
     );

@@ -1,5 +1,6 @@
 import { Metadata } from 'next';
 import Link from 'next/link';
+import Image from 'next/image';
 import { prisma } from '@/lib/db';
 import { getTranslations } from 'next-intl/server';
 import { getOgImage, buildOgImages } from '@/lib/seo';
@@ -108,11 +109,12 @@ export default async function JournalPage({ params }: { params: Promise<{ locale
                                 >
                                     {article.coverImage && (
                                         <div className="relative w-full aspect-[16/9] overflow-hidden">
-                                            <img
+                                            <Image
                                                 src={article.coverImage}
                                                 alt={article.title}
-                                                loading="lazy"
-                                                className="w-full h-full object-cover group-hover:scale-105 transition duration-500 ease-in-out"
+                                                fill
+                                                sizes="(max-width: 768px) 100vw, 50vw"
+                                                className="object-cover group-hover:scale-105 transition duration-500 ease-in-out"
                                             />
                                         </div>
                                     )}

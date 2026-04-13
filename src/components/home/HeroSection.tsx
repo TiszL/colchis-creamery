@@ -1,6 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
+import Image from "next/image";
 import HeroCarousel from "./HeroCarousel";
 
 interface HeroSectionProps {
@@ -110,13 +111,20 @@ export async function HeroSection({ locale }: HeroSectionProps) {
         )}
 
         {videoUrl ? (
-          <video autoPlay muted loop playsInline className="w-full h-full object-cover scale-105">
+          <video autoPlay muted loop playsInline className="w-full h-full object-cover">
             <source src={videoUrl} type="video/mp4" />
           </video>
         ) : heroImages.length > 1 ? (
           <HeroCarousel images={heroImages} interval={carouselInterval} transition={carouselTransition} transitionDuration={carouselTransitionDuration} />
         ) : (
-          <img src={heroImages[0]} className="w-full h-full object-cover scale-105" alt="Colchis Heritage Landscapes" />
+          <Image
+            src={heroImages[0]}
+            alt="Colchis Heritage Landscapes"
+            fill
+            priority
+            sizes="100vw"
+            className="object-cover"
+          />
         )}
       </div>
 

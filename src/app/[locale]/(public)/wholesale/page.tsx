@@ -1,6 +1,7 @@
 import WholesaleForm from '@/components/b2b/WholesaleForm';
 import { Metadata } from 'next';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Truck, FileText } from 'lucide-react';
 import { prisma } from '@/lib/db';
 import { getOgImage, buildOgImages } from '@/lib/seo';
@@ -101,11 +102,12 @@ export default async function WholesalePage() {
                     {/* Hero Image — visible on mobile as a banner, full aspect on desktop */}
                     <div className="relative aspect-[16/9] md:aspect-[4/5] md:p-10 overflow-hidden rounded-lg md:rounded-none">
                         <div className="absolute top-0 left-0 w-full h-full border border-[#CBA153]/10"></div>
-                        <img
+                        <Image
                             src={imageUrl}
-                            className="absolute inset-0 w-full h-full object-cover grayscale opacity-60 contrast-125"
                             alt={headingLine1}
-                            loading="lazy"
+                            fill
+                            sizes="(max-width: 768px) 100vw, 50vw"
+                            className="object-cover grayscale opacity-60 contrast-125"
                         />
                     </div>
                 </div>

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { useTranslations } from "next-intl";
 import type { Product } from "@/types";
 import { formatCurrency } from "@/lib/utils";
@@ -22,10 +23,12 @@ export function ProductCard({ product, locale }: ProductCardProps) {
       <div className={`bg-white rounded-lg overflow-hidden shadow-sm border border-border-light hover:shadow-md transition-all duration-300 ${isComingSoon ? 'ring-1 ring-amber-300/30' : ''}`}>
         {/* Image */}
         <div className="relative aspect-[4/3] bg-cream flex items-center justify-center overflow-hidden">
-          <img
+          <Image
             src={product.imageUrl}
             alt={product.name}
-            className={`w-full h-full object-cover mix-blend-multiply group-hover:scale-105 transition-transform duration-500 ${isComingSoon ? 'opacity-80' : ''}`}
+            fill
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+            className={`object-cover mix-blend-multiply group-hover:scale-105 transition-transform duration-500 ${isComingSoon ? 'opacity-80' : ''}`}
           />
           <div className="absolute top-3 right-3 flex flex-col gap-1.5 items-end">
             {isComingSoon ? (

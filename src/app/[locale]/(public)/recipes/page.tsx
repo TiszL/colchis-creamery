@@ -1,5 +1,6 @@
 import { Metadata } from 'next';
 import Link from 'next/link';
+import Image from 'next/image';
 import { prisma } from '@/lib/db';
 import { getOgImage, buildOgImages } from '@/lib/seo';
 
@@ -106,11 +107,12 @@ export default async function RecipesPage({ params }: { params: Promise<{ locale
                                 >
                                     {recipe.imageUrl && (
                                         <div className="relative w-full aspect-[16/9] overflow-hidden">
-                                            <img
+                                            <Image
                                                 src={recipe.imageUrl}
                                                 alt={recipe.title}
-                                                loading="lazy"
-                                                className="w-full h-full object-cover group-hover:scale-105 transition duration-500 ease-in-out"
+                                                fill
+                                                sizes="(max-width: 768px) 100vw, 50vw"
+                                                className="object-cover group-hover:scale-105 transition duration-500 ease-in-out"
                                             />
                                         </div>
                                     )}

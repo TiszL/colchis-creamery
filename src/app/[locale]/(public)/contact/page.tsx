@@ -1,5 +1,6 @@
 import { Metadata } from 'next';
 import { prisma } from '@/lib/db';
+import ContactFormClient from '@/components/contact/ContactFormClient';
 
 export const metadata: Metadata = {
     title: 'Contact Us | Colchis Creamery',
@@ -52,23 +53,7 @@ export default async function ContactPage() {
 
                     <div>
                         <h2 className="text-2xl font-serif text-[#CBA153] mb-6">Send a Message</h2>
-                        <form className="space-y-4">
-                            <div>
-                                <label className="block text-sm text-[#2C2A29] mb-1">Full Name</label>
-                                <input type="text" className="w-full border border-gray-300 p-3 rounded focus:outline-none focus:border-[#CBA153]" />
-                            </div>
-                            <div>
-                                <label className="block text-sm text-[#2C2A29] mb-1">Email Address</label>
-                                <input type="email" className="w-full border border-gray-300 p-3 rounded focus:outline-none focus:border-[#CBA153]" />
-                            </div>
-                            <div>
-                                <label className="block text-sm text-[#2C2A29] mb-1">Message</label>
-                                <textarea rows={4} className="w-full border border-gray-300 p-3 rounded focus:outline-none focus:border-[#CBA153]"></textarea>
-                            </div>
-                            <button type="button" className="bg-[#2C2A29] text-white px-8 py-3 rounded hover:bg-opacity-90 transition font-medium w-full">
-                                Send Message
-                            </button>
-                        </form>
+                        <ContactFormClient />
                     </div>
 
                 </div>

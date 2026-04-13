@@ -1,34 +1,33 @@
 import { Metadata } from 'next';
+import { prisma } from '@/lib/db';
 
 export const metadata: Metadata = {
     title: 'FAQ | Colchis Creamery',
     description: 'Frequently Asked Questions about Colchis Creamery, our artisanal Georgian cheese, shipping, and more.',
 };
 
-const faqs = [
-    {
-        question: 'Where is your cheese made?',
-        answer: 'Our cheese is handcrafted in Ohio, USA, using premium local milk, while strictly following ancient Georgian cheese-making traditions.'
-    },
-    {
-        question: 'How is the cheese shipped to ensure freshness?',
-        answer: 'We ship our cheese in insulated packaging with ice packs via expedited shipping to ensure it arrives at your doorstep in perfect condition.'
-    },
-    {
-        question: 'Are your cheeses pasteurized?',
-        answer: 'Yes, all Colchis Creamery cheeses are made from pasteurized milk to comply with FDA regulations while maintaining authentic flavor profiles.'
-    },
-    {
-        question: 'Do you offer wholesale pricing for restaurants?',
-        answer: 'Absolutely. We partner with premium restaurants, grocery stores, and distributors. Please visit our Wholesale page to apply for a B2B account.'
-    },
-    {
-        question: 'How long does Sulguni cheese last?',
-        answer: 'Unopened, our Sulguni cheese will last up to 60 days in the refrigerator. Once opened, we recommend consuming it within 5-7 days for optimal taste.'
-    }
+export const dynamic = 'force-dynamic';
+
+interface FaqItem { question: string; answer: string; }
+
+const DEFAULTS: FaqItem[] = [
+    { question: 'Where is your cheese made?', answer: 'Our cheese is handcrafted in Ohio, USA, using premium local milk, while strictly following ancient Georgian cheese-making traditions.' },
+    { question: 'How is the cheese shipped to ensure freshness?', answer: 'We ship our cheese in insulated packaging with ice packs via expedited shipping to ensure it arrives at your doorstep in perfect condition.' },
+    { question: 'Are your cheeses pasteurized?', answer: 'Yes, all Colchis Creamery cheeses are made from pasteurized milk to comply with FDA regulations while maintaining authentic flavor profiles.' },
+    { question: 'Do you offer wholesale pricing for restaurants?', answer: 'Absolutely. We partner with premium restaurants, grocery stores, and distributors. Please visit our Wholesale page to apply for a B2B account.' },
+    { question: 'How long does Sulguni cheese last?', answer: 'Unopened, our Sulguni cheese will last up to 60 days in the refrigerator. Once opened, we recommend consuming it within 5-7 days for optimal taste.' },
 ];
 
-export default function FAQPage() {
+export default async function FAQPage() {
+    let faqs: FaqItem[] = DEFAULTS;
+    try {
+        const row = await prisma.siteConfig.findUnique({ where: { key: 'legal.faq' } });
+        if (row?.value) {
+            const parsed = JSON.parse(row.value);
+            if (Array.isArray(parsed) && parsed.length > 0) faqs = parsed;
+        }
+    } catch { /* use defaults */ }
+
     return (
         <main className="min-h-screen bg-[#FDFBF7] py-20 px-4">
             <div className="max-w-3xl mx-auto">

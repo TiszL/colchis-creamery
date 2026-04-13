@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { batchUpsertSiteConfigAction } from '@/app/actions/cms';
 import { revalidatePath } from 'next/cache';
 import HeroMediaEditor from '@/components/admin/HeroMediaEditor';
+import HomeHeritageTeaserEditor from '@/components/admin/HomeHeritageTeaserEditor';
 
 export const dynamic = 'force-dynamic';
 
@@ -52,7 +53,7 @@ export default async function AdminWebsitePage({ params }: { params: any }) {
             </div>
 
             {/* Quick Links */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
                 <Link href={`/${locale}/admin/website/products`} className="bg-[#1A1A1A] p-6 rounded-xl border border-white/5 hover:border-[#CBA153]/20 transition-all group">
                     <ShoppingBag className="w-6 h-6 text-[#CBA153] mb-3" />
                     <h3 className="text-white font-bold mb-1">Products</h3>
@@ -77,10 +78,19 @@ export default async function AdminWebsitePage({ params }: { params: any }) {
                     <p className="text-gray-500 text-sm">Sections, media & translations</p>
                     <span className="text-xs text-emerald-400 mt-3 block group-hover:translate-x-1 transition-transform">Edit Heritage →</span>
                 </Link>
+                <Link href={`/${locale}/admin/website/legal`} className="bg-[#1A1A1A] p-6 rounded-xl border border-white/5 hover:border-amber-500/20 transition-all group">
+                    <FileText className="w-6 h-6 text-amber-400 mb-3" />
+                    <h3 className="text-white font-bold mb-1">Legal & FAQ</h3>
+                    <p className="text-gray-500 text-sm">FAQ, Privacy, Terms, Returns</p>
+                    <span className="text-xs text-amber-400 mt-3 block group-hover:translate-x-1 transition-transform">Edit Pages →</span>
+                </Link>
             </div>
 
             {/* Hero Section — with media upload */}
             <HeroMediaEditor configs={JSON.parse(JSON.stringify(configs))} />
+
+            {/* Home Heritage Teaser Section */}
+            <HomeHeritageTeaserEditor configs={JSON.parse(JSON.stringify(configs))} />
 
             {/* Contact Info */}
             <form action={saveSectionAction} className="bg-[#1A1A1A] rounded-xl border border-white/5 overflow-hidden">

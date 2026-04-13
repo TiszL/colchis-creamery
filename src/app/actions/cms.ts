@@ -45,8 +45,13 @@ export async function batchUpsertSiteConfigAction(formData: FormData) {
 
         revalidatePath("/");
         revalidatePath("/heritage");
+        revalidatePath("/faq");
+        revalidatePath("/legal/privacy");
+        revalidatePath("/legal/terms");
+        revalidatePath("/legal/returns");
         revalidatePath("/admin/website");
         revalidatePath("/admin/website/heritage");
+        revalidatePath("/admin/website/legal");
         return { success: true };
     } catch (error) {
         console.error("Batch upsert site config error:", error);

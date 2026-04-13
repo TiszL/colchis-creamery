@@ -7,6 +7,17 @@ import { getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 
+function localizedCms(raw: string, locale: string, fallback: string): string {
+  try {
+    const parsed = JSON.parse(raw);
+    if (typeof parsed === 'object' && parsed.en !== undefined) return parsed[locale] || parsed.en || fallback;
+  } catch { /* not JSON */ }
+  return raw || fallback;
+}
+function getVal(configs: { key: string; value: string }[], key: string): string {
+  return configs.find(c => c.key === key)?.value || '';
+}
+
 interface HomePageProps {
   params: Promise<{ locale: string }>;
 }
@@ -55,6 +66,19 @@ export default async function HomePage({ params }: HomePageProps) {
     console.error('[HomePage] DB unreachable, showing empty products:', (err as Error).message);
   }
 
+  // Load heritage teaser CMS data
+  let heritageCfg: { key: string; value: string }[] = [];
+  try {
+    heritageCfg = await prisma.siteConfig.findMany({
+      where: { key: { startsWith: 'homeHeritage.' } },
+    });
+  } catch { /* fallback to i18n */ }
+
+  const heritageTitle = localizedCms(getVal(heritageCfg, 'homeHeritage.title'), locale, t("heritageTitle"));
+  const heritageText = localizedCms(getVal(heritageCfg, 'homeHeritage.text'), locale, t("heritageText"));
+  const heritageCta = localizedCms(getVal(heritageCfg, 'homeHeritage.cta'), locale, t("heritageCta"));
+  const heritageImage = getVal(heritageCfg, 'homeHeritage.imageUrl') || 'https://images.unsplash.com/photo-1559561853-08451507cbe7?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80';
+
   return (
     <>
       <HeroSection locale={locale} />
@@ -68,8 +92,9 @@ export default async function HomePage({ params }: HomePageProps) {
             <div className="w-full lg:w-1/2 relative">
               <div className="aspect-[4/5] md:aspect-square relative w-full overflow-hidden rounded-lg shadow-xl border border-border-light">
                 <img
-                  src="https://images.unsplash.com/photo-1559561853-08451507cbe7?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80"
-                  alt="Georgian Cheese Heritage"
+                  src={heritageImage}
+                  alt={heritageTitle}
+                  loading="lazy"
                   className="w-full h-full object-cover"
                 />
               </div>
@@ -79,14 +104,14 @@ export default async function HomePage({ params }: HomePageProps) {
             <div className="w-full lg:w-1/2">
               <span className="inline-block w-12 h-0.5 bg-gold mb-6" />
               <h2 className="font-serif text-4xl sm:text-5xl text-charcoal mb-6 leading-tight">
-                {t("heritageTitle")}
+                {heritageTitle}
               </h2>
               <p className="text-lg text-charcoal/70 leading-relaxed mb-10">
-                {t("heritageText")}
+                {heritageText}
               </p>
               <Link href={`${prefix}/heritage`}>
                 <Button variant="outline" size="lg" className="hover:bg-charcoal hover:text-white transition-colors duration-300">
-                  {t("heritageCta")}
+                  {heritageCta}
                 </Button>
               </Link>
             </div>

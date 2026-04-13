@@ -6,6 +6,7 @@ import type { Product } from "@/types";
 import { getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
+import { getOgImage, buildOgImages } from "@/lib/seo";
 
 function localizedCms(raw: string, locale: string, fallback: string): string {
   try {
@@ -25,10 +26,26 @@ interface HomePageProps {
 export async function generateMetadata({ params }: HomePageProps) {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "home" });
+  const ogImage = await getOgImage('home');
+  const title = `Colchis Creamery | ${t("heroTitle")}`;
+  const description = t("heroSubtitle");
 
   return {
-    title: `Colchis Creamery | ${t("heroTitle")}`,
-    description: t("heroSubtitle"),
+    title,
+    description,
+    openGraph: {
+      type: 'website' as const,
+      siteName: 'Colchis Creamery',
+      title,
+      description,
+      ...(ogImage ? { images: buildOgImages(ogImage, 'Colchis Creamery') } : {}),
+    },
+    twitter: {
+      card: 'summary_large_image' as const,
+      title,
+      description,
+      ...(ogImage ? { images: [ogImage] } : {}),
+    },
   };
 }
 

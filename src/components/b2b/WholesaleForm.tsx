@@ -55,11 +55,11 @@ export default function WholesaleForm() {
     }
 
     return (
-        <div className="max-w-2xl mx-auto p-8 md:p-12 bg-[#2C2A29] text-white shadow-2xl rounded-sm border border-[#1a1918]">
-            <h2 className="text-3xl md:text-4xl font-serif text-[#CBA153] mb-4 text-center">
+        <div className="max-w-2xl mx-auto text-white">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-serif text-[#CBA153] mb-3 md:mb-4 text-center">
                 Partner With Us
             </h2>
-            <p className="text-center text-gray-300 mb-10 leading-relaxed max-w-lg mx-auto">
+            <p className="text-center text-gray-300 mb-6 md:mb-10 leading-relaxed max-w-lg mx-auto text-sm md:text-base">
                 Join our exclusive network of premium retailers and restaurants. Offer your
                 customers the authentic taste of Colchis heritage.
             </p>

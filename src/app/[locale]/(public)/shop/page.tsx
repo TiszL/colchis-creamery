@@ -2,6 +2,7 @@ import { getTranslations } from "next-intl/server";
 import { prisma } from "@/lib/db";
 import { ProductGrid } from "@/components/shop/ProductGrid";
 import type { Metadata } from "next";
+import { getOgImage, buildOgImages } from "@/lib/seo";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://colchiscreamery.com';
 
@@ -13,6 +14,7 @@ export async function generateMetadata({ params }: ShopPageProps): Promise<Metad
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "shop" });
   const canonicalPath = locale === 'en' ? '/shop' : `/${locale}/shop`;
+  const ogImage = await getOgImage('shop');
 
   return {
     title: t("title"),
@@ -34,11 +36,13 @@ export async function generateMetadata({ params }: ShopPageProps): Promise<Metad
       description: t("subtitle"),
       url: `${SITE_URL}${canonicalPath}`,
       siteName: 'Colchis Creamery',
+      ...(ogImage ? { images: buildOgImages(ogImage, t("title")) } : {}),
     },
     twitter: {
       card: 'summary_large_image',
       title: `${t("title")} | Colchis Creamery`,
       description: t("subtitle"),
+      ...(ogImage ? { images: [ogImage] } : {}),
     },
   };
 }

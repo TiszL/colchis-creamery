@@ -1,11 +1,13 @@
 import { Metadata } from 'next';
 import { prisma } from '@/lib/db';
+import { getOgImage, buildOgImages } from '@/lib/seo';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://colchiscreamery.com';
 
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
     const { locale } = await params;
     const canonicalPath = locale === 'en' ? '/faq' : `/${locale}/faq`;
+    const ogImage = await getOgImage('faq');
     return {
         title: 'Frequently Asked Questions | Colchis Creamery',
         description: 'Find answers to common questions about Colchis Creamery — Georgian cheese ordering, shipping, wholesale accounts, storage, and more.',
@@ -18,8 +20,11 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
             type: 'website', title: 'FAQ | Colchis Creamery',
             description: 'Find answers to common questions about Colchis Creamery.',
             url: `${SITE_URL}${canonicalPath}`, siteName: 'Colchis Creamery',
+            ...(ogImage ? { images: buildOgImages(ogImage, 'FAQ') } : {}),
         },
-        twitter: { card: 'summary', title: 'FAQ | Colchis Creamery', description: 'Frequently asked questions about Georgian artisanal cheese.' },
+        twitter: { card: 'summary', title: 'FAQ | Colchis Creamery', description: 'Frequently asked questions about Georgian artisanal cheese.',
+            ...(ogImage ? { images: [ogImage] } : {}),
+        },
     };
 }
 

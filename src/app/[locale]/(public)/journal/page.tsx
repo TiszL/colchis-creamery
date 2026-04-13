@@ -2,12 +2,15 @@ import { Metadata } from 'next';
 import Link from 'next/link';
 import { prisma } from '@/lib/db';
 import { getTranslations } from 'next-intl/server';
+import { getOgImage, buildOgImages } from '@/lib/seo';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://colchiscreamery.com';
 
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
     const { locale } = await params;
     const canonicalPath = locale === 'en' ? '/journal' : `/${locale}/journal`;
+
+    const ogImage = await getOgImage('journal');
 
     return {
         title: 'Journal | Colchis Creamery',
@@ -28,11 +31,13 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
             description: 'Stories, insights, and news from the world of Georgian artisanal cheese.',
             url: `${SITE_URL}${canonicalPath}`,
             siteName: 'Colchis Creamery',
+            ...(ogImage ? { images: buildOgImages(ogImage, 'Colchis Creamery Journal') } : {}),
         },
         twitter: {
             card: 'summary_large_image',
             title: 'Journal | Colchis Creamery',
             description: 'Stories, insights, and news from the world of Georgian artisanal cheese.',
+            ...(ogImage ? { images: [ogImage] } : {}),
         },
     };
 }

@@ -1,12 +1,14 @@
 import { Metadata } from 'next';
 import Link from 'next/link';
 import { prisma } from '@/lib/db';
+import { getOgImage, buildOgImages } from '@/lib/seo';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://colchiscreamery.com';
 
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
     const { locale } = await params;
     const canonicalPath = locale === 'en' ? '/recipes' : `/${locale}/recipes`;
+    const ogImage = await getOgImage('recipes');
 
     return {
         title: 'Recipes & Pairings | Colchis Creamery',
@@ -27,11 +29,13 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
             description: 'Discover gourmet recipes and perfect pairings using authentic artisanal Georgian cheese.',
             url: `${SITE_URL}${canonicalPath}`,
             siteName: 'Colchis Creamery',
+            ...(ogImage ? { images: buildOgImages(ogImage, 'Recipes & Pairings') } : {}),
         },
         twitter: {
             card: 'summary_large_image',
             title: 'Recipes & Pairings | Colchis Creamery',
             description: 'Discover gourmet recipes and perfect pairings using authentic artisanal Georgian cheese.',
+            ...(ogImage ? { images: [ogImage] } : {}),
         },
     };
 }

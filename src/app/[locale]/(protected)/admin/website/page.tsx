@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/db';
 import { getSession } from '@/lib/session';
 import { redirect } from 'next/navigation';
-import { Globe, FileText, ShoppingBag, BookOpen, Save } from 'lucide-react';
+import { Globe, FileText, ShoppingBag, BookOpen, Save, Search } from 'lucide-react';
 import Link from 'next/link';
 import { batchUpsertSiteConfigAction } from '@/app/actions/cms';
 import { revalidatePath } from 'next/cache';
@@ -85,6 +85,12 @@ export default async function AdminWebsitePage({ params }: { params: any }) {
                     <p className="text-gray-500 text-sm">FAQ, Privacy, Terms, Returns</p>
                     <span className="text-xs text-amber-400 mt-3 block group-hover:translate-x-1 transition-transform">Edit Pages →</span>
                 </Link>
+                <Link href={`/${locale}/admin/website/seo`} className="bg-[#1A1A1A] p-6 rounded-xl border border-white/5 hover:border-emerald-500/20 transition-all group">
+                    <Search className="w-6 h-6 text-emerald-400 mb-3" />
+                    <h3 className="text-white font-bold mb-1">SEO & Social</h3>
+                    <p className="text-gray-500 text-sm">Google images & metadata</p>
+                    <span className="text-xs text-emerald-400 mt-3 block group-hover:translate-x-1 transition-transform">Manage SEO →</span>
+                </Link>
             </div>
 
             {/* Hero Section — with media upload */}
@@ -101,27 +107,53 @@ export default async function AdminWebsitePage({ params }: { params: any }) {
                 <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <Globe className="w-5 h-5 text-blue-400" />
-                        <h2 className="text-white font-bold">Contact Information</h2>
+                        <div>
+                            <h2 className="text-white font-bold">Contact Information</h2>
+                            <p className="text-gray-500 text-xs mt-0.5">Displayed on Contact page, footer, and used for SEO</p>
+                        </div>
                     </div>
                     <button type="submit" className="flex items-center gap-2 bg-[#CBA153] text-black px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-white transition-all">
                         <Save className="w-3.5 h-3.5" /> Save
                     </button>
                 </div>
-                <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                        <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Email</label>
-                        <input name="config.contact.email" defaultValue={getVal(configs, "contact.email", "hello@colchiscreamery.com")}
-                            className="w-full bg-[#0D0D0D] border border-white/10 text-white py-3 px-4 rounded-lg focus:outline-none focus:border-[#CBA153]" />
+                <div className="p-6 space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Email</label>
+                            <input name="config.contact.email" defaultValue={getVal(configs, "contact.email", "hello@colchiscreamery.com")}
+                                className="w-full bg-[#0D0D0D] border border-white/10 text-white py-3 px-4 rounded-lg focus:outline-none focus:border-[#CBA153]" />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Phone</label>
+                            <input name="config.contact.phone" defaultValue={getVal(configs, "contact.phone", "+1 (614) 555-0123")}
+                                className="w-full bg-[#0D0D0D] border border-white/10 text-white py-3 px-4 rounded-lg focus:outline-none focus:border-[#CBA153]" />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Address</label>
+                            <input name="config.contact.address" defaultValue={getVal(configs, "contact.address", "Columbus, OH")}
+                                className="w-full bg-[#0D0D0D] border border-white/10 text-white py-3 px-4 rounded-lg focus:outline-none focus:border-[#CBA153]" />
+                        </div>
                     </div>
                     <div>
-                        <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Phone</label>
-                        <input name="config.contact.phone" defaultValue={getVal(configs, "contact.phone", "+1 (614) 555-0123")}
+                        <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Working Hours</label>
+                        <input name="config.contact.hours" defaultValue={getVal(configs, "contact.hours", "Monday - Friday: 9 AM - 5 PM EST")}
                             className="w-full bg-[#0D0D0D] border border-white/10 text-white py-3 px-4 rounded-lg focus:outline-none focus:border-[#CBA153]" />
                     </div>
-                    <div>
-                        <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Address</label>
-                        <input name="config.contact.address" defaultValue={getVal(configs, "contact.address", "Columbus, OH")}
-                            className="w-full bg-[#0D0D0D] border border-white/10 text-white py-3 px-4 rounded-lg focus:outline-none focus:border-[#CBA153]" />
+                    <div className="border-t border-white/5 pt-4">
+                        <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Google Maps — Pin Location</label>
+                        <p className="text-xs text-gray-600 mb-3">Set the latitude and longitude for the map pin on the Contact page. Default: Columbus, OH city center.</p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-xs text-gray-500 mb-1">Latitude</label>
+                                <input name="config.contact.mapLat" type="text" defaultValue={getVal(configs, "contact.mapLat", "39.9612")}
+                                    className="w-full bg-[#0D0D0D] border border-white/10 text-white py-2.5 px-3 rounded-lg focus:outline-none focus:border-[#CBA153] text-sm" />
+                            </div>
+                            <div>
+                                <label className="block text-xs text-gray-500 mb-1">Longitude</label>
+                                <input name="config.contact.mapLng" type="text" defaultValue={getVal(configs, "contact.mapLng", "-82.9988")}
+                                    className="w-full bg-[#0D0D0D] border border-white/10 text-white py-2.5 px-3 rounded-lg focus:outline-none focus:border-[#CBA153] text-sm" />
+                            </div>
+                        </div>
                     </div>
                 </div>
             </form>

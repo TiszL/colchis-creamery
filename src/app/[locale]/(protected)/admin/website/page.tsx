@@ -52,7 +52,7 @@ export default async function AdminWebsitePage({ params }: { params: any }) {
             </div>
 
             {/* Quick Links */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <Link href={`/${locale}/admin/website/products`} className="bg-[#1A1A1A] p-6 rounded-xl border border-white/5 hover:border-[#CBA153]/20 transition-all group">
                     <ShoppingBag className="w-6 h-6 text-[#CBA153] mb-3" />
                     <h3 className="text-white font-bold mb-1">Products</h3>
@@ -71,41 +71,16 @@ export default async function AdminWebsitePage({ params }: { params: any }) {
                     <p className="text-gray-500 text-sm">{articleCount} articles</p>
                     <span className="text-xs text-purple-400 mt-3 block group-hover:translate-x-1 transition-transform">Manage Journal →</span>
                 </Link>
+                <Link href={`/${locale}/admin/website/heritage`} className="bg-[#1A1A1A] p-6 rounded-xl border border-white/5 hover:border-emerald-500/20 transition-all group">
+                    <Globe className="w-6 h-6 text-emerald-400 mb-3" />
+                    <h3 className="text-white font-bold mb-1">Heritage Page</h3>
+                    <p className="text-gray-500 text-sm">Sections, media & translations</p>
+                    <span className="text-xs text-emerald-400 mt-3 block group-hover:translate-x-1 transition-transform">Edit Heritage →</span>
+                </Link>
             </div>
 
             {/* Hero Section — with media upload */}
             <HeroMediaEditor configs={JSON.parse(JSON.stringify(configs))} />
-
-            {/* Heritage Section */}
-            <form action={saveSectionAction} className="bg-[#1A1A1A] rounded-xl border border-white/5 overflow-hidden">
-                <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <Globe className="w-5 h-5 text-emerald-400" />
-                        <h2 className="text-white font-bold">Heritage Page</h2>
-                    </div>
-                    <button type="submit" className="flex items-center gap-2 bg-[#CBA153] text-black px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-white transition-all">
-                        <Save className="w-3.5 h-3.5" /> Save
-                    </button>
-                </div>
-                <div className="p-6 space-y-4">
-                    <div>
-                        <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Heritage Title</label>
-                        <input name="config.heritage.title" defaultValue={getVal(configs, "heritage.title", "A Tradition Spanning Millennia")}
-                            className="w-full bg-[#0D0D0D] border border-white/10 text-white py-3 px-4 rounded-lg focus:outline-none focus:border-[#CBA153]" />
-                    </div>
-                    <div>
-                        <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Heritage Description</label>
-                        <textarea name="config.heritage.text" rows={3} defaultValue={getVal(configs, "heritage.text", "From the ancient land of Colchis to the heartland of Ohio, we bring you authentic Georgian cheese crafted with passion and heritage.")}
-                            className="w-full bg-[#0D0D0D] border border-white/10 text-white py-3 px-4 rounded-lg focus:outline-none focus:border-[#CBA153] resize-none" />
-                    </div>
-                    <div>
-                        <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Heritage Image URL</label>
-                        <input name="config.heritage.imageUrl" defaultValue={getVal(configs, "heritage.imageUrl")}
-                            placeholder="https://images.unsplash.com/..."
-                            className="w-full bg-[#0D0D0D] border border-white/10 text-white py-3 px-4 rounded-lg focus:outline-none focus:border-[#CBA153] placeholder-gray-600" />
-                    </div>
-                </div>
-            </form>
 
             {/* Contact Info */}
             <form action={saveSectionAction} className="bg-[#1A1A1A] rounded-xl border border-white/5 overflow-hidden">

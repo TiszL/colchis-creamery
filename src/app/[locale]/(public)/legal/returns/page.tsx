@@ -37,11 +37,15 @@ const DEFAULTS: LegalSection[] = [
 
 export default async function ReturnPolicyPage() {
     let sections: LegalSection[] = DEFAULTS;
+    let lastUpdated = 'October 2025';
     try {
         const row = await prisma.siteConfig.findUnique({ where: { key: 'legal.returns' } });
         if (row?.value) {
             const parsed = JSON.parse(row.value);
             if (Array.isArray(parsed) && parsed.length > 0) sections = parsed;
+        }
+        if (row?.updatedAt) {
+            lastUpdated = new Date(row.updatedAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
         }
     } catch { /* use defaults */ }
 
@@ -70,7 +74,7 @@ export default async function ReturnPolicyPage() {
                     </h1>
 
                     <div className="prose prose-lg text-[#2C2A29] opacity-80">
-                        <p className="mb-6">Last updated: October 2025</p>
+                        <p className="mb-6">Last updated: {lastUpdated}</p>
 
                         {sections.map((section, idx) => (
                             <div key={idx}>

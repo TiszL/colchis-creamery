@@ -5,6 +5,14 @@ import { getOgImage, buildOgImages } from '@/lib/seo';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://colchiscreamery.com';
 
+interface Location {
+    name: string;
+    address: string;
+    lat: string;
+    lng: string;
+    phone: string;
+}
+
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
     const { locale } = await params;
     const canonicalPath = locale === 'en' ? '/contact' : `/${locale}/contact`;
@@ -42,17 +50,31 @@ export default async function ContactPage() {
 
     const email = g('contact.email', 'support@colchiscreamery.com');
     const phone = g('contact.phone', '+1 (555) 123-4567');
-    const address = g('contact.address', 'Columbus, OH');
     const hours = g('contact.hours', 'Monday - Friday: 9 AM - 5 PM EST');
-    const mapLat = g('contact.mapLat', '39.9612');
-    const mapLng = g('contact.mapLng', '-82.9988');
 
+    // Parse locations (new format) with fallback to legacy fields
+    let locations: Location[] = [];
+    const rawLocations = g('contact.locations', '');
+    if (rawLocations) {
+        try {
+            const parsed = JSON.parse(rawLocations);
+            if (Array.isArray(parsed) && parsed.length > 0) locations = parsed;
+        } catch { /* fallback below */ }
+    }
+    if (locations.length === 0) {
+        const address = g('contact.address', 'Columbus, OH');
+        const mapLat = g('contact.mapLat', '39.9612');
+        const mapLng = g('contact.mapLng', '-82.9988');
+        locations = [{ name: 'Colchis Creamery', address, lat: mapLat, lng: mapLng, phone: '' }];
+    }
+
+    const primaryLocation = locations[0];
     const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY || '';
     const mapSrc = MAPS_KEY
-        ? `https://www.google.com/maps/embed/v1/place?key=${MAPS_KEY}&q=${encodeURIComponent(address)}&center=${mapLat},${mapLng}&zoom=13`
-        : `https://maps.google.com/maps?q=${mapLat},${mapLng}&z=13&output=embed`;
+        ? `https://www.google.com/maps/embed/v1/place?key=${MAPS_KEY}&q=${encodeURIComponent(primaryLocation.address)}&center=${primaryLocation.lat},${primaryLocation.lng}&zoom=13`
+        : `https://maps.google.com/maps?q=${primaryLocation.lat},${primaryLocation.lng}&z=13&output=embed`;
 
-    // JSON-LD: LocalBusiness schema — helps Google show your business info
+    // JSON-LD: LocalBusiness schema
     const jsonLd = {
         '@context': 'https://schema.org',
         '@type': 'FoodEstablishment',
@@ -63,15 +85,15 @@ export default async function ContactPage() {
         email: email,
         address: {
             '@type': 'PostalAddress',
-            streetAddress: address.split(',')[0]?.trim() || address,
+            streetAddress: primaryLocation.address.split(',')[0]?.trim() || primaryLocation.address,
             addressLocality: 'Columbus',
             addressRegion: 'OH',
             addressCountry: 'US',
         },
         geo: {
             '@type': 'GeoCoordinates',
-            latitude: parseFloat(mapLat),
-            longitude: parseFloat(mapLng),
+            latitude: parseFloat(primaryLocation.lat),
+            longitude: parseFloat(primaryLocation.lng),
         },
         openingHours: hours,
         priceRange: '$$',
@@ -104,10 +126,19 @@ export default async function ContactPage() {
                         <div>
                             <h2 className="text-2xl font-serif text-[#CBA153] mb-6">Our Information</h2>
                             <div className="space-y-6 text-[#2C2A29]">
-                                <div>
-                                    <strong className="block uppercase tracking-wider text-xs text-gray-400 mb-1">Address</strong>
-                                    <p>{address}</p>
-                                </div>
+                                {/* Locations */}
+                                {locations.map((loc, idx) => (
+                                    <div key={idx}>
+                                        <strong className="block uppercase tracking-wider text-xs text-gray-400 mb-1">
+                                            {locations.length > 1 ? loc.name || `Location ${idx + 1}` : 'Address'}
+                                        </strong>
+                                        <p>{loc.address}</p>
+                                        {loc.phone && (
+                                            <a href={`tel:${loc.phone.replace(/[^+\d]/g, '')}`}
+                                                className="text-sm text-[#CBA153] hover:underline mt-0.5 block">{loc.phone}</a>
+                                        )}
+                                    </div>
+                                ))}
                                 <div>
                                     <strong className="block uppercase tracking-wider text-xs text-gray-400 mb-1">Email</strong>
                                     <a href={`mailto:${email}`} className="text-[#CBA153] hover:underline">{email}</a>
@@ -133,8 +164,10 @@ export default async function ContactPage() {
                     {/* Google Maps */}
                     <div className="mt-12 bg-white shadow-sm rounded border border-gray-100 overflow-hidden">
                         <div className="px-8 pt-6 pb-2">
-                            <h2 className="text-2xl font-serif text-[#2C2A29] mb-1">Find Us</h2>
-                            <p className="text-sm text-gray-500">{address}</p>
+                            <h2 className="text-2xl font-serif text-[#2C2A29] mb-1">
+                                {locations.length > 1 ? 'Our Locations' : 'Find Us'}
+                            </h2>
+                            <p className="text-sm text-gray-500">{primaryLocation.address}</p>
                         </div>
                         <div className="w-full h-[400px]">
                             <iframe
@@ -145,7 +178,7 @@ export default async function ContactPage() {
                                 allowFullScreen
                                 loading="lazy"
                                 referrerPolicy="no-referrer-when-downgrade"
-                                title={`Colchis Creamery location — ${address}`}
+                                title={`Colchis Creamery location — ${primaryLocation.address}`}
                             />
                         </div>
                     </div>

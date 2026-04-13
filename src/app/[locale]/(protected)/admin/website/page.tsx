@@ -8,6 +8,7 @@ import { revalidatePath } from 'next/cache';
 import HeroMediaEditor from '@/components/admin/HeroMediaEditor';
 import HomeHeritageTeaserEditor from '@/components/admin/HomeHeritageTeaserEditor';
 import WholesalePageEditor from '@/components/admin/WholesalePageEditor';
+import ContactLocationsEditor from '@/components/admin/ContactLocationsEditor';
 
 export const dynamic = 'force-dynamic';
 
@@ -129,34 +130,19 @@ export default async function AdminWebsitePage({ params }: { params: any }) {
                                 className="w-full bg-[#0D0D0D] border border-white/10 text-white py-3 px-4 rounded-lg focus:outline-none focus:border-[#CBA153]" />
                         </div>
                         <div>
-                            <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Address</label>
-                            <input name="config.contact.address" defaultValue={getVal(configs, "contact.address", "Columbus, OH")}
+                            <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Working Hours</label>
+                            <input name="config.contact.hours" defaultValue={getVal(configs, "contact.hours", "Monday - Friday: 9 AM - 5 PM EST")}
                                 className="w-full bg-[#0D0D0D] border border-white/10 text-white py-3 px-4 rounded-lg focus:outline-none focus:border-[#CBA153]" />
-                        </div>
-                    </div>
-                    <div>
-                        <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Working Hours</label>
-                        <input name="config.contact.hours" defaultValue={getVal(configs, "contact.hours", "Monday - Friday: 9 AM - 5 PM EST")}
-                            className="w-full bg-[#0D0D0D] border border-white/10 text-white py-3 px-4 rounded-lg focus:outline-none focus:border-[#CBA153]" />
-                    </div>
-                    <div className="border-t border-white/5 pt-4">
-                        <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Google Maps — Pin Location</label>
-                        <p className="text-xs text-gray-600 mb-3">Set the latitude and longitude for the map pin on the Contact page. Default: Columbus, OH city center.</p>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-xs text-gray-500 mb-1">Latitude</label>
-                                <input name="config.contact.mapLat" type="text" defaultValue={getVal(configs, "contact.mapLat", "39.9612")}
-                                    className="w-full bg-[#0D0D0D] border border-white/10 text-white py-2.5 px-3 rounded-lg focus:outline-none focus:border-[#CBA153] text-sm" />
-                            </div>
-                            <div>
-                                <label className="block text-xs text-gray-500 mb-1">Longitude</label>
-                                <input name="config.contact.mapLng" type="text" defaultValue={getVal(configs, "contact.mapLng", "-82.9988")}
-                                    className="w-full bg-[#0D0D0D] border border-white/10 text-white py-2.5 px-3 rounded-lg focus:outline-none focus:border-[#CBA153] text-sm" />
-                            </div>
                         </div>
                     </div>
                 </div>
             </form>
+
+            {/* Business Locations — Google Places search */}
+            <ContactLocationsEditor
+                configs={JSON.parse(JSON.stringify(configs))}
+                apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY || ''}
+            />
 
             {/* Footer */}
             <form action={saveSectionAction} className="bg-[#1A1A1A] rounded-xl border border-white/5 overflow-hidden">

@@ -24,13 +24,37 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
     return { title: "Product Not Found" };
   }
 
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://colchiscreamery.com';
+  const slug = product.slug;
+  const canonicalPath = locale === 'en' ? `/shop/${slug}` : `/${locale}/shop/${slug}`;
+
   return {
     title: product.name,
     description: product.description,
+    keywords: [product.name, 'Georgian cheese', 'Colchis Creamery', 'artisanal cheese',
+               product.flavorProfile || '', product.category || 'cheese'].filter(Boolean),
+    alternates: {
+      canonical: `${siteUrl}${canonicalPath}`,
+      languages: {
+        'en': `${siteUrl}/shop/${slug}`,
+        'ka': `${siteUrl}/ka/shop/${slug}`,
+        'ru': `${siteUrl}/ru/shop/${slug}`,
+        'es': `${siteUrl}/es/shop/${slug}`,
+      },
+    },
     openGraph: {
+      type: 'website',
       title: `${product.name} | Colchis Creamery`,
       description: product.description,
-      type: "website",
+      url: `${siteUrl}${canonicalPath}`,
+      siteName: 'Colchis Creamery',
+      images: product.imageUrl ? [{ url: product.imageUrl, width: 800, height: 600, alt: product.name }] : [],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: `${product.name} | Colchis Creamery`,
+      description: product.description,
+      images: product.imageUrl ? [product.imageUrl] : [],
     },
   };
 }

@@ -7,6 +7,7 @@ import { batchUpsertSiteConfigAction } from '@/app/actions/cms';
 import { revalidatePath } from 'next/cache';
 import HeroMediaEditor from '@/components/admin/HeroMediaEditor';
 import HomeHeritageTeaserEditor from '@/components/admin/HomeHeritageTeaserEditor';
+import WholesalePageEditor from '@/components/admin/WholesalePageEditor';
 
 export const dynamic = 'force-dynamic';
 
@@ -91,6 +92,9 @@ export default async function AdminWebsitePage({ params }: { params: any }) {
 
             {/* Home Heritage Teaser Section */}
             <HomeHeritageTeaserEditor configs={JSON.parse(JSON.stringify(configs))} />
+
+            {/* Wholesale Page */}
+            <WholesalePageEditor configs={JSON.parse(JSON.stringify(configs))} />
 
             {/* Contact Info */}
             <form action={saveSectionAction} className="bg-[#1A1A1A] rounded-xl border border-white/5 overflow-hidden">

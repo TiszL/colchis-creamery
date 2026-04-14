@@ -64,7 +64,7 @@ export default async function WholesalePage() {
                 {/* Hero / Value Prop Section */}
                 <div className="grid md:grid-cols-2 gap-10 md:gap-20 items-stretch mb-12 md:mb-24">
                     <div className="flex flex-col justify-center">
-                        <span className="text-xs tracking-[0.3em] md:tracking-[0.4em] uppercase opacity-60 mb-4 md:mb-6 block">{subtitle}</span>
+                        <span className="text-xs tracking-[0.3em] md:tracking-[0.4em] uppercase text-[#CBA153]/80 mb-4 md:mb-6 block">{subtitle}</span>
                         <h2 className="text-3xl sm:text-5xl md:text-7xl font-serif text-white mb-5 md:mb-8 leading-tight">
                             {headingLine1} <br />
                             <span className="text-[#CBA153]">{headingLine2}</span>
@@ -79,7 +79,7 @@ export default async function WholesalePage() {
                                 </div>
                                 <div>
                                     <h4 className="text-white font-bold text-sm md:text-base">{feature1Title}</h4>
-                                    <p className="text-xs md:text-sm text-gray-500">{feature1Desc}</p>
+                                    <p className="text-xs md:text-sm text-gray-400">{feature1Desc}</p>
                                 </div>
                             </div>
                             <div className="flex items-center gap-3 md:gap-4">
@@ -88,7 +88,7 @@ export default async function WholesalePage() {
                                 </div>
                                 <div>
                                     <h4 className="text-white font-bold text-sm md:text-base">{feature2Title}</h4>
-                                    <p className="text-xs md:text-sm text-gray-500">{feature2Desc}</p>
+                                    <p className="text-xs md:text-sm text-gray-400">{feature2Desc}</p>
                                 </div>
                             </div>
                         </div>

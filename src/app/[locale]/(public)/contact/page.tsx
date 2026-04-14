@@ -129,7 +129,7 @@ export default async function ContactPage() {
                                 {/* Locations */}
                                 {locations.map((loc, idx) => (
                                     <div key={idx}>
-                                        <strong className="block uppercase tracking-wider text-xs text-gray-400 mb-1">
+                                        <strong className="block uppercase tracking-wider text-xs text-gray-600 mb-1">
                                             {locations.length > 1 ? loc.name || `Location ${idx + 1}` : 'Address'}
                                         </strong>
                                         <p>{loc.address}</p>
@@ -140,15 +140,15 @@ export default async function ContactPage() {
                                     </div>
                                 ))}
                                 <div>
-                                    <strong className="block uppercase tracking-wider text-xs text-gray-400 mb-1">Email</strong>
+                                    <strong className="block uppercase tracking-wider text-xs text-gray-600 mb-1">Email</strong>
                                     <a href={`mailto:${email}`} className="text-[#8A6A28] hover:underline">{email}</a>
                                 </div>
                                 <div>
-                                    <strong className="block uppercase tracking-wider text-xs text-gray-400 mb-1">Phone</strong>
+                                    <strong className="block uppercase tracking-wider text-xs text-gray-600 mb-1">Phone</strong>
                                     <a href={`tel:${phone.replace(/[^+\d]/g, '')}`} className="text-[#8A6A28] hover:underline">{phone}</a>
                                 </div>
                                 <div>
-                                    <strong className="block uppercase tracking-wider text-xs text-gray-400 mb-1">Hours</strong>
+                                    <strong className="block uppercase tracking-wider text-xs text-gray-600 mb-1">Hours</strong>
                                     <p>{hours}</p>
                                 </div>
                             </div>

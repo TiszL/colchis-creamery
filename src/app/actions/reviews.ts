@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { revalidatePath } from "next/cache";
+import { autoModerateReview } from "@/lib/review-moderation";
 
 // ── Anti-spam helpers ────────────────────────────────────────────────────────
 
@@ -65,6 +66,15 @@ export async function submitReview(formData: FormData) {
     });
 
     try {
+        // Run auto-moderation
+        const moderation = await autoModerateReview({
+            userId: session.userId,
+            rating,
+            title,
+            body,
+            isVerifiedPurchase: !!hasPurchased,
+        });
+
         const review = await prisma.productReview.create({
             data: {
                 productId,
@@ -73,7 +83,10 @@ export async function submitReview(formData: FormData) {
                 title,
                 body,
                 isVerifiedPurchase: !!hasPurchased,
-                status: "PENDING",
+                status: moderation.status,
+                adminNote: moderation.flags.length > 0
+                    ? `[AUTO-MOD] Score: ${moderation.score} | Priority: ${moderation.priority} | Flags: ${moderation.flags.join("; ")}`
+                    : `[AUTO-MOD] Score: ${moderation.score} | Auto-approved`,
             },
         });
 
@@ -93,7 +106,11 @@ export async function submitReview(formData: FormData) {
             revalidatePath(`/shop/${product.slug}`);
         }
 
-        return { success: true, message: "Thank you! Your review has been submitted and is pending approval." };
+        if (moderation.status === "APPROVED") {
+            return { success: true, message: "Thank you! Your review has been published." };
+        } else {
+            return { success: true, message: "Thank you! Your review has been submitted and will be visible after a brief review." };
+        }
     } catch (err: any) {
         console.error("Submit review error:", err);
         if (err.code === "P2002") return { error: "You have already reviewed this product." };

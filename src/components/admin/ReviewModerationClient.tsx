@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { moderateReview, deleteReview, submitReply } from '@/app/actions/reviews';
-import { Star, ShieldCheck, MessageCircle, Check, X, Trash2, Eye, ChevronDown, ChevronUp, Image as ImageIcon, Send } from 'lucide-react';
+import { Star, ShieldCheck, MessageCircle, Check, X, Trash2, Eye, ChevronDown, ChevronUp, Image as ImageIcon, Send, AlertTriangle, Shield } from 'lucide-react';
 
 interface ReviewPhoto {
     id: string;
@@ -38,7 +38,7 @@ interface Props {
 }
 
 export default function ReviewModerationClient({ reviews: initialReviews, pendingCount }: Props) {
-    const [filter, setFilter] = useState<'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED'>('ALL');
+    const [filter, setFilter] = useState<'ALL' | 'FLAGGED' | 'PENDING' | 'APPROVED' | 'REJECTED'>('ALL');
     const [reviews, setReviews] = useState(initialReviews);
     const [expandedId, setExpandedId] = useState<string | null>(null);
     const [replyingTo, setReplyingTo] = useState<string | null>(null);
@@ -48,10 +48,12 @@ export default function ReviewModerationClient({ reviews: initialReviews, pendin
     const filtered = filter === 'ALL' ? reviews : reviews.filter(r => r.status === filter);
     const counts = {
         ALL: reviews.length,
+        FLAGGED: reviews.filter(r => r.status === 'FLAGGED').length,
         PENDING: reviews.filter(r => r.status === 'PENDING').length,
         APPROVED: reviews.filter(r => r.status === 'APPROVED').length,
         REJECTED: reviews.filter(r => r.status === 'REJECTED').length,
     };
+    const needsAttention = counts.FLAGGED + counts.PENDING;
 
     const handleModerate = (reviewId: string, action: 'APPROVED' | 'REJECTED') => {
         startTransition(async () => {
@@ -98,6 +100,7 @@ export default function ReviewModerationClient({ reviews: initialReviews, pendin
     };
 
     const statusColors: Record<string, string> = {
+        FLAGGED: 'bg-orange-500/10 text-orange-400 border-orange-500/20',
         PENDING: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
         APPROVED: 'bg-green-500/10 text-green-400 border-green-500/20',
         REJECTED: 'bg-red-500/10 text-red-400 border-red-500/20',
@@ -109,9 +112,13 @@ export default function ReviewModerationClient({ reviews: initialReviews, pendin
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
                 <div>
                     <h1 className="text-2xl font-serif text-white tracking-wide">Review Moderation</h1>
-                    <p className="text-sm text-gray-500 mt-1">
-                        {pendingCount > 0 ? (
-                            <span className="text-amber-400">{pendingCount} review{pendingCount !== 1 ? 's' : ''} awaiting approval</span>
+                     <p className="text-sm text-gray-500 mt-1">
+                        {needsAttention > 0 ? (
+                            <span className="text-amber-400">
+                                <AlertTriangle className="w-3.5 h-3.5 inline mr-1" />
+                                {needsAttention} review{needsAttention !== 1 ? 's' : ''} need{needsAttention === 1 ? 's' : ''} attention
+                                {counts.FLAGGED > 0 && <span className="text-orange-400 ml-1">({counts.FLAGGED} flagged by auto-mod)</span>}
+                            </span>
                         ) : (
                             'All reviews are up to date'
                         )}
@@ -121,16 +128,17 @@ export default function ReviewModerationClient({ reviews: initialReviews, pendin
 
             {/* Filter Tabs */}
             <div className="flex gap-2 mb-6 flex-wrap">
-                {(['ALL', 'PENDING', 'APPROVED', 'REJECTED'] as const).map((tab) => (
+                {(['ALL', 'FLAGGED', 'PENDING', 'APPROVED', 'REJECTED'] as const).map((tab) => (
                     <button
                         key={tab}
                         onClick={() => setFilter(tab)}
                         className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors ${
                             filter === tab
-                                ? 'bg-[#CBA153] text-black'
+                                ? tab === 'FLAGGED' ? 'bg-orange-500 text-black' : 'bg-[#CBA153] text-black'
                                 : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white'
-                        }`}
+                        } ${tab === 'FLAGGED' && counts.FLAGGED > 0 && filter !== tab ? 'ring-1 ring-orange-500/50' : ''}`}
                     >
+                        {tab === 'FLAGGED' && <AlertTriangle className="w-3 h-3 inline mr-1" />}
                         {tab}
                         <span className="ml-2 opacity-60">({counts[tab]})</span>
                     </button>
@@ -244,6 +252,35 @@ export default function ReviewModerationClient({ reviews: initialReviews, pendin
                                                         </span>
                                                     </div>
                                                 </div>
+
+                                                {/* Auto-moderation info */}
+                                                {review.adminNote && review.adminNote.startsWith('[AUTO-MOD]') && (
+                                                    <div className="bg-orange-500/5 border border-orange-500/10 rounded-lg p-3 space-y-1">
+                                                        <p className="text-[10px] text-orange-400 uppercase tracking-wider font-bold flex items-center gap-1.5">
+                                                            <Shield className="w-3 h-3" /> Auto-Moderation Report
+                                                        </p>
+                                                        {(() => {
+                                                            const note = review.adminNote.replace('[AUTO-MOD] ', '');
+                                                            const parts = note.split(' | ');
+                                                            return parts.map((part, i) => (
+                                                                <p key={i} className="text-xs text-gray-400">
+                                                                    {part.startsWith('Score:') && (
+                                                                        <span className={`font-bold ${parseInt(part.split(': ')[1]) >= 50 ? 'text-green-400' : parseInt(part.split(': ')[1]) >= 20 ? 'text-amber-400' : 'text-red-400'}`}>
+                                                                            {part}
+                                                                        </span>
+                                                                    )}
+                                                                    {part.startsWith('Priority:') && (
+                                                                        <span className={`font-bold ${part.includes('LOW') ? 'text-green-400' : part.includes('MEDIUM') ? 'text-amber-400' : 'text-red-400'}`}>
+                                                                            {part}
+                                                                        </span>
+                                                                    )}
+                                                                    {part.startsWith('Flags:') && <span className="text-orange-300">{part}</span>}
+                                                                    {part.startsWith('Auto-approved') && <span className="text-green-400 font-bold">{part}</span>}
+                                                                </p>
+                                                            ));
+                                                        })()}
+                                                    </div>
+                                                )}
 
                                                 {/* Action buttons */}
                                                 <div className="flex gap-2">

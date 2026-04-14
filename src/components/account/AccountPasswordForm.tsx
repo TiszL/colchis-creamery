@@ -36,7 +36,7 @@ export function AccountPasswordForm({ userId }: Props) {
                 )}
                 <button
                     onClick={() => { setEditing(true); setMessage(null); }}
-                    className="mt-4 text-sm text-[#8A6A28] hover:text-[#2C2A29] font-medium transition-colors"
+                    className="mt-4 text-sm text-[#A6812F] hover:text-[#2C2A29] font-medium transition-colors"
                 >
                     Change Password
                 </button>

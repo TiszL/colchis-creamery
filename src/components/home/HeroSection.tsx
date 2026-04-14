@@ -138,25 +138,32 @@ export async function HeroSection({ locale }: HeroSectionProps) {
             transform: `translate(${tx}, ${ty})`,
           }}
         >
-          <div className="flex flex-col">
+          {/* Subtle backdrop for text legibility over any image */}
+          <div className="flex flex-col rounded-2xl px-8 py-6" style={{ background: 'rgba(0,0,0,0.15)', backdropFilter: 'blur(2px)', WebkitBackdropFilter: 'blur(2px)' }}>
 
             {showBadge && (
               <div className={`flex w-full ${btnJustifyClass(badgeAlign)} mb-8`}>
-                <div className="inline-block px-4 py-1 border border-[#8A6A28] rounded-full text-[#8A6A28] text-xs font-bold tracking-[0.2em] uppercase animate-fade-in">
+                <div className="inline-block px-4 py-1.5 border border-white/60 rounded-full text-white text-xs font-bold tracking-[0.2em] uppercase animate-fade-in" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.4)' }}>
                   {badgeText}
                 </div>
               </div>
             )}
 
             {showTitle && (
-              <h1 className={`w-full ${titleSizes[textSize] || titleSizes.lg} font-serif mb-8 text-[#2C2A29] leading-tight tracking-tight ${textAlignClass(titleAlign)}`}>
+              <h1
+                className={`w-full ${titleSizes[textSize] || titleSizes.lg} font-serif mb-8 text-white leading-tight tracking-tight ${textAlignClass(titleAlign)}`}
+                style={{ textShadow: '0 2px 12px rgba(0,0,0,0.5), 0 0 40px rgba(0,0,0,0.2)' }}
+              >
                 {titleLine1} <br />
-                <span className="italic text-[#8A6A28]">{titleLine2}</span>
+                <span className="italic text-[#CBA153]" style={{ textShadow: '0 2px 12px rgba(0,0,0,0.6), 0 0 40px rgba(0,0,0,0.3)' }}>{titleLine2}</span>
               </h1>
             )}
 
             {showSubtitle && (
-              <p className={`${subtitleSizes[textSize] || subtitleSizes.lg} text-[#2C2A29]/80 mb-10 max-w-2xl font-light leading-relaxed ${textAlignClass(subtitleAlign)} ${subtitleAlign === 'center' ? 'self-center' : subtitleAlign === 'right' ? 'self-end' : 'self-start'}`}>
+              <p
+                className={`${subtitleSizes[textSize] || subtitleSizes.lg} text-white/90 mb-10 max-w-2xl font-light leading-relaxed ${textAlignClass(subtitleAlign)} ${subtitleAlign === 'center' ? 'self-center' : subtitleAlign === 'right' ? 'self-end' : 'self-start'}`}
+                style={{ textShadow: '0 1px 8px rgba(0,0,0,0.5)' }}
+              >
                 {heroSubtitle || t("heroSubtitle")}
               </p>
             )}
@@ -164,12 +171,12 @@ export async function HeroSection({ locale }: HeroSectionProps) {
             {(showBtnPrimary || showBtnSecondary) && (
               <div className={`flex flex-col sm:flex-row gap-4 w-full ${btnJustifyClass(btnAlign)}`}>
                 {showBtnPrimary && (
-                  <Link href={`${prefix}/shop`} className="px-10 py-5 bg-[#CBA153] text-white font-bold rounded-sm tracking-widest uppercase hover:bg-[#8A6A28] transition-all shadow-xl shadow-[#CBA153]/20">
+                  <Link href={`${prefix}/shop`} className="px-10 py-5 bg-[#CBA153] text-white font-bold rounded-sm tracking-widest uppercase hover:bg-[#B5922E] transition-all shadow-xl shadow-black/20">
                     {shopCta || t("shopCta")}
                   </Link>
                 )}
                 {showBtnSecondary && (
-                  <Link href={`${prefix}/wholesale`} className="px-10 py-5 border-2 border-[#2C2A29] text-[#2C2A29] font-bold rounded-sm tracking-widest uppercase hover:bg-[#2C2A29] hover:text-white transition-all">
+                  <Link href={`${prefix}/wholesale`} className="px-10 py-5 border-2 border-white/80 text-white font-bold rounded-sm tracking-widest uppercase hover:bg-white hover:text-[#2C2A29] transition-all" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.3)' }}>
                     {wholesaleCta || t("wholesaleCta")}
                   </Link>
                 )}

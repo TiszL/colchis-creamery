@@ -6,7 +6,7 @@
   --color-offwhite: #FAFAFA;
   --color-gold: #CBA153;
   --color-gold-dark: #B08A3E;
-  --color-gold-text: #8A6A28; /* WCAG AA compliant on white/cream (4.98:1) */
+  --color-gold-text: #A6812F; /* Warm gold — WCAG AA for large text (3.6:1), used for headings & accents */
   --color-charcoal: #2C2A29;
   --color-charcoal-light: #4A4745;
 

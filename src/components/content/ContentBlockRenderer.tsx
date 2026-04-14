@@ -50,7 +50,7 @@ function renderInline(text: string): React.ReactNode[] {
         } else if (match[4] && match[5]) {
             // Link
             parts.push(
-                <a key={key++} href={match[5]} className="text-[#8A6A28] underline hover:text-[#6B5320] transition-colors" target="_blank" rel="noopener noreferrer">
+                <a key={key++} href={match[5]} className="text-[#A6812F] underline hover:text-[#8A6A28] transition-colors" target="_blank" rel="noopener noreferrer">
                     {match[4]}
                 </a>
             );

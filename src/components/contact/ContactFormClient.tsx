@@ -40,7 +40,7 @@ export default function ContactFormClient() {
                 <button
                     type="button"
                     onClick={() => setStatus('idle')}
-                    className="mt-4 text-sm text-[#8A6A28] hover:underline font-medium"
+                    className="mt-4 text-sm text-[#A6812F] hover:underline font-medium"
                 >
                     Send another message
                 </button>

@@ -78,7 +78,7 @@ export default async function TermsOfServicePage() {
 
                         {sections.map((section, idx) => (
                             <div key={idx}>
-                                <h2 className="text-2xl font-serif text-[#8A6A28] mt-8 mb-4">{section.heading}</h2>
+                                <h2 className="text-2xl font-serif text-[#A6812F] mt-8 mb-4">{section.heading}</h2>
                                 <p className="mb-6">{section.body}</p>
                             </div>
                         ))}

@@ -114,7 +114,7 @@ export default async function SingleRecipePage({ params }: RecipePageProps) {
                     {/* Recipe Content */}
                     <div className="p-8 md:p-12">
 
-                        <Link href={`${prefix}/recipes`} className="text-sm uppercase tracking-wider text-[#8A6A28] font-medium hover:underline mb-6 inline-block">
+                        <Link href={`${prefix}/recipes`} className="text-sm uppercase tracking-wider text-[#A6812F] font-medium hover:underline mb-6 inline-block">
                             ← Back to Recipes
                         </Link>
 

@@ -70,7 +70,7 @@ export default function ReviewCard({ review, onReply, isLoggedIn }: ReviewCardPr
             <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-[#CBA153]/10 flex items-center justify-center shrink-0">
-                        <span className="text-[#8A6A28] font-bold text-sm">{displayName[0]?.toUpperCase()}</span>
+                        <span className="text-[#A6812F] font-bold text-sm">{displayName[0]?.toUpperCase()}</span>
                     </div>
                     <div>
                         <p className="font-medium text-[#2C2A29] text-sm">{displayName}</p>
@@ -119,7 +119,7 @@ export default function ReviewCard({ review, onReply, isLoggedIn }: ReviewCardPr
                 <div className="border-t border-gray-100 pt-3 mt-3">
                     <button
                         onClick={() => setShowReplies(!showReplies)}
-                        className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-[#8A6A28] transition-colors"
+                        className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-[#A6812F] transition-colors"
                     >
                         {showReplies ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                         {review.replies.length > 0 ? `${review.replies.length} ${review.replies.length === 1 ? 'Reply' : 'Replies'}` : 'Reply'}
@@ -134,7 +134,7 @@ export default function ReviewCard({ review, onReply, isLoggedIn }: ReviewCardPr
                                             {reply.isAdminReply ? 'Colchis Creamery' : (reply.user.name?.split(' ')[0] || 'User')}
                                         </p>
                                         {reply.isAdminReply && (
-                                            <span className="text-[9px] uppercase tracking-wider font-bold text-[#8A6A28] bg-[#CBA153]/10 px-1.5 py-0.5 rounded">Official</span>
+                                            <span className="text-[9px] uppercase tracking-wider font-bold text-[#A6812F] bg-[#CBA153]/10 px-1.5 py-0.5 rounded">Official</span>
                                         )}
                                         <span className="text-[10px] text-gray-400">
                                             {new Date(reply.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
@@ -157,7 +157,7 @@ export default function ReviewCard({ review, onReply, isLoggedIn }: ReviewCardPr
                                     <button
                                         onClick={handleReply}
                                         disabled={replyLoading || !replyText.trim()}
-                                        className="px-4 py-2 bg-[#CBA153] text-white text-xs font-bold rounded-lg hover:bg-[#8A6A28] transition-colors disabled:opacity-50"
+                                        className="px-4 py-2 bg-[#CBA153] text-white text-xs font-bold rounded-lg hover:bg-[#B5922E] transition-colors disabled:opacity-50"
                                     >
                                         {replyLoading ? '...' : 'Reply'}
                                     </button>

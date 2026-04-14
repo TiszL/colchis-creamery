@@ -15,7 +15,7 @@ export default async function ProductReviews({ productId, productSlug }: Product
         where: { productId, status: 'APPROVED' },
         orderBy: { createdAt: 'desc' },
         include: {
-            user: { select: { name: true } },
+            user: { select: { name: true, id: true } },
             photos: { select: { id: true, imageUrl: true } },
             replies: {
                 orderBy: { createdAt: 'asc' },
@@ -24,13 +24,34 @@ export default async function ProductReviews({ productId, productSlug }: Product
         },
     });
 
-    // Check if current user already has a review (any status)
+    // Check if current user already has a review (any status) and fetch it
     let hasExistingReview = false;
+    let ownPendingReview: {
+        id: string;
+        rating: number;
+        title: string;
+        body: string;
+        status: string;
+        createdAt: string;
+    } | null = null;
+
     if (session) {
         const existing = await prisma.productReview.findUnique({
             where: { productId_userId: { productId, userId: session.userId } },
         });
         hasExistingReview = !!existing;
+
+        // If the review exists but is NOT approved, send it to the client so they can see it
+        if (existing && existing.status !== 'APPROVED') {
+            ownPendingReview = {
+                id: existing.id,
+                rating: existing.rating,
+                title: existing.title,
+                body: existing.body,
+                status: existing.status,
+                createdAt: existing.createdAt.toISOString(),
+            };
+        }
     }
 
     // Compute stats
@@ -49,6 +70,7 @@ export default async function ProductReviews({ productId, productSlug }: Product
         ...r,
         createdAt: r.createdAt.toISOString(),
         updatedAt: r.updatedAt.toISOString(),
+        isOwn: session ? r.userId === session.userId : false,
         photos: r.photos.map(p => ({ ...p })),
         replies: r.replies.map(rep => ({
             ...rep,
@@ -65,6 +87,7 @@ export default async function ProductReviews({ productId, productSlug }: Product
             distribution={distribution}
             hasExistingReview={hasExistingReview}
             isLoggedIn={!!session}
+            ownPendingReview={ownPendingReview}
         />
     );
 }

@@ -197,3 +197,31 @@ export async function deleteReview(reviewId: string) {
         return { error: "Failed to delete review." };
     }
 }
+
+// ── User: Delete Own Review ──────────────────────────────────────────────────
+
+export async function deleteOwnReview(reviewId: string) {
+    const session = await getSession();
+    if (!session) return { error: "You must be logged in." };
+
+    try {
+        const review = await prisma.productReview.findUnique({
+            where: { id: reviewId },
+            include: { product: { select: { slug: true } } },
+        });
+
+        if (!review) return { error: "Review not found." };
+        if (review.userId !== session.userId) return { error: "You can only delete your own reviews." };
+
+        await prisma.productReview.delete({ where: { id: reviewId } });
+
+        if (review.product?.slug) {
+            revalidatePath(`/shop/${review.product.slug}`);
+        }
+
+        return { success: true };
+    } catch (err) {
+        console.error("Delete own review error:", err);
+        return { error: "Failed to delete review." };
+    }
+}

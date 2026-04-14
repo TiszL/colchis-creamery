@@ -20,7 +20,7 @@ export default function StarRating({
     onHover,
 }: StarRatingProps) {
     const sizeClass = size === 'sm' ? 'w-4 h-4' : size === 'lg' ? 'w-7 h-7' : 'w-5 h-5';
-    const displayValue = hoverValue ?? value;
+    const displayValue = hoverValue || value;
 
     return (
         <div className="flex items-center gap-0.5" role={interactive ? 'radiogroup' : 'img'} aria-label={`${value} out of ${max} stars`}>

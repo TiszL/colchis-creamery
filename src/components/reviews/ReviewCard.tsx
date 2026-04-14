@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import StarRating from './StarRating';
-import { ShieldCheck, MessageCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import { ShieldCheck, MessageCircle, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
 
 interface ReviewReply {
     id: string;
@@ -34,9 +34,12 @@ interface ReviewCardProps {
     review: ReviewData;
     onReply?: (reviewId: string, body: string) => Promise<{ error?: string }>;
     isLoggedIn: boolean;
+    isOwn?: boolean;
+    onDelete?: () => void;
+    deleting?: boolean;
 }
 
-export default function ReviewCard({ review, onReply, isLoggedIn }: ReviewCardProps) {
+export default function ReviewCard({ review, onReply, isLoggedIn, isOwn, onDelete, deleting }: ReviewCardProps) {
     const [showReplies, setShowReplies] = useState(false);
     const [replyText, setReplyText] = useState('');
     const [replyLoading, setReplyLoading] = useState(false);
@@ -77,17 +80,34 @@ export default function ReviewCard({ review, onReply, isLoggedIn }: ReviewCardPr
                         <p className="text-xs text-gray-400">{date}</p>
                     </div>
                 </div>
-                {review.isVerifiedPurchase ? (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-green-50 text-green-700 text-xs font-medium">
-                        <ShieldCheck className="w-3.5 h-3.5" />
-                        Verified Purchase
-                    </span>
-                ) : (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 text-blue-600 text-xs font-medium">
-                        <MessageCircle className="w-3.5 h-3.5" />
-                        Customer Question
-                    </span>
-                )}
+                <div className="flex items-center gap-2">
+                    {isOwn && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#CBA153]/10 text-[#A6812F] text-[10px] font-bold uppercase tracking-wider">
+                            Your Review
+                        </span>
+                    )}
+                    {review.isVerifiedPurchase ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-green-50 text-green-700 text-xs font-medium">
+                            <ShieldCheck className="w-3.5 h-3.5" />
+                            Verified
+                        </span>
+                    ) : (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 text-blue-600 text-xs font-medium">
+                            <MessageCircle className="w-3.5 h-3.5" />
+                            Customer
+                        </span>
+                    )}
+                    {isOwn && onDelete && (
+                        <button
+                            onClick={onDelete}
+                            disabled={deleting}
+                            className="flex items-center gap-1 text-xs text-gray-400 hover:text-red-500 transition-colors disabled:opacity-50 ml-1"
+                            title="Delete your review"
+                        >
+                            <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                    )}
+                </div>
             </div>
 
             {/* Rating & Title */}

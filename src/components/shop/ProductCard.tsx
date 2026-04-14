@@ -85,7 +85,7 @@ export function ProductCard({ product, locale }: ProductCardProps) {
                 {formatCurrency(product.priceB2c)}
               </span>
             )}
-            <span className="text-sm text-charcoal/60 group-hover:text-gold-text transition">
+            <span className="text-sm text-charcoal/80 group-hover:text-gold-text transition">
               {common("viewDetails")} &rarr;
             </span>
           </div>

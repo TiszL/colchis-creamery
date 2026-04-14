@@ -157,7 +157,7 @@ export default function ReviewCard({ review, onReply, isLoggedIn }: ReviewCardPr
                                     <button
                                         onClick={handleReply}
                                         disabled={replyLoading || !replyText.trim()}
-                                        className="px-4 py-2 bg-[#CBA153] text-white text-xs font-bold rounded-lg hover:bg-[#A07B30] transition-colors disabled:opacity-50"
+                                        className="px-4 py-2 bg-[#CBA153] text-white text-xs font-bold rounded-lg hover:bg-[#8A6A28] transition-colors disabled:opacity-50"
                                     >
                                         {replyLoading ? '...' : 'Reply'}
                                     </button>

@@ -164,7 +164,7 @@ export async function HeroSection({ locale }: HeroSectionProps) {
             {(showBtnPrimary || showBtnSecondary) && (
               <div className={`flex flex-col sm:flex-row gap-4 w-full ${btnJustifyClass(btnAlign)}`}>
                 {showBtnPrimary && (
-                  <Link href={`${prefix}/shop`} className="px-10 py-5 bg-[#CBA153] text-white font-bold rounded-sm tracking-widest uppercase hover:bg-[#A07B30] transition-all shadow-xl shadow-[#CBA153]/20">
+                  <Link href={`${prefix}/shop`} className="px-10 py-5 bg-[#CBA153] text-white font-bold rounded-sm tracking-widest uppercase hover:bg-[#8A6A28] transition-all shadow-xl shadow-[#CBA153]/20">
                     {shopCta || t("shopCta")}
                   </Link>
                 )}

@@ -53,7 +53,8 @@ export function LocaleSwitcher() {
       <button
         onClick={() => setOpen(!open)}
         className="flex items-center gap-2 px-3 py-2 text-sm rounded hover:bg-charcoal/5 transition"
-        aria-label="Switch language"
+        aria-haspopup="listbox"
+        aria-expanded={open}
       >
         <span className={localeFlags[locale]}></span>
         <span className="hidden sm:inline lg:hidden xl:inline pt-0.5">{localeNames[locale]}</span>

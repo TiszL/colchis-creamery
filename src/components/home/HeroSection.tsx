@@ -138,12 +138,13 @@ export async function HeroSection({ locale }: HeroSectionProps) {
             transform: `translate(${tx}, ${ty})`,
           }}
         >
-          {/* Subtle backdrop for text legibility over any image */}
-          <div className="flex flex-col rounded-2xl px-8 py-6" style={{ background: 'rgba(0,0,0,0.15)', backdropFilter: 'blur(2px)', WebkitBackdropFilter: 'blur(2px)' }}>
+          <div className="flex flex-col relative">
+            {/* Invisible vignette for text legibility — no visible box */}
+            <div className="absolute -inset-12 -z-10 pointer-events-none" style={{ background: 'radial-gradient(ellipse at center, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.15) 50%, transparent 80%)' }} />
 
             {showBadge && (
               <div className={`flex w-full ${btnJustifyClass(badgeAlign)} mb-8`}>
-                <div className="inline-block px-4 py-1.5 border border-white/60 rounded-full text-white text-xs font-bold tracking-[0.2em] uppercase animate-fade-in" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.4)' }}>
+                <div className="inline-block px-5 py-2 bg-white/10 border border-white/40 rounded-full text-white text-xs font-bold tracking-[0.2em] uppercase animate-fade-in backdrop-blur-sm" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.5)' }}>
                   {badgeText}
                 </div>
               </div>
@@ -152,17 +153,17 @@ export async function HeroSection({ locale }: HeroSectionProps) {
             {showTitle && (
               <h1
                 className={`w-full ${titleSizes[textSize] || titleSizes.lg} font-serif mb-8 text-white leading-tight tracking-tight ${textAlignClass(titleAlign)}`}
-                style={{ textShadow: '0 2px 12px rgba(0,0,0,0.5), 0 0 40px rgba(0,0,0,0.2)' }}
+                style={{ textShadow: '0 2px 16px rgba(0,0,0,0.6), 0 4px 32px rgba(0,0,0,0.3), 0 0 60px rgba(0,0,0,0.15)' }}
               >
                 {titleLine1} <br />
-                <span className="italic text-[#CBA153]" style={{ textShadow: '0 2px 12px rgba(0,0,0,0.6), 0 0 40px rgba(0,0,0,0.3)' }}>{titleLine2}</span>
+                <span className="italic text-[#CBA153]" style={{ textShadow: '0 2px 16px rgba(0,0,0,0.7), 0 4px 32px rgba(0,0,0,0.4), 0 0 60px rgba(0,0,0,0.2)' }}>{titleLine2}</span>
               </h1>
             )}
 
             {showSubtitle && (
               <p
-                className={`${subtitleSizes[textSize] || subtitleSizes.lg} text-white/90 mb-10 max-w-2xl font-light leading-relaxed ${textAlignClass(subtitleAlign)} ${subtitleAlign === 'center' ? 'self-center' : subtitleAlign === 'right' ? 'self-end' : 'self-start'}`}
-                style={{ textShadow: '0 1px 8px rgba(0,0,0,0.5)' }}
+                className={`${subtitleSizes[textSize] || subtitleSizes.lg} text-white/95 mb-10 max-w-2xl font-light leading-relaxed ${textAlignClass(subtitleAlign)} ${subtitleAlign === 'center' ? 'self-center' : subtitleAlign === 'right' ? 'self-end' : 'self-start'}`}
+                style={{ textShadow: '0 1px 10px rgba(0,0,0,0.6), 0 2px 20px rgba(0,0,0,0.3)' }}
               >
                 {heroSubtitle || t("heroSubtitle")}
               </p>
@@ -171,12 +172,12 @@ export async function HeroSection({ locale }: HeroSectionProps) {
             {(showBtnPrimary || showBtnSecondary) && (
               <div className={`flex flex-col sm:flex-row gap-4 w-full ${btnJustifyClass(btnAlign)}`}>
                 {showBtnPrimary && (
-                  <Link href={`${prefix}/shop`} className="px-10 py-5 bg-[#CBA153] text-white font-bold rounded-sm tracking-widest uppercase hover:bg-[#B5922E] transition-all shadow-xl shadow-black/20">
+                  <Link href={`${prefix}/shop`} className="px-10 py-5 bg-[#CBA153] text-white font-bold rounded-sm tracking-widest uppercase hover:bg-[#B5922E] transition-all shadow-lg shadow-black/25 hover:shadow-xl">
                     {shopCta || t("shopCta")}
                   </Link>
                 )}
                 {showBtnSecondary && (
-                  <Link href={`${prefix}/wholesale`} className="px-10 py-5 border-2 border-white/80 text-white font-bold rounded-sm tracking-widest uppercase hover:bg-white hover:text-[#2C2A29] transition-all" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.3)' }}>
+                  <Link href={`${prefix}/wholesale`} className="px-10 py-5 border-2 border-white/70 text-white font-bold rounded-sm tracking-widest uppercase hover:bg-white hover:text-[#2C2A29] hover:border-white transition-all backdrop-blur-sm" style={{ textShadow: '0 1px 6px rgba(0,0,0,0.4)' }}>
                     {wholesaleCta || t("wholesaleCta")}
                   </Link>
                 )}

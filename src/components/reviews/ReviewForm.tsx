@@ -100,17 +100,25 @@ export default function ReviewForm({ productId, hasExistingReview, isLoggedIn, o
         formData.append('body', body);
         formData.append('photoUrls', photos.join(','));
 
-        const result = await onSubmit(formData);
-        setSubmitting(false);
+        try {
+            const result = await onSubmit(formData);
+            setSubmitting(false);
 
-        if (result?.error) {
-            setError(result.error);
-        } else {
-            setSuccess(result?.message || 'Review submitted!');
-            setRating(0);
-            setTitle('');
-            setBody('');
-            setPhotos([]);
+            if (result?.error) {
+                setError(result.error);
+            } else if (result?.success) {
+                setSuccess(result?.message || 'Review submitted!');
+                setRating(0);
+                setTitle('');
+                setBody('');
+                setPhotos([]);
+            } else {
+                setError('Unexpected response. Please try again.');
+            }
+        } catch (err: unknown) {
+            setSubmitting(false);
+            console.error('Review submission error:', err);
+            setError(err instanceof Error ? err.message : 'Failed to submit review. Please try again.');
         }
     };
 

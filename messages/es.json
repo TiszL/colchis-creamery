@@ -51,9 +51,15 @@
     "processText": "Cada lote de queso de Colchis Creamery se elabora a mano en pequeñas cantidades, garantizando una atención meticulosa al detalle. Desde el estirado y la salmuera hasta la maduración, cada paso sigue métodos consagrados por el tiempo."
   },
   "shop": {
-    "title": "Nuestra colección de quesos",
-    "subtitle": "Queso artesanal georgiano hecho a mano",
-    "filterAll": "Todos los quesos",
+    "title": "Nuestra colección láctea A2",
+    "subtitle": "Lácteos georgianos auténticos, elaborados exclusivamente con leche 100% de vacas Swiss Brown alimentadas con pasto A2",
+    "filterAll": "Todos los productos",
+    "filterReserve": "Colchis Reserve™",
+    "filterClassic": "Colchis Classic",
+    "allCategories": "Todas las categorías",
+    "masterbrandPromise": "Elaborado exclusivamente con leche 100% A2 de vacas Brown Swiss alimentadas con pasto. Fácil de digerir, rico en proteínas, arraigado en las antiguas tradiciones lácteas georgianas.",
+    "noProductsFound": "No hay productos que coincidan con sus filtros",
+    "alsoInCollection": "También en esta colección",
     "inStock": "En stock",
     "outOfStock": "Agotado",
     "comingSoon": "Próximamente",

@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { Menu, X, LogOut, LayoutDashboard, Package, FileText, BookOpen, ShoppingCart, Users, BarChart3, Settings, Star, FileSignature } from 'lucide-react';
+import { Menu, X, LogOut, LayoutDashboard, Package, FileText, BookOpen, ShoppingCart, Users, BarChart3, Settings, Star, FileSignature, Tags, MessageCircle } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 
 export default function StaffSidebar({
@@ -32,6 +32,8 @@ export default function StaffSidebar({
         // Product Expert & Customer Assistance
         { label: 'Inventory (B2C)', href: '/staff-portal/products', icon: Package, roles: ['MASTER_ADMIN', 'PRODUCT_MANAGER'] },
         { label: 'Inventory (B2B)', href: '/staff-portal/products-b2b', icon: Package, roles: ['MASTER_ADMIN', 'PRODUCT_MANAGER'] },
+        { label: 'Categories', href: '/staff-portal/categories', icon: Tags, roles: ['MASTER_ADMIN', 'PRODUCT_MANAGER'] },
+        { label: 'Live Chat', href: '/staff-portal/chat', icon: MessageCircle, roles: ['MASTER_ADMIN', 'PRODUCT_MANAGER'] },
         { label: 'Orders', href: '/staff-portal/orders', icon: ShoppingCart, roles: ['MASTER_ADMIN', 'PRODUCT_MANAGER', 'SALES'] },
         { label: 'Reviews', href: '/staff-portal/reviews', icon: Star, roles: ['MASTER_ADMIN', 'PRODUCT_MANAGER'] },
         // Content Manager
@@ -70,8 +72,47 @@ export default function StaffSidebar({
         >
             <item.icon className={`w-4 h-4 ${isActive(item.href) ? 'text-[#CBA153]' : 'text-gray-500 group-hover:text-[#CBA153]'} transition-colors`} />
             <span className="truncate">{item.label}</span>
+            {item.href === '/staff-portal/chat' && <StaffChatBadge />}
         </Link>
     );
+
+    // SSE-powered live badge for chat waiting count
+    function StaffChatBadge() {
+        const [count, setCount] = useState(0);
+
+        const fetchCount = useCallback(async () => {
+            try {
+                const res = await fetch('/api/chat/staff');
+                const data = await res.json();
+                setCount(data.waitingCount || 0);
+            } catch { /* silent */ }
+        }, []);
+
+        useEffect(() => {
+            fetchCount();
+
+            const es = new EventSource('/api/chat/staff/stream');
+            es.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    if (data.type === 'sessions_update') fetchCount();
+                } catch { /* parse error */ }
+            };
+            es.onerror = () => {
+                const interval = setInterval(fetchCount, 10000);
+                es.close();
+                return () => clearInterval(interval);
+            };
+            return () => es.close();
+        }, [fetchCount]);
+
+        if (count <= 0) return null;
+        return (
+            <span className="ml-auto bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center animate-pulse">
+                {count}
+            </span>
+        );
+    }
 
     return (
         <>

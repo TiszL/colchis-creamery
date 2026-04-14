@@ -1,13 +1,15 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Menu, X, LogOut, LayoutDashboard, Package, FileText, ShoppingCart, Users, KeyRound, BarChart3, Settings, Shield, Globe, Inbox, MessageSquare } from 'lucide-react';
+import { Menu, X, LogOut, LayoutDashboard, Package, FileText, ShoppingCart, Users, KeyRound, BarChart3, Settings, Shield, Globe, Inbox, MessageSquare, Tags, MessageCircle } from 'lucide-react';
 
 const NAV_ITEMS = [
     { label: 'Dashboard', href: '/admin', icon: LayoutDashboard },
     { label: 'Inventory', href: '/admin/inventory', icon: Package },
+    { label: 'Categories', href: '/admin/categories', icon: Tags },
+    { label: 'Live Chat', href: '/admin/chat', icon: MessageCircle },
     { label: 'Orders', href: '/admin/orders', icon: ShoppingCart },
     { label: 'Requests', href: '/admin/requests', icon: Inbox },
     { label: 'Reviews', href: '/admin/reviews', icon: MessageSquare },
@@ -48,10 +50,51 @@ function NavItems({ items, locale, onNavigate }: { items: typeof NAV_ITEMS; loca
                             isActive ? 'text-[#CBA153]' : 'text-gray-600 group-hover:text-[#CBA153]'
                         }`} />
                         {item.label}
+                        {item.href === '/admin/chat' && <ChatBadge />}
                     </Link>
                 );
             })}
         </>
+    );
+}
+
+// SSE-powered live badge for chat waiting count
+function ChatBadge() {
+    const [count, setCount] = useState(0);
+
+    const fetchCount = useCallback(async () => {
+        try {
+            const res = await fetch('/api/chat/staff');
+            const data = await res.json();
+            setCount(data.waitingCount || 0);
+        } catch { /* silent */ }
+    }, []);
+
+    useEffect(() => {
+        fetchCount();
+
+        // SSE for instant updates
+        const es = new EventSource('/api/chat/staff/stream');
+        es.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                if (data.type === 'sessions_update') fetchCount();
+            } catch { /* parse error */ }
+        };
+        es.onerror = () => {
+            // Fallback to polling on SSE failure
+            const interval = setInterval(fetchCount, 10000);
+            es.close();
+            return () => clearInterval(interval);
+        };
+        return () => es.close();
+    }, [fetchCount]);
+
+    if (count <= 0) return null;
+    return (
+        <span className="ml-auto bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center animate-pulse">
+            {count}
+        </span>
     );
 }
 

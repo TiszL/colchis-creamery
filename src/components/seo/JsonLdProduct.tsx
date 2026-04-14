@@ -58,8 +58,22 @@ export async function JsonLdProduct({ product, url, productId }: JsonLdProductPr
     },
     // Product attributes for AI crawlers
     ...(product.weight ? { weight: { "@type": "QuantitativeValue", value: product.weight } } : {}),
-    ...(product.ingredients ? { material: product.ingredients } : {}),
-    category: "Artisanal Georgian Cheese",
+    material: product.ingredients || "100% Grass-Fed A2 Brown Swiss Milk",
+    category: product.productCategory?.name
+      ? `${product.productLine?.name || 'Colchis Creamery'} — ${product.productCategory.name}`
+      : product.productLine?.name || "Authentic Georgian A2 Dairy",
+    additionalProperty: [
+      {
+        "@type": "PropertyValue",
+        name: "Milk Source",
+        value: "100% Grass-Fed A2 Brown Swiss Cow Milk",
+      },
+      {
+        "@type": "PropertyValue",
+        name: "Heritage",
+        value: "Authentic Georgian dairy traditions — heritage recipes, made fresh in Ohio",
+      },
+    ],
     offers: {
       "@type": "Offer",
       url,
@@ -88,6 +102,10 @@ export async function JsonLdProduct({ product, url, productId }: JsonLdProductPr
         addressRegion: "OH",
         addressCountry: "US",
       },
+    },
+    countryOfOrigin: {
+      "@type": "Country",
+      name: "United States",
     },
   };
 

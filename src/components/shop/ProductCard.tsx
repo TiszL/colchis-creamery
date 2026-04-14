@@ -18,8 +18,12 @@ export function ProductCard({ product, locale }: ProductCardProps) {
   const isComingSoon = product.status === 'COMING_SOON';
   const isOutOfStock = product.stockQuantity <= 0;
 
+  const lineName = product.productLine?.name;
+  const lineColor = product.productLine?.badgeColor || '#CBA153';
+  const categoryName = product.productCategory?.name;
+
   return (
-    <Link href={`${prefix}/shop/${product.slug}`} className="group">
+    <Link href={`${prefix}/shop/${product.slug}`} className="group animate-filter-in">
       <div className={`bg-white rounded-lg overflow-hidden shadow-sm border border-border-light hover:shadow-md transition-all duration-300 ${isComingSoon ? 'ring-1 ring-amber-300/30' : ''}`}>
         {/* Image */}
         <div className="relative aspect-[4/3] bg-cream flex items-center justify-center overflow-hidden">
@@ -41,10 +45,30 @@ export function ProductCard({ product, locale }: ProductCardProps) {
               </Badge>
             )}
           </div>
+          {/* Product Line Badge */}
+          {lineName && (
+            <div className="absolute top-3 left-3">
+              <span
+                className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full backdrop-blur-sm"
+                style={{
+                  backgroundColor: `${lineColor}18`,
+                  color: lineColor,
+                  border: `1px solid ${lineColor}30`,
+                }}
+              >
+                {lineName}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Content */}
         <div className="p-6">
+          {categoryName && (
+            <p className="text-[11px] text-gold/70 uppercase tracking-widest font-medium mb-1.5">
+              {categoryName}
+            </p>
+          )}
           <h3 className="font-serif text-xl text-charcoal mb-2 group-hover:text-gold transition">
             {product.name}
           </h3>
@@ -70,3 +94,4 @@ export function ProductCard({ product, locale }: ProductCardProps) {
     </Link>
   );
 }
+

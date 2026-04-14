@@ -51,9 +51,15 @@
     "processText": "Every batch of Colchis Creamery cheese is handcrafted in small quantities, ensuring meticulous attention to detail. From stretching and brining to aging — each step follows time-honored methods."
   },
   "shop": {
-    "title": "Our Cheese Collection",
-    "subtitle": "Handcrafted artisanal Georgian cheese",
-    "filterAll": "All Cheeses",
+    "title": "Our A2 Dairy Collection",
+    "subtitle": "Authentic Georgian dairy, crafted exclusively from 100% Grass-Fed A2 Brown Swiss Milk",
+    "filterAll": "All Products",
+    "filterReserve": "Colchis Reserve™",
+    "filterClassic": "Colchis Classic",
+    "allCategories": "All Categories",
+    "masterbrandPromise": "Crafted exclusively from 100% Grass-Fed A2 Brown Swiss Milk. Easy to digest, rich in protein, rooted in ancient Georgian dairy traditions. Heritage recipes, made fresh in Ohio.",
+    "noProductsFound": "No products match your filters",
+    "alsoInCollection": "Also in This Collection",
     "inStock": "In Stock",
     "outOfStock": "Out of Stock",
     "comingSoon": "Coming Soon",

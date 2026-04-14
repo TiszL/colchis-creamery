@@ -25,6 +25,8 @@ export async function saveProductAction(formData: FormData) {
         priceB2b: formData.get('priceB2b') as string,
         stockQuantity: parseInt(formData.get('stockQuantity') as string, 10) || 0,
         category: (formData.get('category') as string) || 'cheese',
+        productLineId: (formData.get('productLineId') as string) || null,
+        categoryId: (formData.get('categoryId') as string) || null,
         status: (formData.get('status') as any) || 'ACTIVE',
         isActive: (formData.get('status') as string) !== 'INACTIVE',
         isB2cVisible: formData.get('isB2cVisible') === 'on',

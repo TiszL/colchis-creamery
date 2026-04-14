@@ -34,19 +34,28 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         ...localizedUrls('/legal/returns', 0.3, 'yearly'),  // Returns
     ];
 
+    // --- Dynamic: Product Line filtered shop pages ---
+    const productLines = await prisma.productLine.findMany({
+        where: { isActive: true },
+        select: { slug: true, updatedAt: true },
+    });
+    const linePages = productLines.flatMap(l =>
+        localizedUrls(`/shop?line=${l.slug}`, 0.85, 'daily')
+    );
+
     // --- Dynamic: Products ---
     const products = await prisma.product.findMany({
-        select: { id: true, updatedAt: true },
+        select: { slug: true, updatedAt: true },
     });
     const productPages = products.flatMap(p =>
         LOCALES.map(locale => ({
-            url: locale === 'en' ? `${SITE_URL}/shop/${p.id}` : `${SITE_URL}/${locale}/shop/${p.id}`,
+            url: locale === 'en' ? `${SITE_URL}/shop/${p.slug}` : `${SITE_URL}/${locale}/shop/${p.slug}`,
             lastModified: p.updatedAt,
             changeFrequency: 'weekly' as const,
             priority: 0.8,
             alternates: {
                 languages: Object.fromEntries(
-                    LOCALES.map(l => [l, l === 'en' ? `${SITE_URL}/shop/${p.id}` : `${SITE_URL}/${l}/shop/${p.id}`])
+                    LOCALES.map(l => [l, l === 'en' ? `${SITE_URL}/shop/${p.slug}` : `${SITE_URL}/${l}/shop/${p.slug}`])
                 ),
             },
         }))
@@ -90,5 +99,5 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         }))
     );
 
-    return [...staticPages, ...productPages, ...recipePages, ...articlePages];
+    return [...staticPages, ...linePages, ...productPages, ...recipePages, ...articlePages];
 }

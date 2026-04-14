@@ -76,6 +76,15 @@ export default async function AdminInventoryPage({ params }: { params: any }) {
     if (!session || session.role !== 'MASTER_ADMIN') redirect(`/${locale}/staff`);
 
     const products = await prisma.product.findMany({ orderBy: { name: 'asc' } });
+    const productLines = await prisma.productLine.findMany({
+        orderBy: { sortOrder: 'asc' },
+        include: {
+            categories: {
+                orderBy: { sortOrder: 'asc' },
+                select: { id: true, slug: true, name: true },
+            },
+        },
+    });
 
     // Serialize for client component
     const serialized = products.map(p => ({
@@ -95,15 +104,26 @@ export default async function AdminInventoryPage({ params }: { params: any }) {
         priceB2b: p.priceB2b,
         stockQuantity: p.stockQuantity,
         category: p.category,
+        productLineId: p.productLineId,
+        categoryId: p.categoryId,
         status: p.status,
         isActive: p.isActive,
         isB2cVisible: p.isB2cVisible,
         isB2bVisible: p.isB2bVisible,
     }));
 
+    const serializedLines = productLines.map(l => ({
+        id: l.id,
+        slug: l.slug,
+        name: l.name,
+        badgeColor: l.badgeColor,
+        categories: l.categories,
+    }));
+
     return (
         <InventoryClient
             products={serialized}
+            productLines={serializedLines}
             locale={locale}
             saveAction={saveProductAction}
             deleteAction={deleteProductAction}

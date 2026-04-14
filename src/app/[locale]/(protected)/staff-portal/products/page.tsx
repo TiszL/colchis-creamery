@@ -18,14 +18,30 @@ export default async function StaffProductsPage({ params }: { params: any }) {
         orderBy: { name: 'asc' },
     });
 
+    const productLines = await prisma.productLine.findMany({
+        orderBy: { sortOrder: 'asc' },
+        include: {
+            categories: {
+                orderBy: { sortOrder: 'asc' },
+                select: { id: true, slug: true, name: true },
+            },
+        },
+    });
+
     const serialized = products.map(p => ({
         id: p.id, sku: p.sku, name: p.name, slug: p.slug,
         description: p.description, flavorProfile: p.flavorProfile,
         pairsWith: p.pairsWith, weight: p.weight, ingredients: p.ingredients,
         imageUrl: p.imageUrl, images: p.images || [], videoUrls: p.videoUrls || [],
         priceB2c: p.priceB2c, priceB2b: p.priceB2b, stockQuantity: p.stockQuantity,
-        category: p.category, status: p.status, isActive: p.isActive,
+        category: p.category, productLineId: p.productLineId, categoryId: p.categoryId,
+        status: p.status, isActive: p.isActive,
         isB2cVisible: p.isB2cVisible, isB2bVisible: p.isB2bVisible,
+    }));
+
+    const serializedLines = productLines.map(l => ({
+        id: l.id, slug: l.slug, name: l.name, badgeColor: l.badgeColor,
+        categories: l.categories,
     }));
 
     return (
@@ -36,6 +52,7 @@ export default async function StaffProductsPage({ params }: { params: any }) {
             </div>
             <InventoryClient
                 products={serialized}
+                productLines={serializedLines}
                 locale={locale}
                 saveAction={saveProductAction}
                 deleteAction={deleteProductAction}

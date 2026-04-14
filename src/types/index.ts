@@ -19,6 +19,28 @@ export type OrderType = "B2C" | "B2B";
 
 export type LeadStatus = "NEW" | "CONTACTED" | "CONVERTED" | "REJECTED";
 
+export interface ProductLine {
+  id: string;
+  slug: string;
+  name: string;
+  tagline: string | null;
+  description: string | null;
+  badgeColor: string | null;
+  sortOrder: number;
+  isActive: boolean;
+}
+
+export interface Category {
+  id: string;
+  slug: string;
+  name: string;
+  description: string | null;
+  imageUrl: string | null;
+  productLineId: string;
+  sortOrder: number;
+  isActive: boolean;
+}
+
 export interface Product {
   id: string;
   sku: string;
@@ -35,6 +57,10 @@ export interface Product {
   stockQuantity: number;
   isActive: boolean;
   status: 'ACTIVE' | 'INACTIVE' | 'COMING_SOON';
+  productLineId?: string | null;
+  categoryId?: string | null;
+  productLine?: ProductLine | null;
+  productCategory?: Category | null;
 }
 
 export interface CartItem {
@@ -55,3 +81,4 @@ export interface Recipe {
   imageUrl: string | null;
   isPublished: boolean;
 }
+

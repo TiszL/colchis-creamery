@@ -126,6 +126,74 @@ async function main() {
     console.log(`Created product: ${created.name} (${created.sku})`);
   }
 
+  // ─── Product Lines & Categories ──────────────────────────────────────────
+  const reserveLine = await prisma.productLine.upsert({
+    where: { slug: "reserve" },
+    update: {},
+    create: {
+      slug: "reserve",
+      name: "Colchis Reserve™",
+      tagline: "Slow Pasteurized · LTLT · Premium Artisanal",
+      description:
+        "The ultimate artisanal experience. Our Reserve line features products crafted using traditional slow-pasteurization (LTLT) methods, preserving the full depth of flavor from our 100% Grass-Fed A2 Brown Swiss Milk.",
+      badgeColor: "#CBA153",
+      sortOrder: 0,
+    },
+  });
+  console.log(`Created product line: ${reserveLine.name}`);
+
+  const classicLine = await prisma.productLine.upsert({
+    where: { slug: "classic" },
+    update: {},
+    create: {
+      slug: "classic",
+      name: "Colchis Classic",
+      tagline: "Fast Pasteurized · HTST · Accessible Excellence",
+      description:
+        "Everyday excellence for the whole family. Our Classic line delivers the same A2 Brown Swiss milk quality through efficient HTST pasteurization, making authentic Georgian dairy accessible for daily enjoyment.",
+      badgeColor: "#8B9DAF",
+      sortOrder: 1,
+    },
+  });
+  console.log(`Created product line: ${classicLine.name}`);
+
+  // Reserve categories
+  const reserveCategories = [
+    { slug: "pulled-curd-cheese", name: "Pulled-Curd Cheese", description: "Traditional stretched and brined cheeses", sortOrder: 0 },
+    { slug: "fresh-cultured-cheese", name: "Fresh Cultured Cheese", description: "Soft, fresh farmer's cheeses and curds", sortOrder: 1 },
+    { slug: "aged-cheese", name: "Aged Cheese", description: "Long-aged reserve wheels with complex flavor", sortOrder: 2 },
+    { slug: "smoked-cheese", name: "Smoked Cheese", description: "Cold-smoked artisanal varieties", sortOrder: 3 },
+    { slug: "whey-spread", name: "Whey Spread", description: "Creamy whey-based spreads", sortOrder: 4 },
+    { slug: "cultured-butter", name: "Cultured Butter", description: "Slow-churned heritage butter", sortOrder: 5 },
+  ];
+
+  for (const cat of reserveCategories) {
+    await prisma.category.upsert({
+      where: { slug: cat.slug },
+      update: {},
+      create: { ...cat, productLineId: reserveLine.id },
+    });
+    console.log(`  Created category: ${cat.name} (Reserve)`);
+  }
+
+  // Classic categories
+  const classicCategories = [
+    { slug: "everyday-cheese", name: "Everyday Cheese", description: "Classic cheeses for daily cooking and snacking", sortOrder: 0 },
+    { slug: "shredded-blends", name: "Shredded Blends", description: "Pre-shredded cheese blends for convenience", sortOrder: 1 },
+    { slug: "fresh-cheese", name: "Fresh Cheese", description: "Fresh, soft cheeses for salads and cooking", sortOrder: 2 },
+    { slug: "classic-butter", name: "Butter", description: "Pure A2 butter for everyday use", sortOrder: 3 },
+    { slug: "classic-spreads", name: "Spreads & Dips", description: "Ready-to-eat spreads and dips", sortOrder: 4 },
+  ];
+
+  for (const cat of classicCategories) {
+    await prisma.category.upsert({
+      where: { slug: cat.slug },
+      update: {},
+      create: { ...cat, productLineId: classicLine.id },
+    });
+    console.log(`  Created category: ${cat.name} (Classic)`);
+  }
+
   // ─── Recipes ─────────────────────────────────────────────────────────────
   const recipes = [
     {

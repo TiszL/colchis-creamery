@@ -1,7 +1,7 @@
 import { getSession } from '@/lib/session';
 import { prisma } from '@/lib/db';
 import Link from 'next/link';
-import { Package, TrendingUp, Users, ShoppingCart, FileText, AlertCircle, Star, BookOpen, ArrowRight } from 'lucide-react';
+import { Package, TrendingUp, Users, ShoppingCart, FileText, AlertCircle, Star, BookOpen, ArrowRight, MessageCircle } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,7 +16,7 @@ export default async function StaffPortalDashboard({ params }: { params: any }) 
     const { locale } = await params;
     const session = await getSession();
 
-    const [totalProducts, totalOrders, b2bLeads, lowStockCount, articlesCount, recipesCount, pendingReviews] = await Promise.all([
+    const [totalProducts, totalOrders, b2bLeads, lowStockCount, articlesCount, recipesCount, pendingReviews, chatWaiting] = await Promise.all([
         prisma.product.count({ where: { isActive: true } }),
         prisma.order.count(),
         prisma.b2bLead.count({ where: { status: 'NEW' } }),
@@ -24,6 +24,7 @@ export default async function StaffPortalDashboard({ params }: { params: any }) 
         prisma.article.count(),
         prisma.recipe.count(),
         prisma.productReview.count({ where: { status: 'PENDING' } }),
+        prisma.chatSession.count({ where: { status: { in: ['WAITING', 'ACTIVE'] } } }),
     ]);
 
     const stats = [
@@ -34,6 +35,7 @@ export default async function StaffPortalDashboard({ params }: { params: any }) 
         { label: 'Pending Reviews', value: pendingReviews.toString(), icon: Star, color: pendingReviews > 0 ? 'text-amber-400' : 'text-gray-500', roles: ['MASTER_ADMIN', 'PRODUCT_MANAGER'] },
         { label: 'Articles', value: articlesCount.toString(), icon: FileText, color: 'text-blue-400', roles: ['MASTER_ADMIN', 'CONTENT_MANAGER'] },
         { label: 'Recipes', value: recipesCount.toString(), icon: BookOpen, color: 'text-emerald-400', roles: ['MASTER_ADMIN', 'CONTENT_MANAGER'] },
+        { label: 'Live Chats', value: chatWaiting.toString(), icon: MessageCircle, color: chatWaiting > 0 ? 'text-amber-400' : 'text-gray-500', roles: ['MASTER_ADMIN', 'PRODUCT_MANAGER'] },
     ];
 
     const visibleStats = stats.filter(s => s.roles.includes(session?.role || ''));
@@ -79,6 +81,15 @@ export default async function StaffPortalDashboard({ params }: { params: any }) 
             icon: ShoppingCart, color: 'text-blue-400', bg: 'bg-blue-400/10',
             count: `${totalOrders} total orders`,
             roles: ['MASTER_ADMIN', 'PRODUCT_MANAGER', 'SALES'],
+        },
+        {
+            title: 'Live Chat',
+            description: 'Respond to customer conversations in real time',
+            href: `/${locale}/staff-portal/chat`,
+            icon: MessageCircle, color: chatWaiting > 0 ? 'text-amber-400' : 'text-emerald-400',
+            bg: chatWaiting > 0 ? 'bg-amber-400/10' : 'bg-emerald-400/10',
+            count: chatWaiting > 0 ? `${chatWaiting} active` : 'No active chats',
+            roles: ['MASTER_ADMIN', 'PRODUCT_MANAGER'],
         },
     ];
 

@@ -3,27 +3,33 @@ import { NextIntlClientProvider, hasLocale } from "next-intl";
 
 export const metadata: Metadata = {
   title: {
-    default: "Colchis Creamery | Ancient Heritage, Fresh Taste",
+    default: "Colchis Creamery | Authentic Georgian A2 Dairy — Heritage Recipes, Made Fresh in Ohio",
     template: "%s | Colchis Creamery",
   },
   description:
-    "Authentic Georgian artisanal cheese, handcrafted in Ohio with premium local milk. Shop Sulguni, Imeretian, and more.",
+    "Authentic Georgian dairy crafted exclusively from 100% Grass-Fed A2 Brown Swiss Milk. Heritage recipes from ancient Colchian traditions, made fresh in Ohio. Shop Colchis Reserve™ artisanal and Colchis Classic everyday collections.",
   keywords: [
+    "A2 Brown Swiss milk",
     "Georgian cheese",
-    "artisanal cheese",
-    "Sulguni",
-    "Imeretian cheese",
-    "Ohio cheese",
+    "authentic Georgian dairy",
+    "artisanal cheese Ohio",
+    "grass-fed A2 cheese",
+    "Colchis Reserve",
+    "Colchis Classic",
+    "pulled-curd cheese",
+    "farmer's cheese",
+    "A2 whey spread",
     "Colchis Creamery",
-    "premium cheese",
+    "premium dairy",
     "handcrafted cheese",
+    "Georgian heritage dairy",
   ],
   openGraph: {
     type: "website",
     siteName: "Colchis Creamery",
-    title: "Colchis Creamery | Ancient Heritage, Fresh Taste",
+    title: "Colchis Creamery | Authentic Georgian A2 Dairy — Heritage Recipes, Made Fresh in Ohio",
     description:
-      "Authentic Georgian artisanal cheese, handcrafted in Ohio with premium local milk.",
+      "Crafted exclusively from 100% Grass-Fed A2 Brown Swiss Milk. Authentic Georgian dairy traditions, made fresh in Ohio.",
   },
 };
 import { notFound } from "next/navigation";

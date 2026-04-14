@@ -79,3 +79,30 @@ html {
 .animate-fade-in {
   animation: fade-in 0.3s ease-out;
 }
+
+/* Product filter animation — smooth entry when filter changes */
+@keyframes filter-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-filter-in {
+  animation: filter-in 0.35s ease-out forwards;
+}
+
+/* Hide scrollbar for filter bar on mobile */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+

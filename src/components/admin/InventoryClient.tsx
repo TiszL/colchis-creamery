@@ -4,6 +4,14 @@ import { useState, useTransition, useRef, useEffect } from 'react';
 import { Search, Plus, Save, Trash2, X, Eye, EyeOff, Package, AlertTriangle, Image as ImageIcon, Film, ChevronDown } from 'lucide-react';
 import MediaUploadZone from './MediaUploadZone';
 
+interface ProductLineOption {
+    id: string;
+    slug: string;
+    name: string;
+    badgeColor: string | null;
+    categories: { id: string; slug: string; name: string }[];
+}
+
 interface Product {
     id: string;
     sku: string;
@@ -21,6 +29,8 @@ interface Product {
     priceB2b: string;
     stockQuantity: number;
     category: string | null;
+    productLineId: string | null;
+    categoryId: string | null;
     status: string;
     isActive: boolean;
     isB2cVisible: boolean;
@@ -29,6 +39,7 @@ interface Product {
 
 interface InventoryClientProps {
     products: Product[];
+    productLines: ProductLineOption[];
     locale: string;
     saveAction: (formData: FormData) => Promise<void>;
     deleteAction: (formData: FormData) => Promise<void>;
@@ -51,7 +62,8 @@ function getThumbUrl(url: string): string {
     return url; // External URLs: use as-is
 }
 
-export default function InventoryClient({ products, locale, saveAction, deleteAction, quickStockAction }: InventoryClientProps) {
+export default function InventoryClient({ products, productLines, locale, saveAction, deleteAction, quickStockAction }: InventoryClientProps) {
+    const [selectedLineId, setSelectedLineId] = useState<string>('');
     const [search, setSearch] = useState('');
     const [drawerOpen, setDrawerOpen] = useState(false);
     const [editProduct, setEditProduct] = useState<Product | null>(null);
@@ -79,6 +91,7 @@ export default function InventoryClient({ products, locale, saveAction, deleteAc
         setPrimaryImageUrl(product.imageUrl || '');
         setGalleryImages(product.images || []);
         setVideoLinks(product.videoUrls || []);
+        setSelectedLineId(product.productLineId || '');
         setDrawerOpen(true);
         setDeleteConfirm(null);
     };
@@ -90,9 +103,17 @@ export default function InventoryClient({ products, locale, saveAction, deleteAc
         setPrimaryImageUrl('');
         setGalleryImages([]);
         setVideoLinks([]);
+        setSelectedLineId('');
         setDrawerOpen(true);
         setDeleteConfirm(null);
     };
+
+    // Get categories for selected line
+    const categoriesForLine = productLines.find(l => l.id === selectedLineId)?.categories || [];
+
+    // Helper: get line name by ID
+    const getLineName = (id: string | null) => productLines.find(l => l.id === id)?.name || null;
+    const getLineColor = (id: string | null) => productLines.find(l => l.id === id)?.badgeColor || '#CBA153';
 
     const closeDrawer = () => {
         setDrawerOpen(false);
@@ -197,6 +218,7 @@ export default function InventoryClient({ products, locale, saveAction, deleteAc
                                 <th className="px-5 py-4">Product</th>
                                 <th className="px-5 py-4">SKU</th>
                                 <th className="px-5 py-4 text-center">Stock</th>
+                                <th className="px-5 py-4">Line</th>
                                 <th className="px-5 py-4 text-right">B2C Price</th>
                                 <th className="px-5 py-4 text-right">B2B Price</th>
                                 <th className="px-5 py-4 text-center">Status</th>
@@ -237,6 +259,16 @@ export default function InventoryClient({ products, locale, saveAction, deleteAc
                                                 <Save className="w-3 h-3" />
                                             </button>
                                         </form>
+                                    </td>
+                                    {/* Product Line Badge */}
+                                    <td className="px-5 py-4">
+                                        {getLineName(product.productLineId) ? (
+                                            <span className="text-[10px] px-2 py-0.5 rounded-full font-bold" style={{ backgroundColor: `${getLineColor(product.productLineId)}20`, color: getLineColor(product.productLineId) }}>
+                                                {getLineName(product.productLineId)}
+                                            </span>
+                                        ) : (
+                                            <span className="text-xs text-gray-700">—</span>
+                                        )}
                                     </td>
                                     {/* B2C Price */}
                                     <td className="px-5 py-4 text-right text-gray-300 text-xs">${product.priceB2c}</td>
@@ -421,12 +453,23 @@ export default function InventoryClient({ products, locale, saveAction, deleteAc
                                     className="w-full bg-[#0D0D0D] border border-white/10 text-white py-2.5 px-4 rounded-lg focus:outline-none focus:border-[#CBA153] placeholder-gray-700 text-sm" />
                             </div>
                             <div>
-                                <label className="block text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wider">Category</label>
-                                <select name="category" defaultValue={editProduct?.category || 'cheese'}
+                                <label className="block text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wider">Product Line</label>
+                                <select name="productLineId" value={selectedLineId} onChange={e => setSelectedLineId(e.target.value)}
                                     className="w-full bg-[#0D0D0D] border border-white/10 text-white py-2.5 px-4 rounded-lg focus:outline-none focus:border-[#CBA153] text-sm">
-                                    <option value="cheese">Cheese</option>
-                                    <option value="blend">Blend</option>
-                                    <option value="specialty">Specialty</option>
+                                    <option value="">— None —</option>
+                                    {productLines.map(l => (
+                                        <option key={l.id} value={l.id}>{l.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wider">Category</label>
+                                <select name="categoryId" defaultValue={editProduct?.categoryId || ''}
+                                    className="w-full bg-[#0D0D0D] border border-white/10 text-white py-2.5 px-4 rounded-lg focus:outline-none focus:border-[#CBA153] text-sm">
+                                    <option value="">— None —</option>
+                                    {categoriesForLine.map(c => (
+                                        <option key={c.id} value={c.id}>{c.name}</option>
+                                    ))}
                                 </select>
                             </div>
                         </div>

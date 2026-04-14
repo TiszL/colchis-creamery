@@ -45,6 +45,8 @@ model User {
   accounts         Account[]
   reviews          ProductReview[]
   reviewReplies    ReviewReply[]
+  chatSessionsAsVisitor ChatSession[] @relation("ChatVisitor")
+  chatSessionsAsAgent   ChatSession[] @relation("ChatAgent")
 }
 
 model Account {
@@ -85,6 +87,44 @@ model UserProfile {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+// ─── ProductLine ─────────────────────────────────────────────────────────────
+// Two primary lines: RESERVE (LTLT) and CLASSIC (HTST)
+
+model ProductLine {
+  id            String      @id @default(uuid())
+  slug          String      @unique   // "reserve" | "classic"
+  name          String                // "Colchis Reserve™" | "Colchis Classic"
+  tagline       String?               // "Slow Pasteurized / LTLT / Premium Artisanal"
+  description   String?               // Full marketing description
+  badgeColor    String?     @default("#CBA153") // UI accent color
+  sortOrder     Int         @default(0)
+  isActive      Boolean     @default(true)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  categories    Category[]
+  products      Product[]
+}
+
+// ─── Category ────────────────────────────────────────────────────────────────
+// Categories within each product line (e.g., "Pulled-Curd Cheese", "Whey Spread")
+
+model Category {
+  id              String      @id @default(uuid())
+  slug            String      @unique
+  name            String                // "Pulled-Curd Cheese"
+  description     String?
+  imageUrl        String?               // Category hero/icon image
+  productLineId   String
+  sortOrder       Int         @default(0)
+  isActive        Boolean     @default(true)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  productLine     ProductLine @relation(fields: [productLineId], references: [id])
+  products        Product[]
+}
+
 // ─── Product ─────────────────────────────────────────────────────────────────
 
 enum ProductStatus {
@@ -110,6 +150,8 @@ model Product {
   priceB2b       String
   stockQuantity  Int
   category       String?       @default("cheese")
+  productLineId  String?
+  categoryId     String?
   status         ProductStatus @default(ACTIVE)
   isActive       Boolean       @default(true)
   isB2cVisible   Boolean       @default(true)
@@ -117,8 +159,10 @@ model Product {
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
-  orderItems OrderItem[]
-  reviews    ProductReview[]
+  productLine ProductLine?    @relation(fields: [productLineId], references: [id])
+  productCategory Category?   @relation(fields: [categoryId], references: [id])
+  orderItems  OrderItem[]
+  reviews     ProductReview[]
 }
 
 // ─── Contract ────────────────────────────────────────────────────────────────
@@ -391,5 +435,48 @@ model SiteSetting {
   key       String   @id
   value     String
   updatedAt DateTime @default(now()) @updatedAt
+}
+
+// ─── ChatSession ────────────────────────────────────────────────────────────
+// Live support chat sessions between visitors and staff
+// status: "WAITING" | "ACTIVE" | "CLOSED"
+
+model ChatSession {
+  id            String    @id @default(uuid())
+  visitorId     String                          // localStorage UUID for anonymous users
+  visitorName   String?
+  visitorEmail  String?
+  userId        String?                         // FK → User (if visitor is logged in)
+  assignedToId  String?                         // FK → User (staff who claimed session)
+  status        String    @default("WAITING")   // WAITING | ACTIVE | CLOSED
+  lastMessageAt DateTime  @default(now())
+  closedAt      DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  user       User?         @relation("ChatVisitor", fields: [userId], references: [id])
+  assignedTo User?         @relation("ChatAgent", fields: [assignedToId], references: [id])
+  messages   ChatMessage[]
+
+  @@index([status])
+  @@index([assignedToId])
+  @@index([visitorId])
+}
+
+// ─── ChatMessage ────────────────────────────────────────────────────────────
+// Individual messages within a chat session
+// sender: "visitor" | "agent" | "system"
+
+model ChatMessage {
+  id        String   @id @default(uuid())
+  sessionId String
+  sender    String                              // "visitor" | "agent" | "system"
+  agentId   String?                             // FK → User (if sent by staff)
+  body      String
+  createdAt DateTime @default(now())
+
+  session ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, createdAt])
 }
 

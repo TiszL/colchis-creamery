@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { NextIntlClientProvider, hasLocale } from "next-intl";
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://colchiscreamery.com'),
   title: {
     default: "Colchis Creamery | Authentic Georgian A2 Dairy — Heritage Recipes, Made Fresh in Ohio",
     template: "%s | Colchis Creamery",
@@ -28,6 +29,13 @@ export const metadata: Metadata = {
     type: "website",
     siteName: "Colchis Creamery",
     title: "Colchis Creamery | Authentic Georgian A2 Dairy — Heritage Recipes, Made Fresh in Ohio",
+    description:
+      "Crafted exclusively from 100% Grass-Fed A2 Brown Swiss Milk. Authentic Georgian dairy traditions, made fresh in Ohio.",
+    locale: "en_US",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Colchis Creamery | Authentic Georgian A2 Dairy",
     description:
       "Crafted exclusively from 100% Grass-Fed A2 Brown Swiss Milk. Authentic Georgian dairy traditions, made fresh in Ohio.",
   },

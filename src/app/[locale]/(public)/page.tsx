@@ -30,15 +30,28 @@ export async function generateMetadata({ params }: HomePageProps) {
   const ogImage = await getOgImage('home');
   const title = `Colchis Creamery | ${t("heroTitle")}`;
   const description = t("heroSubtitle");
+  const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://colchiscreamery.com';
+  const canonicalPath = locale === 'en' ? '' : `/${locale}`;
 
   return {
     title,
     description,
+    alternates: {
+      canonical: `${SITE_URL}${canonicalPath}`,
+      languages: {
+        'en': SITE_URL,
+        'ka': `${SITE_URL}/ka`,
+        'ru': `${SITE_URL}/ru`,
+        'es': `${SITE_URL}/es`,
+      },
+    },
     openGraph: {
       type: 'website' as const,
       siteName: 'Colchis Creamery',
       title,
       description,
+      url: `${SITE_URL}${canonicalPath}`,
+      locale: locale === 'en' ? 'en_US' : locale === 'ka' ? 'ka_GE' : locale === 'ru' ? 'ru_RU' : 'es_ES',
       ...(ogImage ? { images: buildOgImages(ogImage, 'Colchis Creamery') } : {}),
     },
     twitter: {

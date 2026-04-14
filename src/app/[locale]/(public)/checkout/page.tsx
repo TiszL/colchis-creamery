@@ -12,6 +12,7 @@ export async function generateMetadata({ params }: CheckoutPageProps) {
 
   return {
     title: t("title"),
+    robots: { index: false, follow: true },
   };
 }
 

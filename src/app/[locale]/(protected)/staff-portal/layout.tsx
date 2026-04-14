@@ -9,7 +9,7 @@ const STAFF_ROLES = ["MASTER_ADMIN", "PRODUCT_MANAGER", "CONTENT_MANAGER", "SALE
 
 const ROLE_LABELS: Record<string, string> = {
     MASTER_ADMIN: 'Master Admin',
-    PRODUCT_MANAGER: 'Product Manager',
+    PRODUCT_MANAGER: 'Product & Customer Manager',
     CONTENT_MANAGER: 'Content Manager',
     SALES: 'Sales',
 };
@@ -36,6 +36,7 @@ export default async function StaffPortalLayout({
                 sessionName={session.name || session.email}
                 sessionEmail={session.email}
                 roleLabel={ROLE_LABELS[session.role] || session.role}
+                logoutAction={logoutAction}
             />
 
             {/* Main Content */}

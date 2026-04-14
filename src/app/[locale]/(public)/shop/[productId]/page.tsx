@@ -9,6 +9,7 @@ import { formatCurrency } from "@/lib/utils";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { ProductGallery } from "@/components/shop/ProductGallery";
+import ProductReviews from "@/components/reviews/ProductReviews";
 
 interface ProductPageProps {
   params: Promise<{ locale: string; productId: string }>;
@@ -101,7 +102,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
   return (
     <div className="bg-cream min-h-screen">
-      <JsonLdProduct product={productForCart} url={`${siteUrl}/${locale}/shop/${product.slug}`} />
+      <JsonLdProduct product={productForCart} url={`${siteUrl}/${locale}/shop/${product.slug}`} productId={product.id} />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
         {/* Breadcrumb */}
@@ -203,6 +204,9 @@ export default async function ProductPage({ params }: ProductPageProps) {
             </div>
           </div>
         </div>
+
+        {/* Reviews Section */}
+        <ProductReviews productId={product.id} productSlug={product.slug} />
       </div>
     </div>
   );

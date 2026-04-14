@@ -4,6 +4,7 @@ import bcryptjs from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { setSession, clearSession, getSession } from "@/lib/session";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { sendVerificationEmail, send2FAEmail, generateVerificationCode } from "@/lib/email";
 
 // ── Role Constants ────────────────────────────────────────────────────────────
@@ -311,46 +312,60 @@ export async function staffLoginAction(formData: FormData) {
         // Support both email and username login
         // If no @ sign, try appending @staff.local for username-based accounts
         let user = await prisma.user.findUnique({ where: { email: loginInput } });
+        console.log("[STAFF_LOGIN] Step 1 - find exact:", loginInput, "found:", !!user);
         if (!user && !loginInput.includes("@")) {
-            user = await prisma.user.findUnique({ where: { email: `${loginInput.toLowerCase()}@staff.local` } });
+            const staffEmail = `${loginInput.toLowerCase()}@staff.local`;
+            user = await prisma.user.findUnique({ where: { email: staffEmail } });
+            console.log("[STAFF_LOGIN] Step 2 - find staff.local:", staffEmail, "found:", !!user);
         }
 
         if (!user || !user.isActive) {
+            console.log("[STAFF_LOGIN] FAIL: user not found or inactive", { found: !!user, isActive: user?.isActive });
             return { error: "Invalid credentials." };
         }
 
         // Only staff/admin/analytics roles can use staff login
         const allowedRoles = [...STAFF_ROLES, "ANALYTICS_VIEWER"];
         if (!allowedRoles.includes(user.role)) {
+            console.log("[STAFF_LOGIN] FAIL: role not allowed:", user.role);
             return { error: "This portal is for staff only. Please use the customer login." };
         }
 
         if (!user.passwordHash) {
+            console.log("[STAFF_LOGIN] FAIL: no password hash");
             return { error: "Invalid credentials." };
         }
 
         const passwordsMatch = await bcryptjs.compare(password, user.passwordHash);
+        console.log("[STAFF_LOGIN] Step 3 - password match:", passwordsMatch);
 
         if (!passwordsMatch) {
             return { error: "Invalid credentials." };
         }
 
-        // 2FA for MASTER_ADMIN accounts
-        if (user.role === "MASTER_ADMIN") {
-            // Check if TOTP (Google Auth) is enabled
-            if (user.totpSecret) {
-                return {
-                    success: false,
-                    needs2FA: true,
-                    totpEnabled: true,
-                    email: user.email,
-                    message: "Enter your Google Authenticator code.",
-                };
-            }
+        // 2FA for staff roles — check if TOTP is configured (always honored)
+        if (user.totpSecret) {
+            return {
+                success: false,
+                needs2FA: true,
+                totpEnabled: true,
+                email: user.email,
+                role: user.role,
+                message: "Enter your Google Authenticator code.",
+            };
+        }
 
-            // Fall back to email-based 2FA
+        // Check if 2FA is required (master admin always requires, staff controlled by setting)
+        let require2FA = true;
+        if (user.role !== "MASTER_ADMIN") {
+            const setting = await prisma.siteSetting.findUnique({ where: { key: "staff_2fa_required" } });
+            require2FA = setting?.value === "true";
+        }
+
+        if (require2FA) {
+            // Email-based 2FA
             const code = generateVerificationCode();
-            const expiry = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+            const expiry = new Date(Date.now() + 5 * 60 * 1000);
 
             await prisma.user.update({
                 where: { id: user.id },
@@ -364,12 +379,13 @@ export async function staffLoginAction(formData: FormData) {
                 needs2FA: true,
                 totpEnabled: false,
                 email: user.email,
+                role: user.role,
                 message: "Two-factor code sent to your email.",
             };
         }
 
+        // 2FA not required — log in directly
         await setSession(user.id, user.role, user.email, user.name || undefined);
-
         return { success: true, role: user.role };
     } catch (error) {
         console.error("Staff login error:", error);
@@ -385,7 +401,8 @@ export async function verify2FAAction(email: string, code: string) {
     try {
         const user = await prisma.user.findUnique({ where: { email } });
 
-        if (!user || user.role !== "MASTER_ADMIN") {
+        const staffRoles = ["MASTER_ADMIN", "PRODUCT_MANAGER", "CONTENT_MANAGER", "SALES"];
+        if (!user || !staffRoles.includes(user.role)) {
             return { error: "Account not found." };
         }
 
@@ -841,10 +858,79 @@ export async function deleteStaffAccountAction(userId: string) {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
+// Admin: 2FA Toggle & Quick Reset
+// ──────────────────────────────────────────────────────────────────────────────
+
+export async function get2FASettingAction() {
+    const session = await getSession();
+    if (!session || session.role !== "MASTER_ADMIN") {
+        return { error: "Unauthorized." };
+    }
+
+    try {
+        const setting = await prisma.siteSetting.findUnique({ where: { key: "staff_2fa_required" } });
+        return { success: true, enabled: setting?.value === "true" };
+    } catch (error) {
+        console.error("Get 2FA setting error:", error);
+        return { error: "Failed to read setting." };
+    }
+}
+
+export async function toggle2FAAction(enabled: boolean) {
+    const session = await getSession();
+    if (!session || session.role !== "MASTER_ADMIN") {
+        return { error: "Unauthorized." };
+    }
+
+    try {
+        await prisma.siteSetting.upsert({
+            where: { key: "staff_2fa_required" },
+            update: { value: enabled ? "true" : "false" },
+            create: { key: "staff_2fa_required", value: enabled ? "true" : "false" },
+        });
+
+        revalidatePath("/admin/staff");
+        return { success: true, enabled };
+    } catch (error) {
+        console.error("Toggle 2FA error:", error);
+        return { error: "Failed to update setting." };
+    }
+}
+
+export async function quickResetPasswordAction(userId: string) {
+    const session = await getSession();
+    if (!session || session.role !== "MASTER_ADMIN") {
+        return { error: "Unauthorized." };
+    }
+
+    try {
+        const user = await prisma.user.findUnique({ where: { id: userId } });
+        if (!user) return { error: "User not found." };
+        if (user.role === "MASTER_ADMIN") return { error: "Use the Security page for admin accounts." };
+
+        const password = generateTempPassword();
+        const passwordHash = await bcryptjs.hash(password, 12);
+
+        await prisma.user.update({
+            where: { id: userId },
+            data: { passwordHash },
+        });
+
+        revalidatePath("/admin/staff");
+        return { success: true, newPassword: password };
+    } catch (error) {
+        console.error("Quick reset password error:", error);
+        return { error: "Failed to reset password." };
+    }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
 // Logout
 // ──────────────────────────────────────────────────────────────────────────────
 
 export async function logoutAction() {
     await clearSession();
     revalidatePath("/");
+    redirect("/staff");
 }
+

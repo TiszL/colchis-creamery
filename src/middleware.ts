@@ -14,7 +14,7 @@ const STAFF_ROLES = ["MASTER_ADMIN", "PRODUCT_MANAGER", "CONTENT_MANAGER", "SALE
 const ALL_ADMIN_ROLES = ["MASTER_ADMIN"];
 const ALL_STAFF_ROLES = [...STAFF_ROLES];
 const B2B_ROLES = ["B2B_PARTNER", "MASTER_ADMIN"];
-const ANALYTICS_ROLES = ["ANALYTICS_VIEWER", "SALES", "MASTER_ADMIN"];
+const ANALYTICS_ROLES = ["ANALYTICS_VIEWER", ...STAFF_ROLES];
 
 // ── Protected Path Definitions ────────────────────────────────────────────────
 type ProtectedArea = "admin" | "staff-portal" | "b2b-portal" | "account" | "analytics";
@@ -57,7 +57,8 @@ export default async function middleware(req: NextRequest) {
   // ── Protected path: check auth FIRST, then run intl middleware ─────────────
   const token = req.cookies.get("auth_token")?.value;
   const protectedArea = getProtectedArea(pathname);
-  const locale = pathname.split("/")[1] || routing.defaultLocale;
+  const firstSegment = pathname.split("/")[1] || "";
+  const locale = routing.locales.includes(firstSegment as any) ? firstSegment : routing.defaultLocale;
 
   if (!token) {
     const loginUrl = getLoginUrl(protectedArea?.area || null, locale);

@@ -12,6 +12,7 @@ export default function StaffLoginPage() {
     const [isPending, startTransition] = useTransition();
     const [twoFAEmail, setTwoFAEmail] = useState("");
     const [isTotpMode, setIsTotpMode] = useState(false);
+    const [pendingRole, setPendingRole] = useState("");
     const [digits, setDigits] = useState<string[]>(["", "", "", "", "", ""]);
     const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
     const router = useRouter();
@@ -32,6 +33,7 @@ export default function StaffLoginPage() {
             } else if (result?.needs2FA) {
                 setTwoFAEmail(result.email || "");
                 setIsTotpMode(result.totpEnabled || false);
+                setPendingRole(result.role || "");
                 setSuccess(result.message || "Two-factor code sent to your email.");
                 setMode("2fa");
                 setError(null);
@@ -110,8 +112,15 @@ export default function StaffLoginPage() {
                 inputRefs.current[0]?.focus();
             } else if (result?.success) {
                 setSuccess("Verified! Redirecting...");
+                const role = result.role || pendingRole;
                 setTimeout(() => {
-                    router.push("/admin");
+                    if (role === "MASTER_ADMIN") {
+                        router.push("/admin");
+                    } else if (role === "ANALYTICS_VIEWER") {
+                        router.push("/analytics");
+                    } else {
+                        router.push("/staff-portal");
+                    }
                 }, 1000);
             }
         });

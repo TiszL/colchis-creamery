@@ -1,14 +1,51 @@
 import type { Product } from "@/types";
+import { prisma } from "@/lib/db";
 
 interface JsonLdProductProps {
   product: Product;
   url: string;
+  productId?: string;
 }
 
-export function JsonLdProduct({ product, url }: JsonLdProductProps) {
+export async function JsonLdProduct({ product, url, productId }: JsonLdProductProps) {
   const isComingSoon = product.status === 'COMING_SOON';
 
-  const jsonLd = {
+  // Fetch review data for structured data
+  let reviewData: {
+    avgRating: number;
+    reviewCount: number;
+    reviews: { rating: number; title: string; body: string; userName: string; date: string }[];
+  } | null = null;
+
+  if (productId) {
+    try {
+      const approvedReviews = await prisma.productReview.findMany({
+        where: { productId, status: 'APPROVED' },
+        orderBy: { createdAt: 'desc' },
+        take: 10,
+        include: { user: { select: { name: true } } },
+      });
+
+      if (approvedReviews.length > 0) {
+        const avgRating = approvedReviews.reduce((sum, r) => sum + r.rating, 0) / approvedReviews.length;
+        reviewData = {
+          avgRating: Math.round(avgRating * 10) / 10,
+          reviewCount: approvedReviews.length,
+          reviews: approvedReviews.map(r => ({
+            rating: r.rating,
+            title: r.title,
+            body: r.body,
+            userName: r.user.name ? `${r.user.name.split(' ')[0]} ${r.user.name.split(' ')[1]?.[0] || ''}.`.trim() : 'Customer',
+            date: r.createdAt.toISOString().split('T')[0],
+          })),
+        };
+      }
+    } catch {
+      // Silently fail — don't break page if reviews query fails
+    }
+  }
+
+  const jsonLd: Record<string, any> = {
     "@context": "https://schema.org",
     "@type": "Product",
     name: product.name,
@@ -53,6 +90,25 @@ export function JsonLdProduct({ product, url }: JsonLdProductProps) {
       },
     },
   };
+
+  // Add review structured data (enables Google Rich Results with stars)
+  if (reviewData) {
+    jsonLd.aggregateRating = {
+      "@type": "AggregateRating",
+      ratingValue: reviewData.avgRating,
+      reviewCount: reviewData.reviewCount,
+      bestRating: 5,
+      worstRating: 1,
+    };
+    jsonLd.review = reviewData.reviews.map(r => ({
+      "@type": "Review",
+      author: { "@type": "Person", name: r.userName },
+      reviewRating: { "@type": "Rating", ratingValue: r.rating, bestRating: 5 },
+      name: r.title,
+      reviewBody: r.body,
+      datePublished: r.date,
+    }));
+  }
 
   return (
     <script

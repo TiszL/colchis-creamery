@@ -3,13 +3,14 @@
 import { useState, useTransition } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Menu, X, LogOut, LayoutDashboard, Package, FileText, ShoppingCart, Users, KeyRound, BarChart3, Settings, Shield, Globe, Inbox } from 'lucide-react';
+import { Menu, X, LogOut, LayoutDashboard, Package, FileText, ShoppingCart, Users, KeyRound, BarChart3, Settings, Shield, Globe, Inbox, MessageSquare } from 'lucide-react';
 
 const NAV_ITEMS = [
     { label: 'Dashboard', href: '/admin', icon: LayoutDashboard },
     { label: 'Inventory', href: '/admin/inventory', icon: Package },
     { label: 'Orders', href: '/admin/orders', icon: ShoppingCart },
     { label: 'Requests', href: '/admin/requests', icon: Inbox },
+    { label: 'Reviews', href: '/admin/reviews', icon: MessageSquare },
     { label: 'Contracts', href: '/admin/contracts', icon: FileText },
     { label: 'Staff Management', href: '/admin/staff', icon: Users },
     { label: 'Access Codes', href: '/admin/access-codes', icon: KeyRound },

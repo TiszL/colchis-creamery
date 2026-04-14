@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Menu, X, LogOut, LayoutDashboard, Package, FileText, ShoppingCart, Users, BarChart3, Settings } from 'lucide-react';
+import { Menu, X, LogOut, LayoutDashboard, Package, FileText, BookOpen, ShoppingCart, Users, BarChart3, Settings, Star, FileSignature } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 
 export default function StaffSidebar({
@@ -10,31 +10,68 @@ export default function StaffSidebar({
     sessionRole,
     sessionName,
     sessionEmail,
-    roleLabel
+    roleLabel,
+    logoutAction
 }: {
     locale: string;
     sessionRole: string;
     sessionName: string;
     sessionEmail: string;
     roleLabel: string;
+    logoutAction: () => Promise<void>;
 }) {
     const [isOpen, setIsOpen] = useState(false);
     const closeSidebar = () => setIsOpen(false);
+    const pathname = usePathname();
 
     const STAFF_ROLES = ["MASTER_ADMIN", "PRODUCT_MANAGER", "CONTENT_MANAGER", "SALES"];
     
     // Role-based navigation items
     const NAV_ITEMS = [
         { label: 'Dashboard', href: '/staff-portal', icon: LayoutDashboard, roles: STAFF_ROLES },
-        { label: 'Products (B2C)', href: '/staff-portal/products', icon: Package, roles: ['MASTER_ADMIN', 'PRODUCT_MANAGER'] },
-        { label: 'Products (B2B)', href: '/staff-portal/products-b2b', icon: Package, roles: ['MASTER_ADMIN', 'PRODUCT_MANAGER'] },
-        { label: 'Content & Articles', href: '/staff-portal/content', icon: FileText, roles: ['MASTER_ADMIN', 'CONTENT_MANAGER'] },
+        // Product & Customer Manager
+        { label: 'Inventory (B2C)', href: '/staff-portal/products', icon: Package, roles: ['MASTER_ADMIN', 'PRODUCT_MANAGER'] },
+        { label: 'Inventory (B2B)', href: '/staff-portal/products-b2b', icon: Package, roles: ['MASTER_ADMIN', 'PRODUCT_MANAGER'] },
+        { label: 'Orders', href: '/staff-portal/orders', icon: ShoppingCart, roles: ['MASTER_ADMIN', 'PRODUCT_MANAGER', 'SALES'] },
+        { label: 'Reviews', href: '/staff-portal/reviews', icon: Star, roles: ['MASTER_ADMIN', 'PRODUCT_MANAGER'] },
+        // Content Manager
+        { label: 'Content Hub', href: '/staff-portal/content', icon: FileText, roles: ['MASTER_ADMIN', 'CONTENT_MANAGER'] },
+        { label: 'Articles', href: '/staff-portal/content/articles', icon: FileText, roles: ['MASTER_ADMIN', 'CONTENT_MANAGER'] },
+        { label: 'Recipes', href: '/staff-portal/content/recipes', icon: BookOpen, roles: ['MASTER_ADMIN', 'CONTENT_MANAGER'] },
+        // Sales
         { label: 'B2B Leads', href: '/staff-portal/leads', icon: Users, roles: ['MASTER_ADMIN', 'SALES'] },
-        { label: 'Orders', href: '/staff-portal/orders', icon: ShoppingCart, roles: ['MASTER_ADMIN', 'SALES', 'PRODUCT_MANAGER'] },
-        { label: 'Analytics', href: '/analytics', icon: BarChart3, roles: ['MASTER_ADMIN', 'SALES'] },
+        { label: 'Contracts', href: '/staff-portal/contracts', icon: FileSignature, roles: ['MASTER_ADMIN', 'SALES'] },
+        // All staff
+        { label: 'Analytics', href: '/analytics', icon: BarChart3, roles: STAFF_ROLES },
     ];
 
     const filteredNav = NAV_ITEMS.filter(item => item.roles.includes(sessionRole));
+
+    // Group nav items by section
+    const dashboardItems = filteredNav.filter(i => i.href === '/staff-portal');
+    const workItems = filteredNav.filter(i => i.href !== '/staff-portal' && i.href !== '/analytics');
+    const analyticsItem = filteredNav.filter(i => i.href === '/analytics');
+
+    const isActive = (href: string) => {
+        const full = `/${locale}${href}`;
+        if (href === '/staff-portal') return pathname === full;
+        return pathname.startsWith(full);
+    };
+
+    const NavLink = ({ item }: { item: typeof NAV_ITEMS[0] }) => (
+        <Link
+            href={`/${locale}${item.href}`}
+            onClick={closeSidebar}
+            className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all group text-sm ${
+                isActive(item.href)
+                    ? 'bg-[#CBA153]/10 text-[#CBA153] border border-[#CBA153]/20'
+                    : 'text-gray-400 hover:text-white hover:bg-white/5'
+            }`}
+        >
+            <item.icon className={`w-4 h-4 ${isActive(item.href) ? 'text-[#CBA153]' : 'text-gray-500 group-hover:text-[#CBA153]'} transition-colors`} />
+            <span className="truncate">{item.label}</span>
+        </Link>
+    );
 
     return (
         <>
@@ -81,18 +118,26 @@ export default function StaffSidebar({
 
                 {/* Navigation */}
                 <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-                    <span className="text-[10px] text-gray-600 uppercase tracking-[0.2em] font-bold px-4 mb-3 block">Workspace</span>
-                    {filteredNav.map((item) => (
-                        <Link
-                            key={item.href}
-                            href={`/${locale}${item.href}`}
-                            onClick={closeSidebar}
-                            className="flex items-center gap-3 px-4 py-3 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-all group text-sm"
-                        >
-                            <item.icon className="w-4 h-4 text-gray-500 group-hover:text-[#CBA153] transition-colors" />
-                            <span className="truncate">{item.label}</span>
-                        </Link>
-                    ))}
+                    {/* Dashboard */}
+                    {dashboardItems.map(item => <NavLink key={item.href} item={item} />)}
+
+                    {/* Work items */}
+                    {workItems.length > 0 && (
+                        <>
+                            <div className="my-3 border-t border-white/5"></div>
+                            <span className="text-[10px] text-gray-600 uppercase tracking-[0.2em] font-bold px-4 mb-2 block">Workspace</span>
+                            {workItems.map(item => <NavLink key={item.href} item={item} />)}
+                        </>
+                    )}
+
+                    {/* Analytics */}
+                    {analyticsItem.length > 0 && (
+                        <>
+                            <div className="my-3 border-t border-white/5"></div>
+                            <span className="text-[10px] text-gray-600 uppercase tracking-[0.2em] font-bold px-4 mb-2 block">Intelligence</span>
+                            {analyticsItem.map(item => <NavLink key={item.href} item={item} />)}
+                        </>
+                    )}
 
                     {sessionRole === "MASTER_ADMIN" && (
                         <>
@@ -124,7 +169,7 @@ export default function StaffSidebar({
                                 <p className="text-[10px] text-[#CBA153] uppercase tracking-wider font-bold truncate">{roleLabel || sessionRole}</p>
                             </div>
                         </div>
-                        <form action="/api/auth/logout" method="POST">
+                        <form action={logoutAction}>
                             <button type="submit" className="text-gray-600 hover:text-red-400 transition-colors p-2 shrink-0">
                                 <LogOut className="w-4 h-4" />
                             </button>

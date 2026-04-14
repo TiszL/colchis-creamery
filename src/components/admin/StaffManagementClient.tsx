@@ -1,14 +1,14 @@
 "use client";
 
-import { useState, useTransition, useRef } from "react";
-import { Users, Package, FileText, TrendingUp, BarChart3, Plus, Trash2, AlertCircle, CheckCircle, Copy, X, Key, Check } from "lucide-react";
-import { createStaffAccountAction, deleteStaffAccountAction, resetStaffPasswordAction } from "@/app/actions/auth";
+import { useState, useTransition, useRef, useEffect } from "react";
+import { Users, Package, FileText, TrendingUp, BarChart3, Plus, Trash2, AlertCircle, CheckCircle, Copy, X, Key, Check, ShieldCheck, ShieldOff } from "lucide-react";
+import { createStaffAccountAction, deleteStaffAccountAction, resetStaffPasswordAction, quickResetPasswordAction, get2FASettingAction, toggle2FAAction } from "@/app/actions/auth";
 
 const ROLE_CONFIG: Record<string, { label: string; icon: any; color: string; bgColor: string; description: string }> = {
-    PRODUCT_MANAGER: { label: "Product Manager", icon: Package, color: "text-blue-400", bgColor: "bg-blue-900/20", description: "Manages inventory, pricing, and product listings" },
+    PRODUCT_MANAGER: { label: "Product & Customer Manager", icon: Package, color: "text-blue-400", bgColor: "bg-blue-900/20", description: "Manages inventory, orders, reviews, and customer experience" },
     CONTENT_MANAGER: { label: "Content Manager", icon: FileText, color: "text-purple-400", bgColor: "bg-purple-900/20", description: "Manages recipes, articles, and website content" },
-    SALES: { label: "Sales Manager", icon: TrendingUp, color: "text-cyan-400", bgColor: "bg-cyan-900/20", description: "Manages B2B leads, orders, and sales pipeline" },
-    ANALYTICS_VIEWER: { label: "Viewer / Partner", icon: BarChart3, color: "text-orange-400", bgColor: "bg-orange-900/20", description: "Read-only analytics dashboard access (no 2FA)" },
+    SALES: { label: "Sales Manager", icon: TrendingUp, color: "text-cyan-400", bgColor: "bg-cyan-900/20", description: "Manages B2B leads, contracts, and sales pipeline" },
+    ANALYTICS_VIEWER: { label: "Viewer / Partner", icon: BarChart3, color: "text-orange-400", bgColor: "bg-orange-900/20", description: "Read-only analytics dashboard access" },
 };
 
 interface StaffUser {
@@ -26,25 +26,34 @@ export default function StaffManagementClient({ initialStaff }: { initialStaff: 
     const [error, setError] = useState<string | null>(null);
     const [selectedRole, setSelectedRole] = useState("");
 
-    // Credential display state (persists until user explicitly dismisses)
+    // Credential display state
     const [createdAccount, setCreatedAccount] = useState<{ name: string; loginId: string; password: string } | null>(null);
     const [passwordCopied, setPasswordCopied] = useState(false);
 
-    // Password reset state
-    const [resetUserId, setResetUserId] = useState<string | null>(null);
-    const [resetPassword, setResetPassword] = useState("");
+    // Quick reset state
+    const [resetConfirm, setResetConfirm] = useState<string | null>(null);
     const [resetResult, setResetResult] = useState<{ userId: string; password: string } | null>(null);
     const [resetCopied, setResetCopied] = useState(false);
 
     // Delete state
     const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
-    // Staff list (updated in-place without full page reload)
+    // 2FA toggle state
+    const [twoFAEnabled, setTwoFAEnabled] = useState(false);
+    const [twoFALoading, setTwoFALoading] = useState(true);
+
+    // Staff list
     const [staffList, setStaffList] = useState(initialStaff);
-
     const formRef = useRef<HTMLFormElement>(null);
-
     const isViewer = selectedRole === "ANALYTICS_VIEWER";
+
+    // Load 2FA setting on mount
+    useEffect(() => {
+        get2FASettingAction().then(result => {
+            if (result?.success) setTwoFAEnabled(result.enabled || false);
+            setTwoFALoading(false);
+        });
+    }, []);
 
     const handleCreate = (formData: FormData) => {
         setError(null);
@@ -62,24 +71,22 @@ export default function StaffManagementClient({ initialStaff }: { initialStaff: 
                 setPasswordCopied(false);
                 setShowCreate(false);
                 setSelectedRole("");
-                // Add new user to list without reload
                 setStaffList(prev => [result.createdUser as StaffUser, ...prev]);
                 formRef.current?.reset();
             }
         });
     };
 
-    const handleResetPassword = (userId: string) => {
+    const handleQuickReset = (userId: string) => {
         setError(null);
         startTransition(async () => {
-            const result = await resetStaffPasswordAction(userId, resetPassword || undefined);
+            const result = await quickResetPasswordAction(userId);
             if (result?.error) {
                 setError(result.error);
             } else if (result?.success && result.newPassword) {
                 setResetResult({ userId, password: result.newPassword });
                 setResetCopied(false);
-                setResetUserId(null);
-                setResetPassword("");
+                setResetConfirm(null);
             }
         });
     };
@@ -93,8 +100,19 @@ export default function StaffManagementClient({ initialStaff }: { initialStaff: 
             } else {
                 setDeleteConfirm(null);
                 setStaffList(prev => prev.filter(u => u.id !== userId));
-                // Clear reset result if we deleted the user it was for
                 if (resetResult?.userId === userId) setResetResult(null);
+            }
+        });
+    };
+
+    const handleToggle2FA = () => {
+        const newValue = !twoFAEnabled;
+        startTransition(async () => {
+            const result = await toggle2FAAction(newValue);
+            if (result?.success) {
+                setTwoFAEnabled(newValue);
+            } else if (result?.error) {
+                setError(result.error);
             }
         });
     };
@@ -106,8 +124,7 @@ export default function StaffManagementClient({ initialStaff }: { initialStaff: 
     };
 
     const staffByRole = Object.entries(ROLE_CONFIG).map(([role, config]) => ({
-        role,
-        ...config,
+        role, ...config,
         members: staffList.filter(u => u.role === role),
     }));
 
@@ -132,6 +149,32 @@ export default function StaffManagementClient({ initialStaff }: { initialStaff: 
                 </button>
             </div>
 
+            {/* ── 2FA Toggle ── */}
+            <div className="bg-[#1A1A1A] rounded-xl border border-white/5 p-5 flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                    {twoFAEnabled ? (
+                        <ShieldCheck className="w-6 h-6 text-emerald-400" />
+                    ) : (
+                        <ShieldOff className="w-6 h-6 text-amber-400" />
+                    )}
+                    <div>
+                        <h3 className="text-white font-bold text-sm">Staff 2FA Requirement</h3>
+                        <p className="text-gray-500 text-xs">
+                            {twoFAEnabled
+                                ? "All staff must verify via email or authenticator app before accessing their portal."
+                                : "Staff can log in with just username and password. Enable for production security."}
+                        </p>
+                    </div>
+                </div>
+                <button
+                    onClick={handleToggle2FA}
+                    disabled={isPending || twoFALoading}
+                    className={`relative w-14 h-7 rounded-full transition-all duration-300 ${twoFAEnabled ? 'bg-emerald-500' : 'bg-gray-700'} disabled:opacity-50`}
+                >
+                    <span className={`absolute top-0.5 w-6 h-6 bg-white rounded-full shadow transition-transform duration-300 ${twoFAEnabled ? 'translate-x-7' : 'translate-x-0.5'}`} />
+                </button>
+            </div>
+
             {/* ── Credential Card (persists until dismissed) ── */}
             {createdAccount && (
                 <div className="bg-[#1A1A1A] rounded-xl border border-emerald-900/30 overflow-hidden animate-fade-in">
@@ -140,28 +183,18 @@ export default function StaffManagementClient({ initialStaff }: { initialStaff: 
                             <CheckCircle size={16} className="text-emerald-400" />
                             <span className="text-emerald-300 font-bold text-sm">Account Created — {createdAccount.name}</span>
                         </div>
-                        <button
-                            onClick={() => setCreatedAccount(null)}
-                            className="text-gray-600 hover:text-white transition-colors p-1"
-                            title="Dismiss"
-                        >
-                            <X size={16} />
-                        </button>
+                        <button onClick={() => setCreatedAccount(null)} className="text-gray-600 hover:text-white transition-colors p-1"><X size={16} /></button>
                     </div>
                     <div className="p-5 space-y-3">
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold mb-1">Login ID</p>
-                                <p className="text-white text-sm font-mono bg-[#0D0D0D] px-3 py-2 rounded-lg border border-white/5 select-all">
-                                    {createdAccount.loginId}
-                                </p>
+                                <p className="text-white text-sm font-mono bg-[#0D0D0D] px-3 py-2 rounded-lg border border-white/5 select-all">{createdAccount.loginId}</p>
                             </div>
                             <div>
                                 <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold mb-1">Temporary Password</p>
                                 <div className="flex items-center gap-2 bg-[#0D0D0D] px-3 py-2 rounded-lg border border-white/5">
-                                    <code className="text-[#CBA153] font-mono text-sm tracking-wider select-all flex-1">
-                                        {createdAccount.password}
-                                    </code>
+                                    <code className="text-[#CBA153] font-mono text-sm tracking-wider select-all flex-1">{createdAccount.password}</code>
                                     <button
                                         onClick={() => copyToClipboard(createdAccount.password, setPasswordCopied)}
                                         className={`transition-all p-0.5 ${passwordCopied ? "text-emerald-400" : "text-gray-500 hover:text-white"}`}
@@ -178,7 +211,7 @@ export default function StaffManagementClient({ initialStaff }: { initialStaff: 
                 </div>
             )}
 
-            {/* ── Password Reset Result (persists until dismissed) ── */}
+            {/* ── Password Reset Result ── */}
             {resetResult && (
                 <div className="bg-[#1A1A1A] rounded-xl border border-blue-900/30 overflow-hidden animate-fade-in">
                     <div className="px-5 py-3 bg-blue-950/30 border-b border-blue-900/20 flex items-center justify-between">
@@ -188,12 +221,7 @@ export default function StaffManagementClient({ initialStaff }: { initialStaff: 
                                 Password Reset — {staffList.find(u => u.id === resetResult.userId)?.name || "Account"}
                             </span>
                         </div>
-                        <button
-                            onClick={() => setResetResult(null)}
-                            className="text-gray-600 hover:text-white transition-colors p-1"
-                        >
-                            <X size={16} />
-                        </button>
+                        <button onClick={() => setResetResult(null)} className="text-gray-600 hover:text-white transition-colors p-1"><X size={16} /></button>
                     </div>
                     <div className="p-5">
                         <div className="flex items-center gap-3 bg-[#0D0D0D] px-4 py-3 rounded-lg border border-white/5">
@@ -225,42 +253,31 @@ export default function StaffManagementClient({ initialStaff }: { initialStaff: 
                 <div className="bg-[#1A1A1A] p-6 rounded-xl border border-[#CBA153]/20 animate-fade-in">
                     <div className="flex items-center justify-between mb-6">
                         <h2 className="text-white font-bold">New Staff / Visitor Account</h2>
-                        <button onClick={() => setShowCreate(false)} className="text-gray-500 hover:text-white p-1">
-                            <X size={18} />
-                        </button>
+                        <button onClick={() => setShowCreate(false)} className="text-gray-500 hover:text-white p-1"><X size={18} /></button>
                     </div>
                     <form ref={formRef} action={handleCreate} className="space-y-4">
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div>
                                 <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Full Name *</label>
-                                <input
-                                    type="text" name="name" required
-                                    placeholder="John Doe"
-                                    className="w-full bg-[#0D0D0D] border border-white/10 text-white py-3 px-4 rounded-lg focus:outline-none focus:border-[#CBA153] focus:ring-1 focus:ring-[#CBA153]/50 transition-all"
-                                />
+                                <input type="text" name="name" required placeholder="John Doe"
+                                    className="w-full bg-[#0D0D0D] border border-white/10 text-white py-3 px-4 rounded-lg focus:outline-none focus:border-[#CBA153] focus:ring-1 focus:ring-[#CBA153]/50 transition-all" />
                             </div>
                             <div>
                                 <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">
                                     {isViewer ? "Username or Email" : "Username or Email *"}
                                 </label>
-                                <input
-                                    type="text" name="loginId"
-                                    required={!isViewer}
+                                <input type="text" name="loginId" required={!isViewer}
                                     placeholder={isViewer ? "Optional for viewers" : "username or name@company.com"}
-                                    className="w-full bg-[#0D0D0D] border border-white/10 text-white py-3 px-4 rounded-lg focus:outline-none focus:border-[#CBA153] focus:ring-1 focus:ring-[#CBA153]/50 transition-all placeholder:text-gray-700"
-                                />
+                                    className="w-full bg-[#0D0D0D] border border-white/10 text-white py-3 px-4 rounded-lg focus:outline-none focus:border-[#CBA153] focus:ring-1 focus:ring-[#CBA153]/50 transition-all placeholder:text-gray-700" />
                                 <p className="text-gray-700 text-[10px] mt-1">
                                     {isViewer ? "Viewers can be created without login credentials." : "Use a username (e.g. productsmanager) or full email."}
                                 </p>
                             </div>
                             <div>
                                 <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Role *</label>
-                                <select
-                                    name="role" required
-                                    value={selectedRole}
+                                <select name="role" required value={selectedRole}
                                     onChange={(e) => setSelectedRole(e.target.value)}
-                                    className="w-full bg-[#0D0D0D] border border-white/10 text-white py-3 px-4 rounded-lg focus:outline-none focus:border-[#CBA153] focus:ring-1 focus:ring-[#CBA153]/50 transition-all appearance-none"
-                                >
+                                    className="w-full bg-[#0D0D0D] border border-white/10 text-white py-3 px-4 rounded-lg focus:outline-none focus:border-[#CBA153] focus:ring-1 focus:ring-[#CBA153]/50 transition-all appearance-none">
                                     <option value="">Select role...</option>
                                     {Object.entries(ROLE_CONFIG).map(([role, config]) => (
                                         <option key={role} value={role}>{config.label}</option>
@@ -269,11 +286,8 @@ export default function StaffManagementClient({ initialStaff }: { initialStaff: 
                             </div>
                         </div>
                         <div className="flex items-center gap-4 pt-2 border-t border-white/5">
-                            <button
-                                type="submit"
-                                disabled={isPending}
-                                className="bg-[#CBA153] text-black font-bold uppercase tracking-widest text-xs py-3 px-6 rounded-lg hover:bg-white transition-all disabled:opacity-50"
-                            >
+                            <button type="submit" disabled={isPending}
+                                className="bg-[#CBA153] text-black font-bold uppercase tracking-widest text-xs py-3 px-6 rounded-lg hover:bg-white transition-all disabled:opacity-50">
                                 {isPending ? "Creating..." : "Create Account"}
                             </button>
                             <span className="text-gray-600 text-xs">A temporary password will be generated and displayed after creation.</span>
@@ -329,16 +343,34 @@ export default function StaffManagementClient({ initialStaff }: { initialStaff: 
                                                     {user.isActive ? "Active" : "Disabled"}
                                                 </span>
 
-                                                {/* Reset Password Button */}
-                                                <button
-                                                    onClick={() => { setResetUserId(resetUserId === user.id ? null : user.id); setResetPassword(""); }}
-                                                    className={`transition-colors p-1.5 rounded ${resetUserId === user.id ? "text-[#CBA153] bg-[#CBA153]/10" : "text-gray-600 hover:text-[#CBA153]"}`}
-                                                    title="Reset password"
-                                                >
-                                                    <Key size={14} />
-                                                </button>
+                                                {/* Quick Reset — 2 clicks: Reset → Confirm */}
+                                                {resetConfirm === user.id ? (
+                                                    <div className="flex items-center gap-1.5">
+                                                        <button
+                                                            onClick={() => handleQuickReset(user.id)}
+                                                            disabled={isPending}
+                                                            className="text-[10px] bg-blue-600 text-white px-2.5 py-1 rounded font-bold hover:bg-blue-500 disabled:opacity-50"
+                                                        >
+                                                            {isPending ? "..." : "Confirm"}
+                                                        </button>
+                                                        <button
+                                                            onClick={() => setResetConfirm(null)}
+                                                            className="text-[10px] text-gray-500 hover:text-white px-2 py-1"
+                                                        >
+                                                            Cancel
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <button
+                                                        onClick={() => { setResetConfirm(user.id); setDeleteConfirm(null); }}
+                                                        className="text-gray-600 hover:text-[#CBA153] transition-colors p-1.5"
+                                                        title="Reset password"
+                                                    >
+                                                        <Key size={14} />
+                                                    </button>
+                                                )}
 
-                                                {/* Delete */}
+                                                {/* Delete — 2 clicks */}
                                                 {deleteConfirm === user.id ? (
                                                     <div className="flex items-center gap-1.5">
                                                         <button
@@ -357,7 +389,7 @@ export default function StaffManagementClient({ initialStaff }: { initialStaff: 
                                                     </div>
                                                 ) : (
                                                     <button
-                                                        onClick={() => setDeleteConfirm(user.id)}
+                                                        onClick={() => { setDeleteConfirm(user.id); setResetConfirm(null); }}
                                                         className="text-gray-600 hover:text-red-400 transition-colors p-1.5"
                                                         title="Delete account"
                                                     >
@@ -366,32 +398,6 @@ export default function StaffManagementClient({ initialStaff }: { initialStaff: 
                                                 )}
                                             </div>
                                         </div>
-
-                                        {/* Inline Password Reset */}
-                                        {resetUserId === user.id && (
-                                            <div className="mt-3 ml-14 flex items-center gap-3 animate-fade-in">
-                                                <input
-                                                    type="text"
-                                                    value={resetPassword}
-                                                    onChange={(e) => setResetPassword(e.target.value)}
-                                                    placeholder="Custom password (or leave blank for auto-generated)"
-                                                    className="flex-1 bg-[#0D0D0D] border border-white/10 text-white py-2 px-3 rounded-lg text-sm focus:outline-none focus:border-[#CBA153] focus:ring-1 focus:ring-[#CBA153]/50 transition-all placeholder:text-gray-700"
-                                                />
-                                                <button
-                                                    onClick={() => handleResetPassword(user.id)}
-                                                    disabled={isPending}
-                                                    className="bg-[#CBA153] text-black font-bold uppercase tracking-widest text-[10px] py-2 px-4 rounded-lg hover:bg-white transition-all disabled:opacity-50 whitespace-nowrap"
-                                                >
-                                                    {isPending ? "Resetting..." : "Reset Password"}
-                                                </button>
-                                                <button
-                                                    onClick={() => { setResetUserId(null); setResetPassword(""); }}
-                                                    className="text-gray-600 hover:text-white p-1"
-                                                >
-                                                    <X size={14} />
-                                                </button>
-                                            </div>
-                                        )}
                                     </li>
                                 );
                             })}

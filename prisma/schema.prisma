@@ -43,6 +43,8 @@ model User {
   dashboardAccess  DashboardAccess[]
   analyticsPins    AnalyticsPin[]
   accounts         Account[]
+  reviews          ProductReview[]
+  reviewReplies    ReviewReply[]
 }
 
 model Account {
@@ -116,6 +118,7 @@ model Product {
   updatedAt      DateTime      @updatedAt
 
   orderItems OrderItem[]
+  reviews    ProductReview[]
 }
 
 // ─── Contract ────────────────────────────────────────────────────────────────
@@ -329,3 +332,64 @@ model SiteConfig {
   value     String
   updatedAt DateTime @updatedAt
 }
+
+// ─── ProductReview ───────────────────────────────────────────────────────────
+// D2C customer reviews & questions for products
+// status: "PENDING" | "APPROVED" | "REJECTED"
+
+model ProductReview {
+  id                 String   @id @default(uuid())
+  productId          String
+  userId             String
+  rating             Int      // 1-5
+  title              String
+  body               String
+  isVerifiedPurchase Boolean  @default(false)
+  status             String   @default("PENDING")
+  adminNote          String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  product Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user    User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  photos  ReviewPhoto[]
+  replies ReviewReply[]
+
+  @@unique([productId, userId])
+}
+
+// ─── ReviewPhoto ─────────────────────────────────────────────────────────────
+
+model ReviewPhoto {
+  id        String   @id @default(uuid())
+  reviewId  String
+  imageUrl  String
+  createdAt DateTime @default(now())
+
+  review ProductReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+}
+
+// ─── ReviewReply ─────────────────────────────────────────────────────────────
+// Follow-up replies on reviews (by customer or admin)
+
+model ReviewReply {
+  id           String   @id @default(uuid())
+  reviewId     String
+  userId       String
+  body         String
+  isAdminReply Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  review ProductReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  user   User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ─── Site Settings ──────────────────────────────────────────────────────────
+// Key-value store for admin-configurable settings
+
+model SiteSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @default(now()) @updatedAt
+}
+

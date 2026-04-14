@@ -121,10 +121,19 @@ export async function JsonLdProduct({ product, url, productId }: JsonLdProductPr
     jsonLd.review = reviewData.reviews.map(r => ({
       "@type": "Review",
       author: { "@type": "Person", name: r.userName },
-      reviewRating: { "@type": "Rating", ratingValue: r.rating, bestRating: 5 },
+      reviewRating: {
+        "@type": "Rating",
+        ratingValue: r.rating,
+        bestRating: 5,
+        worstRating: 1,
+      },
       name: r.title,
       reviewBody: r.body,
       datePublished: r.date,
+      publisher: {
+        "@type": "Organization",
+        name: "Colchis Creamery",
+      },
     }));
   }
 

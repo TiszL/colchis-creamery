@@ -62,6 +62,7 @@ export default function ProductReviewsClient({
     const [visibleCount, setVisibleCount] = useState(REVIEWS_PER_PAGE);
     const [deleting, setDeleting] = useState(false);
     const [deleteError, setDeleteError] = useState('');
+    const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
     const router = useRouter();
 
     const handleReply = async (reviewId: string, body: string) => {
@@ -71,15 +72,21 @@ export default function ProductReviewsClient({
         return submitReply(formData);
     };
 
-    const handleDeleteOwn = async (reviewId: string) => {
-        if (!confirm('Are you sure you want to delete your review? This cannot be undone.')) return;
+    const requestDelete = (reviewId: string) => {
+        setDeleteTarget(reviewId);
+        setDeleteError('');
+    };
+
+    const confirmDelete = async () => {
+        if (!deleteTarget) return;
         setDeleting(true);
         setDeleteError('');
         try {
-            const result = await deleteOwnReview(reviewId);
+            const result = await deleteOwnReview(deleteTarget);
             if (result?.error) {
                 setDeleteError(result.error);
             } else {
+                setDeleteTarget(null);
                 router.refresh();
             }
         } catch {
@@ -90,6 +97,47 @@ export default function ProductReviewsClient({
 
     return (
         <section className="mt-16 border-t border-gray-100 pt-12" id="reviews">
+            {/* Delete Confirmation Dialog */}
+            {deleteTarget && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => !deleting && setDeleteTarget(null)}>
+                    <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+                    <div
+                        className="relative bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 animate-fade-in"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center">
+                                <Trash2 className="w-5 h-5 text-red-500" />
+                            </div>
+                            <div>
+                                <h3 className="font-serif text-lg text-[#2C2A29]">Delete Review</h3>
+                                <p className="text-xs text-gray-400">This action cannot be undone</p>
+                            </div>
+                        </div>
+                        <p className="text-sm text-gray-600 mb-6">
+                            Are you sure you want to delete your review? It will be permanently removed from this product.
+                        </p>
+                        {deleteError && <p className="text-xs text-red-500 mb-4">{deleteError}</p>}
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setDeleteTarget(null)}
+                                disabled={deleting}
+                                className="flex-1 py-2.5 px-4 border border-gray-200 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={confirmDelete}
+                                disabled={deleting}
+                                className="flex-1 py-2.5 px-4 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 transition-colors disabled:opacity-50"
+                            >
+                                {deleting ? 'Deleting...' : 'Delete Review'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Section Header */}
             <div className="flex flex-col md:flex-row md:items-start gap-8 mb-10">
                 {/* Left: Title + Average */}
@@ -134,22 +182,22 @@ export default function ProductReviewsClient({
                 <div className={`mb-8 rounded-lg border p-6 ${ownPendingReview.status === 'REJECTED' ? 'bg-red-50/50 border-red-200' : 'bg-amber-50/50 border-amber-200'}`}>
                     <div className="flex items-start justify-between mb-3">
                         <div className="flex items-center gap-2">
-                            {ownPendingReview.status === 'PENDING' ? (
+                            {ownPendingReview.status === 'PENDING' || ownPendingReview.status === 'FLAGGED' ? (
                                 <Clock className="w-4 h-4 text-amber-600" />
                             ) : (
                                 <XCircle className="w-4 h-4 text-red-500" />
                             )}
                             <span className={`text-xs font-bold uppercase tracking-wider ${ownPendingReview.status === 'REJECTED' ? 'text-red-600' : 'text-amber-700'}`}>
-                                {ownPendingReview.status === 'PENDING' ? 'Pending Approval' : 'Not Approved'}
+                                {ownPendingReview.status === 'PENDING' || ownPendingReview.status === 'FLAGGED' ? 'Pending Approval' : 'Not Approved'}
                             </span>
                         </div>
                         <button
-                            onClick={() => handleDeleteOwn(ownPendingReview.id)}
+                            onClick={() => requestDelete(ownPendingReview.id)}
                             disabled={deleting}
                             className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-red-500 transition-colors disabled:opacity-50"
                         >
                             <Trash2 className="w-3.5 h-3.5" />
-                            {deleting ? 'Deleting...' : 'Delete'}
+                            Delete
                         </button>
                     </div>
                     <div className="mb-2">
@@ -160,7 +208,6 @@ export default function ProductReviewsClient({
                     <p className="text-[10px] text-gray-400 mt-3">
                         Submitted {new Date(ownPendingReview.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                     </p>
-                    {deleteError && <p className="text-xs text-red-500 mt-2">{deleteError}</p>}
                 </div>
             )}
 
@@ -174,7 +221,7 @@ export default function ProductReviewsClient({
                             onReply={handleReply}
                             isLoggedIn={isLoggedIn}
                             isOwn={review.isOwn}
-                            onDelete={review.isOwn ? () => handleDeleteOwn(review.id) : undefined}
+                            onDelete={review.isOwn ? () => requestDelete(review.id) : undefined}
                             deleting={deleting}
                         />
                     ))}

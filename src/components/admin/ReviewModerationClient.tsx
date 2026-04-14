@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { moderateReview, deleteReview } from '@/app/actions/reviews';
-import { Star, ShieldCheck, MessageCircle, Check, X, Trash2, Eye, ChevronDown, ChevronUp, Image as ImageIcon } from 'lucide-react';
+import { moderateReview, deleteReview, submitReply } from '@/app/actions/reviews';
+import { Star, ShieldCheck, MessageCircle, Check, X, Trash2, Eye, ChevronDown, ChevronUp, Image as ImageIcon, Send } from 'lucide-react';
 
 interface ReviewPhoto {
     id: string;
@@ -41,6 +41,8 @@ export default function ReviewModerationClient({ reviews: initialReviews, pendin
     const [filter, setFilter] = useState<'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED'>('ALL');
     const [reviews, setReviews] = useState(initialReviews);
     const [expandedId, setExpandedId] = useState<string | null>(null);
+    const [replyingTo, setReplyingTo] = useState<string | null>(null);
+    const [replyText, setReplyText] = useState('');
     const [isPending, startTransition] = useTransition();
 
     const filtered = filter === 'ALL' ? reviews : reviews.filter(r => r.status === filter);
@@ -66,6 +68,31 @@ export default function ReviewModerationClient({ reviews: initialReviews, pendin
             const result = await deleteReview(reviewId);
             if (result.success) {
                 setReviews(prev => prev.filter(r => r.id !== reviewId));
+            }
+        });
+    };
+
+    const handleReply = (reviewId: string) => {
+        if (!replyText.trim()) return;
+        startTransition(async () => {
+            const formData = new FormData();
+            formData.set('reviewId', reviewId);
+            formData.set('body', replyText);
+            const result = await submitReply(formData);
+            if (result.success) {
+                // Add the reply to local state
+                setReviews(prev => prev.map(r => r.id === reviewId ? {
+                    ...r,
+                    replies: [...r.replies, {
+                        id: Date.now().toString(),
+                        body: replyText,
+                        isAdminReply: true,
+                        createdAt: new Date().toISOString(),
+                        user: { name: 'Staff' },
+                    }]
+                } : r));
+                setReplyText('');
+                setReplyingTo(null);
             }
         });
     };
@@ -246,6 +273,42 @@ export default function ReviewModerationClient({ reviews: initialReviews, pendin
                                                         <Trash2 className="w-3.5 h-3.5" />
                                                     </button>
                                                 </div>
+
+                                                {/* Reply button */}
+                                                <button
+                                                    onClick={() => { setReplyingTo(replyingTo === review.id ? null : review.id); setReplyText(''); }}
+                                                    className="w-full flex items-center justify-center gap-2 py-2.5 bg-[#CBA153]/10 text-[#CBA153] border border-[#CBA153]/20 rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-[#CBA153]/20 transition-colors"
+                                                >
+                                                    <MessageCircle className="w-3.5 h-3.5" /> Reply to Customer
+                                                </button>
+
+                                                {/* Reply form */}
+                                                {replyingTo === review.id && (
+                                                    <div className="space-y-2 animate-fade-in">
+                                                        <textarea
+                                                            value={replyText}
+                                                            onChange={(e) => setReplyText(e.target.value)}
+                                                            placeholder="Write a reply as staff..."
+                                                            rows={3}
+                                                            className="w-full bg-[#0D0D0D] border border-white/10 text-white text-sm rounded-lg p-3 focus:outline-none focus:border-[#CBA153] focus:ring-1 focus:ring-[#CBA153]/50 resize-none placeholder:text-gray-600"
+                                                        />
+                                                        <div className="flex gap-2">
+                                                            <button
+                                                                onClick={() => handleReply(review.id)}
+                                                                disabled={isPending || !replyText.trim()}
+                                                                className="flex-1 flex items-center justify-center gap-2 py-2 bg-[#CBA153] text-black rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-white transition-colors disabled:opacity-50"
+                                                            >
+                                                                <Send className="w-3.5 h-3.5" /> Send Reply
+                                                            </button>
+                                                            <button
+                                                                onClick={() => { setReplyingTo(null); setReplyText(''); }}
+                                                                className="py-2 px-4 text-xs text-gray-500 hover:text-white transition-colors"
+                                                            >
+                                                                Cancel
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                     </div>

@@ -32,7 +32,7 @@ async function generateAccessCode(formData: FormData) {
 
 const ROLE_CONFIG: Record<string, { label: string; icon: any; color: string }> = {
     B2B_PARTNER: { label: 'B2B Partner', icon: Users, color: 'text-emerald-400' },
-    PRODUCT_MANAGER: { label: 'Product Manager', icon: Shield, color: 'text-blue-400' },
+    PRODUCT_MANAGER: { label: 'Product Expert', icon: Shield, color: 'text-blue-400' },
     CONTENT_MANAGER: { label: 'Content Manager', icon: Shield, color: 'text-purple-400' },
     SALES: { label: 'Sales', icon: Shield, color: 'text-cyan-400' },
     ANALYTICS_VIEWER: { label: 'Analytics Viewer', icon: BarChart3, color: 'text-orange-400' },
@@ -78,7 +78,7 @@ export default async function AccessCodesPage({ params }: { params: any }) {
                             <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Target Role</label>
                             <select name="targetRole" required className="w-full bg-[#0D0D0D] border border-white/10 text-white py-3 px-4 rounded-lg focus:outline-none focus:border-[#CBA153]">
                                 <option value="B2B_PARTNER">B2B Partner</option>
-                                <option value="PRODUCT_MANAGER">Product Manager</option>
+                                <option value="PRODUCT_MANAGER">Product Expert & Customer Assistance</option>
                                 <option value="CONTENT_MANAGER">Content Manager</option>
                                 <option value="SALES">Sales</option>
                                 <option value="ANALYTICS_VIEWER">Analytics Viewer</option>

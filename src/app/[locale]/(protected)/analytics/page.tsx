@@ -8,7 +8,7 @@ import { AnalyticsDashboard, type DashboardStats } from '@/components/admin/Anal
 
 export const dynamic = 'force-dynamic';
 
-const ANALYTICS_ROLES = ['MASTER_ADMIN', 'SALES', 'ANALYTICS_VIEWER'];
+const ANALYTICS_ROLES = ['MASTER_ADMIN', 'PRODUCT_MANAGER', 'CONTENT_MANAGER', 'SALES', 'ANALYTICS_VIEWER'];
 
 export default async function AnalyticsDashboardPage({ params }: { params: any }) {
     const { locale } = await params;
@@ -150,9 +150,14 @@ export default async function AnalyticsDashboardPage({ params }: { params: any }
                         <div className="hidden md:flex items-center gap-4 text-[11px] text-[#888888]">
                             <span>Updated <strong className="text-[#c9a84c]">Mar 2026</strong></span>
                         </div>
-                        {session.role !== 'ANALYTICS_VIEWER' && (
+                        {session.role === 'MASTER_ADMIN' && (
                             <Link href={`/${locale}/admin`} className="text-sm text-[#666666] hover:text-[#F0EDE6] transition-colors flex items-center gap-2">
                                 <Shield className="w-4 h-4" /> Admin
+                            </Link>
+                        )}
+                        {['PRODUCT_MANAGER', 'CONTENT_MANAGER', 'SALES'].includes(session.role) && (
+                            <Link href={`/${locale}/staff-portal`} className="text-sm text-[#666666] hover:text-[#F0EDE6] transition-colors flex items-center gap-2">
+                                <Shield className="w-4 h-4" /> Staff Portal
                             </Link>
                         )}
                         <form action={logoutAction}>

@@ -120,7 +120,7 @@ export async function submitReply(formData: FormData) {
     });
     if (existingReplies >= 3) return { error: "Maximum 3 replies per review thread." };
 
-    const isAdmin = session.role === "MASTER_ADMIN";
+    const isStaff = ["MASTER_ADMIN", "PRODUCT_MANAGER"].includes(session.role);
 
     try {
         await prisma.reviewReply.create({
@@ -128,7 +128,7 @@ export async function submitReply(formData: FormData) {
                 reviewId,
                 userId: session.userId,
                 body,
-                isAdminReply: isAdmin,
+                isAdminReply: isStaff,
             },
         });
 
@@ -151,7 +151,7 @@ export async function submitReply(formData: FormData) {
 
 export async function moderateReview(reviewId: string, action: "APPROVED" | "REJECTED", adminNote?: string) {
     const session = await getSession();
-    if (!session || session.role !== "MASTER_ADMIN") return { error: "Unauthorized." };
+    if (!session || !["MASTER_ADMIN", "PRODUCT_MANAGER"].includes(session.role)) return { error: "Unauthorized." };
 
     try {
         const review = await prisma.productReview.update({
@@ -176,7 +176,7 @@ export async function moderateReview(reviewId: string, action: "APPROVED" | "REJ
 
 export async function deleteReview(reviewId: string) {
     const session = await getSession();
-    if (!session || session.role !== "MASTER_ADMIN") return { error: "Unauthorized." };
+    if (!session || !["MASTER_ADMIN", "PRODUCT_MANAGER"].includes(session.role)) return { error: "Unauthorized." };
 
     try {
         const review = await prisma.productReview.findUnique({

@@ -5,7 +5,7 @@ import { Users, Package, FileText, TrendingUp, BarChart3, Plus, Trash2, AlertCir
 import { createStaffAccountAction, deleteStaffAccountAction, resetStaffPasswordAction, quickResetPasswordAction, get2FASettingAction, toggle2FAAction } from "@/app/actions/auth";
 
 const ROLE_CONFIG: Record<string, { label: string; icon: any; color: string; bgColor: string; description: string }> = {
-    PRODUCT_MANAGER: { label: "Product & Customer Manager", icon: Package, color: "text-blue-400", bgColor: "bg-blue-900/20", description: "Manages inventory, orders, reviews, and customer experience" },
+    PRODUCT_MANAGER: { label: "Product Expert & Customer Assistance", icon: Package, color: "text-blue-400", bgColor: "bg-blue-900/20", description: "Manages inventory, orders, reviews, and customer experience" },
     CONTENT_MANAGER: { label: "Content Manager", icon: FileText, color: "text-purple-400", bgColor: "bg-purple-900/20", description: "Manages recipes, articles, and website content" },
     SALES: { label: "Sales Manager", icon: TrendingUp, color: "text-cyan-400", bgColor: "bg-cyan-900/20", description: "Manages B2B leads, contracts, and sales pipeline" },
     ANALYTICS_VIEWER: { label: "Viewer / Partner", icon: BarChart3, color: "text-orange-400", bgColor: "bg-orange-900/20", description: "Read-only analytics dashboard access" },

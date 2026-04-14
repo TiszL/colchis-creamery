@@ -29,7 +29,7 @@ export default function StaffSidebar({
     // Role-based navigation items
     const NAV_ITEMS = [
         { label: 'Dashboard', href: '/staff-portal', icon: LayoutDashboard, roles: STAFF_ROLES },
-        // Product & Customer Manager
+        // Product Expert & Customer Assistance
         { label: 'Inventory (B2C)', href: '/staff-portal/products', icon: Package, roles: ['MASTER_ADMIN', 'PRODUCT_MANAGER'] },
         { label: 'Inventory (B2B)', href: '/staff-portal/products-b2b', icon: Package, roles: ['MASTER_ADMIN', 'PRODUCT_MANAGER'] },
         { label: 'Orders', href: '/staff-portal/orders', icon: ShoppingCart, roles: ['MASTER_ADMIN', 'PRODUCT_MANAGER', 'SALES'] },

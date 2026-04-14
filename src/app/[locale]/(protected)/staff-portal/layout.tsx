@@ -9,7 +9,7 @@ const STAFF_ROLES = ["MASTER_ADMIN", "PRODUCT_MANAGER", "CONTENT_MANAGER", "SALE
 
 const ROLE_LABELS: Record<string, string> = {
     MASTER_ADMIN: 'Master Admin',
-    PRODUCT_MANAGER: 'Product & Customer Manager',
+    PRODUCT_MANAGER: 'Product Expert & Customer Assistance',
     CONTENT_MANAGER: 'Content Manager',
     SALES: 'Sales',
 };

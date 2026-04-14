@@ -310,34 +310,26 @@ export async function staffLoginAction(formData: FormData) {
 
     try {
         // Support both email and username login
-        // If no @ sign, try appending @staff.local for username-based accounts
         let user = await prisma.user.findUnique({ where: { email: loginInput } });
-        console.log("[STAFF_LOGIN] Step 1 - find exact:", loginInput, "found:", !!user);
         if (!user && !loginInput.includes("@")) {
-            const staffEmail = `${loginInput.toLowerCase()}@staff.local`;
-            user = await prisma.user.findUnique({ where: { email: staffEmail } });
-            console.log("[STAFF_LOGIN] Step 2 - find staff.local:", staffEmail, "found:", !!user);
+            user = await prisma.user.findUnique({ where: { email: `${loginInput.toLowerCase()}@staff.local` } });
         }
 
         if (!user || !user.isActive) {
-            console.log("[STAFF_LOGIN] FAIL: user not found or inactive", { found: !!user, isActive: user?.isActive });
             return { error: "Invalid credentials." };
         }
 
         // Only staff/admin/analytics roles can use staff login
         const allowedRoles = [...STAFF_ROLES, "ANALYTICS_VIEWER"];
         if (!allowedRoles.includes(user.role)) {
-            console.log("[STAFF_LOGIN] FAIL: role not allowed:", user.role);
             return { error: "This portal is for staff only. Please use the customer login." };
         }
 
         if (!user.passwordHash) {
-            console.log("[STAFF_LOGIN] FAIL: no password hash");
             return { error: "Invalid credentials." };
         }
 
         const passwordsMatch = await bcryptjs.compare(password, user.passwordHash);
-        console.log("[STAFF_LOGIN] Step 3 - password match:", passwordsMatch);
 
         if (!passwordsMatch) {
             return { error: "Invalid credentials." };

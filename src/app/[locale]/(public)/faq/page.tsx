@@ -64,7 +64,7 @@ export default async function FAQPage() {
     return (
         <>
             <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
-            <main className="min-h-screen bg-[#FDFBF7] py-20 px-4">
+            <div className="min-h-screen bg-[#FDFBF7] py-20 px-4">
                 <div className="max-w-3xl mx-auto">
 
                     <div className="text-center mb-16">
@@ -88,7 +88,7 @@ export default async function FAQPage() {
                     </div>
 
                 </div>
-            </main>
+            </div>
         </>
     );
 }

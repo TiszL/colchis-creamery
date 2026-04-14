@@ -85,7 +85,7 @@ export default async function JournalPage({ params }: { params: Promise<{ locale
                 type="application/ld+json"
                 dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
             />
-            <main className="min-h-screen bg-[#FDFBF7] py-20 px-4">
+            <div className="min-h-screen bg-[#FDFBF7] py-20 px-4">
                 <div className="max-w-7xl mx-auto">
                     <div className="text-center mb-16 max-w-3xl mx-auto">
                         <span className="inline-block w-12 h-0.5 bg-[#CBA153] mb-6" />
@@ -153,7 +153,7 @@ export default async function JournalPage({ params }: { params: Promise<{ locale
                         </div>
                     )}
                 </div>
-            </main>
+            </div>
         </>
     );
 }

@@ -58,7 +58,7 @@ export default async function WholesalePage() {
     const formHeading = getVal(configs, 'wholesale.formHeading', 'Apply for Distribution');
 
     return (
-        <main className="bg-[#1A1A1A] text-[#CBA153] min-h-screen pt-24 md:pt-32 pb-16 md:pb-24">
+        <div className="bg-[#1A1A1A] text-[#CBA153] min-h-screen pt-24 md:pt-32 pb-16 md:pb-24">
             <div className="max-w-7xl mx-auto px-4 sm:px-6">
 
                 {/* Hero / Value Prop Section */}
@@ -119,6 +119,6 @@ export default async function WholesalePage() {
                 </div>
 
             </div>
-        </main>
+        </div>
     );
 }

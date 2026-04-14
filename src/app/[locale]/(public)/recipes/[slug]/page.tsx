@@ -95,7 +95,7 @@ export default async function SingleRecipePage({ params }: RecipePageProps) {
                 type="application/ld+json"
                 dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
             />
-            <main className="min-h-screen bg-[#FAFAFA] py-16 px-4">
+            <div className="min-h-screen bg-[#FAFAFA] py-16 px-4">
                 <article className="max-w-4xl mx-auto bg-white shadow-xl rounded-lg overflow-hidden flex flex-col" itemScope itemType="https://schema.org/Recipe">
                     {/* Cover Photo */}
                     {recipe.imageUrl && (
@@ -160,7 +160,7 @@ export default async function SingleRecipePage({ params }: RecipePageProps) {
                         />
                     </div>
                 </article>
-            </main>
+            </div>
         </>
     );
 }

@@ -21,7 +21,7 @@ export function Header() {
   const [visibleCount, setVisibleCount] = useState(7); // show all by default
   const [moreOpen, setMoreOpen] = useState(false);
   const navContainerRef = useRef<HTMLElement>(null);
-  const navItemsRef = useRef<(HTMLAnchorElement | null)[]>([]);
+  const navItemsRef = useRef<(HTMLElement | null)[]>([]);
   const moreButtonRef = useRef<HTMLDivElement>(null);
 
   const prefix = locale === "en" ? "" : `/${locale}`;
@@ -173,17 +173,15 @@ export function Header() {
 
             {/* Hidden measurement refs for items not currently visible */}
             {overflowLinks.map((link, i) => (
-              <Link
+              <span
                 key={`measure-${link.href}`}
                 ref={(el) => { navItemsRef.current[visibleCount + i] = el; }}
-                href={link.href}
                 className="px-2 xl:px-3 py-2 text-[13px] xl:text-sm font-medium whitespace-nowrap"
                 style={{ position: 'absolute', visibility: 'hidden', pointerEvents: 'none' }}
-                tabIndex={-1}
-                aria-hidden
+                aria-hidden="true"
               >
                 {link.label}
-              </Link>
+              </span>
             ))}
 
             {/* "More" dropdown button */}

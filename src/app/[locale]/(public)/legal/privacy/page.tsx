@@ -67,7 +67,7 @@ export default async function PrivacyPolicyPage() {
     return (
         <>
             <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
-            <main className="min-h-screen bg-[#FAFAFA] py-20 px-4">
+            <div className="min-h-screen bg-[#FAFAFA] py-20 px-4">
                 <div className="max-w-3xl mx-auto bg-white p-10 md:p-16 shadow-sm rounded border border-gray-100">
 
                     <h1 className="text-4xl font-serif text-[#2C2A29] mb-8 border-b-2 border-[#CBA153] pb-4 inline-block">
@@ -86,7 +86,7 @@ export default async function PrivacyPolicyPage() {
                     </div>
 
                 </div>
-            </main>
+            </div>
         </>
     );
 }

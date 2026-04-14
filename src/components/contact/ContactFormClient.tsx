@@ -40,7 +40,7 @@ export default function ContactFormClient() {
                 <button
                     type="button"
                     onClick={() => setStatus('idle')}
-                    className="mt-4 text-sm text-[#CBA153] hover:underline font-medium"
+                    className="mt-4 text-sm text-[#8A6A28] hover:underline font-medium"
                 >
                     Send another message
                 </button>
@@ -51,7 +51,7 @@ export default function ContactFormClient() {
     return (
         <form onSubmit={handleSubmit} className="space-y-4">
             {/* Honeypot — invisible to humans, bots will fill it */}
-            <div className="absolute opacity-0 h-0 w-0 overflow-hidden" aria-hidden="true" tabIndex={-1}>
+            <div className="absolute opacity-0 h-0 w-0 overflow-hidden" aria-hidden="true">
                 <label htmlFor="website">Website</label>
                 <input type="text" id="website" name="website" tabIndex={-1} autoComplete="off" />
             </div>

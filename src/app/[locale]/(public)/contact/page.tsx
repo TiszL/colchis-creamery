@@ -111,7 +111,7 @@ export default async function ContactPage() {
     return (
         <>
             <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
-            <main className="min-h-screen bg-[#FDFBF7] py-20 px-4">
+            <div className="min-h-screen bg-[#FDFBF7] py-20 px-4">
                 <div className="max-w-4xl mx-auto">
 
                     <div className="text-center mb-16">
@@ -184,7 +184,7 @@ export default async function ContactPage() {
                     </div>
 
                 </div>
-            </main>
+            </div>
         </>
     );
 }

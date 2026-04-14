@@ -80,7 +80,7 @@ export default async function RecipesPage({ params }: { params: Promise<{ locale
                 type="application/ld+json"
                 dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
             />
-            <main className="min-h-screen bg-[#FDFBF7] py-20 px-4">
+            <div className="min-h-screen bg-[#FDFBF7] py-20 px-4">
                 <div className="max-w-7xl mx-auto">
 
                     {/* Header Section */}
@@ -141,7 +141,7 @@ export default async function RecipesPage({ params }: { params: Promise<{ locale
                     )}
 
                 </div>
-            </main>
+            </div>
         </>
     );
 }

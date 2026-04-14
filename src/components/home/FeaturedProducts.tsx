@@ -22,7 +22,7 @@ export function FeaturedProducts({ products, locale }: FeaturedProductsProps) {
           <h2 className="font-serif text-3xl sm:text-4xl text-charcoal mb-4">
             {t("featuredTitle")}
           </h2>
-          <p className="text-charcoal/60 max-w-xl mx-auto">
+          <p className="text-charcoal/75 max-w-xl mx-auto">
             {t("featuredSubtitle")}
           </p>
         </div>

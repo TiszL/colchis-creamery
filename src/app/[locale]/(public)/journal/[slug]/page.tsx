@@ -99,7 +99,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
                 type="application/ld+json"
                 dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
             />
-            <main className="min-h-screen bg-[#FAFAFA] py-16 px-4">
+            <div className="min-h-screen bg-[#FAFAFA] py-16 px-4">
                 <article className="max-w-4xl mx-auto bg-white shadow-xl rounded-lg overflow-hidden" itemScope itemType="https://schema.org/Article">
                     {article.coverImage && (
                         <div className="relative w-full h-[400px]">
@@ -159,7 +159,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
                         </span>
                     </div>
                 </article>
-            </main>
+            </div>
         </>
     );
 }

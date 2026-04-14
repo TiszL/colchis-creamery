@@ -117,14 +117,14 @@ export default async function RecipesPage({ params }: { params: Promise<{ locale
                                         </div>
                                     )}
                                     <div className="p-8 w-full">
-                                        <h3 className="text-2xl font-serif text-[#2C2A29] mb-3 group-hover:text-[#CBA153] transition">
+                                        <h3 className="text-2xl font-serif text-[#2C2A29] mb-3 group-hover:text-[#8A6A28] transition">
                                             {recipe.title}
                                         </h3>
                                         <p className="text-[#2C2A29] opacity-75 mb-4 line-clamp-2">
                                             {recipe.description}
                                         </p>
                                         <div className="flex items-center justify-between">
-                                            <div className="flex items-center text-sm font-medium text-[#CBA153] uppercase tracking-wide">
+                                            <div className="flex items-center text-sm font-medium text-[#8A6A28] uppercase tracking-wide">
                                                 Read Recipe
                                                 <span className="ml-2 transform group-hover:translate-x-1 transition">→</span>
                                             </div>

@@ -77,7 +77,7 @@ export default async function FAQPage() {
                     <div className="space-y-6">
                         {faqs.map((faq, index) => (
                             <div key={index} className="bg-white p-8 rounded shadow-sm border border-gray-100">
-                                <h3 className="text-xl font-serif text-[#CBA153] mb-3">
+                                <h3 className="text-xl font-serif text-[#8A6A28] mb-3">
                                     {faq.question}
                                 </h3>
                                 <p className="text-[#2C2A29] leading-relaxed opacity-90">

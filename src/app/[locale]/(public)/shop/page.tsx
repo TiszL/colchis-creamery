@@ -188,7 +188,7 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16 text-center relative">
           <div className="inline-flex items-center gap-2 bg-gold/10 border border-gold/20 rounded-full px-4 py-1.5 mb-6">
             <span className="w-1.5 h-1.5 rounded-full bg-gold animate-pulse" />
-            <span className="text-gold text-[11px] font-bold uppercase tracking-[0.2em]">A2 Brown Swiss Heritage</span>
+            <span className="text-gold-text text-[11px] font-bold uppercase tracking-[0.2em]">A2 Brown Swiss Heritage</span>
           </div>
           <h1 className="font-serif text-3xl sm:text-4xl lg:text-5xl text-white mb-4 leading-tight">
             {t("title")}

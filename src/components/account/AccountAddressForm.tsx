@@ -56,7 +56,7 @@ export function AccountAddressForm({ userId, initialAddress, initialCity, initia
                 )}
                 <button
                     onClick={() => setEditing(true)}
-                    className="mt-4 text-sm text-[#CBA153] hover:text-[#2C2A29] font-medium transition-colors"
+                    className="mt-4 text-sm text-[#8A6A28] hover:text-[#2C2A29] font-medium transition-colors"
                 >
                     {hasAddress ? "Edit Address" : "Add Address"}
                 </button>

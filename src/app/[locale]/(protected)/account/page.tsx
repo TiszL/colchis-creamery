@@ -46,7 +46,7 @@ export default async function CustomerAccountPage({ params }: { params: any }) {
                         </div>
                     </div>
                     <div className="flex items-center gap-4">
-                        <Link href={`/${locale}/shop`} className="text-sm text-[#CBA153] hover:text-[#2C2A29] transition-colors flex items-center gap-1">
+                        <Link href={`/${locale}/shop`} className="text-sm text-[#8A6A28] hover:text-[#2C2A29] transition-colors flex items-center gap-1">
                             <ShoppingCart className="w-4 h-4" /> Shop
                         </Link>
                         <form action={logoutAction}>
@@ -63,7 +63,7 @@ export default async function CustomerAccountPage({ params }: { params: any }) {
                 <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                     <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                            <User className="w-5 h-5 text-[#CBA153]" />
+                            <User className="w-5 h-5 text-[#8A6A28]" />
                             <h2 className="font-bold text-[#2C2A29]">Profile Information</h2>
                         </div>
                         <span className="text-xs text-gray-400">Member since {new Date(user.createdAt).toLocaleDateString()}</span>
@@ -78,7 +78,7 @@ export default async function CustomerAccountPage({ params }: { params: any }) {
                 {/* Shipping Address */}
                 <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                     <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-3">
-                        <MapPin className="w-5 h-5 text-[#CBA153]" />
+                        <MapPin className="w-5 h-5 text-[#8A6A28]" />
                         <h2 className="font-bold text-[#2C2A29]">Shipping Address</h2>
                     </div>
                     <AccountAddressForm
@@ -94,7 +94,7 @@ export default async function CustomerAccountPage({ params }: { params: any }) {
                 {/* Password */}
                 <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                     <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-3">
-                        <Lock className="w-5 h-5 text-[#CBA153]" />
+                        <Lock className="w-5 h-5 text-[#8A6A28]" />
                         <h2 className="font-bold text-[#2C2A29]">Password</h2>
                     </div>
                     <AccountPasswordForm userId={user.id} />
@@ -104,7 +104,7 @@ export default async function CustomerAccountPage({ params }: { params: any }) {
                 <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                     <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                            <Package className="w-5 h-5 text-[#CBA153]" />
+                            <Package className="w-5 h-5 text-[#8A6A28]" />
                             <h2 className="font-bold text-[#2C2A29]">Recent Orders</h2>
                         </div>
                         <span className="text-xs text-gray-400">{recentOrders.length} orders</span>

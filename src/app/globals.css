@@ -6,6 +6,7 @@
   --color-offwhite: #FAFAFA;
   --color-gold: #CBA153;
   --color-gold-dark: #B08A3E;
+  --color-gold-text: #8A6A28; /* WCAG AA compliant on white/cream (4.98:1) */
   --color-charcoal: #2C2A29;
   --color-charcoal-light: #4A4745;
 

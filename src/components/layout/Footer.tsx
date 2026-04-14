@@ -53,7 +53,7 @@ export async function Footer() {
                 <li key={link.href}>
                   <Link
                     href={link.href}
-                    className="text-sm text-white/60 hover:text-gold transition"
+                    className="text-sm text-white/70 hover:text-gold transition"
                   >
                     {link.label}
                   </Link>
@@ -78,7 +78,7 @@ export async function Footer() {
                 <li key={link.href}>
                   <Link
                     href={link.href}
-                    className="text-sm text-white/60 hover:text-gold transition"
+                    className="text-sm text-white/70 hover:text-gold transition"
                   >
                     {link.label}
                   </Link>
@@ -92,7 +92,7 @@ export async function Footer() {
             <h4 className="font-medium text-gold text-sm uppercase tracking-wider mb-4">
               {t("connect")}
             </h4>
-            <div className="space-y-3 text-sm text-white/60">
+            <div className="space-y-3 text-sm text-white/70">
               <p>{emailConfig}</p>
               <p>{phoneConfig}</p>
               <p>{addressConfig}</p>
@@ -102,10 +102,10 @@ export async function Footer() {
 
         {/* Bottom bar */}
         <div className="mt-12 pt-8 border-t border-white/10 flex flex-col sm:flex-row justify-between items-center gap-4">
-          <p className="text-xs text-white/40">
+          <p className="text-xs text-white/60">
             {t("copyright", { year })}
           </p>
-          <p className="text-xs text-white/40">
+          <p className="text-xs text-white/60">
             {t("madeIn")}
           </p>
         </div>

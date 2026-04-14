@@ -138,7 +138,7 @@ export default async function HomePage({ params }: HomePageProps) {
               <h2 className="font-serif text-4xl sm:text-5xl text-charcoal mb-6 leading-tight">
                 {heritageTitle}
               </h2>
-              <p className="text-lg text-charcoal/70 leading-relaxed mb-10">
+              <p className="text-lg text-charcoal/80 leading-relaxed mb-10">
                 {heritageText}
               </p>
               <Link href={`${prefix}/heritage`}>

@@ -142,7 +142,7 @@ export async function HeroSection({ locale }: HeroSectionProps) {
 
             {showBadge && (
               <div className={`flex w-full ${btnJustifyClass(badgeAlign)} mb-8`}>
-                <div className="inline-block px-4 py-1 border border-[#CBA153] rounded-full text-[#CBA153] text-xs font-bold tracking-[0.2em] uppercase animate-fade-in">
+                <div className="inline-block px-4 py-1 border border-[#8A6A28] rounded-full text-[#8A6A28] text-xs font-bold tracking-[0.2em] uppercase animate-fade-in">
                   {badgeText}
                 </div>
               </div>
@@ -151,12 +151,12 @@ export async function HeroSection({ locale }: HeroSectionProps) {
             {showTitle && (
               <h1 className={`w-full ${titleSizes[textSize] || titleSizes.lg} font-serif mb-8 text-[#2C2A29] leading-tight tracking-tight ${textAlignClass(titleAlign)}`}>
                 {titleLine1} <br />
-                <span className="italic text-[#CBA153]">{titleLine2}</span>
+                <span className="italic text-[#8A6A28]">{titleLine2}</span>
               </h1>
             )}
 
             {showSubtitle && (
-              <p className={`${subtitleSizes[textSize] || subtitleSizes.lg} text-[#2C2A29]/70 mb-10 max-w-2xl font-light leading-relaxed ${textAlignClass(subtitleAlign)} ${subtitleAlign === 'center' ? 'self-center' : subtitleAlign === 'right' ? 'self-end' : 'self-start'}`}>
+              <p className={`${subtitleSizes[textSize] || subtitleSizes.lg} text-[#2C2A29]/80 mb-10 max-w-2xl font-light leading-relaxed ${textAlignClass(subtitleAlign)} ${subtitleAlign === 'center' ? 'self-center' : subtitleAlign === 'right' ? 'self-end' : 'self-start'}`}>
                 {heroSubtitle || t("heroSubtitle")}
               </p>
             )}
@@ -164,7 +164,7 @@ export async function HeroSection({ locale }: HeroSectionProps) {
             {(showBtnPrimary || showBtnSecondary) && (
               <div className={`flex flex-col sm:flex-row gap-4 w-full ${btnJustifyClass(btnAlign)}`}>
                 {showBtnPrimary && (
-                  <Link href={`${prefix}/shop`} className="px-10 py-5 bg-[#CBA153] text-white font-bold rounded-sm tracking-widest uppercase hover:bg-[#b88e44] transition-all shadow-xl shadow-[#CBA153]/20">
+                  <Link href={`${prefix}/shop`} className="px-10 py-5 bg-[#CBA153] text-white font-bold rounded-sm tracking-widest uppercase hover:bg-[#A07B30] transition-all shadow-xl shadow-[#CBA153]/20">
                     {shopCta || t("shopCta")}
                   </Link>
                 )}

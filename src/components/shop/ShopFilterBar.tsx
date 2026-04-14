@@ -139,7 +139,7 @@ export default function ShopFilterBar({ productLines, categories, allLabel, allC
                             onClick={() => setCategory('')}
                             className={`px-4 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all duration-200 ${
                                 !activeCategory
-                                    ? 'bg-gold/10 text-gold border border-gold/30'
+                                    ? 'bg-gold/10 text-gold-text border border-gold/30'
                                     : 'text-charcoal/50 hover:text-charcoal hover:bg-white border border-transparent'
                             }`}
                         >
@@ -151,7 +151,7 @@ export default function ShopFilterBar({ productLines, categories, allLabel, allC
                                 onClick={() => setCategory(cat.slug)}
                                 className={`px-4 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all duration-200 ${
                                     activeCategory === cat.slug
-                                        ? 'bg-gold/10 text-gold border border-gold/30'
+                                        ? 'bg-gold/10 text-gold-text border border-gold/30'
                                         : 'text-charcoal/50 hover:text-charcoal hover:bg-white border border-transparent'
                                 }`}
                             >

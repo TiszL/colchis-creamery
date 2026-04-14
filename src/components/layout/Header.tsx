@@ -149,7 +149,7 @@ export function Header() {
             <Link href={`${prefix}/`} className="flex items-center gap-3">
               <Image src="/logo-optimized.png" alt="Colchis Creamery Logo" width={90} height={90} priority className="w-[70px] h-[70px] sm:w-[90px] sm:h-[90px] object-contain rounded-full border border-gold/30 shadow-md" />
               <span className="font-serif text-xl sm:text-2xl font-bold text-charcoal tracking-tight hidden xl:block">
-                Colchis<span className="text-gold"> Creamery</span>
+                Colchis<span className="text-gold-text"> Creamery</span>
               </span>
             </Link>
           </div>
@@ -165,7 +165,7 @@ export function Header() {
                 key={link.href}
                 ref={(el) => { navItemsRef.current[i] = el; }}
                 href={link.href}
-                className="px-2 xl:px-3 py-2 text-[13px] xl:text-sm font-medium text-charcoal/80 hover:text-gold transition rounded whitespace-nowrap"
+                className="px-2 xl:px-3 py-2 text-[13px] xl:text-sm font-medium text-charcoal/80 hover:text-gold-text transition rounded whitespace-nowrap"
               >
                 {link.label}
               </Link>
@@ -191,7 +191,7 @@ export function Header() {
               <div ref={moreButtonRef} className="relative">
                 <button
                   onClick={() => setMoreOpen(!moreOpen)}
-                  className="px-2 py-2 text-sm font-medium text-charcoal/80 hover:text-gold transition rounded flex items-center gap-1"
+                  className="px-2 py-2 text-sm font-medium text-charcoal/80 hover:text-gold-text transition rounded flex items-center gap-1"
                   aria-label="More pages"
                 >
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -206,7 +206,7 @@ export function Header() {
                         key={link.href}
                         href={link.href}
                         onClick={() => setMoreOpen(false)}
-                        className="block px-4 py-2.5 text-sm text-charcoal/80 hover:bg-cream hover:text-gold transition"
+                        className="block px-4 py-2.5 text-sm text-charcoal/80 hover:bg-cream hover:text-gold-text transition"
                       >
                         {link.label}
                       </Link>
@@ -266,7 +266,7 @@ export function Header() {
                         <Link
                           href={`${prefix}/account`}
                           onClick={() => setDropdownOpen(false)}
-                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-charcoal/80 hover:bg-cream hover:text-gold transition"
+                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-charcoal/80 hover:bg-cream hover:text-gold-text transition"
                         >
                           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -276,7 +276,7 @@ export function Header() {
                         <Link
                           href={`${prefix}/account`}
                           onClick={() => setDropdownOpen(false)}
-                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-charcoal/80 hover:bg-cream hover:text-gold transition"
+                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-charcoal/80 hover:bg-cream hover:text-gold-text transition"
                         >
                           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
@@ -332,7 +332,7 @@ export function Header() {
                 key={link.href}
                 href={link.href}
                 onClick={() => setMobileOpen(false)}
-                className="block px-3 py-3 text-base font-medium text-charcoal/80 hover:text-gold hover:bg-cream transition rounded"
+                className="block px-3 py-3 text-base font-medium text-charcoal/80 hover:text-gold-text hover:bg-cream transition rounded"
               >
                 {link.label}
               </Link>
@@ -352,7 +352,7 @@ export function Header() {
                 <Link
                   href={`${prefix}/account`}
                   onClick={() => setMobileOpen(false)}
-                  className="block px-3 py-3 text-base font-medium text-charcoal/80 hover:text-gold hover:bg-cream transition rounded"
+                  className="block px-3 py-3 text-base font-medium text-charcoal/80 hover:text-gold-text hover:bg-cream transition rounded"
                 >
                   My Account
                 </Link>
@@ -367,7 +367,7 @@ export function Header() {
               <Link
                 href={`${prefix}/login`}
                 onClick={() => setMobileOpen(false)}
-                className="block px-3 py-3 text-base font-medium text-gold hover:text-charcoal hover:bg-cream transition rounded"
+                className="block px-3 py-3 text-base font-medium text-gold-text hover:text-charcoal hover:bg-cream transition rounded"
               >
                 Sign In
               </Link>

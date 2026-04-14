@@ -188,7 +188,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
         <nav className="mb-8 text-sm text-charcoal/50 flex items-center gap-2 flex-wrap">
           {breadcrumbs.map((crumb, i) => (
             <span key={i} className="flex items-center gap-2">
-              <Link href={crumb.href} className="hover:text-gold transition">
+              <Link href={crumb.href} className="hover:text-gold-text transition">
                 {crumb.label}
               </Link>
               <span>/</span>
@@ -232,7 +232,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
             {/* Category label */}
             {product.productCategory && (
-              <p className="text-[11px] text-gold/70 uppercase tracking-widest font-medium mb-2">
+              <p className="text-[11px] text-gold-text/80 uppercase tracking-widest font-medium mb-2">
                 {product.productCategory.name}
               </p>
             )}
@@ -246,7 +246,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
                 {t("comingSoon")}
               </p>
             ) : (
-              <p className="text-2xl text-gold font-semibold mb-6">
+              <p className="text-2xl text-gold-text font-semibold mb-6">
                 {formatCurrency(parseFloat(product.priceB2c) || 0)}
               </p>
             )}

@@ -49,7 +49,7 @@ export function AccountProfileForm({ userId, initialName, initialPhone }: Props)
                 )}
                 <button
                     onClick={() => setEditing(true)}
-                    className="mt-4 text-sm text-[#CBA153] hover:text-[#2C2A29] font-medium transition-colors"
+                    className="mt-4 text-sm text-[#8A6A28] hover:text-[#2C2A29] font-medium transition-colors"
                 >
                     Edit Profile
                 </button>

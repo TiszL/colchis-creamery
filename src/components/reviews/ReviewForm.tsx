@@ -27,7 +27,7 @@ export default function ReviewForm({ productId, hasExistingReview, isLoggedIn, o
         return (
             <div className="bg-white rounded-lg border border-gray-100 p-8 text-center shadow-sm">
                 <p className="text-gray-500 mb-3">Sign in to share your experience with this product</p>
-                <a href="/login" className="inline-block px-6 py-2.5 bg-[#CBA153] text-white font-bold text-sm rounded-lg hover:bg-[#b88e44] transition-colors tracking-wider uppercase">
+                <a href="/login" className="inline-block px-6 py-2.5 bg-[#CBA153] text-white font-bold text-sm rounded-lg hover:bg-[#A07B30] transition-colors tracking-wider uppercase">
                     Sign In
                 </a>
             </div>
@@ -206,7 +206,7 @@ export default function ReviewForm({ productId, hasExistingReview, isLoggedIn, o
             <button
                 type="submit"
                 disabled={submitting || rating === 0}
-                className="w-full py-3.5 bg-[#CBA153] text-white font-bold text-sm rounded-lg hover:bg-[#b88e44] transition-colors tracking-wider uppercase disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full py-3.5 bg-[#CBA153] text-white font-bold text-sm rounded-lg hover:bg-[#A07B30] transition-colors tracking-wider uppercase disabled:opacity-50 disabled:cursor-not-allowed"
             >
                 {submitting ? 'Submitting...' : 'Submit Review'}
             </button>

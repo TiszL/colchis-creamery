@@ -110,7 +110,7 @@ export default function ProductReviewsClient({
                     {visibleCount < reviews.length && (
                         <button
                             onClick={() => setVisibleCount(prev => prev + REVIEWS_PER_PAGE)}
-                            className="w-full py-3 border border-gray-200 rounded-lg text-sm text-gray-500 hover:text-[#CBA153] hover:border-[#CBA153] transition-colors"
+                            className="w-full py-3 border border-gray-200 rounded-lg text-sm text-gray-500 hover:text-[#8A6A28] hover:border-[#8A6A28] transition-colors"
                         >
                             Show More Reviews ({reviews.length - visibleCount} remaining)
                         </button>

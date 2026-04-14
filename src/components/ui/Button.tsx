@@ -22,7 +22,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
           variant === "dark" &&
             "bg-charcoal text-white hover:bg-charcoal-light",
           variant === "outline" &&
-            "border-2 border-gold text-gold hover:bg-gold hover:text-white",
+            "border-2 border-gold text-gold-text hover:bg-gold hover:text-white",
           variant === "ghost" &&
             "text-charcoal hover:bg-charcoal/5",
           // Sizes

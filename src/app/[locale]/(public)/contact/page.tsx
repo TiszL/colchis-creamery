@@ -124,7 +124,7 @@ export default async function ContactPage() {
                     <div className="grid md:grid-cols-2 gap-12 bg-white p-8 md:p-12 shadow-sm rounded border border-gray-100">
 
                         <div>
-                            <h2 className="text-2xl font-serif text-[#CBA153] mb-6">Our Information</h2>
+                            <h2 className="text-2xl font-serif text-[#8A6A28] mb-6">Our Information</h2>
                             <div className="space-y-6 text-[#2C2A29]">
                                 {/* Locations */}
                                 {locations.map((loc, idx) => (
@@ -135,17 +135,17 @@ export default async function ContactPage() {
                                         <p>{loc.address}</p>
                                         {loc.phone && (
                                             <a href={`tel:${loc.phone.replace(/[^+\d]/g, '')}`}
-                                                className="text-sm text-[#CBA153] hover:underline mt-0.5 block">{loc.phone}</a>
+                                                className="text-sm text-[#8A6A28] hover:underline mt-0.5 block">{loc.phone}</a>
                                         )}
                                     </div>
                                 ))}
                                 <div>
                                     <strong className="block uppercase tracking-wider text-xs text-gray-400 mb-1">Email</strong>
-                                    <a href={`mailto:${email}`} className="text-[#CBA153] hover:underline">{email}</a>
+                                    <a href={`mailto:${email}`} className="text-[#8A6A28] hover:underline">{email}</a>
                                 </div>
                                 <div>
                                     <strong className="block uppercase tracking-wider text-xs text-gray-400 mb-1">Phone</strong>
-                                    <a href={`tel:${phone.replace(/[^+\d]/g, '')}`} className="text-[#CBA153] hover:underline">{phone}</a>
+                                    <a href={`tel:${phone.replace(/[^+\d]/g, '')}`} className="text-[#8A6A28] hover:underline">{phone}</a>
                                 </div>
                                 <div>
                                     <strong className="block uppercase tracking-wider text-xs text-gray-400 mb-1">Hours</strong>
@@ -155,7 +155,7 @@ export default async function ContactPage() {
                         </div>
 
                         <div>
-                            <h2 className="text-2xl font-serif text-[#CBA153] mb-6">Send a Message</h2>
+                            <h2 className="text-2xl font-serif text-[#8A6A28] mb-6">Send a Message</h2>
                             <ContactFormClient />
                         </div>
 

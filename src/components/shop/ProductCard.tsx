@@ -65,27 +65,27 @@ export function ProductCard({ product, locale }: ProductCardProps) {
         {/* Content */}
         <div className="p-6">
           {categoryName && (
-            <p className="text-[11px] text-gold/70 uppercase tracking-widest font-medium mb-1.5">
+            <p className="text-[11px] text-gold-text/80 uppercase tracking-widest font-medium mb-1.5">
               {categoryName}
             </p>
           )}
-          <h3 className="font-serif text-xl text-charcoal mb-2 group-hover:text-gold transition">
+          <h3 className="font-serif text-xl text-charcoal mb-2 group-hover:text-gold-text transition">
             {product.name}
           </h3>
-          <p className="text-sm text-charcoal/60 mb-4 line-clamp-2">
+          <p className="text-sm text-charcoal/75 mb-4 line-clamp-2">
             {product.description}
           </p>
           <div className="flex items-center justify-between">
             {isComingSoon ? (
-              <span className="text-lg font-semibold text-amber-600 tracking-wide">
+              <span className="text-lg font-semibold text-amber-700 tracking-wide">
                 {t("comingSoon")}
               </span>
             ) : (
-              <span className="text-xl font-semibold text-gold">
+              <span className="text-xl font-semibold text-gold-text">
                 {formatCurrency(product.priceB2c)}
               </span>
             )}
-            <span className="text-sm text-charcoal/40 group-hover:text-gold transition">
+            <span className="text-sm text-charcoal/60 group-hover:text-gold-text transition">
               {common("viewDetails")} &rarr;
             </span>
           </div>

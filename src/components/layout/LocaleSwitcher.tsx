@@ -74,7 +74,7 @@ export function LocaleSwitcher() {
               key={loc}
               onClick={() => switchLocale(loc)}
               className={`w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-cream transition text-left ${
-                loc === locale ? "text-gold font-medium" : "text-charcoal"
+                loc === locale ? "text-gold-text font-medium" : "text-charcoal"
               }`}
             >
               <span className={localeFlags[loc]}></span>

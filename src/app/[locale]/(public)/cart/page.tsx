@@ -55,7 +55,7 @@ export default function CartPage() {
               {/* Info */}
               <div className="flex-1 min-w-0">
                 <h3 className="font-serif text-lg text-charcoal">{item.product.name}</h3>
-                <p className="text-gold font-semibold">{formatCurrency(item.product.priceB2c)}</p>
+                <p className="text-gold-text font-semibold">{formatCurrency(item.product.priceB2c)}</p>
               </div>
 
               {/* Quantity */}

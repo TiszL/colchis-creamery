@@ -86,10 +86,15 @@ export default function ReviewCard({ review, onReply, isLoggedIn, isOwn, onDelet
                             Your Review
                         </span>
                     )}
-                    {review.isVerifiedPurchase && (
+                    {review.isVerifiedPurchase ? (
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-green-50 text-green-700 text-xs font-medium">
                             <ShieldCheck className="w-3.5 h-3.5" />
                             Verified Purchase
+                        </span>
+                    ) : (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gray-50 text-gray-500 text-xs font-medium">
+                            <MessageCircle className="w-3.5 h-3.5" />
+                            Community Review
                         </span>
                     )}
                     {isOwn && onDelete && (

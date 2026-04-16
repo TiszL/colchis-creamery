@@ -108,7 +108,7 @@ export default async function HomePage({ params }: HomePageProps) {
   const heritageTitle = localizedCms(getVal(heritageCfg, 'homeHeritage.title'), locale, t("heritageTitle"));
   const heritageText = localizedCms(getVal(heritageCfg, 'homeHeritage.text'), locale, t("heritageText"));
   const heritageCta = localizedCms(getVal(heritageCfg, 'homeHeritage.cta'), locale, t("heritageCta"));
-  const heritageImage = getVal(heritageCfg, 'homeHeritage.imageUrl') || 'https://images.unsplash.com/photo-1559561853-08451507cbe7?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80';
+  const heritageImage = getVal(heritageCfg, 'homeHeritage.imageUrl') || 'https://u1on4xcfmtn0uyz6.public.blob.vercel-storage.com/products/1776099898316-seo1.webp';
 
   return (
     <>

@@ -54,7 +54,7 @@ export default async function WholesalePage() {
     const feature2Desc = getVal(configs, 'wholesale.feature2Desc', 'Fully integrated Adobe Sign agreements.');
     const buttonText = getVal(configs, 'wholesale.buttonText', 'Partner Portal Login');
     const buttonLink = getVal(configs, 'wholesale.buttonLink', '/b2b/login');
-    const imageUrl = getVal(configs, 'wholesale.imageUrl', 'https://images.unsplash.com/photo-1447078806655-40579c2520d6?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80');
+    const imageUrl = getVal(configs, 'wholesale.imageUrl', 'https://u1on4xcfmtn0uyz6.public.blob.vercel-storage.com/products/1776099898316-seo1.webp');
     const formHeading = getVal(configs, 'wholesale.formHeading', 'Apply for Distribution');
 
     return (

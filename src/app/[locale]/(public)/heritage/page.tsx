@@ -300,7 +300,7 @@ export default async function HeritagePage({ params }: HeritagePageProps) {
                 </div>
                 <div className="aspect-[4/3] relative rounded-lg overflow-hidden shadow-lg border border-border-light">
                   <Image
-                    src="https://images.unsplash.com/photo-1481070555726-e2fe8357725c?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80"
+                    src="https://u1on4xcfmtn0uyz6.public.blob.vercel-storage.com/products/1776099898316-seo1.webp"
                     alt="Georgian Countryside"
                     fill
                     sizes="(max-width: 768px) 100vw, 50vw"
@@ -315,7 +315,7 @@ export default async function HeritagePage({ params }: HeritagePageProps) {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
                 <div className="order-2 md:order-1 aspect-[4/3] relative rounded-lg overflow-hidden shadow-lg border border-border-light">
                   <Image
-                    src="https://images.unsplash.com/photo-1559561853-08451507cbe7?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80"
+                    src="https://u1on4xcfmtn0uyz6.public.blob.vercel-storage.com/products/1776099898316-seo1.webp"
                     alt="Artisanal Cheesemaking"
                     fill
                     sizes="(max-width: 768px) 100vw, 50vw"

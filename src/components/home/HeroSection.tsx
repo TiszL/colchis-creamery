@@ -69,7 +69,7 @@ export async function HeroSection({ locale }: HeroSectionProps) {
   let heroImages: string[] = [];
   if (imagesRaw) heroImages = imagesRaw.split(',').map(u => u.trim()).filter(Boolean);
   if (heroImages.length === 0 && singleImage) heroImages = [singleImage];
-  if (heroImages.length === 0) heroImages = ['https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?ixlib=rb-4.0.3&auto=format&fit=crop&w=2000&q=80'];
+  if (heroImages.length === 0) heroImages = ['https://u1on4xcfmtn0uyz6.public.blob.vercel-storage.com/products/1776099898316-seo1.webp'];
 
   // ─── Title parsing ──────────────────────────────────────────────────────
   const titleLine1 = heroTitle ? heroTitle.split(',')[0] || heroTitle : 'Ancient Heritage,';

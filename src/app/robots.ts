@@ -18,9 +18,39 @@ export default function robots(): MetadataRoute.Robots {
             {
                 userAgent: '*',
                 allow: '/',
-                disallow: ['/api/', '/admin/', '/staff-portal/', '/login', '/register', '/cart', '/checkout', '/verify-email'],
+                disallow: [
+                    // API & internal routes
+                    '/api/',
+                    '/admin/',
+                    '/staff-portal/',
+                    '/cart',
+                    '/checkout',
+                    // Auth pages (all locales) — should never be indexed
+                    '/login',
+                    '/register',
+                    '/verify-email',
+                    '/staff',
+                    '/b2b/login',
+                    '/b2b/register',
+                    '/forgot-password',
+                    '/*/login',
+                    '/*/register',
+                    '/*/verify-email',
+                    '/*/staff',
+                    '/*/b2b/login',
+                    '/*/b2b/register',
+                    '/*/forgot-password',
+                    '/*/admin/',
+                    '/*/staff-portal/',
+                    '/*/account/',
+                    '/*/b2b-portal/',
+                    // Static assets that Google shouldn't index
+                    '/_next/static/media/',
+                    // Cloudflare artifacts
+                    '/cdn-cgi/',
+                ],
             },
-            // AI / LLM crawlers — explicitly allowed
+            // AI / LLM crawlers — explicitly allowed for public content
             { userAgent: 'GPTBot', allow: '/' },
             { userAgent: 'ClaudeBot', allow: '/' },
             { userAgent: 'Google-Extended', allow: '/' },

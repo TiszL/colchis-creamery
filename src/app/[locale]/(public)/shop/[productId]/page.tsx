@@ -1,6 +1,6 @@
 import { getTranslations } from "next-intl/server";
 import { prisma } from "@/lib/db";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { AddToCartButton } from "@/components/shop/AddToCartButton";
 import { JsonLdProduct } from "@/components/seo/JsonLdProduct";
 import { Badge } from "@/components/ui/Badge";
@@ -80,6 +80,14 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
   if (!product) {
     notFound();
+  }
+
+  // 301 redirect UUID URLs to slug URLs for SEO
+  // Google has crawled /shop/02a197aa-... — redirect to /shop/artisanal-sulguni
+  const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (UUID_REGEX.test(productId) && product.slug && product.slug !== productId) {
+    const slugPath = locale === 'en' ? `/shop/${product.slug}` : `/${locale}/shop/${product.slug}`;
+    redirect(slugPath);
   }
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://colchiscreamery.com";

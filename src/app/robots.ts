@@ -13,6 +13,14 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://colchiscreamery.co
 export default function robots(): MetadataRoute.Robots {
     const isProduction = process.env.NODE_ENV === 'production';
 
+    // Block everything in non-production (dev, preview, staging)
+    if (!isProduction) {
+        return {
+            rules: [{ userAgent: '*', disallow: '/' }],
+            sitemap: `${SITE_URL}/sitemap.xml`,
+        };
+    }
+
     return {
         rules: [
             {
@@ -57,9 +65,5 @@ export default function robots(): MetadataRoute.Robots {
             { userAgent: 'Bingbot', allow: '/' },
         ],
         sitemap: `${SITE_URL}/sitemap.xml`,
-        ...(isProduction ? {} : {
-            // Block everything in non-production
-            rules: [{ userAgent: '*', disallow: '/' }],
-        }),
     };
 }

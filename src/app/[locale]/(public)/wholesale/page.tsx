@@ -1,124 +1,198 @@
-import WholesaleForm from '@/components/b2b/WholesaleForm';
-import { Metadata } from 'next';
-import Link from 'next/link';
-import Image from 'next/image';
-import { Truck, FileText } from 'lucide-react';
-import { prisma } from '@/lib/db';
-import { getOgImage, buildOgImages } from '@/lib/seo';
+"use client";
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://colchiscreamery.com';
+import { useActionState, useState } from "react";
+import { submitWholesaleLead } from "@/actions/wholesale";
+import { ColchisSeal } from "@/components/brand/ColchisSeal";
 
-export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
-    const { locale } = await params;
-    const canonicalPath = locale === 'en' ? '/wholesale' : `/${locale}/wholesale`;
-    const ogImage = await getOgImage('wholesale');
-    return {
-        title: 'Wholesale Partners | Colchis Creamery',
-        description: 'Apply to become a wholesale partner with Colchis Creamery and offer premium artisanal Georgian cheese at your establishment.',
-        keywords: ['wholesale cheese', 'B2B cheese supply', 'Georgian cheese wholesale', 'restaurant cheese supplier', 'Colchis Creamery wholesale'],
-        alternates: {
-            canonical: `${SITE_URL}${canonicalPath}`,
-            languages: { 'en': `${SITE_URL}/wholesale`, 'ka': `${SITE_URL}/ka/wholesale`, 'ru': `${SITE_URL}/ru/wholesale`, 'es': `${SITE_URL}/es/wholesale` },
-        },
-        openGraph: {
-            type: 'website', title: 'Wholesale Partners | Colchis Creamery',
-            description: 'Partner with Colchis Creamery for premium artisanal Georgian cheese.',
-            url: `${SITE_URL}${canonicalPath}`, siteName: 'Colchis Creamery',
-            ...(ogImage ? { images: buildOgImages(ogImage, 'Wholesale Partners') } : {}),
-        },
-        twitter: { card: 'summary_large_image', title: 'Wholesale Partners | Colchis Creamery', description: 'Partner with Colchis Creamery for premium artisanal Georgian cheese.',
-            ...(ogImage ? { images: [ogImage] } : {}),
-        },
-    };
-}
+const tiers = [
+  { tag: "01", name: "Restaurant", min: "$200 / wk", desc: "Standard line. Net 14. Free delivery in Ohio + 5-state ring.", who: "Restaurants, cafés, bakeries", check: ["Full Creamery & Bakery line", "Weekly cold-chain delivery", "Net 14 terms", "Menu support & training"] },
+  { tag: "02", name: "Grocery", min: "$500 / wk", desc: "Retail-ready packaging with UPC, planogram support, in-store demo days.", who: "Independent grocers, co-ops", check: ["Retail-ready labels & UPC", "Planogram & POS materials", "Quarterly demo days", "Net 30 terms"] },
+  { tag: "03", name: "Private Label", min: "$2,500 / mo", desc: "Your brand on our cheese. Minimum 100 wheels per SKU per run.", who: "Brands, hotels, meal-kits", check: ["Custom artwork & SKU", "Min. 100 units / SKU / run", "Quarterly production windows", "Co-marketing rights"] },
+];
 
-export const dynamic = 'force-dynamic';
+const skuList = [
+  { code: "CRE-01", name: "Sulguni · Fresh", size: "340g wheel", pack: "12 / case", price: "$8.40 ea" },
+  { code: "CRE-02", name: "Sulguni · Aged · Honey", size: "280g wheel", pack: "12 / case", price: "$11.20 ea" },
+  { code: "CRE-03", name: "Imeruli", size: "320g round", pack: "12 / case", price: "$7.20 ea" },
+  { code: "CRE-04", name: "Sulguni · Bulk loaf", size: "2.5 kg", pack: "4 / case", price: "$48.00 ea" },
+  { code: "BAK-01", name: "Adjaruli · Frozen", size: "520g, 2 pk", pack: "6 cs / case", price: "$14.40 ea" },
+  { code: "BAK-02", name: "Imeruli Khachapuri · Frozen", size: "480g, 2 pk", pack: "6 cs / case", price: "$12.60 ea" },
+  { code: "BAK-03", name: "Megruli · Frozen", size: "500g, 2 pk", pack: "6 cs / case", price: "$15.20 ea" },
+  { code: "BAK-04", name: "Lobiani · Frozen", size: "440g, 2 pk", pack: "6 cs / case", price: "$11.80 ea" },
+];
 
-function getVal(configs: { key: string; value: string }[], key: string, fallback = ''): string {
-    return configs.find(c => c.key === key)?.value || fallback;
-}
+export default function WholesalePage() {
+  const [state, formAction, isPending] = useActionState(submitWholesaleLead, null);
+  const [loadTime] = useState(() => Date.now());
 
-export default async function WholesalePage() {
-    let configs: { key: string; value: string }[] = [];
-    try {
-        configs = await prisma.siteConfig.findMany({ where: { key: { startsWith: 'wholesale.' } } });
-    } catch { /* use defaults */ }
-
-    const subtitle = getVal(configs, 'wholesale.subtitle', 'Supply & Distribution');
-    const headingLine1 = getVal(configs, 'wholesale.headingLine1', 'Wholesale');
-    const headingLine2 = getVal(configs, 'wholesale.headingLine2', 'Partnership.');
-    const description = getVal(configs, 'wholesale.description', 'Elevate your culinary offerings with the finest authentic Georgian cheese. We empower premium retailers and fine-dining restaurants across Ohio and the Midwest with steady, high-quality artisanal cheese supply.');
-    const feature1Title = getVal(configs, 'wholesale.feature1Title', 'Cold Chain Logistics');
-    const feature1Desc = getVal(configs, 'wholesale.feature1Desc', 'Fresh from our facility to your inventory.');
-    const feature2Title = getVal(configs, 'wholesale.feature2Title', 'Paperless Contracting');
-    const feature2Desc = getVal(configs, 'wholesale.feature2Desc', 'Fully integrated Adobe Sign agreements.');
-    const buttonText = getVal(configs, 'wholesale.buttonText', 'Partner Portal Login');
-    const buttonLink = getVal(configs, 'wholesale.buttonLink', '/b2b/login');
-    const imageUrl = getVal(configs, 'wholesale.imageUrl', 'https://u1on4xcfmtn0uyz6.public.blob.vercel-storage.com/products/1776099898316-seo1.webp');
-    const formHeading = getVal(configs, 'wholesale.formHeading', 'Apply for Distribution');
-
-    return (
-        <div className="bg-[#1A1A1A] text-[#CBA153] min-h-screen pt-24 md:pt-32 pb-16 md:pb-24">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6">
-
-                {/* Hero / Value Prop Section */}
-                <div className="grid md:grid-cols-2 gap-10 md:gap-20 items-stretch mb-12 md:mb-24">
-                    <div className="flex flex-col justify-center">
-                        <span className="text-xs tracking-[0.3em] md:tracking-[0.4em] uppercase text-[#CBA153]/80 mb-4 md:mb-6 block">{subtitle}</span>
-                        <h2 className="text-3xl sm:text-5xl md:text-7xl font-serif text-white mb-5 md:mb-8 leading-tight">
-                            {headingLine1} <br />
-                            <span className="text-[#CBA153]">{headingLine2}</span>
-                        </h2>
-                        <p className="text-gray-400 text-base md:text-lg mb-8 md:mb-10 font-light leading-relaxed">
-                            {description}
-                        </p>
-                        <div className="space-y-4 md:space-y-6">
-                            <div className="flex items-center gap-3 md:gap-4">
-                                <div className="w-10 h-10 md:w-12 md:h-12 rounded-full border border-[#CBA153]/30 flex items-center justify-center shrink-0">
-                                    <Truck size={18} className="md:w-5 md:h-5" />
-                                </div>
-                                <div>
-                                    <h4 className="text-white font-bold text-sm md:text-base">{feature1Title}</h4>
-                                    <p className="text-xs md:text-sm text-gray-400">{feature1Desc}</p>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-3 md:gap-4">
-                                <div className="w-10 h-10 md:w-12 md:h-12 rounded-full border border-[#CBA153]/30 flex items-center justify-center shrink-0">
-                                    <FileText size={18} className="md:w-5 md:h-5" />
-                                </div>
-                                <div>
-                                    <h4 className="text-white font-bold text-sm md:text-base">{feature2Title}</h4>
-                                    <p className="text-xs md:text-sm text-gray-400">{feature2Desc}</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="mt-8 md:mt-12">
-                            <Link href={buttonLink} className="bg-[#CBA153] text-black px-8 md:px-12 py-4 md:py-5 font-bold uppercase tracking-widest text-xs md:text-sm hover:bg-white transition-all inline-block text-center w-full sm:w-auto">
-                                {buttonText}
-                            </Link>
-                        </div>
-                    </div>
-
-                    {/* Hero Image — visible on mobile as a banner, full aspect on desktop */}
-                    <div className="relative aspect-[16/9] md:aspect-[4/5] md:p-10 overflow-hidden rounded-lg md:rounded-none">
-                        <div className="absolute top-0 left-0 w-full h-full border border-[#CBA153]/10"></div>
-                        <Image
-                            src={imageUrl}
-                            alt={headingLine1}
-                            fill
-                            sizes="(max-width: 768px) 100vw, 50vw"
-                            className="object-cover grayscale opacity-60 contrast-125"
-                        />
-                    </div>
-                </div>
-
-                {/* Form Section */}
-                <div className="bg-[#2C2A29] p-5 sm:p-8 md:p-12 rounded-lg max-w-4xl mx-auto shadow-2xl border border-gray-800">
-                    <h3 className="text-2xl md:text-3xl font-serif text-white mb-6 md:mb-8 text-center">{formHeading}</h3>
-                    <WholesaleForm />
-                </div>
-
+  return (
+    <>
+      {/* Wholesale Hero */}
+      <section className="ch-section" style={{ background: "#1F3026", color: "#F5F0E6", padding: "120px 56px 100px", position: "relative", overflow: "hidden" }}>
+        <div style={{ position: "absolute", inset: 0, backgroundImage: `linear-gradient(#F5F0E606 1px, transparent 1px), linear-gradient(90deg, #F5F0E606 1px, transparent 1px)`, backgroundSize: "80px 80px", pointerEvents: "none" }} />
+        <div style={{ maxWidth: 1280, margin: "0 auto", position: "relative" }}>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.32em", color: "#8B4A28", textTransform: "uppercase", marginBottom: 32 }}>
+            For Restaurants, Grocers & Specialty Markets
+          </div>
+          <h1 className="ch-bakery-h1" style={{ fontFamily: "var(--font-serif)", fontWeight: 300, fontSize: "clamp(56px, 8vw, 124px)", lineHeight: 0.9, letterSpacing: "-0.03em", margin: 0, maxWidth: 1100 }}>
+            Stock the only <em style={{ color: "#8B4A28", fontWeight: 300 }}>Georgian cheese</em><br />made in the Midwest.
+          </h1>
+          <div className="ch-section-grid" style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr 1fr", gap: 48, marginTop: 80, paddingTop: 48, borderTop: "1px solid rgba(245,240,230,0.14)" }}>
+            <div style={{ fontFamily: "var(--font-serif)", fontStyle: "italic", fontSize: "clamp(16px, 2vw, 22px)", lineHeight: 1.5, opacity: 0.85 }}>
+              Wholesale partners get cold-chain delivery within a 10-hour drive radius, custom labels, and access to the full Creamery & Bakery line — including private-label runs.
             </div>
+            <div>
+              <div className="ch-stat-num" style={{ fontFamily: "var(--font-serif)", fontSize: 56, fontWeight: 400, color: "#8B4A28", lineHeight: 1 }}>40+</div>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.24em", color: "#F5F0E6", opacity: 0.6, textTransform: "uppercase", marginTop: 8 }}>Active accounts in 6 states</div>
+            </div>
+            <div>
+              <div className="ch-stat-num" style={{ fontFamily: "var(--font-serif)", fontSize: 56, fontWeight: 400, color: "#8B4A28", lineHeight: 1 }}>72h</div>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.24em", color: "#F5F0E6", opacity: 0.6, textTransform: "uppercase", marginTop: 8 }}>From order to your dock</div>
+            </div>
+          </div>
         </div>
-    );
+      </section>
+
+      {/* Tiers */}
+      <section className="ch-section" style={{ background: "#F5F0E6", padding: "140px 56px" }}>
+        <div style={{ maxWidth: 1440, margin: "0 auto" }}>
+          <div className="ch-section-grid" style={{ display: "grid", gridTemplateColumns: "200px 1fr", gap: 64, marginBottom: 72 }}>
+            <div>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.32em", color: "#B96A3D", textTransform: "uppercase" }}>№ 01</div>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.24em", color: "#7A8278", textTransform: "uppercase", marginTop: 8 }}>Three ways to partner</div>
+            </div>
+            <div className="ch-h2" style={{ fontFamily: "var(--font-serif)", fontWeight: 300, fontSize: 56, lineHeight: 1.05, letterSpacing: "-0.02em", color: "#1F3026", maxWidth: 800 }}>
+              Pick the relationship <em style={{ color: "#B96A3D", fontWeight: 400 }}>that fits.</em>
+            </div>
+          </div>
+          <div className="ch-grid-3" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 24 }}>
+            {tiers.map((t) => (
+              <div key={t.name} style={{ background: "#EAE2D2", padding: "44px 36px 40px", display: "flex", flexDirection: "column" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 28 }}>
+                  <div style={{ fontFamily: "var(--font-serif)", fontSize: 44, fontWeight: 300, color: "#B96A3D", lineHeight: 1 }}>{t.tag}</div>
+                  <ColchisSeal size={44} />
+                </div>
+                <div style={{ fontFamily: "var(--font-serif)", fontStyle: "italic", fontSize: 36, color: "#1F3026", lineHeight: 1, fontWeight: 400 }}>{t.name}</div>
+                <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.28em", color: "#7A8278", textTransform: "uppercase", marginTop: 10 }}>Min · {t.min}</div>
+                <div style={{ fontFamily: "var(--font-sans)", fontSize: 14, lineHeight: 1.6, color: "#2C3D33", marginTop: 20 }}>{t.desc}</div>
+                <div style={{ height: 1, background: "#1F302622", margin: "28px 0" }} />
+                <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 12, flex: 1 }}>
+                  {t.check.map((c) => (
+                    <li key={c} style={{ display: "flex", gap: 12, fontFamily: "var(--font-sans)", fontSize: 13, color: "#1F3026", lineHeight: 1.5 }}>
+                      <span style={{ color: "#B96A3D", fontFamily: "var(--font-mono)" }}>+</span>{c}
+                    </li>
+                  ))}
+                </ul>
+                <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.24em", color: "#7A8278", textTransform: "uppercase", marginTop: 28 }}>For · {t.who}</div>
+                <a href="#apply-form" style={{ marginTop: 24, background: "#1F3026", color: "#F5F0E6", border: "none", padding: "16px 0", fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.28em", textTransform: "uppercase", cursor: "pointer", textDecoration: "none", textAlign: "center", display: "block" }}>Apply →</a>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Catalog Table */}
+      <section className="ch-section" style={{ background: "#EAE2D2", padding: "120px 56px" }}>
+        <div style={{ maxWidth: 1280, margin: "0 auto" }}>
+          <div className="ch-section-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 48 }}>
+            <div>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.32em", color: "#B96A3D", textTransform: "uppercase" }}>№ 02 — Catalog</div>
+              <div className="ch-h2" style={{ fontFamily: "var(--font-serif)", fontWeight: 300, fontSize: 56, lineHeight: 1.05, letterSpacing: "-0.02em", color: "#1F3026", marginTop: 14 }}>
+                Wholesale <em style={{ color: "#B96A3D", fontWeight: 400 }}>SKUs.</em>
+              </div>
+            </div>
+          </div>
+          <div style={{ background: "#F5F0E6", border: "1px solid #1F302614" }}>
+            <div className="ch-table-header" style={{ display: "grid", gridTemplateColumns: "120px 1fr 200px 160px 160px", padding: "20px 32px", fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.24em", color: "#7A8278", textTransform: "uppercase", borderBottom: "1px solid #1F302622" }}>
+              <span>SKU</span><span>Product</span><span className="ch-hide-mobile">Size</span><span className="ch-hide-mobile">Pack</span><span style={{ textAlign: "right" }}>Wholesale</span>
+            </div>
+            {skuList.map((s, i) => (
+              <div key={s.code} className="ch-table-row" style={{ display: "grid", gridTemplateColumns: "120px 1fr 200px 160px 160px", padding: "22px 32px", borderBottom: i < skuList.length - 1 ? "1px solid #1F302611" : "none", alignItems: "center" }}>
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "#B96A3D", letterSpacing: "0.16em" }}>{s.code}</span>
+                <span className="ch-product-name" style={{ fontFamily: "var(--font-serif)", fontStyle: "italic", fontSize: 22, color: "#1F3026" }}>{s.name}</span>
+                <span className="ch-hide-mobile" style={{ fontFamily: "var(--font-sans)", fontSize: 13, color: "#2C3D33" }}>{s.size}</span>
+                <span className="ch-hide-mobile" style={{ fontFamily: "var(--font-sans)", fontSize: 13, color: "#2C3D33" }}>{s.pack}</span>
+                <span style={{ fontFamily: "var(--font-serif)", fontSize: 22, color: "#1F3026", textAlign: "right" }}>{s.price}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Apply Form */}
+      <section id="apply-form" className="ch-section" style={{ background: "#F5F0E6", padding: "120px 56px" }}>
+        <div className="ch-split" style={{ maxWidth: 1100, margin: "0 auto", display: "grid", gridTemplateColumns: "1fr 1.2fr", gap: 80, alignItems: "start" }}>
+          <div>
+            <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.32em", color: "#B96A3D", textTransform: "uppercase" }}>№ 03 — Apply</div>
+            <div className="ch-h2-large" style={{ fontFamily: "var(--font-serif)", fontWeight: 300, fontSize: 64, lineHeight: 1.0, letterSpacing: "-0.02em", color: "#1F3026", marginTop: 16 }}>
+              Tell us about <em style={{ color: "#B96A3D", fontWeight: 400 }}>your shop.</em>
+            </div>
+            <div style={{ fontFamily: "var(--font-serif)", fontSize: 18, lineHeight: 1.6, color: "#2C3D33", marginTop: 28, fontStyle: "italic" }}>
+              We review applications every Tuesday. Most accounts are onboarded within 10 days.
+            </div>
+            <div style={{ marginTop: 40, paddingTop: 28, borderTop: "1px solid #1F302622" }}>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.24em", color: "#7A8278", textTransform: "uppercase" }}>Or email directly</div>
+              <div style={{ fontFamily: "var(--font-serif)", fontSize: 26, color: "#1F3026", marginTop: 8 }}>wholesale@colchisfood.com</div>
+            </div>
+          </div>
+          <form action={formAction} style={{ background: "#EAE2D2", padding: 40 }}>
+            <input type="text" name="website_url" style={{ position: "absolute", left: "-9999px", opacity: 0 }} tabIndex={-1} autoComplete="off" />
+            <input type="hidden" name="_loadTime" value={loadTime} />
+
+            {state?.success && (
+              <div style={{ background: "#2E7D3211", border: "1px solid #2E7D3244", padding: "16px 20px", marginBottom: 22, fontFamily: "var(--font-sans)", fontSize: 14, color: "#2E7D32", lineHeight: 1.5 }}>
+                ✓ {state.success}
+              </div>
+            )}
+            {state?.error && (
+              <div style={{ background: "#C0392B11", border: "1px solid #C0392B44", padding: "16px 20px", marginBottom: 22, fontFamily: "var(--font-sans)", fontSize: 14, color: "#C0392B", lineHeight: 1.5 }}>
+                {state.error}
+              </div>
+            )}
+
+            <div style={{ marginBottom: 22 }}>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.24em", color: "#7A8278", textTransform: "uppercase", marginBottom: 8 }}>Business name</div>
+              <input name="companyName" required placeholder="Your restaurant or shop" style={{ width: "100%", fontFamily: "var(--font-serif)", fontStyle: "italic", fontSize: 18, background: "transparent", border: "none", borderBottom: "1px solid #1F302644", padding: "10px 0", color: "#1F3026", outline: "none" }} />
+            </div>
+            <div style={{ marginBottom: 22 }}>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.24em", color: "#7A8278", textTransform: "uppercase", marginBottom: 8 }}>Contact name</div>
+              <input name="contactName" required style={{ width: "100%", fontFamily: "var(--font-serif)", fontStyle: "italic", fontSize: 18, background: "transparent", border: "none", borderBottom: "1px solid #1F302644", padding: "10px 0", color: "#1F3026", outline: "none" }} />
+            </div>
+            <div style={{ marginBottom: 22 }}>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.24em", color: "#7A8278", textTransform: "uppercase", marginBottom: 8 }}>Email</div>
+              <input name="email" type="email" required style={{ width: "100%", fontFamily: "var(--font-serif)", fontStyle: "italic", fontSize: 18, background: "transparent", border: "none", borderBottom: "1px solid #1F302644", padding: "10px 0", color: "#1F3026", outline: "none" }} />
+            </div>
+            <div style={{ marginBottom: 22 }}>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.24em", color: "#7A8278", textTransform: "uppercase", marginBottom: 8 }}>Phone</div>
+              <input name="phone" type="tel" required style={{ width: "100%", fontFamily: "var(--font-serif)", fontStyle: "italic", fontSize: 18, background: "transparent", border: "none", borderBottom: "1px solid #1F302644", padding: "10px 0", color: "#1F3026", outline: "none" }} />
+            </div>
+            <div style={{ marginBottom: 22 }}>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.24em", color: "#7A8278", textTransform: "uppercase", marginBottom: 8 }}>Address</div>
+              <input name="address" required placeholder="Street, City, State" style={{ width: "100%", fontFamily: "var(--font-serif)", fontStyle: "italic", fontSize: 18, background: "transparent", border: "none", borderBottom: "1px solid #1F302644", padding: "10px 0", color: "#1F3026", outline: "none" }} />
+            </div>
+            <div style={{ marginBottom: 22 }}>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.24em", color: "#7A8278", textTransform: "uppercase", marginBottom: 8 }}>Zip code</div>
+              <input name="zipCode" required placeholder="e.g. 43017" style={{ width: "100%", fontFamily: "var(--font-serif)", fontStyle: "italic", fontSize: 18, background: "transparent", border: "none", borderBottom: "1px solid #1F302644", padding: "10px 0", color: "#1F3026", outline: "none" }} />
+            </div>
+            <div style={{ marginBottom: 22 }}>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.24em", color: "#7A8278", textTransform: "uppercase", marginBottom: 8 }}>Expected weekly volume</div>
+              <select name="volume" style={{ width: "100%", fontFamily: "var(--font-sans)", fontSize: 16, background: "transparent", border: "none", borderBottom: "1px solid #1F302644", padding: "10px 0", color: "#1F3026", outline: "none" }}>
+                <option>Under 50 lbs</option>
+                <option>50–200 lbs</option>
+                <option>200–500 lbs</option>
+                <option>500+ lbs</option>
+              </select>
+            </div>
+            <div style={{ marginBottom: 22 }}>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.24em", color: "#7A8278", textTransform: "uppercase", marginBottom: 8 }}>Tell us about your business</div>
+              <textarea name="message" rows={3} style={{ width: "100%", fontFamily: "var(--font-sans)", fontSize: 14, background: "transparent", border: "1px solid #1F302644", padding: 12, color: "#1F3026", outline: "none", resize: "vertical" }} />
+            </div>
+            <button type="submit" disabled={isPending} style={{ width: "100%", background: isPending ? "#7A8278" : "#1F3026", color: "#F5F0E6", border: "none", padding: "18px 0", fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.28em", textTransform: "uppercase", cursor: isPending ? "wait" : "pointer", marginTop: 12 }}>
+              {isPending ? "Submitting..." : "Submit application →"}
+            </button>
+          </form>
+        </div>
+      </section>
+    </>
+  );
 }

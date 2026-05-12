@@ -96,7 +96,7 @@ export async function PATCH(
             data: {
                 sessionId,
                 sender: 'system',
-                body: 'This conversation has been closed. Thank you for contacting Colchis Creamery!',
+                body: 'This conversation has been closed. Thank you for contacting Colchis Food!',
             },
         });
 

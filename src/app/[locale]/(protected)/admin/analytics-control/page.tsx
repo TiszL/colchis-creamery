@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
 const PRIORITY_COLORS: Record<string, string> = {
     CRITICAL: 'bg-[#e8614a]/15 text-[#e8614a]',
     HIGH: 'bg-[#c9a84c]/15 text-[#c9a84c]',
-    MEDIUM: 'bg-[#CBA153]/15 text-[#CBA153]',
+    MEDIUM: 'bg-[#B96A3D]/15 text-[#B96A3D]',
     LOW: 'bg-[#4a7a9a]/15 text-[#4a7a9a]',
     EXPLORATORY: 'bg-[#7a6a8a]/15 text-[#7a6a8a]',
 };
@@ -121,18 +121,18 @@ export default async function AnalyticsControlPage({ params, searchParams }: { p
             <AnalyticsPinForm action={addPin} apiKey={googleMapsApiKey || ""} />
 
             {/* Prospect Database Table */}
-            <div className="bg-[#1A1A1A] rounded-xl border border-white/5 overflow-hidden">
-                <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between">
+            <div className="bg-[#161616] border border-[#ffffff0A] overflow-hidden">
+                <div className="px-6 py-4 border-b border-[#ffffff0A] flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <Globe className="w-5 h-5 text-[#CBA153]" />
+                        <Globe className="w-5 h-5 text-[#B96A3D]" />
                         <h2 className="text-white font-bold">Prospect Database</h2>
                     </div>
-                    <span className="text-xs text-[#CBA153] bg-[#CBA153]/10 px-3 py-1 rounded-full">{totalCount} total</span>
+                    <span className="text-xs text-[#B96A3D] bg-[#B96A3D]/10 px-3 py-1 rounded-full">{totalCount} total</span>
                 </div>
                 <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">
                         <thead>
-                            <tr className="border-b border-white/5 bg-white/5 text-[10px] uppercase tracking-wider text-gray-500 font-bold">
+                            <tr className="border-b border-[#ffffff0A] bg-[#ffffff08] text-[10px] uppercase tracking-wider text-gray-500 font-bold">
                                 <th className="p-3 pl-5">Location Name</th>
                                 <th className="p-3">Category</th>
                                 <th className="p-3">Tier</th>
@@ -147,14 +147,14 @@ export default async function AnalyticsControlPage({ params, searchParams }: { p
                             {pins.length > 0 ? pins.map((pin: any) => {
                                 const prCls = PRIORITY_COLORS[pin.priorityRank || ''] || '';
                                 return (
-                                    <tr key={pin.id} className="hover:bg-white/5 transition-colors group">
+                                    <tr key={pin.id} className="hover:bg-[#ffffff08] transition-colors group">
                                         <td className="p-3 pl-5">
                                             <span className="text-white font-medium text-sm">{pin.name}</span>
                                         </td>
                                         <td className="p-3 text-xs text-gray-500">{pin.categoryLabel || '—'}</td>
                                         <td className="p-3">
                                             {pin.tierLabel ? (
-                                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-gray-400 font-medium">T{pin.tier} {pin.tierLabel}</span>
+                                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#ffffff08] text-gray-400 font-medium">T{pin.tier} {pin.tierLabel}</span>
                                             ) : '—'}
                                         </td>
                                         <td className="p-3">
@@ -190,16 +190,16 @@ export default async function AnalyticsControlPage({ params, searchParams }: { p
 
                 {/* Pagination */}
                 {totalPages > 1 && (
-                    <div className="flex items-center justify-between px-5 py-3 border-t border-white/5 text-xs text-gray-500">
+                    <div className="flex items-center justify-between px-5 py-3 border-t border-[#ffffff0A] text-xs text-gray-500">
                         <span>Page {currentPage} of {totalPages} ({totalCount} records)</span>
                         <div className="flex gap-2">
                             {currentPage > 1 && (
-                                <a href={`?page=${currentPage - 1}`} className="flex items-center gap-1 px-3 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-all">
+                                <a href={`?page=${currentPage - 1}`} className="flex items-center gap-1 px-3 py-1 bg-[#ffffff08] hover:bg-white/10 text-gray-400 hover:text-white transition-all">
                                     <ChevronLeft className="w-3 h-3" /> Prev
                                 </a>
                             )}
                             {currentPage < totalPages && (
-                                <a href={`?page=${currentPage + 1}`} className="flex items-center gap-1 px-3 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-all">
+                                <a href={`?page=${currentPage + 1}`} className="flex items-center gap-1 px-3 py-1 bg-[#ffffff08] hover:bg-white/10 text-gray-400 hover:text-white transition-all">
                                     Next <ChevronRight className="w-3 h-3" />
                                 </a>
                             )}

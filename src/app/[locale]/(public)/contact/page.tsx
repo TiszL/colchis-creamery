@@ -1,37 +1,29 @@
 import { Metadata } from 'next';
 import { prisma } from '@/lib/db';
-import ContactFormClient from '@/components/contact/ContactFormClient';
+import ContactClient from '@/components/contact/ContactClient';
 import { getOgImage, buildOgImages } from '@/lib/seo';
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://colchiscreamery.com';
-
-interface Location {
-    name: string;
-    address: string;
-    lat: string;
-    lng: string;
-    phone: string;
-}
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://colchisfood.com';
 
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
     const { locale } = await params;
     const canonicalPath = locale === 'en' ? '/contact' : `/${locale}/contact`;
     const ogImage = await getOgImage('contact');
     return {
-        title: 'Contact Us | Colchis Creamery',
-        description: 'Get in touch with the Colchis Creamery team for inquiries, support, wholesale partnerships, or feedback. Based in Columbus, Ohio.',
-        keywords: ['contact Colchis Creamery', 'Georgian cheese support', 'wholesale inquiry', 'cheese order help', 'Columbus Ohio cheese'],
+        title: 'Contact Us | Colchis Food',
+        description: 'Get in touch with the Colchis Food team for inquiries, support, wholesale partnerships, or feedback. Based in Dublin, Ohio.',
+        keywords: ['contact Colchis Food', 'Georgian cheese support', 'wholesale inquiry', 'cheese order help', 'Dublin Ohio cheese'],
         alternates: {
             canonical: `${SITE_URL}${canonicalPath}`,
             languages: { 'en': `${SITE_URL}/contact`, 'ka': `${SITE_URL}/ka/contact`, 'ru': `${SITE_URL}/ru/contact`, 'es': `${SITE_URL}/es/contact` },
         },
         openGraph: {
-            type: 'website', title: 'Contact Us | Colchis Creamery',
-            description: 'Get in touch with the Colchis Creamery team.',
-            url: `${SITE_URL}${canonicalPath}`, siteName: 'Colchis Creamery',
-            ...(ogImage ? { images: buildOgImages(ogImage, 'Contact Colchis Creamery') } : {}),
+            type: 'website', title: 'Contact Us | Colchis Food',
+            description: 'Get in touch with the Colchis Food team.',
+            url: `${SITE_URL}${canonicalPath}`, siteName: 'Colchis Food',
+            ...(ogImage ? { images: buildOgImages(ogImage, 'Contact Colchis Food') } : {}),
         },
-        twitter: { card: 'summary', title: 'Contact Us | Colchis Creamery', description: 'Get in touch with the Colchis Creamery team.',
+        twitter: { card: 'summary', title: 'Contact Us | Colchis Food', description: 'Get in touch with the Colchis Food team.',
             ...(ogImage ? { images: [ogImage] } : {}),
         },
     };
@@ -48,143 +40,36 @@ export default async function ContactPage() {
         return configs.find(c => c.key === key)?.value || fallback;
     }
 
-    const email = g('contact.email', 'support@colchiscreamery.com');
-    const phone = g('contact.phone', '+1 (555) 123-4567');
-    const hours = g('contact.hours', 'Monday - Friday: 9 AM - 5 PM EST');
+    const email = g('contact.email', 'hello@colchisfood.com');
+    const phone = g('contact.phone', '+1 (614) 555 0142');
 
-    // Parse locations (new format) with fallback to legacy fields
-    let locations: Location[] = [];
-    const rawLocations = g('contact.locations', '');
-    if (rawLocations) {
-        try {
-            const parsed = JSON.parse(rawLocations);
-            if (Array.isArray(parsed) && parsed.length > 0) locations = parsed;
-        } catch { /* fallback below */ }
-    }
-    if (locations.length === 0) {
-        const address = g('contact.address', 'Columbus, OH');
-        const mapLat = g('contact.mapLat', '39.9612');
-        const mapLng = g('contact.mapLng', '-82.9988');
-        locations = [{ name: 'Colchis Creamery', address, lat: mapLat, lng: mapLng, phone: '' }];
-    }
-
-    const primaryLocation = locations[0];
-    const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY || '';
-    const mapSrc = MAPS_KEY
-        ? `https://www.google.com/maps/embed/v1/place?key=${MAPS_KEY}&q=${encodeURIComponent(primaryLocation.address)}&center=${primaryLocation.lat},${primaryLocation.lng}&zoom=13`
-        : `https://maps.google.com/maps?q=${primaryLocation.lat},${primaryLocation.lng}&z=13&output=embed`;
-
-    // JSON-LD: LocalBusiness schema
+    // JSON-LD
     const jsonLd = {
         '@context': 'https://schema.org',
         '@type': 'FoodEstablishment',
-        name: 'Colchis Creamery',
+        name: 'Colchis Food',
         description: 'Authentic Georgian artisanal cheese, handcrafted in Ohio with premium local milk.',
         url: SITE_URL,
         telephone: phone,
         email: email,
         address: {
             '@type': 'PostalAddress',
-            streetAddress: primaryLocation.address.split(',')[0]?.trim() || primaryLocation.address,
-            addressLocality: 'Columbus',
+            streetAddress: '5340 Tuller Road, Suite 200',
+            addressLocality: 'Dublin',
             addressRegion: 'OH',
+            postalCode: '43017',
             addressCountry: 'US',
         },
-        geo: {
-            '@type': 'GeoCoordinates',
-            latitude: parseFloat(primaryLocation.lat),
-            longitude: parseFloat(primaryLocation.lng),
-        },
-        openingHours: hours,
+        geo: { '@type': 'GeoCoordinates', latitude: 40.0992, longitude: -83.1141 },
+        openingHours: ['Tu-Th 09:00-18:00', 'Fr 09:00-20:00', 'Sa 10:00-19:00', 'Su 11:00-16:00'],
         priceRange: '$$',
         servesCuisine: 'Georgian',
-        hasOfferCatalog: {
-            '@type': 'OfferCatalog',
-            name: 'Artisanal Georgian Cheese',
-            itemListElement: [
-                { '@type': 'Offer', itemOffered: { '@type': 'Product', name: 'Sulguni Cheese' } },
-                { '@type': 'Offer', itemOffered: { '@type': 'Product', name: 'Imeretian Cheese' } },
-            ],
-        },
     };
 
     return (
         <>
             <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
-            <div className="min-h-screen bg-[#FDFBF7] py-20 px-4">
-                <div className="max-w-4xl mx-auto">
-
-                    <div className="text-center mb-16">
-                        <h1 className="text-5xl font-serif text-[#2C2A29] mb-4">Contact Us</h1>
-                        <p className="text-xl text-[#2C2A29] opacity-80 max-w-2xl mx-auto">
-                            We are here to assist you. Whether you have a question about our artisanal cheese, your recent order, or wholesale opportunities, our team is ready to help.
-                        </p>
-                    </div>
-
-                    <div className="grid md:grid-cols-2 gap-12 bg-white p-8 md:p-12 shadow-sm rounded border border-gray-100">
-
-                        <div>
-                            <h2 className="text-2xl font-serif text-[#A6812F] mb-6">Our Information</h2>
-                            <div className="space-y-6 text-[#2C2A29]">
-                                {/* Locations */}
-                                {locations.map((loc, idx) => (
-                                    <div key={idx}>
-                                        <strong className="block uppercase tracking-wider text-xs text-gray-600 mb-1">
-                                            {locations.length > 1 ? loc.name || `Location ${idx + 1}` : 'Address'}
-                                        </strong>
-                                        <p>{loc.address}</p>
-                                        {loc.phone && (
-                                            <a href={`tel:${loc.phone.replace(/[^+\d]/g, '')}`}
-                                                className="text-sm text-[#A6812F] hover:underline mt-0.5 block">{loc.phone}</a>
-                                        )}
-                                    </div>
-                                ))}
-                                <div>
-                                    <strong className="block uppercase tracking-wider text-xs text-gray-600 mb-1">Email</strong>
-                                    <a href={`mailto:${email}`} className="text-[#A6812F] hover:underline">{email}</a>
-                                </div>
-                                <div>
-                                    <strong className="block uppercase tracking-wider text-xs text-gray-600 mb-1">Phone</strong>
-                                    <a href={`tel:${phone.replace(/[^+\d]/g, '')}`} className="text-[#A6812F] hover:underline">{phone}</a>
-                                </div>
-                                <div>
-                                    <strong className="block uppercase tracking-wider text-xs text-gray-600 mb-1">Hours</strong>
-                                    <p>{hours}</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div>
-                            <h2 className="text-2xl font-serif text-[#A6812F] mb-6">Send a Message</h2>
-                            <ContactFormClient />
-                        </div>
-
-                    </div>
-
-                    {/* Google Maps */}
-                    <div className="mt-12 bg-white shadow-sm rounded border border-gray-100 overflow-hidden">
-                        <div className="px-8 pt-6 pb-2">
-                            <h2 className="text-2xl font-serif text-[#2C2A29] mb-1">
-                                {locations.length > 1 ? 'Our Locations' : 'Find Us'}
-                            </h2>
-                            <p className="text-sm text-gray-500">{primaryLocation.address}</p>
-                        </div>
-                        <div className="w-full h-[400px]">
-                            <iframe
-                                src={mapSrc}
-                                width="100%"
-                                height="100%"
-                                style={{ border: 0 }}
-                                allowFullScreen
-                                loading="lazy"
-                                referrerPolicy="no-referrer-when-downgrade"
-                                title={`Colchis Creamery location — ${primaryLocation.address}`}
-                            />
-                        </div>
-                    </div>
-
-                </div>
-            </div>
+            <ContactClient email={email} phone={phone} />
         </>
     );
 }

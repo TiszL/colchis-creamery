@@ -116,7 +116,7 @@ function VerifyEmailContent() {
 
                 <div className="text-center mb-8">
                     <Link href="/" className="inline-block mb-6">
-                        <img src="/logo-optimized.png" alt="Colchis Creamery Logo" className="w-16 h-16 object-contain mx-auto rounded-full border border-gold/30" />
+                        <img src="/logo.svg" alt="Colchis Food Logo" className="w-16 h-16 object-contain mx-auto" />
                     </Link>
                     <div className="w-14 h-14 bg-gold/10 rounded-full flex items-center justify-center mx-auto mb-4">
                         <ShieldCheck className="w-7 h-7 text-gold" />
@@ -201,7 +201,7 @@ function VerifyEmailContent() {
                         <Mail className="w-4 h-4 text-charcoal/40 mt-0.5 shrink-0" />
                         <p className="text-[11px] text-charcoal/50 leading-relaxed">
                             Check your inbox and spam folder. The code expires in 15 minutes.
-                            If you continue having trouble, contact <a href="mailto:support@colchiscreamery.com" className="text-gold hover:underline">support@colchiscreamery.com</a>.
+                            If you continue having trouble, contact <a href="mailto:support@colchisfood.com" className="text-gold hover:underline">support@colchisfood.com</a>.
                         </p>
                     </div>
                 </div>

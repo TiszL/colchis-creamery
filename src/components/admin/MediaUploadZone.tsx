@@ -192,13 +192,13 @@ export default function MediaUploadZone({
                         {type === 'image' ? <ImageIcon className="w-3 h-3" /> : <Film className="w-3 h-3" />}
                         {label}
                         {value.length > 0 && (
-                            <span className="text-[#CBA153] ml-1">({value.length})</span>
+                            <span className="text-[#B96A3D] ml-1">({value.length})</span>
                         )}
                     </label>
                     <button
                         type="button"
                         onClick={() => setShowManual(!showManual)}
-                        className="text-[10px] text-gray-500 hover:text-[#CBA153] transition-colors"
+                        className="text-[10px] text-gray-500 hover:text-[#B96A3D] transition-colors"
                     >
                         {showManual ? 'Hide URL input' : '+ Paste URL'}
                     </button>
@@ -212,10 +212,10 @@ export default function MediaUploadZone({
                     onDrop={onDrop}
                     onClick={() => !uploading && inputRef.current?.click()}
                     className={`
-                        relative border-2 border-dashed rounded-xl p-5 text-center cursor-pointer transition-all duration-200
+                        relative border-2 border-dashed p-5 text-center cursor-pointer transition-all duration-200
                         ${isDragging
-                            ? 'border-[#CBA153] bg-[#CBA153]/10 scale-[1.01]'
-                            : 'border-white/10 hover:border-[#CBA153]/40 hover:bg-white/[0.02]'
+                            ? 'border-[#B96A3D] bg-[#B96A3D]/10 scale-[1.01]'
+                            : 'border-[#B96A3D22] hover:border-[#B96A3D]/40 hover:bg-white/[0.02]'
                         }
                         ${uploading ? 'pointer-events-none opacity-60' : ''}
                     `}
@@ -231,14 +231,14 @@ export default function MediaUploadZone({
 
                     {uploading ? (
                         <div className="flex flex-col items-center gap-2 py-2">
-                            <Loader2 className="w-6 h-6 text-[#CBA153] animate-spin" />
+                            <Loader2 className="w-6 h-6 text-[#B96A3D] animate-spin" />
                             <span className="text-xs text-gray-400">Optimizing & uploading...</span>
                         </div>
                     ) : (
                         <div className="flex flex-col items-center gap-2 py-1">
-                            <Upload className={`w-6 h-6 ${isDragging ? 'text-[#CBA153]' : 'text-gray-600'} transition-colors`} />
+                            <Upload className={`w-6 h-6 ${isDragging ? 'text-[#B96A3D]' : 'text-gray-600'} transition-colors`} />
                             <div className="text-xs text-gray-400">
-                                <span className="text-[#CBA153] font-medium">Click to browse</span> or drag & drop
+                                <span className="text-[#B96A3D] font-medium">Click to browse</span> or drag & drop
                             </div>
                             <div className="flex items-center gap-1 text-[10px] text-gray-600">
                                 <Info className="w-3 h-3 flex-shrink-0" />
@@ -250,7 +250,7 @@ export default function MediaUploadZone({
 
                 {/* Upload Stats Toast */}
                 {uploadStats && uploadStats.savings && (
-                    <div className="flex items-center gap-2 text-[10px] text-emerald-400 bg-emerald-900/20 px-3 py-1.5 rounded-lg">
+                    <div className="flex items-center gap-2 text-[10px] text-emerald-400 bg-emerald-900/20 px-3 py-1.5">
                         <Check className="w-3 h-3 flex-shrink-0" />
                         <span>
                             Optimized: {uploadStats.originalSize} → {uploadStats.optimizedSize} ({uploadStats.savings} saved)
@@ -261,7 +261,7 @@ export default function MediaUploadZone({
 
                 {/* Error */}
                 {error && (
-                    <div className="flex items-center gap-2 text-[10px] text-red-400 bg-red-900/20 px-3 py-1.5 rounded-lg">
+                    <div className="flex items-center gap-2 text-[10px] text-red-400 bg-red-900/20 px-3 py-1.5">
                         <AlertCircle className="w-3 h-3 flex-shrink-0" />
                         {error}
                     </div>
@@ -275,12 +275,12 @@ export default function MediaUploadZone({
                             onChange={e => setManualUrl(e.target.value)}
                             onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addManualUrl())}
                             placeholder={type === 'image' ? 'https://images.example.com/...' : 'https://youtube.com/watch?v=...'}
-                            className="flex-1 bg-[#0D0D0D] border border-white/10 text-white py-2 px-3 rounded-lg focus:outline-none focus:border-[#CBA153] placeholder-gray-700 text-xs"
+                            className="flex-1 bg-[#0C0C0C] border border-[#B96A3D22] text-white py-2 px-3 focus:outline-none focus:border-[#B96A3D] placeholder-gray-700 text-xs"
                         />
                         <button
                             type="button"
                             onClick={addManualUrl}
-                            className="px-3 py-2 bg-[#CBA153]/20 text-[#CBA153] rounded-lg text-xs font-bold hover:bg-[#CBA153]/30 transition-colors"
+                            className="px-3 py-2 bg-[#B96A3D]/20 text-[#B96A3D] text-xs font-bold hover:bg-[#B96A3D]/30 transition-colors"
                         >
                             Add
                         </button>
@@ -293,7 +293,7 @@ export default function MediaUploadZone({
                         {value.map((url, idx) => (
                             <div key={idx} className="relative group">
                                 {type === 'image' ? (
-                                    <div className={`${thumbAspect} rounded-lg overflow-hidden bg-[#0D0D0D] border border-white/10 group-hover:border-[#CBA153]/40 transition-colors`}>
+                                    <div className={`${thumbAspect} overflow-hidden bg-[#0C0C0C] border border-[#B96A3D22] group-hover:border-[#B96A3D]/40 transition-colors`}>
                                         <img
                                             src={url}
                                             alt={`Gallery ${idx + 1}`}
@@ -304,7 +304,7 @@ export default function MediaUploadZone({
                                         />
                                     </div>
                                 ) : (
-                                    <div className="aspect-square rounded-lg overflow-hidden bg-[#0D0D0D] border border-white/10 flex items-center justify-center group-hover:border-[#CBA153]/40 transition-colors">
+                                    <div className="aspect-square overflow-hidden bg-[#0C0C0C] border border-[#B96A3D22] flex items-center justify-center group-hover:border-[#B96A3D]/40 transition-colors">
                                         {url.includes('youtube.com') || url.includes('youtu.be') ? (
                                             <div className="relative w-full h-full">
                                                 <img
@@ -325,7 +325,7 @@ export default function MediaUploadZone({
                                 <button
                                     type="button"
                                     onClick={() => removeUrl(idx)}
-                                    className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                                    className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                                 >
                                     <X className="w-3 h-3" />
                                 </button>

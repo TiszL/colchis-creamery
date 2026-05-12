@@ -37,7 +37,7 @@ export default function SiteSettingsClient({
     };
 
     const FIELDS = [
-        { key: 'contact_email', label: 'Contact Email', type: 'email', placeholder: 'hello@colchiscreamery.com' },
+        { key: 'contact_email', label: 'Contact Email', type: 'email', placeholder: 'hello@colchisfood.com' },
         { key: 'contact_phone', label: 'Contact Phone', type: 'text', placeholder: '+1 234 567 8900' },
         { key: 'contact_address', label: 'Office Address', type: 'text', placeholder: '123 Cheese Ave, NY' },
         { key: 'social_instagram', label: 'Instagram URL', type: 'url', placeholder: 'https://instagram.com/...' },
@@ -48,7 +48,7 @@ export default function SiteSettingsClient({
         <div className="space-y-8 max-w-4xl">
             <div className="flex items-start justify-between">
                 <div>
-                    <Link href={`/${locale}/admin/website`} className="text-xs text-[#CBA153] hover:text-white transition-colors flex items-center gap-1 mb-3">
+                    <Link href={`/${locale}/admin/website`} className="text-xs text-[#B96A3D] hover:text-white transition-colors flex items-center gap-1 mb-3">
                         <ArrowLeft className="w-3 h-3" /> Back to Website Content
                     </Link>
                     <h1 className="text-3xl font-serif text-white mb-2">Global Settings</h1>
@@ -57,20 +57,20 @@ export default function SiteSettingsClient({
                 <button
                     onClick={handleSave}
                     disabled={isSaving}
-                    className="bg-[#CBA153] text-black font-bold uppercase tracking-widest text-xs py-3 px-6 rounded-lg hover:bg-white transition-all flex items-center gap-2 disabled:opacity-50"
+                    className="bg-[#B96A3D] text-black font-bold uppercase tracking-widest text-xs py-3 px-6 hover:bg-white transition-all flex items-center gap-2 disabled:opacity-50"
                 >
                     <Save size={16} /> {isSaving ? 'Saving...' : 'Save Settings'}
                 </button>
             </div>
 
             {savedMessage && (
-                <div className="bg-emerald-900/30 border border-emerald-900/50 text-emerald-400 px-4 py-3 rounded-lg flex items-center gap-2 text-sm animate-fade-in">
+                <div className="bg-emerald-900/30 border border-emerald-900/50 text-emerald-400 px-4 py-3 flex items-center gap-2 text-sm animate-fade-in">
                     <CheckCircle className="w-4 h-4" /> Global settings updated successfully.
                 </div>
             )}
 
-            <div className="bg-[#1A1A1A] rounded-xl border border-white/5 p-6 md:p-8 space-y-6">
-                <h3 className="text-white font-serif text-xl border-b border-white/5 pb-4">Contact Information</h3>
+            <div className="bg-[#161616] border border-[#ffffff0A] p-6 md:p-8 space-y-6">
+                <h3 className="text-white font-serif text-xl border-b border-[#ffffff0A] pb-4">Contact Information</h3>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
                     {FIELDS.map(f => (
@@ -81,7 +81,7 @@ export default function SiteSettingsClient({
                                 value={settings[f.key] || ''}
                                 onChange={(e) => handleChange(f.key, e.target.value)}
                                 placeholder={f.placeholder}
-                                className="w-full bg-[#0D0D0D] border border-white/10 text-white py-3 px-4 rounded-lg focus:outline-none focus:border-[#CBA153] transition-colors"
+                                className="w-full bg-[#0C0C0C] border border-[#B96A3D22] text-white py-3 px-4 focus:outline-none focus:border-[#B96A3D] transition-colors"
                             />
                         </div>
                     ))}

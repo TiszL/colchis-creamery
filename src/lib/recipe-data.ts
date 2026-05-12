@@ -37,7 +37,7 @@ export const recipes = [
         cookingTime: 'PT0M',
         totalTime: 'PT20M',
         yield: '4-6 servings',
-        author: 'Colchis Creamery Tastemakers',
+        author: 'Colchis Food Tastemakers',
         datePublished: '2025-11-02',
         ingredients: [
             'Colchis Aged Sulguni',

@@ -1,7 +1,7 @@
 import { MetadataRoute } from 'next';
 import { prisma } from '@/lib/db';
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://colchiscreamery.com';
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://colchisfood.com';
 const LOCALES = ['en', 'ka', 'ru', 'es'];
 
 function localizedUrls(path: string, priority: number, changeFrequency: MetadataRoute.Sitemap[0]['changeFrequency'] = 'weekly') {
@@ -22,7 +22,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // --- Static pages ---
     const staticPages = [
         ...localizedUrls('', 1.0, 'daily'),           // Homepage
-        ...localizedUrls('/shop', 0.9, 'daily'),       // Shop
+        ...localizedUrls('/shop', 0.9, 'daily'),       // Shop / Creamery
+        ...localizedUrls('/bakery', 0.9, 'daily'),     // Bakery
         ...localizedUrls('/heritage', 0.8, 'monthly'),  // Heritage
         ...localizedUrls('/recipes', 0.8, 'weekly'),    // Recipes listing
         ...localizedUrls('/journal', 0.8, 'weekly'),    // Journal listing

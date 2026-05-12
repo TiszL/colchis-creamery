@@ -47,14 +47,14 @@ export default async function AdminOrdersPage() {
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-3xl font-serif text-[#2C2A29] flex items-center gap-3">
-                        <Truck className="w-8 h-8 text-[#CBA153]" />
+                        <Truck className="w-8 h-8 text-[#B96A3D]" />
                         Logistics & Fulfillment
                     </h1>
                     <p className="text-gray-500 mt-1">Manage physical shipments, update tracking, and confirm order deliveries for B2C & B2B.</p>
                 </div>
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div className="bg-white shadow-sm border border-gray-200 overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full text-left text-sm text-gray-700">
                         <thead className="bg-[#FDFBF7] text-gray-500 font-medium border-b border-gray-200">
@@ -108,7 +108,7 @@ export default async function AdminOrdersPage() {
                                             <select
                                                 name="orderStatus"
                                                 defaultValue={order.orderStatus}
-                                                className="w-full text-xs border border-gray-300 rounded py-1 px-2 focus:ring-[#CBA153]"
+                                                className="w-full text-xs border border-gray-300 rounded py-1 px-2 focus:ring-[#B96A3D]"
                                             >
                                                 <option value="PROCESSING">Processing</option>
                                                 <option value="SHIPPED">Shipped</option>
@@ -119,7 +119,7 @@ export default async function AdminOrdersPage() {
                                                 type="text"
                                                 name="trackingNumber"
                                                 placeholder={order.shipment?.trackingNumber || "Enter Tracking #"}
-                                                className="w-full text-xs border border-gray-300 rounded py-1 px-2 focus:ring-[#CBA153]"
+                                                className="w-full text-xs border border-gray-300 rounded py-1 px-2 focus:ring-[#B96A3D]"
                                             />
 
                                             <button type="submit" className="w-full text-xs bg-gray-800 text-white py-1.5 rounded hover:bg-black transition">

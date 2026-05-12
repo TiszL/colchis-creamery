@@ -65,18 +65,18 @@ export default function WholesalePageEditor({ configs }: Props) {
                 <label className="block text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wider">{label}</label>
                 {multiline ? (
                     <textarea value={value} onChange={e => onChange(e.target.value)} rows={3} placeholder={placeholder}
-                        className="w-full bg-[#0D0D0D] border border-white/10 text-white py-2 px-3 rounded-lg focus:outline-none focus:border-[#CBA153] placeholder-gray-600 text-sm resize-none" />
+                        className="w-full bg-[#0C0C0C] border border-[#B96A3D22] text-white py-2 px-3 focus:outline-none focus:border-[#B96A3D] placeholder-gray-600 text-sm resize-none" />
                 ) : (
                     <input value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
-                        className="w-full bg-[#0D0D0D] border border-white/10 text-white py-2 px-3 rounded-lg focus:outline-none focus:border-[#CBA153] placeholder-gray-600 text-sm" />
+                        className="w-full bg-[#0C0C0C] border border-[#B96A3D22] text-white py-2 px-3 focus:outline-none focus:border-[#B96A3D] placeholder-gray-600 text-sm" />
                 )}
             </div>
         );
     }
 
     return (
-        <div className="bg-[#1A1A1A] rounded-xl border border-white/5 overflow-hidden">
-            <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between">
+        <div className="bg-[#161616] border border-[#ffffff0A] overflow-hidden">
+            <div className="px-6 py-4 border-b border-[#ffffff0A] flex items-center justify-between">
                 <div className="flex items-center gap-3">
                     <Building2 className="w-5 h-5 text-violet-400" />
                     <div>
@@ -86,7 +86,7 @@ export default function WholesalePageEditor({ configs }: Props) {
                     {saved && <span className="text-xs text-emerald-400 animate-pulse ml-3">✓ Saved</span>}
                 </div>
                 <button onClick={handleSave} disabled={isPending}
-                    className="flex items-center gap-2 bg-[#CBA153] text-black px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-white transition-all disabled:opacity-50">
+                    className="flex items-center gap-2 bg-[#B96A3D] text-black px-5 py-2.5 text-xs font-bold uppercase tracking-wider hover:bg-white transition-all disabled:opacity-50">
                     {isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
                     {isPending ? 'Saving...' : 'Save'}
                 </button>
@@ -104,14 +104,14 @@ export default function WholesalePageEditor({ configs }: Props) {
                 <Field label="Description" value={description} onChange={setDescription} multiline placeholder="Elevate your culinary offerings..." />
 
                 {/* Features */}
-                <div className="border-t border-white/5 pt-5">
+                <div className="border-t border-[#ffffff0A] pt-5">
                     <label className="block text-xs font-bold text-gray-400 mb-3 uppercase tracking-wider">Feature Items</label>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="bg-[#0D0D0D] rounded-lg border border-white/5 p-4 space-y-2">
+                        <div className="bg-[#0C0C0C] border border-[#ffffff0A] p-4 space-y-2">
                             <Field label="Feature 1 — Title" value={feature1Title} onChange={setFeature1Title} placeholder="Cold Chain Logistics" />
                             <Field label="Feature 1 — Description" value={feature1Desc} onChange={setFeature1Desc} placeholder="Fresh from our facility..." />
                         </div>
-                        <div className="bg-[#0D0D0D] rounded-lg border border-white/5 p-4 space-y-2">
+                        <div className="bg-[#0C0C0C] border border-[#ffffff0A] p-4 space-y-2">
                             <Field label="Feature 2 — Title" value={feature2Title} onChange={setFeature2Title} placeholder="Paperless Contracting" />
                             <Field label="Feature 2 — Description" value={feature2Desc} onChange={setFeature2Desc} placeholder="Fully integrated Adobe Sign..." />
                         </div>
@@ -119,7 +119,7 @@ export default function WholesalePageEditor({ configs }: Props) {
                 </div>
 
                 {/* Button */}
-                <div className="border-t border-white/5 pt-5">
+                <div className="border-t border-[#ffffff0A] pt-5">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <Field label="Button Text" value={buttonText} onChange={setButtonText} placeholder="Partner Portal Login" />
                         <Field label="Button Link" value={buttonLink} onChange={setButtonLink} placeholder="/b2b/login" />
@@ -127,7 +127,7 @@ export default function WholesalePageEditor({ configs }: Props) {
                 </div>
 
                 {/* Image */}
-                <div className="border-t border-white/5 pt-5">
+                <div className="border-t border-[#ffffff0A] pt-5">
                     <MediaUploadZone
                         value={imageUrl}
                         onChange={setImageUrl}

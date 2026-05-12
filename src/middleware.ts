@@ -17,11 +17,11 @@ const B2B_ROLES = ["B2B_PARTNER", "MASTER_ADMIN"];
 const ANALYTICS_ROLES = ["ANALYTICS_VIEWER", ...STAFF_ROLES];
 
 // ── Protected Path Definitions ────────────────────────────────────────────────
-type ProtectedArea = "admin" | "staff-portal" | "b2b-portal" | "account" | "analytics";
+type ProtectedArea = "admin" | "portal" | "b2b-portal" | "account" | "analytics";
 
 const PROTECTED_AREAS: { segment: string; area: ProtectedArea; allowedRoles: string[] }[] = [
   { segment: "admin", area: "admin", allowedRoles: ALL_ADMIN_ROLES },
-  { segment: "staff-portal", area: "staff-portal", allowedRoles: ALL_STAFF_ROLES },
+  { segment: "portal", area: "portal", allowedRoles: ALL_STAFF_ROLES },
   { segment: "b2b-portal", area: "b2b-portal", allowedRoles: B2B_ROLES },
   { segment: "account", area: "account", allowedRoles: ["B2C_CUSTOMER", ...STAFF_ROLES] },
   { segment: "analytics", area: "analytics", allowedRoles: ANALYTICS_ROLES },
@@ -37,8 +37,8 @@ function isProtectedPath(pathname: string): boolean {
 }
 
 function getLoginUrl(area: ProtectedArea | null, locale: string): string {
-  if (area === "admin" || area === "staff-portal" || area === "analytics") {
-    return `/${locale}/staff`;
+  if (area === "admin" || area === "portal" || area === "analytics") {
+    return `/${locale}/portal-login`;
   }
   if (area === "b2b-portal") {
     return `/${locale}/b2b/login`;
@@ -46,8 +46,24 @@ function getLoginUrl(area: ProtectedArea | null, locale: string): string {
   return `/${locale}/login`;
 }
 
+// ── Legacy path redirects ───────────────────────────────────────────────────
+const LEGACY_REDIRECTS: Record<string, string> = {
+  "staff-portal": "portal",
+  "staff": "portal-login",
+};
+
 export default async function middleware(req: NextRequest) {
   const pathname = req.nextUrl.pathname;
+
+  // ── Backward-compat: redirect old /staff and /staff-portal to new paths ───
+  const segments = pathname.split("/");
+  for (const [oldSeg, newSeg] of Object.entries(LEGACY_REDIRECTS)) {
+    const idx = segments.indexOf(oldSeg);
+    if (idx !== -1) {
+      segments[idx] = newSeg;
+      return NextResponse.redirect(new URL(segments.join("/"), req.url), 301);
+    }
+  }
 
   // ── For non-protected paths, just run intl middleware ──────────────────────
   if (!isProtectedPath(pathname)) {
@@ -74,7 +90,7 @@ export default async function middleware(req: NextRequest) {
         if (userRole === "MASTER_ADMIN") {
           return NextResponse.redirect(new URL(`/${locale}/admin`, req.url));
         }
-        return NextResponse.redirect(new URL(`/${locale}/staff-portal`, req.url));
+        return NextResponse.redirect(new URL(`/${locale}/portal`, req.url));
       }
       if (userRole === "B2B_PARTNER") {
         return NextResponse.redirect(new URL(`/${locale}/b2b-portal`, req.url));

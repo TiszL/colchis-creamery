@@ -54,13 +54,13 @@ export async function JsonLdProduct({ product, url, productId }: JsonLdProductPr
     sku: product.sku,
     brand: {
       "@type": "Brand",
-      name: "Colchis Creamery",
+      name: "Colchis Food",
     },
     // Product attributes for AI crawlers
     ...(product.weight ? { weight: { "@type": "QuantitativeValue", value: product.weight } } : {}),
     material: product.ingredients || "100% Grass-Fed A2 Brown Swiss Milk",
     category: product.productCategory?.name
-      ? `${product.productLine?.name || 'Colchis Creamery'} — ${product.productCategory.name}`
+      ? `${product.productLine?.name || 'Colchis Food'} — ${product.productCategory.name}`
       : product.productLine?.name || "Authentic Georgian A2 Dairy",
     additionalProperty: [
       {
@@ -87,15 +87,15 @@ export async function JsonLdProduct({ product, url, productId }: JsonLdProductPr
       itemCondition: "https://schema.org/NewCondition",
       seller: {
         "@type": "Organization",
-        name: "Colchis Creamery",
-        url: "https://colchiscreamery.com",
+        name: "Colchis Food",
+        url: "https://colchisfood.com",
       },
     },
     // Additional structured data for richer search results
     manufacturer: {
       "@type": "Organization",
-      name: "Colchis Creamery",
-      url: "https://colchiscreamery.com",
+      name: "Colchis Food",
+      url: "https://colchisfood.com",
       address: {
         "@type": "PostalAddress",
         addressLocality: "Columbus",
@@ -132,7 +132,7 @@ export async function JsonLdProduct({ product, url, productId }: JsonLdProductPr
       datePublished: r.date,
       publisher: {
         "@type": "Organization",
-        name: "Colchis Creamery",
+        name: "Colchis Food",
       },
     }));
   }

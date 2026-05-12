@@ -52,7 +52,7 @@ function Toggle({ value, onChange, size = 'md' }: { value: boolean; onChange: (v
     const on = size === 'sm' ? 'left-[15px]' : 'left-[22px]';
     return (
         <button type="button" onClick={() => onChange(!value)}
-            className={`relative ${w} rounded-full transition-colors ${value ? 'bg-[#CBA153]' : 'bg-white/10'}`}>
+            className={`relative ${w} rounded-full transition-colors ${value ? 'bg-[#B96A3D]' : 'bg-white/10'}`}>
             <span className={`absolute top-0.5 ${dot} bg-white rounded-full shadow transition-transform ${value ? on : 'left-0.5'}`} />
         </button>
     );
@@ -61,10 +61,10 @@ function Toggle({ value, onChange, size = 'md' }: { value: boolean; onChange: (v
 // ─── Alignment Picker Component ──────────────────────────────────────────────
 function AlignPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
     return (
-        <div className="flex bg-[#0D0D0D] rounded-md border border-white/10 overflow-hidden">
+        <div className="flex bg-[#0C0C0C] border border-[#B96A3D22] overflow-hidden">
             {[{ v: 'left', Icon: AlignLeft }, { v: 'center', Icon: AlignCenter }, { v: 'right', Icon: AlignRight }].map(a => (
                 <button key={a.v} type="button" onClick={() => onChange(a.v)}
-                    className={`px-2 py-1 transition-colors ${value === a.v ? 'bg-[#CBA153] text-black' : 'text-gray-500 hover:text-white'}`}>
+                    className={`px-2 py-1 transition-colors ${value === a.v ? 'bg-[#B96A3D] text-black' : 'text-gray-500 hover:text-white'}`}>
                     <a.Icon className="w-3 h-3" />
                 </button>
             ))}
@@ -208,24 +208,24 @@ export default function HeroMediaEditor({ configs }: HeroMediaEditorProps) {
         finally { setSaving(false); }
     }, [title, subtitle, shopCta, wholesaleCta, badgeText, heroImages, videoUrl, showBadge, showTitle, showSubtitle, showBtnPrimary, showBtnSecondary, textSize, posX, posY, badgeAlign, titleAlign, subtitleAlign, btnAlign, overlayEnabled, overlayOpacity, overlayColor, gradientEnabled, gradientOpacity, carouselInterval, carouselTransition, carouselTransitionDuration]);
 
-    const inp = "w-full bg-[#0D0D0D] border border-white/10 text-white py-2.5 px-3 rounded-lg focus:outline-none focus:border-[#CBA153] placeholder-gray-600 text-sm";
+    const inp = "w-full bg-[#0C0C0C] border border-[#B96A3D22] text-white py-2.5 px-3 focus:outline-none focus:border-[#B96A3D] placeholder-gray-600 text-sm";
 
     return (
-        <div className="bg-[#1A1A1A] rounded-xl border border-white/5 overflow-hidden">
+        <div className="bg-[#161616] border border-[#ffffff0A] overflow-hidden">
             {/* Header */}
-            <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between flex-wrap gap-2">
+            <div className="px-6 py-4 border-b border-[#ffffff0A] flex items-center justify-between flex-wrap gap-2">
                 <div className="flex items-center gap-3">
-                    <Globe className="w-5 h-5 text-[#CBA153]" />
+                    <Globe className="w-5 h-5 text-[#B96A3D]" />
                     <h2 className="text-white font-bold">Hero Section</h2>
                 </div>
                 <div className="flex items-center gap-2">
                     {saved && <span className="text-xs text-emerald-400 animate-fade-in">✓ Saved</span>}
                     <button type="button" onClick={() => setShowReset(true)}
-                        className="flex items-center gap-1.5 px-3 py-2 text-[10px] text-gray-400 hover:text-white border border-white/10 rounded-lg hover:bg-white/5 transition-all uppercase tracking-wider font-bold">
+                        className="flex items-center gap-1.5 px-3 py-2 text-[10px] text-gray-400 hover:text-white border border-[#B96A3D22] hover:bg-[#ffffff08] transition-all uppercase tracking-wider font-bold">
                         <RotateCcw className="w-3 h-3" /> Reset
                     </button>
                     <button onClick={handleSave} disabled={saving}
-                        className="flex items-center gap-2 bg-[#CBA153] text-black px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-white transition-all disabled:opacity-50">
+                        className="flex items-center gap-2 bg-[#B96A3D] text-black px-4 py-2 text-xs font-bold uppercase tracking-wider hover:bg-white transition-all disabled:opacity-50">
                         {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} Save
                     </button>
                 </div>
@@ -237,9 +237,9 @@ export default function HeroMediaEditor({ configs }: HeroMediaEditorProps) {
                     <p className="text-xs text-red-300">Reset all hero settings to defaults? Images will be kept.</p>
                     <div className="flex gap-2">
                         <button type="button" onClick={() => setShowReset(false)}
-                            className="px-3 py-1.5 text-[10px] text-gray-400 border border-white/10 rounded-lg hover:bg-white/5 transition">Cancel</button>
+                            className="px-3 py-1.5 text-[10px] text-gray-400 border border-[#B96A3D22] hover:bg-[#ffffff08] transition">Cancel</button>
                         <button type="button" onClick={resetToDefaults}
-                            className="px-3 py-1.5 text-[10px] text-white bg-red-600 rounded-lg hover:bg-red-500 transition font-bold">Reset to Defaults</button>
+                            className="px-3 py-1.5 text-[10px] text-white bg-red-600 hover:bg-red-500 transition font-bold">Reset to Defaults</button>
                     </div>
                 </div>
             )}
@@ -251,7 +251,7 @@ export default function HeroMediaEditor({ configs }: HeroMediaEditorProps) {
                 ═══════════════════════════════════════════════════════════════ */}
                 <div>
                     <h3 className="text-sm font-bold text-white mb-3 flex items-center gap-2">
-                        <Type className="w-4 h-4 text-[#CBA153]" />
+                        <Type className="w-4 h-4 text-[#B96A3D]" />
                         Visual Layout Editor
                     </h3>
                     <p className="text-[10px] text-gray-600 mb-4">Click on the preview to position content. What you see here is exactly what visitors see.</p>
@@ -288,14 +288,14 @@ export default function HeroMediaEditor({ configs }: HeroMediaEditorProps) {
                         {/* Position controls */}
                         <div>
                             <label className="block text-[10px] font-bold text-gray-500 mb-2 uppercase tracking-wider">Snap To</label>
-                            <div className="grid grid-cols-3 gap-1 bg-[#0D0D0D] rounded-lg p-2 border border-white/10">
+                            <div className="grid grid-cols-3 gap-1 bg-[#0C0C0C] p-2 border border-[#B96A3D22]">
                                 {GRID_PRESETS.map(p => {
                                     const isActive = Math.abs(posX - p.x) < 8 && Math.abs(posY - p.y) < 8;
                                     return (
                                         <button key={p.id} type="button" onClick={() => { setPosX(p.x); setPosY(p.y); }}
-                                            className={`aspect-square rounded-md text-[10px] font-bold transition-all flex items-center justify-center ${isActive
-                                                ? 'bg-[#CBA153] text-black shadow-lg shadow-[#CBA153]/20'
-                                                : 'bg-white/5 text-gray-500 hover:bg-white/10 hover:text-white'
+                                            className={`aspect-square text-[10px] font-bold transition-all flex items-center justify-center ${isActive
+                                                ? 'bg-[#B96A3D] text-black shadow-[#B96A3D]/20'
+                                                : 'bg-[#ffffff08] text-gray-500 hover:bg-white/10 hover:text-white'
                                             }`}>
                                             {p.label}
                                         </button>
@@ -304,15 +304,15 @@ export default function HeroMediaEditor({ configs }: HeroMediaEditorProps) {
                             </div>
                             <label className="block text-[10px] font-bold text-gray-500 mb-1 mt-3 uppercase tracking-wider">X: {posX}%</label>
                             <input type="range" min="5" max="95" value={posX} onChange={e => setPosX(parseInt(e.target.value))}
-                                className="w-full h-1 bg-white/10 rounded-full appearance-none cursor-pointer accent-[#CBA153]" />
+                                className="w-full h-1 bg-white/10 rounded-full appearance-none cursor-pointer accent-[#B96A3D]" />
                             <label className="block text-[10px] font-bold text-gray-500 mb-1 mt-2 uppercase tracking-wider">Y: {posY}%</label>
                             <input type="range" min="8" max="92" value={posY} onChange={e => setPosY(parseInt(e.target.value))}
-                                className="w-full h-1 bg-white/10 rounded-full appearance-none cursor-pointer accent-[#CBA153]" />
+                                className="w-full h-1 bg-white/10 rounded-full appearance-none cursor-pointer accent-[#B96A3D]" />
                             <label className="block text-[10px] font-bold text-gray-500 mb-2 mt-3 uppercase tracking-wider">Size</label>
-                            <div className="flex bg-[#0D0D0D] rounded-lg border border-white/10 overflow-hidden">
+                            <div className="flex bg-[#0C0C0C] border border-[#B96A3D22] overflow-hidden">
                                 {[{ v: 'sm', l: 'S' }, { v: 'md', l: 'M' }, { v: 'lg', l: 'L' }, { v: 'xl', l: 'XL' }].map(s => (
                                     <button key={s.v} type="button" onClick={() => setTextSize(s.v)}
-                                        className={`flex-1 py-1.5 text-[10px] font-bold uppercase tracking-wider transition-colors ${textSize === s.v ? 'bg-[#CBA153] text-black' : 'text-gray-400 hover:text-white'}`}>
+                                        className={`flex-1 py-1.5 text-[10px] font-bold uppercase tracking-wider transition-colors ${textSize === s.v ? 'bg-[#B96A3D] text-black' : 'text-gray-400 hover:text-white'}`}>
                                         {s.l}
                                     </button>
                                 ))}
@@ -324,7 +324,7 @@ export default function HeroMediaEditor({ configs }: HeroMediaEditorProps) {
                 {/* ═══════════════════════════════════════════════════════════════
                     ELEMENT CONTROLS — each independently toggleable & alignable
                 ═══════════════════════════════════════════════════════════════ */}
-                <div className="border-t border-white/5 pt-5 space-y-2">
+                <div className="border-t border-[#ffffff0A] pt-5 space-y-2">
                     <h3 className="text-sm font-bold text-white mb-3">Element Controls</h3>
 
                     {/* Badge */}
@@ -357,9 +357,9 @@ export default function HeroMediaEditor({ configs }: HeroMediaEditorProps) {
                 {/* ═══════════════════════════════════════════════════════════════
                     IMAGES
                 ═══════════════════════════════════════════════════════════════ */}
-                <div className="border-t border-white/5 pt-5">
+                <div className="border-t border-[#ffffff0A] pt-5">
                     <h3 className="text-sm font-bold text-white mb-3 flex items-center gap-2">
-                        <ImageIcon className="w-4 h-4 text-[#CBA153]" />
+                        <ImageIcon className="w-4 h-4 text-[#B96A3D]" />
                         Background Images
                     </h3>
                     <p className="text-[10px] text-gray-600 mb-3">Upload wide landscape images. Cropped to 16:9 ratio. Auto-optimized to WebP.</p>
@@ -369,15 +369,15 @@ export default function HeroMediaEditor({ configs }: HeroMediaEditorProps) {
                 {/* ═══════════════════════════════════════════════════════════════
                     OVERLAY & GRADIENT
                 ═══════════════════════════════════════════════════════════════ */}
-                <div className="border-t border-white/5 pt-5">
+                <div className="border-t border-[#ffffff0A] pt-5">
                     <h3 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
-                        <Eye className="w-4 h-4 text-[#CBA153]" />
+                        <Eye className="w-4 h-4 text-[#B96A3D]" />
                         Image Effects
                     </h3>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {/* Overlay */}
-                        <div className="bg-[#0D0D0D] rounded-lg border border-white/10 p-4 space-y-3">
+                        <div className="bg-[#0C0C0C] border border-[#B96A3D22] p-4 space-y-3">
                             <div className="flex items-center justify-between">
                                 <span className="text-xs text-gray-300 font-bold">Color Overlay</span>
                                 <Toggle value={overlayEnabled} onChange={setOverlayEnabled} />
@@ -387,13 +387,13 @@ export default function HeroMediaEditor({ configs }: HeroMediaEditorProps) {
                                     <div>
                                         <label className="block text-[9px] text-gray-500 mb-1">Opacity — {overlayOpacity}%</label>
                                         <input type="range" min="0" max="90" step="5" value={overlayOpacity} onChange={e => setOverlayOpacity(parseInt(e.target.value))}
-                                            className="w-full h-1 bg-white/10 rounded-full appearance-none cursor-pointer accent-[#CBA153]" />
+                                            className="w-full h-1 bg-white/10 rounded-full appearance-none cursor-pointer accent-[#B96A3D]" />
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <input type="color" value={overlayColor} onChange={e => setOverlayColor(e.target.value)} className="w-8 h-8 rounded border border-white/10 cursor-pointer bg-transparent" />
+                                        <input type="color" value={overlayColor} onChange={e => setOverlayColor(e.target.value)} className="w-8 h-8 rounded border border-[#B96A3D22] cursor-pointer bg-transparent" />
                                         {['#FDFBF7', '#000000', '#2C2A29', '#FFFFFF'].map(c => (
                                             <button key={c} type="button" onClick={() => setOverlayColor(c)}
-                                                className={`w-6 h-6 rounded border-2 transition-all ${overlayColor === c ? 'border-[#CBA153] scale-110' : 'border-white/10'}`}
+                                                className={`w-6 h-6 rounded border-2 transition-all ${overlayColor === c ? 'border-[#B96A3D] scale-110' : 'border-[#B96A3D22]'}`}
                                                 style={{ backgroundColor: c }} />
                                         ))}
                                         <span className="text-[9px] text-gray-600 font-mono ml-1">{overlayColor}</span>
@@ -403,7 +403,7 @@ export default function HeroMediaEditor({ configs }: HeroMediaEditorProps) {
                         </div>
 
                         {/* Gradient */}
-                        <div className="bg-[#0D0D0D] rounded-lg border border-white/10 p-4 space-y-3">
+                        <div className="bg-[#0C0C0C] border border-[#B96A3D22] p-4 space-y-3">
                             <div className="flex items-center justify-between">
                                 <span className="text-xs text-gray-300 font-bold">Bottom Gradient</span>
                                 <Toggle value={gradientEnabled} onChange={setGradientEnabled} />
@@ -412,7 +412,7 @@ export default function HeroMediaEditor({ configs }: HeroMediaEditorProps) {
                                 <div>
                                     <label className="block text-[9px] text-gray-500 mb-1">Strength — {gradientOpacity}%</label>
                                     <input type="range" min="10" max="100" step="5" value={gradientOpacity} onChange={e => setGradientOpacity(parseInt(e.target.value))}
-                                        className="w-full h-1 bg-white/10 rounded-full appearance-none cursor-pointer accent-[#CBA153]" />
+                                        className="w-full h-1 bg-white/10 rounded-full appearance-none cursor-pointer accent-[#B96A3D]" />
                                     <div className="flex justify-between text-[8px] text-gray-600 mt-1"><span>Subtle</span><span>Strong</span></div>
                                 </div>
                             )}
@@ -423,9 +423,9 @@ export default function HeroMediaEditor({ configs }: HeroMediaEditorProps) {
                 {/* ═══════════════════════════════════════════════════════════════
                     CAROUSEL
                 ═══════════════════════════════════════════════════════════════ */}
-                <div className="border-t border-white/5 pt-5">
+                <div className="border-t border-[#ffffff0A] pt-5">
                     <h3 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
-                        <Sparkles className="w-4 h-4 text-[#CBA153]" />
+                        <Sparkles className="w-4 h-4 text-[#B96A3D]" />
                         Carousel Settings
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -434,12 +434,12 @@ export default function HeroMediaEditor({ configs }: HeroMediaEditorProps) {
                                 <Timer className="w-3 h-3" /> Duration — {carouselInterval}s
                             </label>
                             <input type="range" min="3" max="15" step="1" value={carouselInterval} onChange={e => setCarouselInterval(parseInt(e.target.value))}
-                                className="w-full h-1 bg-white/10 rounded-full appearance-none cursor-pointer accent-[#CBA153]" />
+                                className="w-full h-1 bg-white/10 rounded-full appearance-none cursor-pointer accent-[#B96A3D]" />
                         </div>
                         <div>
                             <label className="block text-[10px] font-bold text-gray-500 mb-1.5 uppercase tracking-wider">Effect</label>
                             <select value={carouselTransition} onChange={e => setCarouselTransition(e.target.value)}
-                                className="w-full bg-[#0D0D0D] border border-white/10 text-white py-2 px-3 rounded-lg text-xs focus:outline-none focus:border-[#CBA153]">
+                                className="w-full bg-[#0C0C0C] border border-[#B96A3D22] text-white py-2 px-3 text-xs focus:outline-none focus:border-[#B96A3D]">
                                 <option value="fade">Crossfade</option>
                                 <option value="slide">Slide</option>
                                 <option value="zoom">Ken Burns</option>
@@ -448,7 +448,7 @@ export default function HeroMediaEditor({ configs }: HeroMediaEditorProps) {
                         <div>
                             <label className="block text-[10px] font-bold text-gray-500 mb-1.5 uppercase tracking-wider">Speed — {carouselTransitionDuration}ms</label>
                             <input type="range" min="500" max="3000" step="100" value={carouselTransitionDuration} onChange={e => setCarouselTransitionDuration(parseInt(e.target.value))}
-                                className="w-full h-1 bg-white/10 rounded-full appearance-none cursor-pointer accent-[#CBA153]" />
+                                className="w-full h-1 bg-white/10 rounded-full appearance-none cursor-pointer accent-[#B96A3D]" />
                         </div>
                     </div>
                 </div>
@@ -456,9 +456,9 @@ export default function HeroMediaEditor({ configs }: HeroMediaEditorProps) {
                 {/* ═══════════════════════════════════════════════════════════════
                     VIDEO OVERRIDE
                 ═══════════════════════════════════════════════════════════════ */}
-                <div className="border-t border-white/5 pt-5">
+                <div className="border-t border-[#ffffff0A] pt-5">
                     <h3 className="text-sm font-bold text-white mb-3 flex items-center gap-2">
-                        <Film className="w-4 h-4 text-[#CBA153]" />
+                        <Film className="w-4 h-4 text-[#B96A3D]" />
                         Background Video
                     </h3>
                     <p className="text-[10px] text-gray-600 mb-2">Optional. Overrides image carousel if set.</p>
@@ -481,7 +481,7 @@ function ElementCard({
     children: React.ReactNode;
 }) {
     return (
-        <div className={`rounded-lg border transition-all ${show ? 'border-white/10 bg-[#0D0D0D]' : 'border-white/5 bg-[#0D0D0D]/40'}`}>
+        <div className={`rounded-lg border transition-all ${show ? 'border-[#B96A3D22] bg-[#0C0C0C]' : 'border-[#ffffff0A] bg-[#0C0C0C]/40'}`}>
             <div className="flex items-center gap-3 px-4 py-2.5">
                 <Toggle value={show} onChange={onToggle} size="sm" />
                 <span className={`text-xs font-bold flex-1 transition-colors ${show ? 'text-gray-200' : 'text-gray-600'}`}>{label}</span>

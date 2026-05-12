@@ -14,8 +14,9 @@
   },
   "nav": {
     "home": "Home",
-    "heritage": "Our Heritage",
-    "shop": "Shop",
+    "heritage": "Heritage",
+    "shop": "Creamery",
+    "bakery": "Bakery",
     "recipes": "Recipes & Pairings",
     "wholesale": "Wholesale",
     "journal": "Journal",
@@ -26,29 +27,29 @@
     "register": "Create Account"
   },
   "home": {
-    "heroTitle": "Ancient Heritage, Fresh Taste",
-    "heroSubtitle": "Authentic Georgian artisanal cheese, handcrafted in Ohio with premium local milk",
-    "shopCta": "Shop Artisanal Cheese",
-    "wholesaleCta": "Wholesale Partners",
+    "heroTitle": "Bread, cheese, and a country you should know.",
+    "heroSubtitle": "Two thousand years of recipes, hand-pressed and hand-baked in Dublin, Ohio.",
+    "shopCta": "Shop the Creamery →",
+    "wholesaleCta": "Read our story",
     "trustFda": "FDA Compliant",
-    "trustOhio": "Crafted in Ohio",
+    "trustOhio": "Dublin, Ohio",
     "trustNatural": "100% Natural",
-    "featuredTitle": "Our Artisanal Collection",
-    "featuredSubtitle": "Each cheese is handcrafted using centuries-old Georgian techniques",
-    "heritageTitle": "A Tradition Spanning Millennia",
-    "heritageText": "From the ancient land of Colchis to the heartland of Ohio, we bring you authentic Georgian cheese crafted with passion and heritage.",
-    "heritageCta": "Discover Our Story"
+    "featuredTitle": "What's made today.",
+    "featuredSubtitle": "Hand-pressed cheese and hot khachapuri, fresh every day",
+    "heritageTitle": "A country at the edge of the known world.",
+    "heritageText": "Two thousand years ago, Colchis was the kingdom Greek sailors called the edge of the known world. We make those foods, here, with Ohio milk and our grandmothers' recipes.",
+    "heritageCta": "Read our heritage →"
   },
   "heritage": {
     "title": "Our Heritage",
-    "subtitle": "The Story of Colchis Creamery",
+    "subtitle": "Ancient Heritage, Fresh Every Day",
     "intro": "In the ancient land of Colchis, where the Golden Fleece was sought, a tradition of cheesemaking has flourished for millennia. We bring that tradition to Ohio.",
     "traditionTitle": "Georgian Cheesemaking Tradition",
     "traditionText": "Georgia is one of the oldest cheesemaking regions in the world. For over 8,000 years, Georgian cheesemakers have perfected the art of crafting unique cheeses that are unlike anything found elsewhere.",
     "ohioTitle": "Crafted in Ohio",
     "ohioText": "We source the finest local milk from Ohio's premium dairy farms, combining ancient Georgian techniques with modern food safety standards to create cheese that honors tradition while meeting the highest quality benchmarks.",
     "processTitle": "Our Process",
-    "processText": "Every batch of Colchis Creamery cheese is handcrafted in small quantities, ensuring meticulous attention to detail. From stretching and brining to aging — each step follows time-honored methods."
+    "processText": "Every batch of Colchis Food cheese is handcrafted in small quantities, ensuring meticulous attention to detail. From stretching and brining to aging — each step follows time-honored methods."
   },
   "shop": {
     "title": "Our A2 Dairy Collection",
@@ -107,7 +108,7 @@
   "wholesale": {
     "title": "Wholesale Partnership",
     "subtitle": "Bring authentic Georgian cheese to your customers",
-    "heroText": "Partner with Colchis Creamery for premium artisanal cheese distribution across the Midwest and beyond.",
+    "heroText": "Stock the only Georgian cheese made in the Midwest. Cold-chain delivery within a 10-hour drive radius.",
     "benefitsTitle": "Why Partner With Us",
     "benefit1Title": "Premium Quality",
     "benefit1Text": "Handcrafted artisanal cheese made with the finest Ohio dairy",
@@ -150,12 +151,12 @@
     "returns": "Return Policy"
   },
   "footer": {
-    "tagline": "Ancient Heritage, Fresh Taste",
-    "description": "Authentic Georgian artisanal cheese, handcrafted in Ohio with premium local milk.",
-    "quickLinks": "Quick Links",
-    "support": "Support",
-    "connect": "Connect",
-    "copyright": "© {year} Colchis Creamery. All rights reserved.",
-    "madeIn": "Handcrafted with love in Ohio, USA"
+    "tagline": "Ancient heritage, fresh every day.",
+    "description": "Georgian cheese & bread, hand-pressed and hand-baked in Dublin, Ohio.",
+    "quickLinks": "The Creamery",
+    "support": "The Bakery",
+    "connect": "Company",
+    "copyright": "© {year} Colchis Food LLC · Dublin OH",
+    "madeIn": "Made by hand, since 2026"
   }
 }

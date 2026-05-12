@@ -1,192 +1,201 @@
-import { getTranslations } from "next-intl/server";
-import Link from "next/link";
-import { prisma } from "@/lib/db";
-import Image from "next/image";
+"use client";
+
+import { DeliverySelector } from "./DeliverySelector";
 import HeroCarousel from "./HeroCarousel";
+import Link from "next/link";
+
+// Default content — used when no DB content exists
+const DEFAULTS = {
+  eyebrow: '№ 01 — From Colchis, est. MMXXVI',
+  headline: 'Bread,\ncheese,\nand a country\nyou should know.',
+  headline_accent: 'and a country',
+  subheadline: 'Two thousand years of recipes, hand-pressed and hand-baked in Dublin, Ohio. Hot khachapuri to your door tonight, or aged sulguni shipped to all fifty states.',
+  cta_primary: 'Shop the Creamery →',
+  cta_primary_link: '/shop',
+  cta_secondary: 'Read our story',
+  cta_secondary_link: '/heritage',
+  badge_label: 'HOT NOW',
+  badge_value: '25 min',
+  badge_location: 'DUBLIN OH',
+};
+
+const TICKER_DEFAULTS = {
+  items: [
+    '◐ The Bakery — open until 9 PM',
+    '▸ Free UPS over $75',
+    '● Made in Dublin, Ohio',
+    '★ 4.9 / 312 reviews',
+  ],
+};
+
+interface HeroMedia {
+  images: string[];
+  videoUrl: string;
+  carouselInterval: number;
+  carouselTransition: 'fade' | 'slide' | 'zoom';
+  carouselTransitionDuration: number;
+  overlayEnabled: boolean;
+  overlayOpacity: number;
+  overlayColor: string;
+  gradientEnabled: boolean;
+  gradientOpacity: number;
+}
 
 interface HeroSectionProps {
   locale: string;
+  content?: typeof DEFAULTS | null;
+  ticker?: typeof TICKER_DEFAULTS | null;
+  heroMedia?: HeroMedia | null;
 }
 
-export async function HeroSection({ locale }: HeroSectionProps) {
-  const t = await getTranslations({ locale, namespace: "home" });
+export function HeroSection({ locale, content, ticker, heroMedia }: HeroSectionProps) {
   const prefix = locale === "en" ? "" : `/${locale}`;
+  const d = content || DEFAULTS;
+  const t = ticker || TICKER_DEFAULTS;
+  const media = heroMedia || null;
 
-  // Fetch all hero config from database
-  let configs: { key: string; value: string }[] = [];
-  try {
-    configs = await prisma.siteConfig.findMany({
-      where: { key: { startsWith: 'hero.' } }
+  const hasImages = media && media.images.length > 0;
+  const hasVideo = media && media.videoUrl && media.videoUrl.trim().length > 0;
+
+  // Build headline with accent highlighting
+  const renderHeadline = () => {
+    const lines = d.headline.split('\n');
+    return lines.map((line: string, i: number) => {
+      const isAccent = d.headline_accent && line.includes(d.headline_accent);
+      return (
+        <span key={i}>
+          {isAccent ? (
+            <>
+              {line.replace(d.headline_accent, '')}
+              <em style={{ color: "#8B4A28", fontWeight: 300 }}>{d.headline_accent}</em>
+            </>
+          ) : line}
+          {i < lines.length - 1 && <br />}
+        </span>
+      );
     });
-  } catch (err) {
-    console.error('[HeroSection] DB unreachable, using translation defaults');
-  }
-
-  const g = (key: string, fallback: string) =>
-    configs.find(c => c.key === key)?.value || fallback;
-
-  // ─── Text ───────────────────────────────────────────────────────────────
-  const heroTitle = g('hero.title', '');
-  const heroSubtitle = g('hero.subtitle', '');
-  const shopCta = g('hero.shopCta', '');
-  const wholesaleCta = g('hero.wholesaleCta', '');
-  const badgeText = g('hero.badgeText', 'Premium Artisanal Dairy');
-  const videoUrl = g('hero.videoUrl', '');
-
-  // ─── Visibility ─────────────────────────────────────────────────────────
-  const showBadge = g('hero.showBadge', 'true') === 'true';
-  const showTitle = g('hero.showTitle', 'true') === 'true';
-  const showSubtitle = g('hero.showSubtitle', 'true') === 'true';
-  const showBtnPrimary = g('hero.showBtnPrimary', 'true') === 'true';
-  const showBtnSecondary = g('hero.showBtnSecondary', 'true') === 'true';
-
-  // ─── Layout ──────────────────────────────────────────────────────────────
-  const textSize = g('hero.textSize', 'lg');
-  const posX = parseInt(g('hero.posX', '50'));
-  const posY = parseInt(g('hero.posY', '50'));
-  const badgeAlign = g('hero.badgeAlign', 'center');
-  const titleAlign = g('hero.titleAlign', 'center');
-  const subtitleAlign = g('hero.subtitleAlign', 'center');
-  const btnAlign = g('hero.btnAlign', 'center');
-
-  // ─── Overlay ────────────────────────────────────────────────────────────
-  const overlayEnabled = g('hero.overlayEnabled', 'true') === 'true';
-  const overlayOpacity = parseInt(g('hero.overlayOpacity', '50'));
-  const overlayColor = g('hero.overlayColor', '#FDFBF7');
-
-  // ─── Gradient ───────────────────────────────────────────────────────────
-  const gradientEnabled = g('hero.gradientEnabled', 'true') === 'true';
-  const gradientOpacity = parseInt(g('hero.gradientOpacity', '90'));
-
-  // ─── Carousel ───────────────────────────────────────────────────────────
-  const carouselInterval = parseInt(g('hero.carouselInterval', '6')) * 1000;
-  const carouselTransition = g('hero.carouselTransition', 'fade') as 'fade' | 'slide' | 'zoom';
-  const carouselTransitionDuration = parseInt(g('hero.carouselTransitionDuration', '1500'));
-
-  // ─── Images ─────────────────────────────────────────────────────────────
-  const singleImage = g('hero.imageUrl', '');
-  const imagesRaw = g('hero.images', '');
-  let heroImages: string[] = [];
-  if (imagesRaw) heroImages = imagesRaw.split(',').map(u => u.trim()).filter(Boolean);
-  if (heroImages.length === 0 && singleImage) heroImages = [singleImage];
-  if (heroImages.length === 0) heroImages = ['https://u1on4xcfmtn0uyz6.public.blob.vercel-storage.com/products/1776099898316-seo1.webp'];
-
-  // ─── Title parsing ──────────────────────────────────────────────────────
-  const titleLine1 = heroTitle ? heroTitle.split(',')[0] || heroTitle : 'Ancient Heritage,';
-  const titleLine2 = heroTitle ? heroTitle.split(',').slice(1).join(',').trim() || '' : 'Fresh Taste';
-
-  // ─── Dynamic classes ────────────────────────────────────────────────────
-  const titleSizes: Record<string, string> = {
-    sm: 'text-3xl md:text-5xl', md: 'text-4xl md:text-6xl',
-    lg: 'text-5xl md:text-8xl', xl: 'text-6xl md:text-9xl',
-  };
-  const subtitleSizes: Record<string, string> = {
-    sm: 'text-sm md:text-base', md: 'text-base md:text-lg',
-    lg: 'text-lg md:text-xl', xl: 'text-xl md:text-2xl',
   };
 
-  // Smart transform: keeps content on-screen at edges
-  const tx = posX < 25 ? '0%' : posX > 75 ? '-100%' : '-50%';
-  const ty = posY < 25 ? '0%' : posY > 75 ? '-100%' : '-50%';
+  // Render media area (images, video, or placeholder)
+  const renderMedia = () => {
+    if (hasVideo) {
+      return (
+        <div style={{ width: "100%", aspectRatio: "4/3", position: "relative", overflow: "hidden", border: "1px solid rgba(245,240,230,0.14)" }}>
+          <video
+            src={media!.videoUrl}
+            autoPlay
+            muted
+            loop
+            playsInline
+            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+          />
+          {media!.overlayEnabled && (
+            <div style={{
+              position: "absolute", inset: 0,
+              backgroundColor: media!.overlayColor,
+              opacity: media!.overlayOpacity / 100,
+              pointerEvents: "none",
+            }} />
+          )}
+          {media!.gradientEnabled && (
+            <div style={{
+              position: "absolute", inset: 0,
+              background: `linear-gradient(to top, #1F3026 0%, transparent 50%)`,
+              opacity: media!.gradientOpacity / 100,
+              pointerEvents: "none",
+            }} />
+          )}
+        </div>
+      );
+    }
 
-  const textAlignClass = (a: string) => a === 'left' ? 'text-left' : a === 'right' ? 'text-right' : 'text-center';
-  const btnJustifyClass = (a: string) => a === 'left' ? 'justify-start' : a === 'right' ? 'justify-end' : 'justify-center';
+    if (hasImages) {
+      return (
+        <div style={{ width: "100%", aspectRatio: "4/3", position: "relative", overflow: "hidden", border: "1px solid rgba(245,240,230,0.14)" }}>
+          <HeroCarousel
+            images={media!.images}
+            interval={media!.carouselInterval}
+            transition={media!.carouselTransition}
+            transitionDuration={media!.carouselTransitionDuration}
+          />
+          {media!.overlayEnabled && (
+            <div style={{
+              position: "absolute", inset: 0,
+              backgroundColor: media!.overlayColor,
+              opacity: media!.overlayOpacity / 100,
+              pointerEvents: "none",
+              zIndex: 5,
+            }} />
+          )}
+          {media!.gradientEnabled && (
+            <div style={{
+              position: "absolute", inset: 0,
+              background: `linear-gradient(to top, #1F3026 0%, transparent 50%)`,
+              opacity: media!.gradientOpacity / 100,
+              pointerEvents: "none",
+              zIndex: 5,
+            }} />
+          )}
+        </div>
+      );
+    }
 
-  const hasAnyContent = showBadge || showTitle || showSubtitle || showBtnPrimary || showBtnSecondary;
+    // Placeholder fallback
+    return (
+      <div style={{ width: "100%", aspectRatio: "4/3", background: `repeating-linear-gradient(45deg, #2C3D33, #2C3D33 1px, #1F3026 1px, #1F3026 8px)`, border: "1px solid rgba(245,240,230,0.14)", position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.28em", color: "#F5F0E6", opacity: 0.5, textTransform: "uppercase", textAlign: "center" }}>
+          [ Hero photo ]<br /><span style={{ opacity: 0.7 }}>Adjaruli khachapuri, still steaming</span>
+        </div>
+      </div>
+    );
+  };
 
   return (
-    <section className="relative h-screen overflow-hidden bg-[#FDFBF7]">
-      {/* Background Media */}
-      <div className="absolute inset-0 z-0">
-        {overlayEnabled && (
-          <div className="absolute inset-0 z-[5]"
-            style={{ backgroundColor: overlayColor, opacity: overlayOpacity / 100 }} />
-        )}
-        {gradientEnabled && (
-          <div className="absolute inset-0 z-10"
-            style={{
-              background: `linear-gradient(to bottom, transparent 30%, ${overlayEnabled ? overlayColor : '#FDFBF7'} 100%)`,
-              opacity: gradientOpacity / 100,
-            }} />
-        )}
+    <section style={{ background: "#1F3026", color: "#F5F0E6", position: "relative", overflow: "hidden" }}>
+      <div style={{ position: "absolute", inset: 0, backgroundImage: `linear-gradient(#F5F0E606 1px, transparent 1px), linear-gradient(90deg, #F5F0E606 1px, transparent 1px)`, backgroundSize: "80px 80px", pointerEvents: "none" }} />
 
-        {videoUrl ? (
-          <video autoPlay muted loop playsInline className="w-full h-full object-cover">
-            <source src={videoUrl} type="video/mp4" />
-          </video>
-        ) : heroImages.length > 1 ? (
-          <HeroCarousel images={heroImages} interval={carouselInterval} transition={carouselTransition} transitionDuration={carouselTransitionDuration} />
-        ) : (
-          <Image
-            src={heroImages[0]}
-            alt="Colchis Heritage Landscapes"
-            fill
-            priority
-            sizes="100vw"
-            className="object-cover"
-          />
-        )}
-      </div>
+      <div className="ch-hero-grid" style={{ maxWidth: 1440, margin: "0 auto", padding: "120px 56px 100px", display: "grid", gridTemplateColumns: "1.1fr 1fr", gap: 72, position: "relative" }}>
+        <div>
+          <div className="ch-hero-eyebrow" style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.32em", color: "#8B4A28", textTransform: "uppercase", marginBottom: 28 }}>
+            {d.eyebrow}
+          </div>
 
-      {/* Content — positioned with percentage coordinates */}
-      {hasAnyContent && (
-        <div
-          className="absolute z-20 max-w-4xl w-full px-6"
-          style={{
-            left: `${posX}%`,
-            top: `${posY}%`,
-            transform: `translate(${tx}, ${ty})`,
-          }}
-        >
-          <div className="flex flex-col relative">
-            {/* Invisible vignette for text legibility — no visible box */}
-            <div className="absolute -inset-12 -z-10 pointer-events-none" style={{ background: 'radial-gradient(ellipse at center, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.15) 50%, transparent 80%)' }} />
+          <h1 className="ch-hero-h1" style={{ fontFamily: "var(--font-serif)", fontWeight: 300, fontSize: 128, lineHeight: 0.9, letterSpacing: "-0.03em", color: "#F5F0E6", margin: 0 }}>
+            {renderHeadline()}
+          </h1>
 
-            {showBadge && (
-              <div className={`flex w-full ${btnJustifyClass(badgeAlign)} mb-8`}>
-                <div className="inline-block px-5 py-2 bg-white/10 border border-white/40 rounded-full text-white text-xs font-bold tracking-[0.2em] uppercase animate-fade-in backdrop-blur-sm" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.5)' }}>
-                  {badgeText}
-                </div>
-              </div>
-            )}
+          <p className="ch-hero-lead" style={{ marginTop: 36, fontFamily: "var(--font-serif)", fontSize: 20, lineHeight: 1.55, color: "#F5F0E6", opacity: 0.78, maxWidth: 540, fontStyle: "italic" }}>
+            {d.subheadline}
+          </p>
 
-            {showTitle && (
-              <h1
-                className={`w-full ${titleSizes[textSize] || titleSizes.lg} font-serif mb-8 text-white leading-tight tracking-tight ${textAlignClass(titleAlign)}`}
-                style={{ textShadow: '0 2px 16px rgba(0,0,0,0.6), 0 4px 32px rgba(0,0,0,0.3), 0 0 60px rgba(0,0,0,0.15)' }}
-              >
-                {titleLine1} <br />
-                <span className="italic text-[#CBA153]" style={{ textShadow: '0 2px 16px rgba(0,0,0,0.7), 0 4px 32px rgba(0,0,0,0.4), 0 0 60px rgba(0,0,0,0.2)' }}>{titleLine2}</span>
-              </h1>
-            )}
-
-            {showSubtitle && (
-              <p
-                className={`${subtitleSizes[textSize] || subtitleSizes.lg} text-white/95 mb-10 max-w-2xl font-light leading-relaxed ${textAlignClass(subtitleAlign)} ${subtitleAlign === 'center' ? 'self-center' : subtitleAlign === 'right' ? 'self-end' : 'self-start'}`}
-                style={{ textShadow: '0 1px 10px rgba(0,0,0,0.6), 0 2px 20px rgba(0,0,0,0.3)' }}
-              >
-                {heroSubtitle || t("heroSubtitle")}
-              </p>
-            )}
-
-            {(showBtnPrimary || showBtnSecondary) && (
-              <div className={`flex flex-col sm:flex-row gap-4 w-full ${btnJustifyClass(btnAlign)}`}>
-                {showBtnPrimary && (
-                  <Link href={`${prefix}/shop`} className="px-10 py-5 bg-[#CBA153] text-white font-bold rounded-sm tracking-widest uppercase hover:bg-[#B5922E] transition-all shadow-lg shadow-black/25 hover:shadow-xl">
-                    {shopCta || t("shopCta")}
-                  </Link>
-                )}
-                {showBtnSecondary && (
-                  <Link href={`${prefix}/wholesale`} className="px-10 py-5 border-2 border-white/70 text-white font-bold rounded-sm tracking-widest uppercase hover:bg-white hover:text-[#2C2A29] hover:border-white transition-all backdrop-blur-sm" style={{ textShadow: '0 1px 6px rgba(0,0,0,0.4)' }}>
-                    {wholesaleCta || t("wholesaleCta")}
-                  </Link>
-                )}
-              </div>
-            )}
-
+          <div className="ch-hero-ctas" style={{ display: "flex", gap: 14, marginTop: 40 }}>
+            <Link href={`${prefix}${d.cta_primary_link}`} style={{ background: "#B96A3D", color: "#F5F0E6", border: "none", padding: "16px 30px", fontFamily: "var(--font-mono)", fontSize: 12, letterSpacing: "0.28em", textTransform: "uppercase", cursor: "pointer", textDecoration: "none", display: "inline-block" }}>
+              {d.cta_primary}
+            </Link>
+            <Link href={`${prefix}${d.cta_secondary_link}`} style={{ background: "transparent", color: "#F5F0E6", border: "1px solid rgba(245,240,230,0.33)", padding: "16px 30px", fontFamily: "var(--font-mono)", fontSize: 12, letterSpacing: "0.28em", textTransform: "uppercase", cursor: "pointer", textDecoration: "none", display: "inline-block" }}>
+              {d.cta_secondary}
+            </Link>
           </div>
         </div>
-      )}
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+          <div style={{ position: "relative" }}>
+            {renderMedia()}
+            <div className="ch-hero-badge" style={{ position: "absolute", top: 20, right: 20, width: 110, height: 110, borderRadius: "50%", background: "#B96A3D", color: "#F5F0E6", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", lineHeight: 1.1, zIndex: 10 }}>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: 8, letterSpacing: "0.24em" }}>{d.badge_label}</div>
+              <div className="ch-hero-badge-min" style={{ fontFamily: "var(--font-serif)", fontStyle: "italic", fontSize: 26, marginTop: 4 }}>{d.badge_value}</div>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: 8, letterSpacing: "0.16em", marginTop: 4 }}>{d.badge_location}</div>
+            </div>
+          </div>
+          <DeliverySelector />
+        </div>
+      </div>
+
+      <div className="ch-ticker" style={{ borderTop: "1px solid rgba(245,240,230,0.14)", padding: "18px 56px", display: "flex", justifyContent: "space-between", fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.28em", textTransform: "uppercase", color: "#F5F0E6", opacity: 0.6 }}>
+        {t.items.map((item: string, i: number) => (
+          <span key={i}>{item}</span>
+        ))}
+      </div>
     </section>
   );
 }

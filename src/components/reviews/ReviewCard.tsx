@@ -68,139 +68,132 @@ export default function ReviewCard({ review, onReply, isLoggedIn, isOwn, onDelet
     };
 
     return (
-        <div className="bg-white rounded-lg border border-gray-100 p-6 shadow-sm">
-            {/* Header */}
-            <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-[#CBA153]/10 flex items-center justify-center shrink-0">
-                        <span className="text-[#A6812F] font-bold text-sm">{displayName[0]?.toUpperCase()}</span>
-                    </div>
+        <div style={{ padding: "28px 0", borderBottom: "1px solid #1F302615", display: "grid", gridTemplateColumns: "44px 1fr", gap: 18 }}>
+            {/* Avatar */}
+            <div style={{
+                width: 44, height: 44, borderRadius: "50%",
+                background: "#B96A3D22", border: "1px solid #B96A3D55",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontFamily: "var(--font-serif)", fontSize: 18, color: "#B96A3D", fontStyle: "italic"
+            }}>{displayName[0]?.toUpperCase()}</div>
+
+            <div>
+                {/* Header */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <div>
-                        <p className="font-medium text-[#2C2A29] text-sm">{displayName}</p>
-                        <p className="text-xs text-gray-400">{date}</p>
+                        <span style={{ fontFamily: "var(--font-serif)", fontSize: 17, color: "#1F3026" }}>{displayName}</span>
+                        {review.isVerifiedPurchase && (
+                            <span style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.22em", color: "#B96A3D", textTransform: "uppercase", marginLeft: 10 }}>· Verified buyer</span>
+                        )}
+                        {isOwn && (
+                            <span style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.22em", color: "#B96A3D", textTransform: "uppercase", marginLeft: 10, background: "#B96A3D18", padding: "3px 8px" }}>Your Review</span>
+                        )}
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <StarRating value={review.rating} size="sm" />
+                        {isOwn && onDelete && (
+                            <button
+                                onClick={onDelete}
+                                disabled={deleting}
+                                style={{ background: "transparent", border: "none", color: "#7A8278", cursor: "pointer", padding: 4, display: "flex", opacity: deleting ? 0.5 : 1 }}
+                                title="Delete your review"
+                            >
+                                <Trash2 style={{ width: 14, height: 14 }} />
+                            </button>
+                        )}
                     </div>
                 </div>
-                <div className="flex items-center gap-2">
-                    {isOwn && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#CBA153]/10 text-[#A6812F] text-[10px] font-bold uppercase tracking-wider">
-                            Your Review
-                        </span>
-                    )}
-                    {isOwn && onDelete && (
+
+                {/* Date */}
+                <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.24em", color: "#7A8278", textTransform: "uppercase", marginTop: 4 }}>{date}</div>
+
+                {/* Title */}
+                {review.title && (
+                    <div style={{ fontFamily: "var(--font-serif)", fontStyle: "italic", fontSize: 19, color: "#1F3026", marginTop: 12, lineHeight: 1.3 }}>&ldquo;{review.title}&rdquo;</div>
+                )}
+
+                {/* Body */}
+                <p style={{ fontFamily: "var(--font-sans)", fontSize: 14, lineHeight: 1.7, color: "#2C3D33", marginTop: 10 }}>{review.body}</p>
+
+                {/* Photos */}
+                {review.photos.length > 0 && (
+                    <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                        {review.photos.map((photo) => (
+                            <button
+                                key={photo.id}
+                                onClick={() => setLightboxUrl(photo.imageUrl)}
+                                style={{ position: "relative", width: 72, height: 72, overflow: "hidden", border: "1px solid #1F302622", cursor: "pointer", padding: 0, background: "transparent" }}
+                            >
+                                <Image src={photo.imageUrl} alt="Review photo" fill sizes="72px" style={{ objectFit: "cover" }} />
+                            </button>
+                        ))}
+                    </div>
+                )}
+
+                {/* Replies toggle */}
+                {(review.replies.length > 0 || isLoggedIn) && (
+                    <div style={{ borderTop: "1px solid #1F302611", paddingTop: 12, marginTop: 14 }}>
                         <button
-                            onClick={onDelete}
-                            disabled={deleting}
-                            className="flex items-center gap-1 text-xs text-gray-400 hover:text-red-500 transition-colors disabled:opacity-50 ml-1"
-                            title="Delete your review"
+                            onClick={() => setShowReplies(!showReplies)}
+                            style={{ display: "flex", alignItems: "center", gap: 6, fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.2em", color: "#7A8278", textTransform: "uppercase", background: "transparent", border: "none", cursor: "pointer", padding: 0 }}
                         >
-                            <Trash2 className="w-3.5 h-3.5" />
+                            {showReplies ? <ChevronUp style={{ width: 14, height: 14 }} /> : <ChevronDown style={{ width: 14, height: 14 }} />}
+                            {review.replies.length > 0 ? `${review.replies.length} ${review.replies.length === 1 ? 'Reply' : 'Replies'}` : 'Reply'}
                         </button>
-                    )}
-                </div>
-            </div>
 
-            {/* Rating & Title */}
-            <div className="flex items-center gap-3 mb-1">
-                <StarRating value={review.rating} size="sm" />
-                <h4 className="font-serif text-lg text-[#2C2A29]">{review.title}</h4>
-            </div>
+                        {showReplies && (
+                            <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 12 }}>
+                                {review.replies.map((reply) => (
+                                    <div key={reply.id} style={{ paddingLeft: 16, borderLeft: `2px solid ${reply.isAdminReply ? '#B96A3D' : '#1F302622'}` }}>
+                                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                                            <span style={{ fontFamily: "var(--font-serif)", fontSize: 14, color: "#1F3026" }}>
+                                                {reply.isAdminReply ? 'Colchis Food' : (reply.user.name?.split(' ')[0] || 'User')}
+                                            </span>
+                                            {reply.isAdminReply && (
+                                                <span style={{ fontFamily: "var(--font-mono)", fontSize: 8, letterSpacing: "0.24em", color: "#B96A3D", textTransform: "uppercase", background: "#B96A3D18", padding: "2px 6px" }}>Official</span>
+                                            )}
+                                            <span style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "#7A8278", letterSpacing: "0.16em" }}>
+                                                {new Date(reply.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                            </span>
+                                        </div>
+                                        <p style={{ fontFamily: "var(--font-sans)", fontSize: 13, color: "#2C3D33", lineHeight: 1.6, margin: 0 }}>{reply.body}</p>
+                                    </div>
+                                ))}
 
-            {/* Verified Purchase Status — Amazon style, below stars */}
-            <div className="mb-3">
-                {review.isVerifiedPurchase ? (
-                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-green-700">
-                        <ShieldCheck className="w-3.5 h-3.5" />
-                        Verified Purchase
-                    </span>
-                ) : (
-                    <span className="inline-flex items-center gap-1.5 text-xs text-gray-400">
-                        <MessageCircle className="w-3.5 h-3.5" />
-                        Purchaser Not Verified
-                    </span>
+                                {/* Reply form */}
+                                {isLoggedIn && (
+                                    <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+                                        <input
+                                            value={replyText}
+                                            onChange={(e) => setReplyText(e.target.value)}
+                                            placeholder="Write a reply..."
+                                            maxLength={1000}
+                                            style={{ flex: 1, fontFamily: "var(--font-sans)", fontSize: 13, border: "1px solid #1F302622", padding: "8px 12px", color: "#1F3026", background: "#F5F0E6", outline: "none" }}
+                                        />
+                                        <button
+                                            onClick={handleReply}
+                                            disabled={replyLoading || !replyText.trim()}
+                                            style={{ padding: "8px 16px", background: "#1F3026", color: "#F5F0E6", border: "none", fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.24em", textTransform: "uppercase", cursor: "pointer", opacity: (replyLoading || !replyText.trim()) ? 0.5 : 1 }}
+                                        >
+                                            {replyLoading ? '...' : 'Reply'}
+                                        </button>
+                                    </div>
+                                )}
+                                {replyError && <p style={{ fontFamily: "var(--font-sans)", fontSize: 12, color: "#A8312C", margin: 0 }}>{replyError}</p>}
+                            </div>
+                        )}
+                    </div>
                 )}
             </div>
-
-            {/* Body */}
-            <p className="text-gray-600 leading-relaxed text-sm mb-4">{review.body}</p>
-
-            {/* Photos */}
-            {review.photos.length > 0 && (
-                <div className="flex gap-2 mb-4">
-                    {review.photos.map((photo) => (
-                        <button
-                            key={photo.id}
-                            onClick={() => setLightboxUrl(photo.imageUrl)}
-                            className="relative w-20 h-20 rounded-lg overflow-hidden border border-gray-200 hover:border-[#CBA153] transition-colors"
-                        >
-                            <Image src={photo.imageUrl} alt="Review photo" fill sizes="80px" className="object-cover" />
-                        </button>
-                    ))}
-                </div>
-            )}
-
-            {/* Replies toggle */}
-            {(review.replies.length > 0 || isLoggedIn) && (
-                <div className="border-t border-gray-100 pt-3 mt-3">
-                    <button
-                        onClick={() => setShowReplies(!showReplies)}
-                        className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-[#A6812F] transition-colors"
-                    >
-                        {showReplies ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                        {review.replies.length > 0 ? `${review.replies.length} ${review.replies.length === 1 ? 'Reply' : 'Replies'}` : 'Reply'}
-                    </button>
-
-                    {showReplies && (
-                        <div className="mt-3 space-y-3">
-                            {review.replies.map((reply) => (
-                                <div key={reply.id} className={`pl-4 border-l-2 ${reply.isAdminReply ? 'border-[#CBA153]' : 'border-gray-200'}`}>
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <p className="text-xs font-medium text-[#2C2A29]">
-                                            {reply.isAdminReply ? 'Colchis Creamery' : (reply.user.name?.split(' ')[0] || 'User')}
-                                        </p>
-                                        {reply.isAdminReply && (
-                                            <span className="text-[9px] uppercase tracking-wider font-bold text-[#A6812F] bg-[#CBA153]/10 px-1.5 py-0.5 rounded">Official</span>
-                                        )}
-                                        <span className="text-[10px] text-gray-400">
-                                            {new Date(reply.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                                        </span>
-                                    </div>
-                                    <p className="text-sm text-gray-600">{reply.body}</p>
-                                </div>
-                            ))}
-
-                            {/* Reply form */}
-                            {isLoggedIn && (
-                                <div className="flex gap-2 mt-2">
-                                    <input
-                                        value={replyText}
-                                        onChange={(e) => setReplyText(e.target.value)}
-                                        placeholder="Write a reply..."
-                                        maxLength={1000}
-                                        className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-[#CBA153] text-[#2C2A29]"
-                                    />
-                                    <button
-                                        onClick={handleReply}
-                                        disabled={replyLoading || !replyText.trim()}
-                                        className="px-4 py-2 bg-[#CBA153] text-white text-xs font-bold rounded-lg hover:bg-[#B5922E] transition-colors disabled:opacity-50"
-                                    >
-                                        {replyLoading ? '...' : 'Reply'}
-                                    </button>
-                                </div>
-                            )}
-                            {replyError && <p className="text-xs text-red-500 mt-1">{replyError}</p>}
-                        </div>
-                    )}
-                </div>
-            )}
 
             {/* Lightbox */}
             {lightboxUrl && (
                 <div
-                    className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
+                    style={{ position: "fixed", inset: 0, zIndex: 50, background: "rgba(31,48,38,0.85)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
                     onClick={() => setLightboxUrl(null)}
                 >
-                    <div className="relative max-w-3xl max-h-[90vh] w-full">
-                        <Image src={lightboxUrl} alt="Review photo" width={1200} height={900} className="object-contain w-full h-full rounded-lg" />
+                    <div style={{ position: "relative", maxWidth: 800, maxHeight: "90vh", width: "100%" }}>
+                        <Image src={lightboxUrl} alt="Review photo" width={1200} height={900} style={{ objectFit: "contain", width: "100%", height: "100%" }} />
                     </div>
                 </div>
             )}

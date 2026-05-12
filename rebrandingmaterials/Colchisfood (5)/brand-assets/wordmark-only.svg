@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 180" width="600" height="180">
+  <title>Colchis Food — Wordmark Only</title>
+
+  <text x="300" y="80" font-family="Fraunces, Georgia, serif" font-weight="500" font-size="56" letter-spacing="8" fill="#1F3026" text-anchor="middle">COLCHIS FOOD</text>
+  <g transform="translate(296,100) rotate(45)"><rect width="8" height="8" fill="#B96A3D"></rect></g>
+  <text x="300" y="140" font-family="Fraunces, Georgia, serif" font-style="italic" font-weight="300" font-size="22" fill="#B96A3D" text-anchor="middle">Ancient heritage, fresh every day.</text>
+
+</svg>

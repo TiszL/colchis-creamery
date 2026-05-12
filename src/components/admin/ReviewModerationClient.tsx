@@ -132,10 +132,10 @@ export default function ReviewModerationClient({ reviews: initialReviews, pendin
                     <button
                         key={tab}
                         onClick={() => setFilter(tab)}
-                        className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors ${
+                        className={`px-4 py-2 text-xs font-bold uppercase tracking-wider transition-colors ${
                             filter === tab
-                                ? tab === 'FLAGGED' ? 'bg-orange-500 text-black' : 'bg-[#CBA153] text-black'
-                                : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white'
+                                ? tab === 'FLAGGED' ? 'bg-orange-500 text-black' : 'bg-[#B96A3D] text-black'
+                                : 'bg-[#ffffff08] text-gray-400 hover:bg-white/10 hover:text-white'
                         } ${tab === 'FLAGGED' && counts.FLAGGED > 0 && filter !== tab ? 'ring-1 ring-orange-500/50' : ''}`}
                     >
                         {tab === 'FLAGGED' && <AlertTriangle className="w-3 h-3 inline mr-1" />}
@@ -159,21 +159,21 @@ export default function ReviewModerationClient({ reviews: initialReviews, pendin
                         });
 
                         return (
-                            <div key={review.id} className="bg-white/5 border border-white/10 rounded-xl overflow-hidden">
+                            <div key={review.id} className="bg-[#ffffff08] border border-[#B96A3D22] overflow-hidden">
                                 {/* Collapsed row */}
                                 <button
                                     onClick={() => setExpandedId(isExpanded ? null : review.id)}
-                                    className="w-full flex items-center gap-4 p-4 text-left hover:bg-white/5 transition-colors"
+                                    className="w-full flex items-center gap-4 p-4 text-left hover:bg-[#ffffff08] transition-colors"
                                 >
                                     {/* Product thumbnail */}
-                                    <div className="w-10 h-10 rounded-lg overflow-hidden bg-white/10 shrink-0">
+                                    <div className="w-10 h-10 overflow-hidden bg-white/10 shrink-0">
                                         <img src={review.product.imageUrl} alt="" className="w-full h-full object-cover" />
                                     </div>
 
                                     {/* Stars */}
                                     <div className="flex gap-0.5 shrink-0">
                                         {Array.from({ length: 5 }, (_, i) => (
-                                            <Star key={i} className={`w-3.5 h-3.5 ${i < review.rating ? 'text-[#CBA153] fill-[#CBA153]' : 'text-gray-700'}`} />
+                                            <Star key={i} className={`w-3.5 h-3.5 ${i < review.rating ? 'text-[#B96A3D] fill-[#B96A3D]' : 'text-gray-700'}`} />
                                         ))}
                                     </div>
 
@@ -204,7 +204,7 @@ export default function ReviewModerationClient({ reviews: initialReviews, pendin
 
                                 {/* Expanded detail */}
                                 {isExpanded && (
-                                    <div className="px-4 pb-4 border-t border-white/5">
+                                    <div className="px-4 pb-4 border-t border-[#ffffff0A]">
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
                                             {/* Left: Review content */}
                                             <div>
@@ -213,7 +213,7 @@ export default function ReviewModerationClient({ reviews: initialReviews, pendin
                                                 {review.photos.length > 0 && (
                                                     <div className="flex gap-2 mb-4">
                                                         {review.photos.map(p => (
-                                                            <a key={p.id} href={p.imageUrl} target="_blank" rel="noopener noreferrer" className="w-16 h-16 rounded-lg overflow-hidden border border-white/10">
+                                                            <a key={p.id} href={p.imageUrl} target="_blank" rel="noopener noreferrer" className="w-16 h-16 overflow-hidden border border-[#B96A3D22]">
                                                                 <img src={p.imageUrl} alt="" className="w-full h-full object-cover" />
                                                             </a>
                                                         ))}
@@ -225,7 +225,7 @@ export default function ReviewModerationClient({ reviews: initialReviews, pendin
                                                     <div className="space-y-2 mb-4">
                                                         <p className="text-xs text-gray-500 uppercase tracking-wider font-bold">Replies ({review.replies.length})</p>
                                                         {review.replies.map(rep => (
-                                                            <div key={rep.id} className={`pl-3 border-l-2 ${rep.isAdminReply ? 'border-[#CBA153]' : 'border-white/10'}`}>
+                                                            <div key={rep.id} className={`pl-3 border-l-2 ${rep.isAdminReply ? 'border-[#B96A3D]' : 'border-[#B96A3D22]'}`}>
                                                                 <p className="text-xs text-gray-400">
                                                                     <span className="font-medium text-gray-300">{rep.isAdminReply ? 'Admin' : rep.user.name || 'User'}</span>
                                                                     {' · '}
@@ -240,7 +240,7 @@ export default function ReviewModerationClient({ reviews: initialReviews, pendin
 
                                             {/* Right: Meta + Actions */}
                                             <div className="space-y-3">
-                                                <div className="bg-white/5 rounded-lg p-4 space-y-2 text-xs">
+                                                <div className="bg-[#ffffff08] p-4 space-y-2 text-xs">
                                                     <div className="flex justify-between"><span className="text-gray-500">User</span><span className="text-gray-300">{review.user.name || 'Anonymous'}</span></div>
                                                     <div className="flex justify-between"><span className="text-gray-500">Email</span><span className="text-gray-300">{review.user.email}</span></div>
                                                     <div className="flex justify-between"><span className="text-gray-500">Product</span><span className="text-gray-300">{review.product.name}</span></div>
@@ -255,7 +255,7 @@ export default function ReviewModerationClient({ reviews: initialReviews, pendin
 
                                                 {/* Auto-moderation info */}
                                                 {review.adminNote && review.adminNote.startsWith('[AUTO-MOD]') && (
-                                                    <div className="bg-orange-500/5 border border-orange-500/10 rounded-lg p-3 space-y-1">
+                                                    <div className="bg-orange-500/5 border border-orange-500/10 p-3 space-y-1">
                                                         <p className="text-[10px] text-orange-400 uppercase tracking-wider font-bold flex items-center gap-1.5">
                                                             <Shield className="w-3 h-3" /> Auto-Moderation Report
                                                         </p>
@@ -288,7 +288,7 @@ export default function ReviewModerationClient({ reviews: initialReviews, pendin
                                                         <button
                                                             onClick={() => handleModerate(review.id, 'APPROVED')}
                                                             disabled={isPending}
-                                                            className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-green-500/10 text-green-400 border border-green-500/20 rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-green-500/20 transition-colors disabled:opacity-50"
+                                                            className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-green-500/10 text-green-400 border border-green-500/20 text-xs font-bold uppercase tracking-wider hover:bg-green-500/20 transition-colors disabled:opacity-50"
                                                         >
                                                             <Check className="w-3.5 h-3.5" /> Approve
                                                         </button>
@@ -297,7 +297,7 @@ export default function ReviewModerationClient({ reviews: initialReviews, pendin
                                                         <button
                                                             onClick={() => handleModerate(review.id, 'REJECTED')}
                                                             disabled={isPending}
-                                                            className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-red-500/20 transition-colors disabled:opacity-50"
+                                                            className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-red-500/10 text-red-400 border border-red-500/20 text-xs font-bold uppercase tracking-wider hover:bg-red-500/20 transition-colors disabled:opacity-50"
                                                         >
                                                             <X className="w-3.5 h-3.5" /> Reject
                                                         </button>
@@ -305,7 +305,7 @@ export default function ReviewModerationClient({ reviews: initialReviews, pendin
                                                     <button
                                                         onClick={() => handleDelete(review.id)}
                                                         disabled={isPending}
-                                                        className="py-2.5 px-3 bg-white/5 text-gray-500 border border-white/10 rounded-lg hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/20 transition-colors disabled:opacity-50"
+                                                        className="py-2.5 px-3 bg-[#ffffff08] text-gray-500 border border-[#B96A3D22] hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/20 transition-colors disabled:opacity-50"
                                                     >
                                                         <Trash2 className="w-3.5 h-3.5" />
                                                     </button>
@@ -314,7 +314,7 @@ export default function ReviewModerationClient({ reviews: initialReviews, pendin
                                                 {/* Reply button */}
                                                 <button
                                                     onClick={() => { setReplyingTo(replyingTo === review.id ? null : review.id); setReplyText(''); }}
-                                                    className="w-full flex items-center justify-center gap-2 py-2.5 bg-[#CBA153]/10 text-[#CBA153] border border-[#CBA153]/20 rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-[#CBA153]/20 transition-colors"
+                                                    className="w-full flex items-center justify-center gap-2 py-2.5 bg-[#B96A3D]/10 text-[#B96A3D] border border-[#B96A3D]/20 text-xs font-bold uppercase tracking-wider hover:bg-[#B96A3D]/20 transition-colors"
                                                 >
                                                     <MessageCircle className="w-3.5 h-3.5" /> Reply to Customer
                                                 </button>
@@ -327,13 +327,13 @@ export default function ReviewModerationClient({ reviews: initialReviews, pendin
                                                             onChange={(e) => setReplyText(e.target.value)}
                                                             placeholder="Write a reply as staff..."
                                                             rows={3}
-                                                            className="w-full bg-[#0D0D0D] border border-white/10 text-white text-sm rounded-lg p-3 focus:outline-none focus:border-[#CBA153] focus:ring-1 focus:ring-[#CBA153]/50 resize-none placeholder:text-gray-600"
+                                                            className="w-full bg-[#0C0C0C] border border-[#B96A3D22] text-white text-sm p-3 focus:outline-none focus:border-[#B96A3D] focus:ring-1 focus:ring-[#B96A3D]/50 resize-none placeholder:text-gray-600"
                                                         />
                                                         <div className="flex gap-2">
                                                             <button
                                                                 onClick={() => handleReply(review.id)}
                                                                 disabled={isPending || !replyText.trim()}
-                                                                className="flex-1 flex items-center justify-center gap-2 py-2 bg-[#CBA153] text-black rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-white transition-colors disabled:opacity-50"
+                                                                className="flex-1 flex items-center justify-center gap-2 py-2 bg-[#B96A3D] text-black text-xs font-bold uppercase tracking-wider hover:bg-white transition-colors disabled:opacity-50"
                                                             >
                                                                 <Send className="w-3.5 h-3.5" /> Send Reply
                                                             </button>

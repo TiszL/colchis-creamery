@@ -110,5 +110,5 @@ export function getScheduleMessage(config?: Partial<ChatHoursConfig>): string {
  * Get the fallback email for when chat is offline
  */
 export function getOfflineEmail(): string {
-    return 'sales@colchiscreamery.com';
+    return 'sales@colchisfood.com';
 }

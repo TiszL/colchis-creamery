@@ -26,7 +26,7 @@ function fmtMoney(v: number) {
 const PRIORITY_COLORS: Record<string, string> = {
   CRITICAL: '#e8614a',
   HIGH: '#c9a84c',
-  MEDIUM: '#CBA153',
+  MEDIUM: '#B96A3D',
   LOW: '#4a7a9a',
   EXPLORATORY: '#7a6a8a',
 };
@@ -34,7 +34,7 @@ const PRIORITY_COLORS: Record<string, string> = {
 const PRIORITY_BG: Record<string, string> = {
   CRITICAL: 'bg-[#e8614a]/15 text-[#e8614a]',
   HIGH: 'bg-[#c9a84c]/15 text-[#c9a84c]',
-  MEDIUM: 'bg-[#CBA153]/15 text-[#CBA153]',
+  MEDIUM: 'bg-[#B96A3D]/15 text-[#B96A3D]',
   LOW: 'bg-[#4a7a9a]/15 text-[#4a7a9a]',
   EXPLORATORY: 'bg-[#7a6a8a]/15 text-[#7a6a8a]',
 };
@@ -68,7 +68,7 @@ export function DashboardOverview({ pins, stats }: { pins: PinData[]; stats: Das
       data: priorityLabels.map(l => stats.byPriority[l] || 0),
       backgroundColor: priorityLabels.map(l => PRIORITY_COLORS[l]),
       borderWidth: 2,
-      borderColor: '#141414',
+      borderColor: '#161616',
     }],
   };
 
@@ -80,7 +80,7 @@ export function DashboardOverview({ pins, stats }: { pins: PinData[]; stats: Das
       {
         label: 'Annual Low',
         data: tierOrder.map(t => ((stats.byTier[t]?.revLow || 0) * 12)),
-        backgroundColor: '#CBA15388',
+        backgroundColor: '#B96A3D88',
         borderRadius: 4,
       },
       {
@@ -101,7 +101,7 @@ export function DashboardOverview({ pins, stats }: { pins: PinData[]; stats: Das
     datasets: [{
       label: 'Prospects',
       data: statesSorted.map(([, v]) => v.count),
-      backgroundColor: '#CBA153cc',
+      backgroundColor: '#B96A3Dcc',
       borderRadius: 4,
     }],
   };
@@ -125,11 +125,11 @@ export function DashboardOverview({ pins, stats }: { pins: PinData[]; stats: Das
     maintainAspectRatio: true,
     indexAxis: isHorizontal ? 'y' as const : 'x' as const,
     plugins: {
-      legend: { labels: { color: '#888888', font: { size: 10 } } },
+      legend: { labels: { color: '#7A8278', font: { size: 10 } } },
     },
     scales: {
-      x: { grid: { color: '#2A2A2A55' }, ticks: { color: '#888888', font: { size: 10 }, callback: (v: any) => v >= 1000 ? (Number(v) / 1000) + 'K' : v } },
-      y: { grid: { color: '#2A2A2A55' }, ticks: { color: '#888888', font: { size: 10 }, callback: (v: any) => v >= 1000 ? (Number(v) / 1000) + 'K' : v } },
+      x: { grid: { color: '#B96A3D14' }, ticks: { color: '#7A8278', font: { size: 10 }, callback: (v: any) => v >= 1000 ? (Number(v) / 1000) + 'K' : v } },
+      y: { grid: { color: '#B96A3D14' }, ticks: { color: '#7A8278', font: { size: 10 }, callback: (v: any) => v >= 1000 ? (Number(v) / 1000) + 'K' : v } },
     },
   });
 
@@ -138,54 +138,54 @@ export function DashboardOverview({ pins, stats }: { pins: PinData[]; stats: Das
       {/* KPI Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3 mb-6">
         {kpis.map((k, i) => (
-          <div key={i} className="bg-[#141414] border border-[#2A2A2A] rounded-xl p-4 flex flex-col gap-1.5 hover:shadow-lg hover:-translate-y-0.5 transition-all">
-            <span className="text-[10px] font-medium text-[#666666] uppercase tracking-wider">{k.label}</span>
+          <div key={i} className="bg-[#161616] border border-[#B96A3D22] p-4 flex flex-col gap-1.5 hover:shadow-lg hover:-translate-y-0.5 transition-all">
+            <span className="text-[10px] font-medium text-[#5A6158] uppercase tracking-wider">{k.label}</span>
             <span className={`text-2xl font-semibold tabular-nums leading-none ${
               k.cls === 'accent' ? 'text-[#c9a84c]' :
               k.cls === 'red' ? 'text-[#e8614a]' :
-              k.cls === 'green' ? 'text-[#CBA153]' : 'text-[#F0EDE6]'
+              k.cls === 'green' ? 'text-[#B96A3D]' : 'text-[#F5F0E6]'
             }`}>{k.value}</span>
-            <span className="text-[11px] text-[#888888]">{k.sub}</span>
+            <span className="text-[11px] text-[#7A8278]">{k.sub}</span>
           </div>
         ))}
       </div>
 
       {/* Charts Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-        <div className="bg-[#141414] border border-[#2A2A2A] rounded-xl p-5">
-          <h3 className="text-xs font-semibold text-[#F0EDE6] tracking-wide mb-1">Priority Distribution</h3>
-          <p className="text-[10px] text-[#666666] mb-3">Prospects by score label</p>
+        <div className="bg-[#161616] border border-[#B96A3D22] p-5">
+          <h3 className="text-xs font-semibold text-[#F5F0E6] tracking-wide mb-1">Priority Distribution</h3>
+          <p className="text-[10px] text-[#5A6158] mb-3">Prospects by score label</p>
           <div className="max-h-60 flex justify-center">
             <Doughnut data={priorityData} options={{ responsive: true, maintainAspectRatio: true, plugins: { legend: { labels: { color: '#888888', font: { size: 10 }, boxWidth: 10 } } } }} />
           </div>
         </div>
-        <div className="bg-[#141414] border border-[#2A2A2A] rounded-xl p-5">
-          <h3 className="text-xs font-semibold text-[#F0EDE6] tracking-wide mb-1">Annual Revenue by Tier</h3>
-          <p className="text-[10px] text-[#666666] mb-3">TAM low–high range ($USD)</p>
+        <div className="bg-[#161616] border border-[#B96A3D22] p-5">
+          <h3 className="text-xs font-semibold text-[#F5F0E6] tracking-wide mb-1">Annual Revenue by Tier</h3>
+          <p className="text-[10px] text-[#5A6158] mb-3">TAM low–high range ($USD)</p>
           <Bar data={tierRevData} options={chartOptions()} />
         </div>
-        <div className="bg-[#141414] border border-[#2A2A2A] rounded-xl p-5">
-          <h3 className="text-xs font-semibold text-[#F0EDE6] tracking-wide mb-1">Top 8 States by Prospects</h3>
-          <p className="text-[10px] text-[#666666] mb-3">Prospect count</p>
+        <div className="bg-[#161616] border border-[#B96A3D22] p-5">
+          <h3 className="text-xs font-semibold text-[#F5F0E6] tracking-wide mb-1">Top 8 States by Prospects</h3>
+          <p className="text-[10px] text-[#5A6158] mb-3">Prospect count</p>
           <Bar data={statesData} options={{ ...chartOptions(), plugins: { legend: { display: false } } }} />
         </div>
-        <div className="bg-[#141414] border border-[#2A2A2A] rounded-xl p-5">
-          <h3 className="text-xs font-semibold text-[#F0EDE6] tracking-wide mb-1">Top Categories by Revenue</h3>
-          <p className="text-[10px] text-[#666666] mb-3">Monthly high ($)</p>
+        <div className="bg-[#161616] border border-[#B96A3D22] p-5">
+          <h3 className="text-xs font-semibold text-[#F5F0E6] tracking-wide mb-1">Top Categories by Revenue</h3>
+          <p className="text-[10px] text-[#5A6158] mb-3">Monthly high ($)</p>
           <Bar data={catsData} options={{ ...chartOptions(true), plugins: { legend: { display: false } } }} />
         </div>
       </div>
 
       {/* Top 10 Table */}
-      <div className="bg-[#141414] border border-[#2A2A2A] rounded-xl overflow-hidden">
-        <div className="px-5 py-3 border-b border-[#2A2A2A]">
-          <h3 className="text-sm font-semibold text-[#F0EDE6]">Top 10 Prospects by Score</h3>
-          <p className="text-[10px] text-[#666666] mt-0.5">Click any row to view detailed profile</p>
+      <div className="bg-[#161616] border border-[#B96A3D22] overflow-hidden">
+        <div className="px-5 py-3 border-b border-[#B96A3D22]">
+          <h3 className="text-sm font-semibold text-[#F5F0E6]">Top 10 Prospects by Score</h3>
+          <p className="text-[10px] text-[#5A6158] mt-0.5">Click any row to view detailed profile</p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="border-b border-[#242424] text-[10px] uppercase tracking-wider text-[#666666] font-semibold">
+              <tr className="border-b border-[#B96A3D22] text-[10px] uppercase tracking-wider text-[#5A6158] font-semibold">
                 <th className="p-3 pl-5">Company</th>
                 <th className="p-3">Category</th>
                 <th className="p-3">State</th>
@@ -199,20 +199,20 @@ export function DashboardOverview({ pins, stats }: { pins: PinData[]; stats: Das
               {top10.map(pin => (
                 <tr
                   key={pin.id}
-                  className="border-b border-[#242424] last:border-b-0 hover:bg-[#1F1F1F] cursor-pointer transition-colors"
+                  className="border-b border-[#B96A3D22] last:border-b-0 hover:bg-[#1C1C1C] cursor-pointer transition-colors"
                   onClick={() => setSelectedPin(pin)}
                 >
-                  <td className="p-3 pl-5 text-xs font-medium text-[#F0EDE6]">{pin.brandName || pin.name}</td>
-                  <td className="p-3 text-[11px] text-[#666666]">{pin.categoryLabel}</td>
-                  <td className="p-3 text-xs text-[#888888]">{pin.state}</td>
+                  <td className="p-3 pl-5 text-xs font-medium text-[#F5F0E6]">{pin.brandName || pin.name}</td>
+                  <td className="p-3 text-[11px] text-[#5A6158]">{pin.categoryLabel}</td>
+                  <td className="p-3 text-xs text-[#7A8278]">{pin.state}</td>
                   <td className="p-3">
                     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${PRIORITY_BG[pin.priorityRank || ''] || ''}`}>
                       {pin.priorityScore?.toFixed(1)} {pin.priorityRank}
                     </span>
                   </td>
-                  <td className="p-3 text-xs text-[#888888] tabular-nums">{fmtMoney(pin.revenueMonthlyLow || 0)}–{fmtMoney(pin.revenueMonthlyHigh || 0)}</td>
-                  <td className="p-3 text-xs text-[#888888]">1</td>
-                  <td className="p-3 text-xs text-[#888888]">{pin.googleRating ? `⭐ ${pin.googleRating}` : '–'}</td>
+                  <td className="p-3 text-xs text-[#7A8278] tabular-nums">{fmtMoney(pin.revenueMonthlyLow || 0)}–{fmtMoney(pin.revenueMonthlyHigh || 0)}</td>
+                  <td className="p-3 text-xs text-[#7A8278]">1</td>
+                  <td className="p-3 text-xs text-[#7A8278]">{pin.googleRating ? `⭐ ${pin.googleRating}` : '–'}</td>
                 </tr>
               ))}
             </tbody>

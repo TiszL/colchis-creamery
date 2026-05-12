@@ -1,25 +1,25 @@
 import { Metadata } from 'next';
 import { prisma } from '@/lib/db';
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://colchiscreamery.com';
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://colchisfood.com';
 
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
     const { locale } = await params;
     const canonicalPath = locale === 'en' ? '/legal/privacy' : `/${locale}/legal/privacy`;
     return {
-        title: 'Privacy Policy | Colchis Creamery',
-        description: 'Learn how Colchis Creamery collects, uses, and protects your personal information. Read our full privacy policy.',
-        keywords: ['Colchis Creamery privacy policy', 'data protection', 'personal information', 'cheese shop privacy'],
+        title: 'Privacy Policy | Colchis Food',
+        description: 'Learn how Colchis Food collects, uses, and protects your personal information. Read our full privacy policy.',
+        keywords: ['Colchis Food privacy policy', 'data protection', 'personal information', 'cheese shop privacy'],
         alternates: {
             canonical: `${SITE_URL}${canonicalPath}`,
             languages: { 'en': `${SITE_URL}/legal/privacy`, 'ka': `${SITE_URL}/ka/legal/privacy`, 'ru': `${SITE_URL}/ru/legal/privacy`, 'es': `${SITE_URL}/es/legal/privacy` },
         },
         openGraph: {
-            type: 'website', title: 'Privacy Policy | Colchis Creamery',
-            description: 'How Colchis Creamery handles your personal data.',
-            url: `${SITE_URL}${canonicalPath}`, siteName: 'Colchis Creamery',
+            type: 'website', title: 'Privacy Policy | Colchis Food',
+            description: 'How Colchis Food handles your personal data.',
+            url: `${SITE_URL}${canonicalPath}`, siteName: 'Colchis Food',
         },
-        twitter: { card: 'summary', title: 'Privacy Policy | Colchis Creamery', description: 'Our data privacy practices.' },
+        twitter: { card: 'summary', title: 'Privacy Policy | Colchis Food', description: 'Our data privacy practices.' },
     };
 }
 
@@ -32,7 +32,7 @@ const DEFAULTS: LegalSection[] = [
     { heading: '2. How We Use Your Information', body: 'We use the information we collect to process transactions, provide customer service, send logistical updates, and improve our services. We may also use your email to send marketing communications, from which you can opt out at any time.' },
     { heading: '3. Data Security', body: 'We implement appropriate technical and organizational security measures to protect your personal information against unauthorized access, alteration, disclosure, or destruction. However, no internet transmission is completely secure, and we cannot guarantee absolute security.' },
     { heading: '4. Sharing of Information', body: 'We do not sell or rent your personal information to third parties. We may share information with trusted service providers who assist us in operating our website and conducting our business (e.g., payment processors like Stripe, logistics partners), subject to strict confidentiality agreements.' },
-    { heading: '5. Contact Us', body: 'If you have any questions about this Privacy Policy, please contact us at support@colchiscreamery.com.' },
+    { heading: '5. Contact Us', body: 'If you have any questions about this Privacy Policy, please contact us at support@colchisfood.com.' },
 ];
 
 export default async function PrivacyPolicyPage() {
@@ -54,10 +54,10 @@ export default async function PrivacyPolicyPage() {
         '@context': 'https://schema.org',
         '@type': 'WebPage',
         name: 'Privacy Policy',
-        description: 'Privacy policy for Colchis Creamery',
+        description: 'Privacy policy for Colchis Food',
         url: `${SITE_URL}/legal/privacy`,
-        isPartOf: { '@type': 'WebSite', name: 'Colchis Creamery', url: SITE_URL },
-        publisher: { '@type': 'Organization', name: 'Colchis Creamery', url: SITE_URL },
+        isPartOf: { '@type': 'WebSite', name: 'Colchis Food', url: SITE_URL },
+        publisher: { '@type': 'Organization', name: 'Colchis Food', url: SITE_URL },
         mainContentOfPage: {
             '@type': 'WebPageElement',
             text: sections.map(s => `${s.heading}: ${s.body}`).join(' '),

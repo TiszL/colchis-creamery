@@ -2,89 +2,139 @@ import { Resend } from 'resend';
 
 const resend = new Resend(process.env.RESEND_API_KEY || 're_dummy_string_for_build_time');
 
-const FROM_EMAIL = process.env.EMAIL_FROM || 'noreply@updates.colchiscreamery.com';
-const FROM_NAME = 'Colchis Creamery';
+function getFrom(): string {
+  const email = process.env.EMAIL_FROM || 'hello@noreply.colchisfood.com';
+  return `Colchis Food <${email}>`;
+}
 
-export async function sendVerificationEmail(to: string, code: string, name?: string) {
-  const greeting = name ? `Hello ${name}` : 'Hello';
+// ─── Brand tokens — exactly matching globals.css ────────────────────────────
 
-  try {
-    const { data, error } = await resend.emails.send({
-      from: `${FROM_NAME} <${FROM_EMAIL}>`,
-      to: [to],
-      subject: `${code} is your Colchis Creamery verification code`,
-      html: `
-<!DOCTYPE html>
+const C = {
+  forest:  '#1F3026',   // --color-ink
+  moss:    '#2C3D33',   // --color-ink2
+  accent:  '#B96A3D',   // --color-accent (primary copper)
+  accent2: '#8B4A28',   // --color-accent2 / --color-primary-dark (eyebrows)
+  cream:   '#F5F0E6',   // --color-cream
+  cream2:  '#EAE2D2',   // --color-cream2 (card bg)
+  muted:   '#7A8278',   // --color-muted
+  white:   '#ffffff',
+  red:     '#C0392B',
+  redBg:   '#FFF3F3',
+};
+
+// Hosted PNG — works in Gmail/Outlook (SVG and data URIs are stripped)
+const SEAL_URL = 'https://colchisfood.com/brand/seal-primary.png';
+
+// ─── Shared building blocks ─────────────────────────────────────────────────
+
+function wrap(inner: string): string {
+  return `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
-<body style="margin:0;padding:0;background-color:#FDFBF7;font-family:'Georgia',serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#FDFBF7;padding:40px 20px;">
-    <tr>
-      <td align="center">
-        <table width="480" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
-          
-          <!-- Header -->
-          <tr>
-            <td style="background:linear-gradient(135deg,#2C2A29 0%,#4A4745 100%);padding:32px 40px;text-align:center;">
-              <h1 style="color:#CBA153;margin:0;font-size:24px;font-weight:700;letter-spacing:1px;">COLCHIS CREAMERY</h1>
-              <p style="color:rgba(255,255,255,0.6);margin:6px 0 0;font-size:11px;letter-spacing:3px;text-transform:uppercase;">Authentic Georgian Cheese</p>
-            </td>
-          </tr>
-          
-          <!-- Body -->
-          <tr>
-            <td style="padding:40px;">
-              <p style="color:#333;font-size:16px;margin:0 0 8px;font-weight:600;">${greeting},</p>
-              <p style="color:#666;font-size:14px;line-height:1.6;margin:0 0 28px;">
-                Thank you for creating your Colchis Creamery account. Please use the verification code below to confirm your email address:
-              </p>
-              
-              <!-- Code Box -->
-              <div style="background:linear-gradient(135deg,#FDFBF7 0%,#FAFAFA 100%);border:2px solid #CBA153;border-radius:12px;padding:28px;text-align:center;margin:0 0 28px;">
-                <p style="color:#999;font-size:11px;letter-spacing:3px;text-transform:uppercase;margin:0 0 12px;">Your Verification Code</p>
-                <p style="color:#2C2A29;font-size:36px;font-weight:700;letter-spacing:8px;margin:0;font-family:'Courier New',monospace;">${code}</p>
-              </div>
-              
-              <p style="color:#999;font-size:12px;line-height:1.5;margin:0 0 24px;text-align:center;">
-                This code expires in <strong style="color:#666;">15 minutes</strong>. If you didn't create an account, you can safely ignore this email.
-              </p>
-              
-              <!-- Divider -->
-              <hr style="border:none;border-top:1px solid #eee;margin:24px 0;" />
-              
-              <p style="color:#999;font-size:11px;line-height:1.5;margin:0;text-align:center;">
-                Questions? Reply to this email or contact us at<br/>
-                <a href="mailto:support@colchiscreamery.com" style="color:#CBA153;text-decoration:none;font-weight:600;">support@colchiscreamery.com</a>
-              </p>
-            </td>
-          </tr>
-          
-          <!-- Footer -->
-          <tr>
-            <td style="background-color:#2C2A29;padding:20px 40px;text-align:center;">
-              <p style="color:rgba(255,255,255,0.4);font-size:10px;margin:0;letter-spacing:1px;">
-                © ${new Date().getFullYear()} Colchis Creamery · Columbus, Ohio · Authentic Georgian Cheese
-              </p>
-            </td>
-          </tr>
-          
-        </table>
-      </td>
-    </tr>
+<body style="margin:0;padding:0;background-color:${C.cream};font-family:'Georgia','Times New Roman',serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:${C.cream};padding:40px 16px;">
+    <tr><td align="center">
+      <table width="520" cellpadding="0" cellspacing="0" style="max-width:100%;">
+        ${inner}
+      </table>
+      <table width="520" cellpadding="0" cellspacing="0" style="max-width:100%;">
+        <tr><td style="padding:32px 0 8px;text-align:center;">
+          <p style="margin:0;font-family:'Courier New',monospace;font-size:9px;letter-spacing:4px;color:${C.muted};text-transform:uppercase;">Colchis Food · Dublin, Ohio · Est. 2026</p>
+        </td></tr>
+      </table>
+    </td></tr>
   </table>
 </body>
-</html>
-      `.trim(),
+</html>`;
+}
+
+function sealHead(subtitle: string): string {
+  return `
+        <tr>
+          <td style="background:${C.forest};padding:48px 48px 44px;text-align:center;background-image:linear-gradient(rgba(245,240,230,0.03) 1px, transparent 1px),linear-gradient(90deg,rgba(245,240,230,0.03) 1px, transparent 1px);background-size:40px 40px;">
+            <img src="${SEAL_URL}" alt="Colchis Food" width="64" height="64" style="display:block;margin:0 auto 20px;" />
+            <p style="margin:0 0 6px;font-family:'Courier New',monospace;font-size:10px;letter-spacing:5px;color:rgba(245,240,230,0.45);text-transform:uppercase;">Colchis Food</p>
+            <p style="margin:0;font-family:'Courier New',monospace;font-size:10px;letter-spacing:3px;color:${C.accent2};text-transform:uppercase;">${subtitle}</p>
+          </td>
+        </tr>
+        <tr><td style="height:2px;background:${C.accent};font-size:0;line-height:0;">&nbsp;</td></tr>`;
+}
+
+function darkFoot(): string {
+  return `
+        <tr>
+          <td style="background:${C.forest};padding:28px 48px;text-align:center;">
+            <p style="margin:0 0 2px;font-family:'Courier New',monospace;font-size:9px;letter-spacing:3px;color:rgba(245,240,230,0.25);text-transform:uppercase;">© ${new Date().getFullYear()} Colchis Food</p>
+            <p style="margin:0;font-family:'Georgia',serif;font-size:10px;color:rgba(245,240,230,0.18);font-style:italic;">Heritage in every bite</p>
+          </td>
+        </tr>`;
+}
+
+function divider(bg = C.cream2): string {
+  return `<tr><td style="background:${bg};padding:0 48px;"><div style="height:1px;background:${C.forest};opacity:0.12;"></div></td></tr>`;
+}
+
+// ─── 1. Email Verification ──────────────────────────────────────────────────
+
+export async function sendVerificationEmail(to: string, code: string, name?: string) {
+  const greeting = name || 'there';
+
+  try {
+    const { data, error } = await resend.emails.send({
+      from: getFrom(),
+      to: [to],
+      subject: `${code} is your Colchis Food verification code`,
+      html: wrap(`
+          ${sealHead('Account Verification')}
+
+          <tr>
+            <td style="background:${C.cream2};padding:48px 48px 24px;">
+              <p style="margin:0 0 20px;font-family:'Courier New',monospace;font-size:10px;letter-spacing:3px;color:${C.accent2};text-transform:uppercase;">Verify your email</p>
+              <h1 style="margin:0 0 20px;font-family:'Georgia',serif;font-size:28px;font-weight:300;color:${C.forest};line-height:1.2;">
+                Hello, <em style="color:${C.accent2};font-weight:400;">${greeting}.</em>
+              </h1>
+              <p style="margin:0;font-family:'Georgia',serif;font-size:15px;color:${C.moss};line-height:1.75;font-style:italic;">
+                Thank you for creating your Colchis Food account. Enter the code below to confirm your email:
+              </p>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="background:${C.cream2};padding:12px 48px 32px;">
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="background:${C.cream};border:2px solid ${C.accent};padding:32px 20px;text-align:center;">
+                    <p style="margin:0 0 8px;font-family:'Courier New',monospace;font-size:9px;letter-spacing:4px;color:${C.muted};text-transform:uppercase;">Verification Code</p>
+                    <p style="margin:0;font-family:'Courier New',monospace;font-size:40px;font-weight:700;letter-spacing:10px;color:${C.forest};">${code}</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="background:${C.cream2};padding:0 48px 44px;">
+              <p style="margin:0 0 20px;font-family:'Georgia',serif;font-size:13px;color:${C.muted};line-height:1.6;text-align:center;">
+                This code expires in <strong style="color:${C.forest};">15 minutes</strong>. If you didn't create an account, you can safely ignore this email.
+              </p>
+              <div style="height:1px;background:${C.forest};opacity:0.08;margin:0 0 20px;"></div>
+              <p style="margin:0;font-family:'Georgia',serif;font-size:12px;color:${C.muted};text-align:center;">
+                Questions? <a href="mailto:support@colchisfood.com" style="color:${C.accent2};text-decoration:none;">support@colchisfood.com</a>
+              </p>
+            </td>
+          </tr>
+
+          ${darkFoot()}
+      `),
     });
 
     if (error) {
       console.error('[Resend] Failed to send verification email:', error);
       return { success: false, error: error.message };
     }
-
     console.log('[Resend] Verification email sent to', to, '| ID:', data?.id);
     return { success: true, id: data?.id };
   } catch (err: any) {
@@ -97,91 +147,75 @@ export function generateVerificationCode(): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
+// ─── 2. Admin 2FA ───────────────────────────────────────────────────────────
+
 export async function send2FAEmail(to: string, code: string, name?: string) {
-  const greeting = name ? `Hello ${name}` : 'Hello';
+  const greeting = name || 'Admin';
 
   try {
     const { data, error } = await resend.emails.send({
-      from: `${FROM_NAME} <${FROM_EMAIL}>`,
+      from: getFrom(),
       to: [to],
-      subject: `${code} — Colchis Creamery Admin Login Verification`,
-      html: `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
-<body style="margin:0;padding:0;background-color:#FDFBF7;font-family:'Georgia',serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#FDFBF7;padding:40px 20px;">
-    <tr>
-      <td align="center">
-        <table width="480" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
-          
-          <!-- Header -->
+      subject: `${code} — Colchis Food Admin Login Verification`,
+      html: wrap(`
+          ${sealHead('Admin Security')}
+
           <tr>
-            <td style="background:linear-gradient(135deg,#2C2A29 0%,#4A4745 100%);padding:32px 40px;text-align:center;">
-              <h1 style="color:#CBA153;margin:0;font-size:24px;font-weight:700;letter-spacing:1px;">COLCHIS CREAMERY</h1>
-              <p style="color:rgba(255,255,255,0.6);margin:6px 0 0;font-size:11px;letter-spacing:3px;text-transform:uppercase;">Admin Security Verification</p>
-            </td>
-          </tr>
-          
-          <!-- Body -->
-          <tr>
-            <td style="padding:40px;">
-              <p style="color:#333;font-size:16px;margin:0 0 8px;font-weight:600;">${greeting},</p>
-              <p style="color:#666;font-size:14px;line-height:1.6;margin:0 0 28px;">
+            <td style="background:${C.cream2};padding:48px 48px 24px;">
+              <p style="margin:0 0 20px;font-family:'Courier New',monospace;font-size:10px;letter-spacing:3px;color:${C.accent2};text-transform:uppercase;">Two-factor verification</p>
+              <h1 style="margin:0 0 20px;font-family:'Georgia',serif;font-size:28px;font-weight:300;color:${C.forest};line-height:1.2;">
+                Hello, <em style="color:${C.accent2};font-weight:400;">${greeting}.</em>
+              </h1>
+              <p style="margin:0;font-family:'Georgia',serif;font-size:15px;color:${C.moss};line-height:1.75;font-style:italic;">
                 A login attempt was detected for your admin account. Enter the code below to complete sign-in:
               </p>
-              
-              <!-- Code Box -->
-              <div style="background:#FFF8F0;border:2px solid #E8614A;border-radius:12px;padding:28px;text-align:center;margin:0 0 28px;">
-                <p style="color:#E8614A;font-size:11px;letter-spacing:3px;text-transform:uppercase;margin:0 0 4px;">🔐 Two-Factor Code</p>
-                <p style="color:#2C2A29;font-size:36px;font-weight:700;letter-spacing:8px;margin:8px 0 0;font-family:'Courier New',monospace;">${code}</p>
-              </div>
-              
-              <p style="color:#999;font-size:12px;line-height:1.5;margin:0 0 16px;text-align:center;">
-                This code expires in <strong style="color:#666;">5 minutes</strong>.
-              </p>
-              
-              <div style="background:#FFF3F3;border-radius:8px;padding:12px 16px;margin:0 0 24px;">
-                <p style="color:#C0392B;font-size:12px;margin:0;line-height:1.5;">
-                  ⚠️ If you did not attempt to log in, your password may be compromised. Please change it immediately.
-                </p>
-              </div>
-              
-              <hr style="border:none;border-top:1px solid #eee;margin:24px 0;" />
-              
-              <p style="color:#999;font-size:11px;line-height:1.5;margin:0;text-align:center;">
-                Colchis Creamery Admin Portal<br/>
-                <a href="mailto:t.shergelashvili@colchiscreamery.com" style="color:#CBA153;text-decoration:none;font-weight:600;">t.shergelashvili@colchiscreamery.com</a>
-              </p>
             </td>
           </tr>
-          
-          <!-- Footer -->
+
+          <!-- Red-accented code box for security distinction -->
           <tr>
-            <td style="background-color:#2C2A29;padding:20px 40px;text-align:center;">
-              <p style="color:rgba(255,255,255,0.4);font-size:10px;margin:0;letter-spacing:1px;">
-                © ${new Date().getFullYear()} Colchis Creamery · Columbus, Ohio · Admin Security
+            <td style="background:${C.cream2};padding:12px 48px 24px;">
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="background:${C.redBg};border:2px solid ${C.red};padding:32px 20px;text-align:center;">
+                    <p style="margin:0 0 4px;font-family:'Courier New',monospace;font-size:9px;letter-spacing:4px;color:${C.red};text-transform:uppercase;">🔐 Two-Factor Code</p>
+                    <p style="margin:8px 0 0;font-family:'Courier New',monospace;font-size:40px;font-weight:700;letter-spacing:10px;color:${C.forest};">${code}</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="background:${C.cream2};padding:4px 48px 16px;">
+              <p style="margin:0;font-family:'Georgia',serif;font-size:13px;color:${C.muted};text-align:center;">
+                Expires in <strong style="color:${C.forest};">5 minutes</strong>.
               </p>
             </td>
           </tr>
-          
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>
-      `.trim(),
+
+          <tr>
+            <td style="background:${C.cream2};padding:0 48px 44px;">
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="border-left:2px solid ${C.red};padding:12px 20px;background:${C.redBg};">
+                    <p style="margin:0;font-family:'Georgia',serif;font-size:12px;color:${C.red};line-height:1.5;">
+                      ⚠️ If you did not attempt to log in, your password may be compromised. Change it immediately.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          ${darkFoot()}
+      `),
     });
 
     if (error) {
       console.error('[Resend] Failed to send 2FA email:', error);
       return { success: false, error: error.message };
     }
-
     console.log('[Resend] 2FA email sent to', to, '| ID:', data?.id);
     return { success: true, id: data?.id };
   } catch (err: any) {
@@ -190,13 +224,11 @@ export async function send2FAEmail(to: string, code: string, name?: string) {
   }
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
-// Contact Form Email — forwards to sales + admin
-// ──────────────────────────────────────────────────────────────────────────────
+// ─── 3. Contact Form ────────────────────────────────────────────────────────
 
 const CONTACT_RECIPIENTS = [
-  'sales@colchiscreamery.com',
-  't.shergelashvili@colchiscreamery.com',
+  'sales@colchisfood.com',
+  't.shergelashvili@colchisfood.com',
 ];
 
 export async function sendContactFormEmail(data: {
@@ -206,88 +238,64 @@ export async function sendContactFormEmail(data: {
 }) {
   try {
     const { data: result, error } = await resend.emails.send({
-      from: `${FROM_NAME} <${FROM_EMAIL}>`,
+      from: getFrom(),
       to: CONTACT_RECIPIENTS,
       replyTo: data.email,
       subject: `New Contact Form Message from ${data.name}`,
-      html: `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
-<body style="margin:0;padding:0;background-color:#FDFBF7;font-family:'Georgia',serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#FDFBF7;padding:40px 20px;">
-    <tr>
-      <td align="center">
-        <table width="520" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
-          
-          <!-- Header -->
+      html: wrap(`
+          <!-- Copper alert bar -->
           <tr>
-            <td style="background:linear-gradient(135deg,#2C2A29 0%,#4A4745 100%);padding:28px 40px;text-align:center;">
-              <h1 style="color:#CBA153;margin:0;font-size:22px;font-weight:700;letter-spacing:1px;">COLCHIS CREAMERY</h1>
-              <p style="color:rgba(255,255,255,0.6);margin:6px 0 0;font-size:11px;letter-spacing:3px;text-transform:uppercase;">New Contact Form Message</p>
+            <td style="background:${C.accent2};padding:16px 48px;">
+              <p style="margin:0;font-family:'Courier New',monospace;font-size:11px;letter-spacing:3px;color:${C.cream};text-transform:uppercase;">✉ New contact message</p>
             </td>
           </tr>
-          
-          <!-- Body -->
+
           <tr>
-            <td style="padding:36px 40px;">
-              
-              <!-- Sender Info -->
-              <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
-                <tr>
-                  <td style="padding:12px 16px;background:#FDFBF7;border-radius:8px;border-left:4px solid #CBA153;">
-                    <p style="margin:0 0 4px;font-size:13px;color:#999;">From</p>
-                    <p style="margin:0;font-size:16px;color:#2C2A29;font-weight:600;">${data.name}</p>
-                    <p style="margin:4px 0 0;font-size:14px;color:#666;">
-                      <a href="mailto:${data.email}" style="color:#CBA153;text-decoration:none;">${data.email}</a>
-                    </p>
-                  </td>
-                </tr>
-              </table>
-              
-              <!-- Message -->
-              <div style="padding:20px;background:#FAFAFA;border-radius:8px;border:1px solid #eee;">
-                <p style="margin:0 0 8px;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#999;">Message</p>
-                <p style="margin:0;font-size:14px;color:#333;line-height:1.7;white-space:pre-wrap;">${data.message.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>
-              </div>
-              
-              <!-- Reply CTA -->
-              <div style="text-align:center;margin-top:28px;">
-                <a href="mailto:${data.email}?subject=Re: Your message to Colchis Creamery" 
-                   style="display:inline-block;background:#2C2A29;color:#fff;padding:12px 32px;border-radius:6px;text-decoration:none;font-size:14px;font-weight:600;">
-                  Reply to ${data.name}
-                </a>
-              </div>
-              
-            </td>
-          </tr>
-          
-          <!-- Footer -->
-          <tr>
-            <td style="background-color:#2C2A29;padding:16px 40px;text-align:center;">
-              <p style="color:rgba(255,255,255,0.4);font-size:10px;margin:0;letter-spacing:1px;">
-                Contact form submission · ${new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}
+            <td style="background:${C.cream2};padding:40px 48px 20px;">
+              <h2 style="margin:0 0 4px;font-family:'Georgia',serif;font-size:26px;font-weight:300;color:${C.forest};letter-spacing:-0.5px;">${data.name}</h2>
+              <p style="margin:0;font-family:'Georgia',serif;font-size:14px;color:${C.muted};font-style:italic;">
+                <a href="mailto:${data.email}" style="color:${C.accent2};text-decoration:none;">${data.email}</a>
               </p>
             </td>
           </tr>
-          
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>
-      `.trim(),
+
+          ${divider()}
+
+          <tr>
+            <td style="background:${C.cream2};padding:28px 48px 40px;">
+              <p style="margin:0 0 12px;font-family:'Courier New',monospace;font-size:9px;letter-spacing:3px;color:${C.accent2};text-transform:uppercase;">Message</p>
+              <div style="border-left:2px solid ${C.accent};padding:20px 24px;background:${C.cream};">
+                <p style="margin:0;font-family:'Georgia',serif;font-size:15px;color:${C.forest};line-height:1.75;white-space:pre-wrap;">${data.message.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>
+              </div>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="background:${C.cream2};padding:0 48px 40px;">
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="background:${C.forest};padding:18px 28px;text-align:center;">
+                    <a href="mailto:${data.email}?subject=Re: Your message to Colchis Food" style="font-family:'Courier New',monospace;font-size:11px;letter-spacing:3px;color:${C.cream};text-decoration:none;text-transform:uppercase;">Reply to ${data.name} →</a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="background:${C.forest};padding:14px 48px;text-align:center;">
+              <p style="margin:0;font-family:'Courier New',monospace;font-size:8px;letter-spacing:2px;color:rgba(245,240,230,0.25);text-transform:uppercase;">
+                ${new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}
+              </p>
+            </td>
+          </tr>
+      `),
     });
 
     if (error) {
       console.error('[Resend] Failed to send contact form email:', error);
       return { success: false, error: error.message };
     }
-
     console.log('[Resend] Contact form email sent | ID:', result?.id);
     return { success: true, id: result?.id };
   } catch (err: any) {
@@ -296,9 +304,7 @@ export async function sendContactFormEmail(data: {
   }
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
-// B2B Approval Email — sent when admin approves a partnership request
-// ──────────────────────────────────────────────────────────────────────────────
+// ─── 4. B2B Approval ────────────────────────────────────────────────────────
 
 export async function sendB2bApprovalEmail(
   to: string,
@@ -306,118 +312,95 @@ export async function sendB2bApprovalEmail(
   companyName: string,
   contactName?: string | null
 ) {
-  const greeting = contactName ? `Dear ${contactName}` : 'Hello';
+  const greeting = contactName || 'Partner';
 
   try {
     const { data, error } = await resend.emails.send({
-      from: `${FROM_NAME} <${FROM_EMAIL}>`,
+      from: getFrom(),
       to: [to],
       subject: `Your B2B Partnership Application Has Been Approved!`,
-      html: `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
-<body style="margin:0;padding:0;background-color:#FDFBF7;font-family:'Georgia',serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#FDFBF7;padding:40px 20px;">
-    <tr>
-      <td align="center">
-        <table width="520" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
-          
-          <!-- Header -->
+      html: wrap(`
+          ${sealHead('B2B Partnership')}
+
           <tr>
-            <td style="background:linear-gradient(135deg,#2C2A29 0%,#4A4745 100%);padding:32px 40px;text-align:center;">
-              <h1 style="color:#CBA153;margin:0;font-size:24px;font-weight:700;letter-spacing:1px;">COLCHIS CREAMERY</h1>
-              <p style="color:rgba(255,255,255,0.6);margin:6px 0 0;font-size:11px;letter-spacing:3px;text-transform:uppercase;">B2B Partnership</p>
-            </td>
-          </tr>
-          
-          <!-- Body -->
-          <tr>
-            <td style="padding:40px;">
-              <p style="color:#333;font-size:16px;margin:0 0 8px;font-weight:600;">${greeting},</p>
-              <p style="color:#666;font-size:14px;line-height:1.6;margin:0 0 12px;">
-                Congratulations! Your wholesale partnership application for <strong style="color:#2C2A29;">${companyName}</strong> has been <strong style="color:#2E7D32;">approved</strong>.
-              </p>
-              <p style="color:#666;font-size:14px;line-height:1.6;margin:0 0 28px;">
-                Below is your personal B2B access code. Use it to create your partner account and start placing wholesale orders.
-              </p>
-              
-              <!-- Code Box -->
-              <div style="background:linear-gradient(135deg,#FDFBF7 0%,#FAFAFA 100%);border:2px solid #CBA153;border-radius:12px;padding:28px;text-align:center;margin:0 0 28px;">
-                <p style="color:#999;font-size:11px;letter-spacing:3px;text-transform:uppercase;margin:0 0 12px;">Your B2B Access Code</p>
-                <p style="color:#2C2A29;font-size:28px;font-weight:700;letter-spacing:4px;margin:0;font-family:'Courier New',monospace;">${accessCode}</p>
-              </div>
-              
-              <!-- Steps -->
-              <div style="background:#FAFAFA;border-radius:8px;padding:20px;margin:0 0 28px;">
-                <p style="color:#2C2A29;font-size:13px;font-weight:700;margin:0 0 16px;letter-spacing:1px;text-transform:uppercase;">How to Get Started</p>
-                <table width="100%" cellpadding="0" cellspacing="0">
-                  <tr>
-                    <td style="padding:8px 0;vertical-align:top;">
-                      <span style="display:inline-block;width:24px;height:24px;background:#CBA153;color:#fff;border-radius:50%;text-align:center;line-height:24px;font-size:12px;font-weight:700;">1</span>
-                    </td>
-                    <td style="padding:8px 0 8px 12px;color:#555;font-size:13px;line-height:1.5;">Visit <a href="https://colchiscreamery.com/staff" style="color:#CBA153;text-decoration:none;font-weight:600;">colchiscreamery.com/staff</a></td>
-                  </tr>
-                  <tr>
-                    <td style="padding:8px 0;vertical-align:top;">
-                      <span style="display:inline-block;width:24px;height:24px;background:#CBA153;color:#fff;border-radius:50%;text-align:center;line-height:24px;font-size:12px;font-weight:700;">2</span>
-                    </td>
-                    <td style="padding:8px 0 8px 12px;color:#555;font-size:13px;line-height:1.5;">Click <strong>"Register with Access Code"</strong></td>
-                  </tr>
-                  <tr>
-                    <td style="padding:8px 0;vertical-align:top;">
-                      <span style="display:inline-block;width:24px;height:24px;background:#CBA153;color:#fff;border-radius:50%;text-align:center;line-height:24px;font-size:12px;font-weight:700;">3</span>
-                    </td>
-                    <td style="padding:8px 0 8px 12px;color:#555;font-size:13px;line-height:1.5;">Enter the access code above and use <strong>${to}</strong> as your email</td>
-                  </tr>
-                  <tr>
-                    <td style="padding:8px 0;vertical-align:top;">
-                      <span style="display:inline-block;width:24px;height:24px;background:#CBA153;color:#fff;border-radius:50%;text-align:center;line-height:24px;font-size:12px;font-weight:700;">4</span>
-                    </td>
-                    <td style="padding:8px 0 8px 12px;color:#555;font-size:13px;line-height:1.5;">Complete your registration and start ordering!</td>
-                  </tr>
-                </table>
-              </div>
-              
-              <p style="color:#999;font-size:12px;line-height:1.5;margin:0 0 24px;text-align:center;">
-                This code is locked to your email address and expires in <strong style="color:#666;">30 days</strong>.
-              </p>
-              
-              <hr style="border:none;border-top:1px solid #eee;margin:24px 0;" />
-              
-              <p style="color:#999;font-size:11px;line-height:1.5;margin:0;text-align:center;">
-                Questions? Reply to this email or contact us at<br/>
-                <a href="mailto:sales@colchiscreamery.com" style="color:#CBA153;text-decoration:none;font-weight:600;">sales@colchiscreamery.com</a>
+            <td style="background:${C.cream2};padding:48px 48px 24px;">
+              <p style="margin:0 0 20px;font-family:'Courier New',monospace;font-size:10px;letter-spacing:3px;color:${C.accent2};text-transform:uppercase;">Application approved</p>
+              <h1 style="margin:0 0 20px;font-family:'Georgia',serif;font-size:28px;font-weight:300;color:${C.forest};line-height:1.2;">
+                Welcome aboard, <em style="color:${C.accent2};font-weight:400;">${greeting}.</em>
+              </h1>
+              <p style="margin:0;font-family:'Georgia',serif;font-size:15px;color:${C.moss};line-height:1.75;font-style:italic;">
+                Your wholesale partnership for <strong style="color:${C.forest};font-style:normal;">${companyName}</strong> has been <strong style="color:#2E7D32;font-style:normal;">approved</strong>. Use the code below to create your partner account.
               </p>
             </td>
           </tr>
-          
-          <!-- Footer -->
+
           <tr>
-            <td style="background-color:#2C2A29;padding:20px 40px;text-align:center;">
-              <p style="color:rgba(255,255,255,0.4);font-size:10px;margin:0;letter-spacing:1px;">
-                © ${new Date().getFullYear()} Colchis Creamery · Columbus, Ohio · Wholesale Partnership
+            <td style="background:${C.cream2};padding:12px 48px 32px;">
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="background:${C.cream};border:2px solid ${C.accent};padding:32px 20px;text-align:center;">
+                    <p style="margin:0 0 8px;font-family:'Courier New',monospace;font-size:9px;letter-spacing:4px;color:${C.muted};text-transform:uppercase;">B2B Access Code</p>
+                    <p style="margin:0;font-family:'Courier New',monospace;font-size:32px;font-weight:700;letter-spacing:6px;color:${C.forest};">${accessCode}</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          ${divider()}
+
+          <tr>
+            <td style="background:${C.cream2};padding:28px 48px 40px;">
+              <p style="margin:0 0 20px;font-family:'Courier New',monospace;font-size:10px;letter-spacing:3px;color:${C.accent2};text-transform:uppercase;">Getting started</p>
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr><td style="padding:10px 0;border-bottom:1px solid ${C.forest}0d;">
+                  <table cellpadding="0" cellspacing="0"><tr>
+                    <td style="width:28px;font-family:'Georgia',serif;font-size:18px;color:${C.accent};vertical-align:top;font-style:italic;">01</td>
+                    <td style="padding-left:14px;font-family:'Georgia',serif;font-size:14px;color:${C.moss};line-height:1.5;">Visit <a href="https://colchisfood.com/b2b/register" style="color:${C.accent2};text-decoration:none;">colchisfood.com/b2b/register</a></td>
+                  </tr></table>
+                </td></tr>
+                <tr><td style="padding:10px 0;border-bottom:1px solid ${C.forest}0d;">
+                  <table cellpadding="0" cellspacing="0"><tr>
+                    <td style="width:28px;font-family:'Georgia',serif;font-size:18px;color:${C.accent};vertical-align:top;font-style:italic;">02</td>
+                    <td style="padding-left:14px;font-family:'Georgia',serif;font-size:14px;color:${C.moss};line-height:1.5;">Click <strong>"Register with Access Code"</strong></td>
+                  </tr></table>
+                </td></tr>
+                <tr><td style="padding:10px 0;border-bottom:1px solid ${C.forest}0d;">
+                  <table cellpadding="0" cellspacing="0"><tr>
+                    <td style="width:28px;font-family:'Georgia',serif;font-size:18px;color:${C.accent};vertical-align:top;font-style:italic;">03</td>
+                    <td style="padding-left:14px;font-family:'Georgia',serif;font-size:14px;color:${C.moss};line-height:1.5;">Enter the code above with <strong>${to}</strong></td>
+                  </tr></table>
+                </td></tr>
+                <tr><td style="padding:10px 0;">
+                  <table cellpadding="0" cellspacing="0"><tr>
+                    <td style="width:28px;font-family:'Georgia',serif;font-size:18px;color:${C.accent};vertical-align:top;font-style:italic;">04</td>
+                    <td style="padding-left:14px;font-family:'Georgia',serif;font-size:14px;color:${C.moss};line-height:1.5;">Complete registration and start ordering</td>
+                  </tr></table>
+                </td></tr>
+              </table>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="background:${C.cream2};padding:0 48px 44px;">
+              <p style="margin:0 0 16px;font-family:'Georgia',serif;font-size:13px;color:${C.muted};text-align:center;">
+                Code locked to your email · expires in <strong style="color:${C.forest};">30 days</strong>
+              </p>
+              <div style="height:1px;background:${C.forest};opacity:0.08;margin:0 0 16px;"></div>
+              <p style="margin:0;font-family:'Georgia',serif;font-size:12px;color:${C.muted};text-align:center;">
+                Questions? <a href="mailto:sales@colchisfood.com" style="color:${C.accent2};text-decoration:none;">sales@colchisfood.com</a>
               </p>
             </td>
           </tr>
-          
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>
-      `.trim(),
+
+          ${darkFoot()}
+      `),
     });
 
     if (error) {
       console.error('[Resend] Failed to send B2B approval email:', error);
       return { success: false, error: error.message };
     }
-
     console.log('[Resend] B2B approval email sent to', to, '| ID:', data?.id);
     return { success: true, id: data?.id };
   } catch (err: any) {
@@ -426,89 +409,59 @@ export async function sendB2bApprovalEmail(
   }
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
-// B2B Rejection Email — sent when admin rejects a partnership request
-// ──────────────────────────────────────────────────────────────────────────────
+// ─── 5. B2B Rejection ───────────────────────────────────────────────────────
 
 export async function sendB2bRejectionEmail(
   to: string,
   companyName: string,
   contactName?: string | null
 ) {
-  const greeting = contactName ? `Dear ${contactName}` : 'Hello';
+  const greeting = contactName || 'there';
 
   try {
     const { data, error } = await resend.emails.send({
-      from: `${FROM_NAME} <${FROM_EMAIL}>`,
+      from: getFrom(),
       to: [to],
-      subject: `Update on Your Colchis Creamery Partnership Application`,
-      html: `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
-<body style="margin:0;padding:0;background-color:#FDFBF7;font-family:'Georgia',serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#FDFBF7;padding:40px 20px;">
-    <tr>
-      <td align="center">
-        <table width="520" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
-          
-          <!-- Header -->
+      subject: `Update on Your Colchis Food Partnership Application`,
+      html: wrap(`
+          ${sealHead('Partnership Update')}
+
           <tr>
-            <td style="background:linear-gradient(135deg,#2C2A29 0%,#4A4745 100%);padding:32px 40px;text-align:center;">
-              <h1 style="color:#CBA153;margin:0;font-size:24px;font-weight:700;letter-spacing:1px;">COLCHIS CREAMERY</h1>
-              <p style="color:rgba(255,255,255,0.6);margin:6px 0 0;font-size:11px;letter-spacing:3px;text-transform:uppercase;">Partnership Application Update</p>
-            </td>
-          </tr>
-          
-          <!-- Body -->
-          <tr>
-            <td style="padding:40px;">
-              <p style="color:#333;font-size:16px;margin:0 0 8px;font-weight:600;">${greeting},</p>
-              <p style="color:#666;font-size:14px;line-height:1.7;margin:0 0 20px;">
-                Thank you for your interest in partnering with Colchis Creamery and for submitting a wholesale partnership application for <strong style="color:#2C2A29;">${companyName}</strong>.
+            <td style="background:${C.cream2};padding:48px 48px 24px;">
+              <p style="margin:0 0 20px;font-family:'Courier New',monospace;font-size:10px;letter-spacing:3px;color:${C.accent2};text-transform:uppercase;">Application update</p>
+              <h1 style="margin:0 0 24px;font-family:'Georgia',serif;font-size:28px;font-weight:300;color:${C.forest};line-height:1.2;">
+                Dear <em style="color:${C.accent2};font-weight:400;">${greeting},</em>
+              </h1>
+              <p style="margin:0 0 16px;font-family:'Georgia',serif;font-size:15px;color:${C.moss};line-height:1.75;font-style:italic;">
+                Thank you for your interest in partnering with Colchis Food. We carefully reviewed the application for <strong style="color:${C.forest};font-style:normal;">${companyName}</strong>.
               </p>
-              <p style="color:#666;font-size:14px;line-height:1.7;margin:0 0 20px;">
-                After careful review, we are unable to approve your application at this time. This may be due to current capacity constraints, geographic considerations, or other business factors.
+              <p style="margin:0 0 16px;font-family:'Georgia',serif;font-size:15px;color:${C.moss};line-height:1.75;font-style:italic;">
+                After consideration, we are unable to approve your application at this time. This may be due to capacity constraints, geographic considerations, or other factors.
               </p>
-              <p style="color:#666;font-size:14px;line-height:1.7;margin:0 0 28px;">
-                We encourage you to apply again in the future as our distribution network expands. We value your interest in bringing authentic Georgian cheese to your customers.
-              </p>
-              
-              <hr style="border:none;border-top:1px solid #eee;margin:24px 0;" />
-              
-              <p style="color:#999;font-size:11px;line-height:1.5;margin:0;text-align:center;">
-                Questions? Contact our wholesale team at<br/>
-                <a href="mailto:sales@colchiscreamery.com" style="color:#CBA153;text-decoration:none;font-weight:600;">sales@colchiscreamery.com</a>
+              <p style="margin:0;font-family:'Georgia',serif;font-size:15px;color:${C.moss};line-height:1.75;font-style:italic;">
+                We encourage you to apply again as our distribution network expands.
               </p>
             </td>
           </tr>
-          
-          <!-- Footer -->
+
+          ${divider()}
+
           <tr>
-            <td style="background-color:#2C2A29;padding:20px 40px;text-align:center;">
-              <p style="color:rgba(255,255,255,0.4);font-size:10px;margin:0;letter-spacing:1px;">
-                © ${new Date().getFullYear()} Colchis Creamery · Columbus, Ohio · Authentic Georgian Cheese
+            <td style="background:${C.cream2};padding:28px 48px 44px;">
+              <p style="margin:0;font-family:'Georgia',serif;font-size:12px;color:${C.muted};text-align:center;">
+                Questions? <a href="mailto:sales@colchisfood.com" style="color:${C.accent2};text-decoration:none;">sales@colchisfood.com</a>
               </p>
             </td>
           </tr>
-          
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>
-      `.trim(),
+
+          ${darkFoot()}
+      `),
     });
 
     if (error) {
       console.error('[Resend] Failed to send B2B rejection email:', error);
       return { success: false, error: error.message };
     }
-
     console.log('[Resend] B2B rejection email sent to', to, '| ID:', data?.id);
     return { success: true, id: data?.id };
   } catch (err: any) {

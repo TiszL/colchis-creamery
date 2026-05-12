@@ -1,25 +1,25 @@
 import { Metadata } from 'next';
 import { prisma } from '@/lib/db';
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://colchiscreamery.com';
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://colchisfood.com';
 
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
     const { locale } = await params;
     const canonicalPath = locale === 'en' ? '/legal/returns' : `/${locale}/legal/returns`;
     return {
-        title: 'Return Policy | Colchis Creamery',
-        description: 'Read the return and refund policy for Colchis Creamery artisanal cheese. Learn about our quality guarantee and how to file a claim.',
-        keywords: ['Colchis Creamery returns', 'return policy', 'cheese refund', 'quality guarantee', 'wholesale returns'],
+        title: 'Return Policy | Colchis Food',
+        description: 'Read the return and refund policy for Colchis Food artisanal cheese. Learn about our quality guarantee and how to file a claim.',
+        keywords: ['Colchis Food returns', 'return policy', 'cheese refund', 'quality guarantee', 'wholesale returns'],
         alternates: {
             canonical: `${SITE_URL}${canonicalPath}`,
             languages: { 'en': `${SITE_URL}/legal/returns`, 'ka': `${SITE_URL}/ka/legal/returns`, 'ru': `${SITE_URL}/ru/legal/returns`, 'es': `${SITE_URL}/es/legal/returns` },
         },
         openGraph: {
-            type: 'website', title: 'Return Policy | Colchis Creamery',
+            type: 'website', title: 'Return Policy | Colchis Food',
             description: 'Our return and quality guarantee policy.',
-            url: `${SITE_URL}${canonicalPath}`, siteName: 'Colchis Creamery',
+            url: `${SITE_URL}${canonicalPath}`, siteName: 'Colchis Food',
         },
-        twitter: { card: 'summary', title: 'Return Policy | Colchis Creamery', description: 'Our return policy and quality guarantee.' },
+        twitter: { card: 'summary', title: 'Return Policy | Colchis Food', description: 'Our return policy and quality guarantee.' },
     };
 }
 
@@ -32,7 +32,7 @@ const DEFAULTS: LegalSection[] = [
     { heading: '2. Quality Guarantee', body: 'We stand behind the quality of our craftsmanship. If you receive a product that is damaged, spoiled, or incorrect, please contact us within 24 hours of delivery. You must provide photographic evidence of the issue and the packaging.' },
     { heading: '3. Refunds and Replacements', body: 'If a claim is approved under our Quality Guarantee, we will, at our discretion, either ship a replacement product at our expense or issue a full refund to your original method of payment.' },
     { heading: '4. Wholesale Returns', body: 'B2B partners must report discrepancies or quality issues within 24 hours of receiving a pallet. Wholesale returns are subject to the specific terms outlined in your signed Vendor Agreement via Adobe Sign.' },
-    { heading: '5. Contact Information', body: 'To initiate a quality claim, please email our support team at support@colchiscreamery.com with your order number and photos of the problem.' },
+    { heading: '5. Contact Information', body: 'To initiate a quality claim, please email our support team at support@colchisfood.com with your order number and photos of the problem.' },
 ];
 
 export default async function ReturnPolicyPage() {
@@ -53,10 +53,10 @@ export default async function ReturnPolicyPage() {
         '@context': 'https://schema.org',
         '@type': 'WebPage',
         name: 'Return Policy',
-        description: 'Return and refund policy for Colchis Creamery',
+        description: 'Return and refund policy for Colchis Food',
         url: `${SITE_URL}/legal/returns`,
-        isPartOf: { '@type': 'WebSite', name: 'Colchis Creamery', url: SITE_URL },
-        publisher: { '@type': 'Organization', name: 'Colchis Creamery', url: SITE_URL },
+        isPartOf: { '@type': 'WebSite', name: 'Colchis Food', url: SITE_URL },
+        publisher: { '@type': 'Organization', name: 'Colchis Food', url: SITE_URL },
         mainContentOfPage: {
             '@type': 'WebPageElement',
             text: sections.map(s => `${s.heading}: ${s.body}`).join(' '),

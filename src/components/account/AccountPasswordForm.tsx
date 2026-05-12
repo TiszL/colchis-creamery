@@ -7,6 +7,9 @@ interface Props {
     userId: string;
 }
 
+const inputStyle: React.CSSProperties = { width: "100%", padding: "10px 14px", background: "#F5F0E6", border: "1px solid #1F302622", color: "#1F3026", fontFamily: "var(--font-sans)", fontSize: 14, outline: "none" };
+const labelStyle: React.CSSProperties = { display: "block", fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.32em", color: "#7A8278", textTransform: "uppercase", marginBottom: 6 };
+
 export function AccountPasswordForm({ userId }: Props) {
     const [editing, setEditing] = useState(false);
     const [isPending, startTransition] = useTransition();
@@ -27,17 +30,14 @@ export function AccountPasswordForm({ userId }: Props) {
 
     if (!editing) {
         return (
-            <div className="p-6">
-                <p className="text-[#2C2A29] text-sm">••••••••••••</p>
+            <div style={{ padding: 24 }}>
+                <p style={{ fontFamily: "var(--font-serif)", fontSize: 15, color: "#1F3026" }}>••••••••••••</p>
                 {message && (
-                    <div className={`mt-4 p-3 rounded text-sm ${message.type === "success" ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-600 border border-red-200"}`}>
+                    <div style={{ marginTop: 14, padding: 10, fontSize: 13, fontFamily: "var(--font-sans)", background: message.type === "success" ? "#B96A3D11" : "#A8312C11", color: message.type === "success" ? "#2C3D33" : "#A8312C", border: `1px solid ${message.type === "success" ? "#B96A3D33" : "#A8312C33"}` }}>
                         {message.text}
                     </div>
                 )}
-                <button
-                    onClick={() => { setEditing(true); setMessage(null); }}
-                    className="mt-4 text-sm text-[#A6812F] hover:text-[#2C2A29] font-medium transition-colors"
-                >
+                <button onClick={() => { setEditing(true); setMessage(null); }} style={{ marginTop: 14, fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.24em", color: "#B96A3D", textTransform: "uppercase", background: "transparent", border: "none", cursor: "pointer", padding: 0 }}>
                     Change Password
                 </button>
             </div>
@@ -45,57 +45,32 @@ export function AccountPasswordForm({ userId }: Props) {
     }
 
     return (
-        <form action={handleSubmit} className="p-6 space-y-4">
+        <form action={handleSubmit} style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16 }}>
             <input type="hidden" name="userId" value={userId} />
             <div>
-                <label className="block text-xs text-gray-400 uppercase tracking-wider font-bold mb-1">Current Password</label>
-                <input
-                    type="password"
-                    name="currentPassword"
-                    required
-                    className="w-full px-4 py-3 bg-[#FDFBF7] border border-gray-200 rounded-lg text-[#2C2A29] focus:outline-none focus:border-[#CBA153] focus:ring-1 focus:ring-[#CBA153]"
-                />
+                <label style={labelStyle}>Current Password</label>
+                <input type="password" name="currentPassword" required style={inputStyle} />
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                 <div>
-                    <label className="block text-xs text-gray-400 uppercase tracking-wider font-bold mb-1">New Password</label>
-                    <input
-                        type="password"
-                        name="newPassword"
-                        required
-                        minLength={8}
-                        className="w-full px-4 py-3 bg-[#FDFBF7] border border-gray-200 rounded-lg text-[#2C2A29] focus:outline-none focus:border-[#CBA153] focus:ring-1 focus:ring-[#CBA153]"
-                    />
+                    <label style={labelStyle}>New Password</label>
+                    <input type="password" name="newPassword" required minLength={8} style={inputStyle} />
                 </div>
                 <div>
-                    <label className="block text-xs text-gray-400 uppercase tracking-wider font-bold mb-1">Confirm Password</label>
-                    <input
-                        type="password"
-                        name="confirmPassword"
-                        required
-                        minLength={8}
-                        className="w-full px-4 py-3 bg-[#FDFBF7] border border-gray-200 rounded-lg text-[#2C2A29] focus:outline-none focus:border-[#CBA153] focus:ring-1 focus:ring-[#CBA153]"
-                    />
+                    <label style={labelStyle}>Confirm Password</label>
+                    <input type="password" name="confirmPassword" required minLength={8} style={inputStyle} />
                 </div>
             </div>
             {message && (
-                <div className={`p-3 rounded text-sm ${message.type === "success" ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-600 border border-red-200"}`}>
+                <div style={{ padding: 10, fontSize: 13, fontFamily: "var(--font-sans)", background: message.type === "success" ? "#B96A3D11" : "#A8312C11", color: message.type === "success" ? "#2C3D33" : "#A8312C", border: `1px solid ${message.type === "success" ? "#B96A3D33" : "#A8312C33"}` }}>
                     {message.text}
                 </div>
             )}
-            <div className="flex gap-3">
-                <button
-                    type="submit"
-                    disabled={isPending}
-                    className="px-6 py-2.5 bg-[#CBA153] text-white rounded-lg text-sm font-bold uppercase tracking-wider hover:bg-[#b08d47] transition disabled:opacity-50"
-                >
+            <div style={{ display: "flex", gap: 10 }}>
+                <button type="submit" disabled={isPending} style={{ padding: "10px 20px", background: "#1F3026", color: "#F5F0E6", border: "none", fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.24em", textTransform: "uppercase", cursor: "pointer", opacity: isPending ? 0.5 : 1 }}>
                     {isPending ? "Changing..." : "Update Password"}
                 </button>
-                <button
-                    type="button"
-                    onClick={() => { setEditing(false); setMessage(null); }}
-                    className="px-6 py-2.5 border border-gray-200 text-gray-500 rounded-lg text-sm font-medium hover:bg-gray-50 transition"
-                >
+                <button type="button" onClick={() => { setEditing(false); setMessage(null); }} style={{ padding: "10px 20px", border: "1px solid #1F302622", background: "transparent", fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.24em", color: "#7A8278", textTransform: "uppercase", cursor: "pointer" }}>
                     Cancel
                 </button>
             </div>

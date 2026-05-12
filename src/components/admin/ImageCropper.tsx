@@ -138,7 +138,7 @@ export default function ImageCropper({ file, onCrop, onCancel, aspectRatio = '1:
         ctx.fillRect(dispX + cropX + cropW, dispY + cropY, cw - (dispX + cropX + cropW), cropH);
 
         // Crop border
-        ctx.strokeStyle = '#CBA153';
+        ctx.strokeStyle = '#B96A3D';
         ctx.lineWidth = 2;
         ctx.setLineDash([6, 4]);
         ctx.strokeRect(dispX + cropX, dispY + cropY, cropW, cropH);
@@ -152,7 +152,7 @@ export default function ImageCropper({ file, onCrop, onCancel, aspectRatio = '1:
             [dispX + cropX, dispY + cropY + cropH],
             [dispX + cropX + cropW, dispY + cropY + cropH],
         ];
-        ctx.fillStyle = '#CBA153';
+        ctx.fillStyle = '#B96A3D';
         corners.forEach(([cx, cy]) => {
             ctx.fillRect(cx - handleSize / 2, cy - handleSize / 2, handleSize, handleSize);
         });
@@ -184,7 +184,7 @@ export default function ImageCropper({ file, onCrop, onCancel, aspectRatio = '1:
         const lx = dispX + cropX + cropW / 2 - tm.width / 2 - 6;
         const ly = dispY + cropY + cropH + 8;
         ctx.fillRect(lx, ly, tm.width + 12, 20);
-        ctx.fillStyle = '#CBA153';
+        ctx.fillStyle = '#B96A3D';
         ctx.fillText(labelText, lx + 6, ly + 14);
 
         // Update preview
@@ -350,42 +350,42 @@ export default function ImageCropper({ file, onCrop, onCancel, aspectRatio = '1:
     return (
         <div className="fixed inset-0 z-[200] bg-black/90 flex flex-col">
             {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 bg-[#111] border-b border-white/10 flex-shrink-0 flex-wrap gap-3">
+            <div className="flex items-center justify-between px-6 py-4 bg-[#111] border-b border-[#B96A3D22] flex-shrink-0 flex-wrap gap-3">
                 <div className="flex items-center gap-3">
                     <h3 className="text-white font-bold text-sm">Crop Image — {ratioLabel}</h3>
-                    <span className="text-[10px] text-gray-500 font-mono bg-white/5 px-2 py-0.5 rounded">
+                    <span className="text-[10px] text-gray-500 font-mono bg-[#ffffff08] px-2 py-0.5 rounded">
                         {imgNatW} × {imgNatH} original
                     </span>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                     {/* Ratio switcher */}
-                    <div className="flex items-center bg-white/5 rounded-lg overflow-hidden border border-white/10">
+                    <div className="flex items-center bg-[#ffffff08] overflow-hidden border border-[#B96A3D22]">
                         <button type="button" onClick={() => setActiveRatio('1:1')}
-                            className={`flex items-center gap-1 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider transition-colors ${activeRatio === '1:1' ? 'bg-[#CBA153] text-black' : 'text-gray-400 hover:text-white'}`}>
+                            className={`flex items-center gap-1 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider transition-colors ${activeRatio === '1:1' ? 'bg-[#B96A3D] text-black' : 'text-gray-400 hover:text-white'}`}>
                             <Square className="w-3 h-3" /> 1:1
                         </button>
                         <button type="button" onClick={() => setActiveRatio('16:9')}
-                            className={`flex items-center gap-1 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider transition-colors ${activeRatio === '16:9' ? 'bg-[#CBA153] text-black' : 'text-gray-400 hover:text-white'}`}>
+                            className={`flex items-center gap-1 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider transition-colors ${activeRatio === '16:9' ? 'bg-[#B96A3D] text-black' : 'text-gray-400 hover:text-white'}`}>
                             <RectangleHorizontal className="w-3 h-3" /> 16:9
                         </button>
                     </div>
 
                     <div className="w-px h-6 bg-white/10" />
                     <button type="button" onClick={() => zoom(-30)}
-                        className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors" title="Shrink crop">
+                        className="p-2 text-gray-400 hover:text-white hover:bg-white/10 transition-colors" title="Shrink crop">
                         <ZoomOut className="w-4 h-4" />
                     </button>
                     <button type="button" onClick={() => zoom(30)}
-                        className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors" title="Expand crop">
+                        className="p-2 text-gray-400 hover:text-white hover:bg-white/10 transition-colors" title="Expand crop">
                         <ZoomIn className="w-4 h-4" />
                     </button>
                     <div className="w-px h-6 bg-white/10" />
                     <button type="button" onClick={onCancel}
-                        className="flex items-center gap-1.5 px-4 py-2 text-xs text-gray-400 hover:text-white border border-white/10 rounded-lg hover:bg-white/5 transition-all">
+                        className="flex items-center gap-1.5 px-4 py-2 text-xs text-gray-400 hover:text-white border border-[#B96A3D22] hover:bg-[#ffffff08] transition-all">
                         <X className="w-3.5 h-3.5" /> Cancel
                     </button>
                     <button type="button" onClick={handleCrop}
-                        className="flex items-center gap-1.5 px-5 py-2 text-xs font-bold text-black bg-[#CBA153] rounded-lg hover:bg-white transition-all uppercase tracking-wider">
+                        className="flex items-center gap-1.5 px-5 py-2 text-xs font-bold text-black bg-[#B96A3D] hover:bg-white transition-all uppercase tracking-wider">
                         <Check className="w-3.5 h-3.5" /> Crop & Upload
                     </button>
                 </div>
@@ -410,9 +410,9 @@ export default function ImageCropper({ file, onCrop, onCancel, aspectRatio = '1:
                 </div>
 
                 {/* Preview sidebar */}
-                <div className="w-[260px] bg-[#0D0D0D] border-l border-white/10 p-5 flex flex-col items-center gap-4 flex-shrink-0 hidden md:flex">
+                <div className="w-[260px] bg-[#0C0C0C] border-l border-[#B96A3D22] p-5 flex flex-col items-center gap-4 flex-shrink-0 hidden md:flex">
                     <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Preview</p>
-                    <div className={`w-[240px] ${previewAspect} rounded-xl overflow-hidden border-2 border-[#CBA153]/30 bg-[#1A1A1A]`}>
+                    <div className={`w-[240px] ${previewAspect} overflow-hidden border-2 border-[#B96A3D]/30 bg-[#161616]`}>
                         <canvas ref={previewRef} className="w-full h-full" />
                     </div>
                     <div className="text-center space-y-2 mt-2">

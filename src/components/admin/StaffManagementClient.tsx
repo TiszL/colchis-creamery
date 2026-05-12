@@ -143,14 +143,14 @@ export default function StaffManagementClient({ initialStaff }: { initialStaff: 
                 </div>
                 <button
                     onClick={() => { setShowCreate(!showCreate); setError(null); }}
-                    className="bg-[#CBA153] text-black font-bold uppercase tracking-widest text-xs py-3 px-6 rounded-lg hover:bg-white transition-all flex items-center gap-2"
+                    className="bg-[#B96A3D] text-black font-bold uppercase tracking-widest text-xs py-3 px-6 hover:bg-white transition-all flex items-center gap-2"
                 >
                     <Plus size={16} /> Create Account
                 </button>
             </div>
 
             {/* ── 2FA Toggle ── */}
-            <div className="bg-[#1A1A1A] rounded-xl border border-white/5 p-5 flex items-center justify-between">
+            <div className="bg-[#161616] border border-[#ffffff0A] p-5 flex items-center justify-between">
                 <div className="flex items-center gap-4">
                     {twoFAEnabled ? (
                         <ShieldCheck className="w-6 h-6 text-emerald-400" />
@@ -177,7 +177,7 @@ export default function StaffManagementClient({ initialStaff }: { initialStaff: 
 
             {/* ── Credential Card (persists until dismissed) ── */}
             {createdAccount && (
-                <div className="bg-[#1A1A1A] rounded-xl border border-emerald-900/30 overflow-hidden animate-fade-in">
+                <div className="bg-[#161616] border border-emerald-900/30 overflow-hidden animate-fade-in">
                     <div className="px-5 py-3 bg-emerald-950/30 border-b border-emerald-900/20 flex items-center justify-between">
                         <div className="flex items-center gap-2">
                             <CheckCircle size={16} className="text-emerald-400" />
@@ -189,12 +189,12 @@ export default function StaffManagementClient({ initialStaff }: { initialStaff: 
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold mb-1">Login ID</p>
-                                <p className="text-white text-sm font-mono bg-[#0D0D0D] px-3 py-2 rounded-lg border border-white/5 select-all">{createdAccount.loginId}</p>
+                                <p className="text-white text-sm font-mono bg-[#0C0C0C] px-3 py-2 border border-[#ffffff0A] select-all">{createdAccount.loginId}</p>
                             </div>
                             <div>
                                 <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold mb-1">Temporary Password</p>
-                                <div className="flex items-center gap-2 bg-[#0D0D0D] px-3 py-2 rounded-lg border border-white/5">
-                                    <code className="text-[#CBA153] font-mono text-sm tracking-wider select-all flex-1">{createdAccount.password}</code>
+                                <div className="flex items-center gap-2 bg-[#0C0C0C] px-3 py-2 border border-[#ffffff0A]">
+                                    <code className="text-[#B96A3D] font-mono text-sm tracking-wider select-all flex-1">{createdAccount.password}</code>
                                     <button
                                         onClick={() => copyToClipboard(createdAccount.password, setPasswordCopied)}
                                         className={`transition-all p-0.5 ${passwordCopied ? "text-emerald-400" : "text-gray-500 hover:text-white"}`}
@@ -213,7 +213,7 @@ export default function StaffManagementClient({ initialStaff }: { initialStaff: 
 
             {/* ── Password Reset Result ── */}
             {resetResult && (
-                <div className="bg-[#1A1A1A] rounded-xl border border-blue-900/30 overflow-hidden animate-fade-in">
+                <div className="bg-[#161616] border border-blue-900/30 overflow-hidden animate-fade-in">
                     <div className="px-5 py-3 bg-blue-950/30 border-b border-blue-900/20 flex items-center justify-between">
                         <div className="flex items-center gap-2">
                             <Key size={16} className="text-blue-400" />
@@ -224,9 +224,9 @@ export default function StaffManagementClient({ initialStaff }: { initialStaff: 
                         <button onClick={() => setResetResult(null)} className="text-gray-600 hover:text-white transition-colors p-1"><X size={16} /></button>
                     </div>
                     <div className="p-5">
-                        <div className="flex items-center gap-3 bg-[#0D0D0D] px-4 py-3 rounded-lg border border-white/5">
+                        <div className="flex items-center gap-3 bg-[#0C0C0C] px-4 py-3 border border-[#ffffff0A]">
                             <span className="text-[10px] text-gray-500 uppercase tracking-widest font-bold shrink-0">New Password</span>
-                            <code className="text-[#CBA153] font-mono text-lg tracking-wider select-all flex-1">{resetResult.password}</code>
+                            <code className="text-[#B96A3D] font-mono text-lg tracking-wider select-all flex-1">{resetResult.password}</code>
                             <button
                                 onClick={() => copyToClipboard(resetResult.password, setResetCopied)}
                                 className={`transition-all p-1 ${resetCopied ? "text-emerald-400" : "text-gray-500 hover:text-white"}`}
@@ -241,7 +241,7 @@ export default function StaffManagementClient({ initialStaff }: { initialStaff: 
 
             {/* ── Error Banner ── */}
             {error && (
-                <div className="p-4 bg-red-950/50 text-red-300 border border-red-900/50 text-sm rounded-lg flex items-center gap-3 animate-fade-in">
+                <div className="p-4 bg-red-950/50 text-red-300 border border-red-900/50 text-sm flex items-center gap-3 animate-fade-in">
                     <AlertCircle size={18} className="shrink-0" />
                     {error}
                     <button onClick={() => setError(null)} className="ml-auto text-red-500 hover:text-red-300 p-1"><X size={14} /></button>
@@ -250,7 +250,7 @@ export default function StaffManagementClient({ initialStaff }: { initialStaff: 
 
             {/* ── Create Account Form ── */}
             {showCreate && (
-                <div className="bg-[#1A1A1A] p-6 rounded-xl border border-[#CBA153]/20 animate-fade-in">
+                <div className="bg-[#161616] p-6 border border-[#B96A3D]/20 animate-fade-in">
                     <div className="flex items-center justify-between mb-6">
                         <h2 className="text-white font-bold">New Staff / Visitor Account</h2>
                         <button onClick={() => setShowCreate(false)} className="text-gray-500 hover:text-white p-1"><X size={18} /></button>
@@ -260,7 +260,7 @@ export default function StaffManagementClient({ initialStaff }: { initialStaff: 
                             <div>
                                 <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Full Name *</label>
                                 <input type="text" name="name" required placeholder="John Doe"
-                                    className="w-full bg-[#0D0D0D] border border-white/10 text-white py-3 px-4 rounded-lg focus:outline-none focus:border-[#CBA153] focus:ring-1 focus:ring-[#CBA153]/50 transition-all" />
+                                    className="w-full bg-[#0C0C0C] border border-[#B96A3D22] text-white py-3 px-4 focus:outline-none focus:border-[#B96A3D] focus:ring-1 focus:ring-[#B96A3D]/50 transition-all" />
                             </div>
                             <div>
                                 <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">
@@ -268,7 +268,7 @@ export default function StaffManagementClient({ initialStaff }: { initialStaff: 
                                 </label>
                                 <input type="text" name="loginId" required={!isViewer}
                                     placeholder={isViewer ? "Optional for viewers" : "username or name@company.com"}
-                                    className="w-full bg-[#0D0D0D] border border-white/10 text-white py-3 px-4 rounded-lg focus:outline-none focus:border-[#CBA153] focus:ring-1 focus:ring-[#CBA153]/50 transition-all placeholder:text-gray-700" />
+                                    className="w-full bg-[#0C0C0C] border border-[#B96A3D22] text-white py-3 px-4 focus:outline-none focus:border-[#B96A3D] focus:ring-1 focus:ring-[#B96A3D]/50 transition-all placeholder:text-gray-700" />
                                 <p className="text-gray-700 text-[10px] mt-1">
                                     {isViewer ? "Viewers can be created without login credentials." : "Use a username (e.g. productsmanager) or full email."}
                                 </p>
@@ -277,7 +277,7 @@ export default function StaffManagementClient({ initialStaff }: { initialStaff: 
                                 <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Role *</label>
                                 <select name="role" required value={selectedRole}
                                     onChange={(e) => setSelectedRole(e.target.value)}
-                                    className="w-full bg-[#0D0D0D] border border-white/10 text-white py-3 px-4 rounded-lg focus:outline-none focus:border-[#CBA153] focus:ring-1 focus:ring-[#CBA153]/50 transition-all appearance-none">
+                                    className="w-full bg-[#0C0C0C] border border-[#B96A3D22] text-white py-3 px-4 focus:outline-none focus:border-[#B96A3D] focus:ring-1 focus:ring-[#B96A3D]/50 transition-all appearance-none">
                                     <option value="">Select role...</option>
                                     {Object.entries(ROLE_CONFIG).map(([role, config]) => (
                                         <option key={role} value={role}>{config.label}</option>
@@ -285,9 +285,9 @@ export default function StaffManagementClient({ initialStaff }: { initialStaff: 
                                 </select>
                             </div>
                         </div>
-                        <div className="flex items-center gap-4 pt-2 border-t border-white/5">
+                        <div className="flex items-center gap-4 pt-2 border-t border-[#ffffff0A]">
                             <button type="submit" disabled={isPending}
-                                className="bg-[#CBA153] text-black font-bold uppercase tracking-widest text-xs py-3 px-6 rounded-lg hover:bg-white transition-all disabled:opacity-50">
+                                className="bg-[#B96A3D] text-black font-bold uppercase tracking-widest text-xs py-3 px-6 hover:bg-white transition-all disabled:opacity-50">
                                 {isPending ? "Creating..." : "Create Account"}
                             </button>
                             <span className="text-gray-600 text-xs">A temporary password will be generated and displayed after creation.</span>
@@ -299,7 +299,7 @@ export default function StaffManagementClient({ initialStaff }: { initialStaff: 
             {/* ── Role Overview Cards ── */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {staffByRole.map((group) => (
-                    <div key={group.role} className="bg-[#1A1A1A] p-6 rounded-xl border border-white/5">
+                    <div key={group.role} className="bg-[#161616] p-6 border border-[#ffffff0A]">
                         <div className="flex items-center gap-3 mb-2">
                             <group.icon className={`w-5 h-5 ${group.color}`} />
                             <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">{group.label}</span>
@@ -311,9 +311,9 @@ export default function StaffManagementClient({ initialStaff }: { initialStaff: 
             </div>
 
             {/* ── Staff List ── */}
-            <div className="bg-[#1A1A1A] rounded-xl border border-white/5 overflow-hidden">
-                <div className="px-6 py-4 border-b border-white/5 flex items-center gap-3">
-                    <Users className="w-5 h-5 text-[#CBA153]" />
+            <div className="bg-[#161616] border border-[#ffffff0A] overflow-hidden">
+                <div className="px-6 py-4 border-b border-[#ffffff0A] flex items-center gap-3">
+                    <Users className="w-5 h-5 text-[#B96A3D]" />
                     <h2 className="text-white font-bold">All Staff & Visitors</h2>
                     <span className="text-xs text-gray-500 ml-auto">{staffList.length} total</span>
                 </div>
@@ -327,8 +327,8 @@ export default function StaffManagementClient({ initialStaff }: { initialStaff: 
                                     <li key={user.id} className="px-6 py-4 hover:bg-white/[0.02] transition-colors">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-4">
-                                                <div className="w-10 h-10 rounded-full bg-[#CBA153]/10 border border-[#CBA153]/20 flex items-center justify-center">
-                                                    <span className="text-[#CBA153] text-sm font-bold">{(user.name || user.email).charAt(0).toUpperCase()}</span>
+                                                <div className="w-10 h-10 rounded-full bg-[#B96A3D]/10 border border-[#B96A3D]/20 flex items-center justify-center">
+                                                    <span className="text-[#B96A3D] text-sm font-bold">{(user.name || user.email).charAt(0).toUpperCase()}</span>
                                                 </div>
                                                 <div>
                                                     <p className="text-white text-sm font-medium">{user.name || emailDisplay}</p>
@@ -363,7 +363,7 @@ export default function StaffManagementClient({ initialStaff }: { initialStaff: 
                                                 ) : (
                                                     <button
                                                         onClick={() => { setResetConfirm(user.id); setDeleteConfirm(null); }}
-                                                        className="text-gray-600 hover:text-[#CBA153] transition-colors p-1.5"
+                                                        className="text-gray-600 hover:text-[#B96A3D] transition-colors p-1.5"
                                                         title="Reset password"
                                                     >
                                                         <Key size={14} />

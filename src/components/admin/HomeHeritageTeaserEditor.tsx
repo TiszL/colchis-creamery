@@ -82,14 +82,14 @@ export default function HomeHeritageTeaserEditor({ configs }: Props) {
                                     onChange={e => onChange({ ...value, [loc.code]: e.target.value })}
                                     rows={2}
                                     placeholder={loc.code === 'en' ? 'English (required)' : `${loc.label} (optional)`}
-                                    className={`flex-1 bg-[#0D0D0D] border ${loc.code === 'en' ? 'border-[#CBA153]/30' : 'border-white/10'} text-white py-2 px-3 rounded-lg focus:outline-none focus:border-[#CBA153] placeholder-gray-600 text-sm resize-none`}
+                                    className={`flex-1 bg-[#0C0C0C] border ${loc.code === 'en' ? 'border-[#B96A3D]/30' : 'border-[#B96A3D22]'} text-white py-2 px-3 focus:outline-none focus:border-[#B96A3D] placeholder-gray-600 text-sm resize-none`}
                                 />
                             ) : (
                                 <input
                                     value={value[loc.code]}
                                     onChange={e => onChange({ ...value, [loc.code]: e.target.value })}
                                     placeholder={loc.code === 'en' ? 'English (required)' : `${loc.label} (optional)`}
-                                    className={`flex-1 bg-[#0D0D0D] border ${loc.code === 'en' ? 'border-[#CBA153]/30' : 'border-white/10'} text-white py-2 px-3 rounded-lg focus:outline-none focus:border-[#CBA153] placeholder-gray-600 text-sm`}
+                                    className={`flex-1 bg-[#0C0C0C] border ${loc.code === 'en' ? 'border-[#B96A3D]/30' : 'border-[#B96A3D22]'} text-white py-2 px-3 focus:outline-none focus:border-[#B96A3D] placeholder-gray-600 text-sm`}
                                 />
                             )}
                         </div>
@@ -100,8 +100,8 @@ export default function HomeHeritageTeaserEditor({ configs }: Props) {
     }
 
     return (
-        <div className="bg-[#1A1A1A] rounded-xl border border-white/5 overflow-hidden">
-            <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between">
+        <div className="bg-[#161616] border border-[#ffffff0A] overflow-hidden">
+            <div className="px-6 py-4 border-b border-[#ffffff0A] flex items-center justify-between">
                 <div className="flex items-center gap-3">
                     <ImageIcon className="w-5 h-5 text-amber-400" />
                     <div>
@@ -111,7 +111,7 @@ export default function HomeHeritageTeaserEditor({ configs }: Props) {
                     {saved && <span className="text-xs text-emerald-400 animate-pulse ml-3">✓ Saved</span>}
                 </div>
                 <button onClick={handleSave} disabled={isPending}
-                    className="flex items-center gap-2 bg-[#CBA153] text-black px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-white transition-all disabled:opacity-50">
+                    className="flex items-center gap-2 bg-[#B96A3D] text-black px-5 py-2.5 text-xs font-bold uppercase tracking-wider hover:bg-white transition-all disabled:opacity-50">
                     {isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
                     {isPending ? 'Saving...' : 'Save'}
                 </button>

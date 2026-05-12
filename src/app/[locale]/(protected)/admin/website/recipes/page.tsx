@@ -34,7 +34,7 @@ export default async function AdminRecipesPage({ params }: { params: any }) {
     return (
         <div className="space-y-8">
             <div>
-                <Link href={`/${locale}/admin/website`} className="text-xs text-[#CBA153] hover:text-white transition-colors flex items-center gap-1 mb-3">
+                <Link href={`/${locale}/admin/website`} className="text-xs text-[#B96A3D] hover:text-white transition-colors flex items-center gap-1 mb-3">
                     <ArrowLeft className="w-3 h-3" /> Back to Website Content
                 </Link>
                 <h1 className="text-3xl font-serif text-white mb-2">Recipe Manager</h1>

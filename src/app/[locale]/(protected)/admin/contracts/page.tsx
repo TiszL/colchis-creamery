@@ -47,7 +47,7 @@ export default async function AdminContractsPage() {
         <div className="max-w-6xl mx-auto space-y-12">
             <div>
                 <h1 className="text-3xl font-serif text-[#2C2A29] flex items-center gap-3">
-                    <FileSignature className="w-8 h-8 text-[#CBA153]" />
+                    <FileSignature className="w-8 h-8 text-[#B96A3D]" />
                     B2B Contracts
                 </h1>
                 <p className="text-gray-500 mt-1">Review incoming partnership leads and manage active distributor contracts.</p>
@@ -59,7 +59,7 @@ export default async function AdminContractsPage() {
                 {leads.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {leads.map((lead: any) => (
-                            <div key={lead.id} className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 flex flex-col justify-between">
+                            <div key={lead.id} className="bg-white p-6 shadow-sm border border-gray-200 flex flex-col justify-between">
                                 <div>
                                     <h3 className="text-lg font-bold text-gray-900">{lead.companyName}</h3>
                                     <p className="text-sm text-gray-500 mt-1">{lead.email}</p>
@@ -77,7 +77,7 @@ export default async function AdminContractsPage() {
                         ))}
                     </div>
                 ) : (
-                    <div className="bg-white p-8 rounded-xl border border-dashed border-gray-300 text-center text-gray-500">
+                    <div className="bg-white p-8 border border-dashed border-gray-300 text-center text-gray-500">
                         No new applications at the moment.
                     </div>
                 )}
@@ -87,7 +87,7 @@ export default async function AdminContractsPage() {
             <div>
                 <h2 className="text-xl font-serif text-[#2C2A29] mb-4">Registered Partners</h2>
 
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                <div className="bg-white shadow-sm border border-gray-200 overflow-hidden">
                     <table className="w-full text-left text-sm text-gray-700">
                         <thead className="bg-[#FDFBF7] text-gray-500 font-medium border-b border-gray-200">
                             <tr>
@@ -119,7 +119,7 @@ export default async function AdminContractsPage() {
                                         </td>
                                         <td className="px-6 py-4 text-center">
                                             {activeContract ? (
-                                                <span className="font-bold text-[#CBA153]">{activeContract.discountPercentage}% OFF</span>
+                                                <span className="font-bold text-[#B96A3D]">{activeContract.discountPercentage}% OFF</span>
                                             ) : '-'}
                                         </td>
                                         <td className="px-6 py-4 text-center">
@@ -130,7 +130,7 @@ export default async function AdminContractsPage() {
                                                         <input type="number" name="discount" defaultValue="15" className="w-16 border border-gray-300 rounded px-2 py-1 text-xs text-right" min="0" max="100" />
                                                         <span className="text-xs text-gray-500">%</span>
                                                     </div>
-                                                    <button type="submit" className="text-xs bg-[#CBA153] text-white px-3 py-1 rounded hover:bg-[#b08d47] transition">
+                                                    <button type="submit" className="text-xs bg-[#B96A3D] text-white px-3 py-1 rounded hover:bg-[#b08d47] transition">
                                                         Issue Contract
                                                     </button>
                                                 </form>

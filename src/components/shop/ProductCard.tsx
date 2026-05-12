@@ -1,9 +1,13 @@
+"use client";
+
 import Link from "next/link";
 import Image from "next/image";
+import { useState } from "react";
 import { useTranslations } from "next-intl";
+import { Minus, Plus, ShoppingBag, Check } from "lucide-react";
 import type { Product } from "@/types";
 import { formatCurrency } from "@/lib/utils";
-import { Badge } from "@/components/ui/Badge";
+import { useCart } from "@/providers/CartProvider";
 
 interface ProductCardProps {
   product: Product;
@@ -11,87 +15,145 @@ interface ProductCardProps {
 }
 
 export function ProductCard({ product, locale }: ProductCardProps) {
-  const t = useTranslations("shop");
-  const common = useTranslations("common");
+  const t = useTranslations("common");
+  const { addItem } = useCart();
   const prefix = locale === "en" ? "" : `/${locale}`;
 
   const isComingSoon = product.status === 'COMING_SOON';
   const isOutOfStock = product.stockQuantity <= 0;
+  const cartDisabled = isComingSoon || isOutOfStock;
 
   const lineName = product.productLine?.name;
-  const lineColor = product.productLine?.badgeColor || '#CBA153';
+  const lineColor = product.productLine?.badgeColor || '#B96A3D';
   const categoryName = product.productCategory?.name;
 
+  const [qty, setQty] = useState(1);
+  const [justAdded, setJustAdded] = useState(false);
+
+  const cap = isOutOfStock ? 0 : product.stockQuantity > 0 ? product.stockQuantity : Infinity;
+
+  const handleAdd = () => {
+    if (cartDisabled) return;
+    const finalQty = Math.min(qty, cap);
+    if (finalQty <= 0) return;
+    addItem(product, finalQty);
+    setJustAdded(true);
+    setTimeout(() => setJustAdded(false), 1600);
+    setQty(1);
+  };
+
   return (
-    <Link href={`${prefix}/shop/${product.slug}`} className="group animate-filter-in">
-      <div className={`bg-white rounded-lg overflow-hidden shadow-sm border border-border-light hover:shadow-md transition-all duration-300 ${isComingSoon ? 'ring-1 ring-amber-300/30' : ''}`}>
+    <div style={{ display: "flex", flexDirection: "column", background: "#F5F0E6", border: "1px solid #1F302614", overflow: "hidden" }}>
+      {/* Clickable area — image + title + price → PDP */}
+      <Link href={`${prefix}/shop/${product.slug}`} style={{ textDecoration: "none", color: "inherit", display: "flex", flexDirection: "column" }}>
         {/* Image */}
-        <div className="relative aspect-[4/3] bg-cream flex items-center justify-center overflow-hidden">
+        <div style={{ position: "relative", aspectRatio: "4/3", background: "#EAE2D2", overflow: "hidden", borderBottom: "1px solid #1F302614" }}>
           <Image
             src={product.imageUrl}
             alt={product.name}
             fill
             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-            className={`object-cover mix-blend-multiply group-hover:scale-105 transition-transform duration-500 ${isComingSoon ? 'opacity-80' : ''}`}
+            style={{ objectFit: "cover" }}
           />
-          <div className="absolute top-3 right-3 flex flex-col gap-1.5 items-end">
+          {/* Tag badge */}
+          <div style={{ position: "absolute", top: 14, left: 14, display: "flex", flexDirection: "column", gap: 6 }}>
             {isComingSoon ? (
-              <Badge variant="warning">
-                {t("comingSoon")}
-              </Badge>
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.24em", textTransform: "uppercase", padding: "6px 12px", background: "#B96A3D", color: "#F5F0E6" }}>Coming Soon</span>
+            ) : isOutOfStock ? (
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.24em", textTransform: "uppercase", padding: "6px 12px", background: "#A8312C", color: "#F5F0E6" }}>Sold Out</span>
             ) : (
-              <Badge variant={isOutOfStock ? "error" : "success"}>
-                {isOutOfStock ? t("outOfStock") : t("inStock")}
-              </Badge>
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.24em", textTransform: "uppercase", padding: "6px 12px", background: "#1F3026", color: "#F5F0E6" }}>In Stock</span>
             )}
           </div>
-          {/* Product Line Badge */}
+          {/* Product line badge */}
           {lineName && (
-            <div className="absolute top-3 left-3">
-              <span
-                className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full backdrop-blur-sm"
-                style={{
-                  backgroundColor: `${lineColor}18`,
-                  color: lineColor,
-                  border: `1px solid ${lineColor}30`,
-                }}
-              >
-                {lineName}
-              </span>
+            <div style={{ position: "absolute", top: 14, right: 14 }}>
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.26em", textTransform: "uppercase", padding: "6px 12px", background: `${lineColor}18`, color: lineColor, border: `1px solid ${lineColor}44`, borderRadius: 999, fontWeight: 500 }}>{lineName}</span>
             </div>
           )}
         </div>
 
-        {/* Content */}
-        <div className="p-6">
+        {/* Title + description + price */}
+        <div style={{ padding: "24px 24px 16px", display: "flex", flexDirection: "column" }}>
           {categoryName && (
-            <p className="text-[11px] text-gold-text/80 uppercase tracking-widest font-medium mb-1.5">
-              {categoryName}
-            </p>
+            <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.28em", color: "#7A8278", textTransform: "uppercase", marginBottom: 6 }}>{categoryName}</div>
           )}
-          <h3 className="font-serif text-xl text-charcoal mb-2 group-hover:text-gold-text transition">
-            {product.name}
-          </h3>
-          <p className="text-sm text-charcoal/75 mb-4 line-clamp-2">
-            {product.description}
-          </p>
-          <div className="flex items-center justify-between">
+          <div style={{ fontFamily: "var(--font-serif)", fontStyle: "italic", fontSize: 26, color: "#1F3026", lineHeight: 1.05 }}>{product.name}</div>
+          <p style={{ fontFamily: "var(--font-sans)", fontSize: 13, color: "#2C3D33", lineHeight: 1.55, marginTop: 12, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{product.description}</p>
+          <div style={{ marginTop: 14 }}>
             {isComingSoon ? (
-              <span className="text-lg font-semibold text-amber-700 tracking-wide">
-                {t("comingSoon")}
-              </span>
+              <span style={{ fontFamily: "var(--font-serif)", fontStyle: "italic", fontSize: 18, color: "#B96A3D" }}>Coming Soon</span>
             ) : (
-              <span className="text-xl font-semibold text-gold-text">
-                {formatCurrency(product.priceB2c)}
-              </span>
+              <span style={{ fontFamily: "var(--font-serif)", fontSize: 22, color: "#1F3026", fontWeight: 500 }}>{formatCurrency(product.priceB2c)}</span>
             )}
-            <span className="text-sm text-charcoal/80 group-hover:text-gold-text transition">
-              {common("viewDetails")} &rarr;
-            </span>
           </div>
         </div>
+      </Link>
+
+      {/* Cart controls — outside the Link so clicks don't navigate */}
+      <div style={{ padding: "0 24px 24px", display: "flex", flexDirection: "column", gap: 10, marginTop: "auto" }}>
+        <div style={{ display: "flex", alignItems: "stretch", gap: 8 }}>
+          {/* Quantity stepper */}
+          <div style={{ display: "flex", alignItems: "stretch", border: "1px solid #1F302633", background: "#F5F0E6" }}>
+            <button
+              type="button"
+              aria-label="Decrease quantity"
+              onClick={() => setQty(q => Math.max(1, q - 1))}
+              disabled={qty <= 1 || cartDisabled}
+              style={{ width: 44, height: 44, border: "none", background: "transparent", cursor: (qty <= 1 || cartDisabled) ? "not-allowed" : "pointer", color: (qty <= 1 || cartDisabled) ? "#7A827855" : "#1F3026", display: "flex", alignItems: "center", justifyContent: "center" }}
+            >
+              <Minus className="w-3.5 h-3.5" />
+            </button>
+            <div style={{ minWidth: 36, height: 44, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-mono)", fontSize: 14, color: "#1F3026", borderLeft: "1px solid #1F302622", borderRight: "1px solid #1F302622" }}>
+              {qty}
+            </div>
+            <button
+              type="button"
+              aria-label="Increase quantity"
+              onClick={() => setQty(q => Math.min(cap, q + 1))}
+              disabled={qty >= cap || cartDisabled}
+              style={{ width: 44, height: 44, border: "none", background: "transparent", cursor: (qty >= cap || cartDisabled) ? "not-allowed" : "pointer", color: (qty >= cap || cartDisabled) ? "#7A827855" : "#1F3026", display: "flex", alignItems: "center", justifyContent: "center" }}
+            >
+              <Plus className="w-3.5 h-3.5" />
+            </button>
+          </div>
+          {/* Add button */}
+          <button
+            type="button"
+            onClick={handleAdd}
+            disabled={cartDisabled}
+            style={{
+              flex: 1,
+              height: 44,
+              background: cartDisabled ? "#7A8278" : justAdded ? "#2C3D33" : "#B96A3D",
+              color: "#F5F0E6",
+              border: "none",
+              cursor: cartDisabled ? "not-allowed" : "pointer",
+              fontFamily: "var(--font-mono)",
+              fontSize: 11,
+              letterSpacing: "0.24em",
+              textTransform: "uppercase",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              transition: "background-color 200ms",
+              opacity: cartDisabled ? 0.6 : 1,
+            }}
+          >
+            {isComingSoon ? 'Soon' : isOutOfStock ? 'Sold out' : justAdded ? (
+              <><Check className="w-3.5 h-3.5" /> Added</>
+            ) : (
+              <><ShoppingBag className="w-3.5 h-3.5" /> {t("addToCart")}</>
+            )}
+          </button>
+        </div>
+        {!isOutOfStock && product.stockQuantity > 0 && product.stockQuantity <= 5 && (
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.22em", color: "#A8312C", textTransform: "uppercase" }}>
+            Only {product.stockQuantity} left
+          </div>
+        )}
       </div>
-    </Link>
+    </div>
   );
 }
-

@@ -14,7 +14,7 @@ function getVal(configs: { key: string; value: string }[], key: string, fallback
 
 // Pages that need OG image control
 const PAGES = [
-    { key: 'seo.ogImage.home', label: 'Homepage', desc: 'Main search result image — shown when people search "Colchis Creamery"', recommended: '1200×630px' },
+    { key: 'seo.ogImage.home', label: 'Homepage', desc: 'Main search result image — shown when people search "Colchis Food"', recommended: '1200×630px' },
     { key: 'seo.ogImage.shop', label: 'Shop / Collection', desc: 'Shown when shop page link is shared or appears in search', recommended: '1200×630px' },
     { key: 'seo.ogImage.heritage', label: 'Our Heritage', desc: 'Heritage page social sharing image', recommended: '1200×630px' },
     { key: 'seo.ogImage.recipes', label: 'Recipes & Pairings', desc: 'Recipes listing page', recommended: '1200×630px' },
@@ -74,21 +74,21 @@ export default function SeoEditor({ configs }: Props) {
     return (
         <div className="space-y-6">
             {/* Save bar */}
-            <div className="sticky top-0 z-30 bg-[#111111]/95 backdrop-blur-sm border-b border-white/5 -mx-4 px-4 py-3 flex items-center justify-between">
+            <div className="sticky top-0 z-30 bg-[#0F0F0F]/95 backdrop-blur-sm border-b border-[#ffffff0A] -mx-4 px-4 py-3 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                     <Search className="w-5 h-5 text-emerald-400" />
                     <span className="text-white font-bold">SEO & Social Sharing</span>
                     {saved && <span className="text-xs text-emerald-400 animate-pulse">✓ Saved</span>}
                 </div>
                 <button onClick={handleSave} disabled={isPending}
-                    className="flex items-center gap-2 bg-[#CBA153] text-black px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-white transition-all disabled:opacity-50">
+                    className="flex items-center gap-2 bg-[#B96A3D] text-black px-5 py-2.5 text-xs font-bold uppercase tracking-wider hover:bg-white transition-all disabled:opacity-50">
                     {isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
                     {isPending ? 'Saving...' : 'Save All'}
                 </button>
             </div>
 
             {/* Info banner */}
-            <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-4 flex items-start gap-3">
+            <div className="bg-emerald-500/5 border border-emerald-500/20 p-4 flex items-start gap-3">
                 <Info className="w-5 h-5 text-emerald-400 mt-0.5 shrink-0" />
                 <div className="text-sm text-gray-400">
                     <p className="text-white font-medium mb-1">How Google picks your images</p>
@@ -97,8 +97,8 @@ export default function SeoEditor({ configs }: Props) {
             </div>
 
             {/* Global Default */}
-            <div className="bg-[#1A1A1A] rounded-xl border border-white/5 overflow-hidden">
-                <div className="px-6 py-4 border-b border-white/5 flex items-center gap-3">
+            <div className="bg-[#161616] border border-[#ffffff0A] overflow-hidden">
+                <div className="px-6 py-4 border-b border-[#ffffff0A] flex items-center gap-3">
                     <Globe className="w-5 h-5 text-blue-400" />
                     <div>
                         <h2 className="text-white font-bold">Global Default Image</h2>
@@ -112,8 +112,8 @@ export default function SeoEditor({ configs }: Props) {
             </div>
 
             {/* Global Metadata Overrides */}
-            <div className="bg-[#1A1A1A] rounded-xl border border-white/5 overflow-hidden">
-                <div className="px-6 py-4 border-b border-white/5 flex items-center gap-3">
+            <div className="bg-[#161616] border border-[#ffffff0A] overflow-hidden">
+                <div className="px-6 py-4 border-b border-[#ffffff0A] flex items-center gap-3">
                     <Search className="w-5 h-5 text-purple-400" />
                     <div>
                         <h2 className="text-white font-bold">Site-Wide Metadata (Optional)</h2>
@@ -124,8 +124,8 @@ export default function SeoEditor({ configs }: Props) {
                     <div>
                         <label className="block text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wider">Site Title Override</label>
                         <input value={siteTitle} onChange={e => setSiteTitle(e.target.value)}
-                            placeholder="Colchis Creamery | Ancient Heritage, Fresh Taste"
-                            className="w-full bg-[#0D0D0D] border border-white/10 text-white py-2.5 px-3 rounded-lg focus:outline-none focus:border-[#CBA153] placeholder-gray-600 text-sm" />
+                            placeholder="Colchis Food | Ancient Heritage, Fresh Taste"
+                            className="w-full bg-[#0C0C0C] border border-[#B96A3D22] text-white py-2.5 px-3 focus:outline-none focus:border-[#B96A3D] placeholder-gray-600 text-sm" />
                         <p className="text-xs text-gray-600 mt-1">Leave empty to use default</p>
                     </div>
                     <div>
@@ -133,15 +133,15 @@ export default function SeoEditor({ configs }: Props) {
                         <textarea value={siteDescription} onChange={e => setSiteDescription(e.target.value)}
                             placeholder="Authentic Georgian artisanal cheese, handcrafted in Ohio with premium local milk."
                             rows={2}
-                            className="w-full bg-[#0D0D0D] border border-white/10 text-white py-2.5 px-3 rounded-lg focus:outline-none focus:border-[#CBA153] placeholder-gray-600 text-sm resize-none" />
+                            className="w-full bg-[#0C0C0C] border border-[#B96A3D22] text-white py-2.5 px-3 focus:outline-none focus:border-[#B96A3D] placeholder-gray-600 text-sm resize-none" />
                         <p className="text-xs text-gray-600 mt-1">Leave empty to use default</p>
                     </div>
                 </div>
             </div>
 
             {/* Per-Page OG Images */}
-            <div className="bg-[#1A1A1A] rounded-xl border border-white/5 overflow-hidden">
-                <div className="px-6 py-4 border-b border-white/5 flex items-center gap-3">
+            <div className="bg-[#161616] border border-[#ffffff0A] overflow-hidden">
+                <div className="px-6 py-4 border-b border-[#ffffff0A] flex items-center gap-3">
                     <ImageIcon className="w-5 h-5 text-amber-400" />
                     <div>
                         <h2 className="text-white font-bold">Per-Page Social Images</h2>
@@ -150,7 +150,7 @@ export default function SeoEditor({ configs }: Props) {
                 </div>
                 <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
                     {PAGES.map(page => (
-                        <div key={page.key} className="bg-[#0D0D0D] rounded-lg border border-white/5 p-4">
+                        <div key={page.key} className="bg-[#0C0C0C] border border-[#ffffff0A] p-4">
                             <div className="mb-3">
                                 <h3 className="text-white text-sm font-bold">{page.label}</h3>
                                 <p className="text-gray-600 text-xs">{page.desc}</p>

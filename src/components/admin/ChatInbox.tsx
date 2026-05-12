@@ -264,12 +264,12 @@ export default function ChatInbox() {
     // ══════════════════════════════════════════════════════════════════════════
 
     return (
-        <div className="flex h-[calc(100vh-8rem)] bg-[#0D0D0D] rounded-xl border border-white/5 overflow-hidden">
+        <div className="flex h-[calc(100vh-8rem)] bg-[#0C0C0C] border border-[#ffffff0A] overflow-hidden">
 
             {/* ── Left Panel: Session List ────────────────────────────── */}
-            <div className={`${activeSessionId ? 'hidden md:flex' : 'flex'} flex-col w-full md:w-96 border-r border-white/5`}>
+            <div className={`${activeSessionId ? 'hidden md:flex' : 'flex'} flex-col w-full md:w-96 border-r border-[#ffffff0A]`}>
                 {/* Header */}
-                <div className="px-5 py-4 border-b border-white/5 shrink-0">
+                <div className="px-5 py-4 border-b border-[#ffffff0A] shrink-0">
                     <div className="flex items-center justify-between mb-1">
                         <div className="flex items-center gap-3">
                             <h2 className="text-white font-bold text-lg">Live Chat</h2>
@@ -293,7 +293,7 @@ export default function ChatInbox() {
                 <div className="flex-1 overflow-y-auto">
                     {sessions.length === 0 ? (
                         <div className="flex flex-col items-center justify-center h-full text-center p-8">
-                            <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-4">
+                            <div className="w-16 h-16 rounded-full bg-[#ffffff08] flex items-center justify-center mb-4">
                                 <MessageCircle className="w-8 h-8 text-gray-700" />
                             </div>
                             <p className="text-gray-500 text-sm font-medium mb-1">No active conversations</p>
@@ -307,8 +307,8 @@ export default function ChatInbox() {
                                     if (s.status === 'WAITING') claimSession(s.id);
                                     else setActiveSessionId(s.id);
                                 }}
-                                className={`w-full text-left px-5 py-4 border-b border-white/5 hover:bg-white/5 transition ${
-                                    activeSessionId === s.id ? 'bg-white/5 border-l-2 border-l-[#CBA153]' : ''
+                                className={`w-full text-left px-5 py-4 border-b border-[#ffffff0A] hover:bg-[#ffffff08] transition ${
+                                    activeSessionId === s.id ? 'bg-[#ffffff08] border-l-2 border-l-[#B96A3D]' : ''
                                 }`}
                             >
                                 <div className="flex items-start justify-between mb-1.5">
@@ -360,13 +360,13 @@ export default function ChatInbox() {
                 {activeSession ? (
                     <>
                         {/* Header */}
-                        <div className="px-5 py-3 border-b border-white/5 flex items-center justify-between shrink-0">
+                        <div className="px-5 py-3 border-b border-[#ffffff0A] flex items-center justify-between shrink-0">
                             <div className="flex items-center gap-3">
                                 <button onClick={() => setActiveSessionId(null)} className="md:hidden text-gray-400 hover:text-white p-1 -ml-1 transition">
                                     <ChevronLeft className="w-5 h-5" />
                                 </button>
-                                <div className="w-8 h-8 rounded-full bg-[#CBA153]/10 border border-[#CBA153]/30 flex items-center justify-center">
-                                    <User className="w-4 h-4 text-[#CBA153]" />
+                                <div className="w-8 h-8 rounded-full bg-[#B96A3D]/10 border border-[#B96A3D]/30 flex items-center justify-center">
+                                    <User className="w-4 h-4 text-[#B96A3D]" />
                                 </div>
                                 <div className="min-w-0">
                                     <p className="text-white text-sm font-semibold truncate">{activeSession.visitorName || 'Anonymous'}</p>
@@ -375,7 +375,7 @@ export default function ChatInbox() {
                             </div>
                             {activeSession.status !== 'CLOSED' && (
                                 <button onClick={closeSession}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/10 text-red-400 text-xs rounded-lg hover:bg-red-500/20 transition border border-red-500/20 shrink-0">
+                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/10 text-red-400 text-xs hover:bg-red-500/20 transition border border-red-500/20 shrink-0">
                                     <XCircle className="w-3.5 h-3.5" />
                                     Close
                                 </button>
@@ -387,14 +387,14 @@ export default function ChatInbox() {
                             {activeSession.messages.map(msg => (
                                 <div key={msg.id} className={`flex ${msg.sender === 'agent' ? 'justify-end' : msg.sender === 'system' ? 'justify-center' : 'justify-start'}`}>
                                     {msg.sender === 'system' ? (
-                                        <span className="text-[10px] text-gray-600 bg-white/5 px-3 py-1 rounded-full max-w-[90%] text-center">
+                                        <span className="text-[10px] text-gray-600 bg-[#ffffff08] px-3 py-1 rounded-full max-w-[90%] text-center">
                                             {msg.body}
                                         </span>
                                     ) : (
-                                        <div className={`max-w-[75%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
+                                        <div className={`max-w-[75%] px-4 py-2.5 text-sm leading-relaxed ${
                                             msg.sender === 'agent'
-                                                ? 'bg-[#CBA153] text-black rounded-br-sm'
-                                                : 'bg-white/5 text-gray-300 rounded-bl-sm border border-white/5'
+                                                ? 'bg-[#B96A3D] text-black rounded-br-sm'
+                                                : 'bg-[#ffffff08] text-gray-300 rounded-bl-sm border border-[#ffffff0A]'
                                         }`}>
                                             {msg.sender === 'visitor' && (
                                                 <p className="text-[10px] text-gray-500 font-semibold mb-0.5">Visitor</p>
@@ -412,8 +412,8 @@ export default function ChatInbox() {
 
                         {/* Reply Input */}
                         {activeSession.status !== 'CLOSED' ? (
-                            <div className="p-4 border-t border-white/5 shrink-0">
-                                <div className="flex items-center gap-2 bg-white/5 rounded-xl px-4 py-2.5 border border-white/10 focus-within:border-[#CBA153]/30 transition">
+                            <div className="p-4 border-t border-[#ffffff0A] shrink-0">
+                                <div className="flex items-center gap-2 bg-[#ffffff08] px-4 py-2.5 border border-[#B96A3D22] focus-within:border-[#B96A3D]/30 transition">
                                     <input
                                         ref={replyInputRef}
                                         type="text"
@@ -424,20 +424,20 @@ export default function ChatInbox() {
                                         className="flex-1 bg-transparent text-white text-sm placeholder:text-gray-600 focus:outline-none"
                                     />
                                     <button onClick={sendReply} disabled={!replyInput.trim() || isSending}
-                                        className="text-[#CBA153] hover:text-white p-1 transition disabled:text-gray-700 disabled:cursor-not-allowed">
+                                        className="text-[#B96A3D] hover:text-white p-1 transition disabled:text-gray-700 disabled:cursor-not-allowed">
                                         <Send className="w-4 h-4" />
                                     </button>
                                 </div>
                             </div>
                         ) : (
-                            <div className="p-4 border-t border-white/5 text-center">
+                            <div className="p-4 border-t border-[#ffffff0A] text-center">
                                 <span className="text-gray-600 text-xs">Conversation closed</span>
                             </div>
                         )}
                     </>
                 ) : (
                     <div className="flex-1 flex flex-col items-center justify-center text-center p-8">
-                        <div className="w-20 h-20 rounded-full bg-white/[0.02] border border-white/5 flex items-center justify-center mb-6">
+                        <div className="w-20 h-20 rounded-full bg-white/[0.02] border border-[#ffffff0A] flex items-center justify-center mb-6">
                             <MessageCircle className="w-10 h-10 text-gray-800" />
                         </div>
                         <h3 className="text-gray-400 font-semibold mb-2">Select a conversation</h3>

@@ -2,27 +2,27 @@ import { Metadata } from 'next';
 import { prisma } from '@/lib/db';
 import { getOgImage, buildOgImages } from '@/lib/seo';
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://colchiscreamery.com';
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://colchisfood.com';
 
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
     const { locale } = await params;
     const canonicalPath = locale === 'en' ? '/faq' : `/${locale}/faq`;
     const ogImage = await getOgImage('faq');
     return {
-        title: 'Frequently Asked Questions | Colchis Creamery',
-        description: 'Find answers to common questions about Colchis Creamery — Georgian cheese ordering, shipping, wholesale accounts, storage, and more.',
-        keywords: ['Colchis Creamery FAQ', 'Georgian cheese questions', 'cheese shipping', 'wholesale cheese', 'Sulguni storage'],
+        title: 'Frequently Asked Questions | Colchis Food',
+        description: 'Find answers to common questions about Colchis Food — Georgian cheese ordering, shipping, wholesale accounts, storage, and more.',
+        keywords: ['Colchis Food FAQ', 'Georgian cheese questions', 'cheese shipping', 'wholesale cheese', 'Sulguni storage'],
         alternates: {
             canonical: `${SITE_URL}${canonicalPath}`,
             languages: { 'en': `${SITE_URL}/faq`, 'ka': `${SITE_URL}/ka/faq`, 'ru': `${SITE_URL}/ru/faq`, 'es': `${SITE_URL}/es/faq` },
         },
         openGraph: {
-            type: 'website', title: 'FAQ | Colchis Creamery',
-            description: 'Find answers to common questions about Colchis Creamery.',
-            url: `${SITE_URL}${canonicalPath}`, siteName: 'Colchis Creamery',
+            type: 'website', title: 'FAQ | Colchis Food',
+            description: 'Find answers to common questions about Colchis Food.',
+            url: `${SITE_URL}${canonicalPath}`, siteName: 'Colchis Food',
             ...(ogImage ? { images: buildOgImages(ogImage, 'FAQ') } : {}),
         },
-        twitter: { card: 'summary', title: 'FAQ | Colchis Creamery', description: 'Frequently asked questions about Georgian artisanal cheese.',
+        twitter: { card: 'summary', title: 'FAQ | Colchis Food', description: 'Frequently asked questions about Georgian artisanal cheese.',
             ...(ogImage ? { images: [ogImage] } : {}),
         },
     };
@@ -35,7 +35,7 @@ interface FaqItem { question: string; answer: string; }
 const DEFAULTS: FaqItem[] = [
     { question: 'Where is your cheese made?', answer: 'Our cheese is handcrafted in Ohio, USA, using premium local milk, while strictly following ancient Georgian cheese-making traditions.' },
     { question: 'How is the cheese shipped to ensure freshness?', answer: 'We ship our cheese in insulated packaging with ice packs via expedited shipping to ensure it arrives at your doorstep in perfect condition.' },
-    { question: 'Are your cheeses pasteurized?', answer: 'Yes, all Colchis Creamery cheeses are made from pasteurized milk to comply with FDA regulations while maintaining authentic flavor profiles.' },
+    { question: 'Are your cheeses pasteurized?', answer: 'Yes, all Colchis Food cheeses are made from pasteurized milk to comply with FDA regulations while maintaining authentic flavor profiles.' },
     { question: 'Do you offer wholesale pricing for restaurants?', answer: 'Absolutely. We partner with premium restaurants, grocery stores, and distributors. Please visit our Wholesale page to apply for a B2B account.' },
     { question: 'How long does Sulguni cheese last?', answer: 'Unopened, our Sulguni cheese will last up to 60 days in the refrigerator. Once opened, we recommend consuming it within 5-7 days for optimal taste.' },
 ];

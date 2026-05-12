@@ -1,0 +1,1059 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Colchis Food — Brandbook</title>
+<meta name="viewport" content="width=1200" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..600;1,9..144,300..500&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Noto+Serif+Georgian:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --ink: #1F3026;        /* Colchis green — primary ink */
+    --copper: #B96A3D;     /* Colchis copper — accent */
+    --paper: #F5F0E6;      /* Cream paper */
+    --paper-warm: #EAE2D2; /* Warmer cream for blocks */
+    --bone: #DDD3BD;       /* Deeper paper */
+    --rule: #C9BEA3;
+    --muted: #7A8278;
+    --bakery-honey: #D9A876;
+    --winery-wine: #6B2B2B;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  .page {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 80px 80px;
+    border-bottom: 1px solid var(--rule);
+    position: relative;
+    background: var(--paper);
+  }
+  .page--dark { background: var(--ink); color: var(--paper); border-bottom-color: rgba(245,240,230,0.15); }
+  .page--warm { background: var(--paper-warm); }
+
+  .crumbs {
+    position: absolute; top: 32px; left: 80px; right: 80px;
+    display: flex; justify-content: space-between;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; letter-spacing: 0.2em;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+  .page--dark .crumbs { color: rgba(245,240,230,0.5); }
+
+  h1.display, h2.display, h3.display {
+    font-family: 'Fraunces', serif;
+    font-weight: 400;
+    font-style: italic;
+    letter-spacing: -0.01em;
+    margin: 0 0 24px 0;
+  }
+  h1.display { font-size: 96px; line-height: 0.95; }
+  h2.display { font-size: 64px; line-height: 1; }
+  h3.display { font-size: 36px; }
+
+  h2.title {
+    font-family: 'Fraunces', serif;
+    font-weight: 500;
+    font-style: normal;
+    font-size: 48px;
+    letter-spacing: -0.01em;
+    line-height: 1.05;
+    margin: 0 0 16px 0;
+  }
+  h3.kicker {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 500;
+    font-size: 11px;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--copper);
+    margin: 0 0 24px 0;
+  }
+  .lede {
+    font-family: 'Fraunces', serif;
+    font-weight: 300;
+    font-size: 22px;
+    line-height: 1.45;
+    color: var(--ink);
+    max-width: 640px;
+  }
+  .page--dark .lede { color: var(--paper); }
+  p.body { max-width: 540px; }
+  .small { font-size: 12px; color: var(--muted); }
+  .mono { font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.1em; }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: start; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+  .grid-6 { display: grid; grid-template-columns: repeat(6, 1fr); gap: 16px; }
+
+  /* Cover */
+  .cover {
+    min-height: 100vh;
+    display: flex; flex-direction: column; justify-content: space-between;
+    padding: 80px;
+    background:
+      radial-gradient(ellipse at 80% 20%, rgba(185,106,61,0.08), transparent 60%),
+      var(--paper);
+    position: relative;
+    overflow: hidden;
+  }
+  .cover::after {
+    content: '';
+    position: absolute; right: -200px; bottom: -200px;
+    width: 700px; height: 700px;
+    background: radial-gradient(circle, rgba(31,48,38,0.04), transparent 70%);
+    pointer-events: none;
+  }
+  .cover-top { display: flex; justify-content: space-between; align-items: flex-start; }
+  .cover-title { display: flex; flex-direction: column; gap: 8px; }
+  .cover-title .vol { font-family:'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.3em; color: var(--copper); }
+  .cover-title h1 { font-family: 'Fraunces', serif; font-weight: 400; font-size: 144px; line-height: 0.92; margin: 0; letter-spacing: -0.02em; }
+  .cover-title h1 em { font-style: italic; font-weight: 300; color: var(--copper); }
+  .cover-meta { font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.25em; color: var(--muted); text-transform: uppercase; line-height: 2; text-align: right;}
+  .cover-bottom { display: flex; justify-content: space-between; align-items: flex-end; }
+  .cover-quote { font-family:'Fraunces', serif; font-style: italic; font-weight: 300; font-size: 28px; line-height: 1.3; max-width: 520px; color: var(--ink); }
+  .cover-quote::before { content:'"'; color: var(--copper); font-size: 1.2em; }
+  .cover-quote::after { content:'"'; color: var(--copper); }
+
+  /* TOC */
+  .toc { display: grid; grid-template-columns: 60px 1fr 80px; gap: 0; align-items: baseline; }
+  .toc-row { display: contents; }
+  .toc-row > * { padding: 18px 0; border-bottom: 1px solid var(--rule); }
+  .toc-num { font-family:'JetBrains Mono', monospace; font-size: 11px; color: var(--copper); letter-spacing: 0.2em;}
+  .toc-title { font-family:'Fraunces', serif; font-size: 24px; font-weight: 400; }
+  .toc-title em { font-style: italic; color: var(--copper); display: block; font-size: 12px; font-family: 'Inter'; letter-spacing: 0.15em; text-transform: uppercase; margin-top: 4px; color: var(--muted); font-style: normal; }
+  .toc-page { font-family:'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); letter-spacing: 0.2em; text-align: right; }
+
+  /* Asset card */
+  .asset {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    padding: 32px;
+    display: flex; flex-direction: column; gap: 16px;
+    align-items: center; justify-content: center;
+    aspect-ratio: 1;
+    position: relative;
+  }
+  .asset--dark { background: var(--ink); border-color: rgba(245,240,230,0.15); }
+  .asset--warm { background: var(--paper-warm); }
+  .asset--copper { background: var(--copper); border-color: var(--copper); }
+  .asset--wine { background: var(--winery-wine); border-color: var(--winery-wine); }
+  .asset img, .asset svg { max-width: 78%; max-height: 78%; }
+  .asset-tag {
+    position: absolute; top: 12px; left: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px; letter-spacing: 0.2em;
+    color: var(--muted); text-transform: uppercase;
+  }
+  .asset--dark .asset-tag { color: rgba(245,240,230,0.5); }
+  .asset--copper .asset-tag, .asset--wine .asset-tag { color: rgba(245,240,230,0.7); }
+
+  /* Color swatch */
+  .swatch {
+    aspect-ratio: 1;
+    display: flex; flex-direction: column; justify-content: space-between;
+    padding: 24px;
+    position: relative;
+  }
+  .swatch-name { font-family:'Fraunces', serif; font-style: italic; font-size: 22px; }
+  .swatch-meta { font-family:'JetBrains Mono', monospace; font-size: 10px; line-height: 1.6; letter-spacing: 0.05em; }
+
+  /* Type specimen */
+  .specimen {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    padding: 40px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .specimen-label { font-family:'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.2em; color: var(--muted); text-transform: uppercase; }
+  .specimen-glyph { font-family:'Fraunces', serif; font-size: 180px; line-height: 1; font-weight: 400; }
+  .specimen-name { font-family:'Fraunces', serif; font-size: 28px; font-style: italic; }
+  .specimen-meta { font-family:'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.1em; color: var(--muted); }
+
+  /* Do/Dont */
+  .check, .cross {
+    width: 24px; height: 24px; border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 500;
+    margin-right: 12px; vertical-align: middle;
+  }
+  .check { background: var(--ink); color: var(--paper); }
+  .cross { background: #8B2E2E; color: var(--paper); }
+
+  /* Sub-brand badge */
+  .sub-card {
+    border: 1px solid var(--rule);
+    padding: 32px;
+    background: var(--paper);
+    display: flex; flex-direction: column; gap: 16px;
+  }
+  .sub-card--dark { background: var(--ink); border-color: rgba(245,240,230,0.2); color: var(--paper); }
+  .sub-card--warm { background: var(--paper-warm); }
+
+  /* Patterns */
+  .pattern-stripes {
+    background: repeating-linear-gradient(
+      45deg,
+      var(--copper),
+      var(--copper) 1px,
+      transparent 1px,
+      transparent 12px
+    );
+    opacity: 0.5;
+  }
+
+  /* Mockups */
+  .mockup-card {
+    background: var(--paper-warm);
+    aspect-ratio: 4/5;
+    border-radius: 8px;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 24px 48px -24px rgba(31,48,38,0.25);
+  }
+
+  /* Footer */
+  .colophon {
+    background: var(--ink); color: var(--paper);
+    padding: 100px 80px;
+    text-align: center;
+  }
+  .colophon h2 { font-family:'Fraunces', serif; font-style: italic; font-weight: 300; font-size: 64px; margin: 0 0 24px 0; }
+  .colophon .meta { font-family:'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.3em; color: rgba(245,240,230,0.6); }
+
+  /* Diamond divider */
+  .diamond { display: inline-block; width: 8px; height: 8px; background: var(--copper); transform: rotate(45deg); margin: 0 12px; vertical-align: middle; }
+
+  /* Links table */
+  table.assets-table { width: 100%; border-collapse: collapse; }
+  table.assets-table td, table.assets-table th { padding: 14px 0; border-bottom: 1px solid var(--rule); text-align: left; vertical-align: middle; font-size: 13px; }
+  table.assets-table th { font-family:'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+  table.assets-table a { color: var(--copper); text-decoration: none; border-bottom: 1px solid currentColor; }
+  table.assets-table .file { font-family:'JetBrains Mono', monospace; font-size: 12px; }
+
+  /* Construction grid lines */
+  .construction { position: relative; }
+  .construction-grid {
+    position: absolute; inset: 32px;
+    background-image:
+      linear-gradient(to right, rgba(185,106,61,0.15) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(185,106,61,0.15) 1px, transparent 1px);
+    background-size: 12.5% 12.5%;
+    pointer-events: none;
+  }
+  .construction-circle {
+    position: absolute; inset: 32px;
+    border: 1px dashed var(--copper);
+    border-radius: 50%;
+    pointer-events: none;
+  }
+  .construction-x {
+    position: absolute; inset: 32px;
+    pointer-events: none;
+  }
+  .construction-x svg { width: 100%; height: 100%; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════ COVER ═══════════════════════════════ -->
+<section class="cover">
+  <div class="cover-top">
+    <div class="cover-title">
+      <span class="vol">Vol. I  ·  Brand Identity Guidelines</span>
+    </div>
+    <div class="cover-meta">
+      MMXXVI<br/>
+      Dublin, Ohio<br/>
+      Colchis Food Co.
+    </div>
+  </div>
+
+  <div class="cover-title" style="margin-top:auto;">
+    <h1>Colchis<br/><em>Food.</em></h1>
+    <div style="display:flex; gap: 16px; align-items: center; margin-top: 32px; font-family:'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.25em; text-transform: uppercase; color: var(--muted);">
+      <span>Cheese</span><span class="diamond"></span>
+      <span>Bread</span><span class="diamond"></span>
+      <span>Wine</span>
+    </div>
+  </div>
+
+  <div class="cover-bottom">
+    <div class="cover-quote">A 2,000-year tradition, baked, churned and aged in the American Midwest.</div>
+    <div class="cover-meta" style="text-align:right;">
+      Edition 01<br/>
+      Issued for internal &amp; partner use<br/>
+      Revision date: this version
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════ TOC ═══════════════════════════════ -->
+<section class="page">
+  <div class="crumbs"><span>00 · Contents</span><span>Colchis Food Brandbook</span></div>
+  <h3 class="kicker">In this volume</h3>
+  <h2 class="title">A field guide to our identity.</h2>
+  <p class="lede" style="margin-bottom: 64px;">This book is the source of truth for everything that wears the Colchis Food name — every label, signpost, ad, package, business card, social post, and storefront.</p>
+
+  <div class="toc" style="margin-top: 48px;">
+    <div class="toc-row"><div class="toc-num">01</div><div class="toc-title">Foundations<em>Story · mission · values</em></div><div class="toc-page">p. 04</div></div>
+    <div class="toc-row"><div class="toc-num">02</div><div class="toc-title">The Mark<em>Seal anatomy · construction · clear space</em></div><div class="toc-page">p. 06</div></div>
+    <div class="toc-row"><div class="toc-num">03</div><div class="toc-title">Logo system<em>Lockups · variants · favicon · sizes</em></div><div class="toc-page">p. 08</div></div>
+    <div class="toc-row"><div class="toc-num">04</div><div class="toc-title">Misuse<em>How not to use the mark</em></div><div class="toc-page">p. 11</div></div>
+    <div class="toc-row"><div class="toc-num">05</div><div class="toc-title">Color<em>Primary palette · sub-brand accents · accessibility</em></div><div class="toc-page">p. 12</div></div>
+    <div class="toc-row"><div class="toc-num">06</div><div class="toc-title">Typography<em>Fraunces · Inter · JetBrains Mono · Noto Georgian</em></div><div class="toc-page">p. 16</div></div>
+    <div class="toc-row"><div class="toc-num">07</div><div class="toc-title">Voice &amp; tone<em>How we speak · vocabulary · don'ts</em></div><div class="toc-page">p. 20</div></div>
+    <div class="toc-row"><div class="toc-num">08</div><div class="toc-title">The three houses<em>Creamery · Bakery · Winery sub-brands</em></div><div class="toc-page">p. 22</div></div>
+    <div class="toc-row"><div class="toc-num">09</div><div class="toc-title">Imagery<em>Photography style · subject matter · don'ts</em></div><div class="toc-page">p. 25</div></div>
+    <div class="toc-row"><div class="toc-num">10</div><div class="toc-title">In the wild<em>Packaging · stationery · digital · signage</em></div><div class="toc-page">p. 27</div></div>
+    <div class="toc-row"><div class="toc-num">11</div><div class="toc-title">Asset library<em>What to download &amp; use when</em></div><div class="toc-page">p. 32</div></div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════ 01 FOUNDATIONS ═══════════════════════════════ -->
+<section class="page page--warm">
+  <div class="crumbs"><span>01 · Foundations</span><span>p. 04</span></div>
+  <h3 class="kicker">Chapter One</h3>
+  <h1 class="display">An ancient land,<br/><em>a Midwestern table.</em></h1>
+
+  <div class="grid-2" style="margin-top: 64px;">
+    <div>
+      <h3 class="kicker">Where we come from</h3>
+      <p class="body">Colchis is the western half of modern-day Georgia — the country, not the state. It's where the Argonauts came for the Golden Fleece, where the world's oldest known wines were aged in clay vessels eight thousand years ago, and where every village still bakes its own bread before sunrise.</p>
+      <p class="body">We brought that tradition to Dublin, Ohio. We make the cheese ourselves. We bake the bread ourselves. And — soon — we'll press the wine ourselves, too.</p>
+    </div>
+    <div>
+      <h3 class="kicker">What we make</h3>
+      <p class="body">Our work is split between three houses under one roof: <strong>The Creamery</strong> hand-pulls Sulguni and ages Imeruli from local Ohio milk. <strong>The Bakery</strong> bakes Khachapuri to order — hot for delivery within an hour, frozen for a 10-hour drive radius via UPS. <strong>The Winery</strong>, opening soon, will bottle Saperavi in qvevri buried in our cellar floor.</p>
+    </div>
+  </div>
+
+  <div style="margin-top: 96px; padding: 48px; border: 1px solid var(--rule); background: var(--paper);">
+    <h3 class="kicker">Our values</h3>
+    <div class="grid-3" style="margin-top: 32px;">
+      <div>
+        <div style="font-family:'Fraunces', serif; font-style: italic; font-size: 36px; color: var(--copper);">i.</div>
+        <h3 style="font-family:'Fraunces', serif; font-weight: 500; font-size: 24px; margin: 8px 0;">Heritage, accurately.</h3>
+        <p class="small" style="color: var(--ink);">No "inspired by" shortcuts. We make food the way it's been made in Colchis for two millennia, full stop. If we change a recipe, we tell you why.</p>
+      </div>
+      <div>
+        <div style="font-family:'Fraunces', serif; font-style: italic; font-size: 36px; color: var(--copper);">ii.</div>
+        <h3 style="font-family:'Fraunces', serif; font-weight: 500; font-size: 24px; margin: 8px 0;">Local, where it counts.</h3>
+        <p class="small" style="color: var(--ink);">Ohio milk. Ohio wheat. Ohio butter. The cheese travels from cow to bag in under 48 hours. The bread leaves the oven into your hand.</p>
+      </div>
+      <div>
+        <div style="font-family:'Fraunces', serif; font-style: italic; font-size: 36px; color: var(--copper);">iii.</div>
+        <h3 style="font-family:'Fraunces', serif; font-weight: 500; font-size: 24px; margin: 8px 0;">Quiet luxury, not theatre.</h3>
+        <p class="small" style="color: var(--ink);">We dress the brand simply because the food is the show. Cream paper, deep ink, copper accent. Nothing screams.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════ 02 THE MARK ═══════════════════════════════ -->
+<section class="page">
+  <div class="crumbs"><span>02 · The Mark</span><span>p. 06</span></div>
+  <h3 class="kicker">Chapter Two</h3>
+  <h1 class="display">The mark<em> tells our story</em><br/>before a word is read.</h1>
+
+  <div class="grid-2" style="margin-top: 96px; align-items: center;">
+    <div class="asset construction" style="aspect-ratio: 1; padding: 32px;">
+      <div class="construction-grid"></div>
+      <div class="construction-circle"></div>
+      <img src="brand-assets/mark-only.svg" alt="Colchis Food mark" style="position:relative; z-index:2; max-width: 70%;" />
+      <div class="asset-tag">CONSTRUCTION</div>
+    </div>
+    <div>
+      <h3 class="kicker">Anatomy</h3>
+      <h2 class="title">Two letters, three references.</h2>
+      <p class="body">The mark is a bold serif <strong>C</strong> and <strong>F</strong> — Colchis Food — set inside a circular seal. Beneath them runs a simple wave motif (the Black Sea coast and the Scioto River, both real). A copper dot marks our place on the map. A thin keyline echoes the rim of a clay qvevri.</p>
+      <p class="body">The seal text reads <span class="mono">EST · MMXXVI · OHIO</span> on top and <span class="mono">COLCHIS · GEORGIA · 𐌝</span> on bottom — the last symbol is the Asomtavruli letter Kan, the historical first letter of the Georgian alphabet.</p>
+    </div>
+  </div>
+
+  <h3 class="kicker" style="margin-top: 96px;">Clear space &amp; minimum size</h3>
+  <div class="grid-2" style="align-items: stretch;">
+    <div class="asset" style="aspect-ratio: 4/3;">
+      <svg viewBox="0 0 320 240" style="width:100%; height:100%;">
+        <rect x="40" y="40" width="160" height="160" fill="none" stroke="#B96A3D" stroke-width="0.5" stroke-dasharray="4 4"/>
+        <rect x="0" y="0" width="40" height="240" fill="rgba(185,106,61,0.08)"/>
+        <rect x="200" y="0" width="120" height="240" fill="rgba(185,106,61,0.08)"/>
+        <rect x="0" y="0" width="320" height="40" fill="rgba(185,106,61,0.08)"/>
+        <rect x="0" y="200" width="320" height="40" fill="rgba(185,106,61,0.08)"/>
+        <image href="brand-assets/mark-only.svg" x="40" y="40" width="160" height="160"/>
+        <text x="220" y="120" font-family="JetBrains Mono" font-size="8" letter-spacing="2" fill="#7A8278">MIN. CLEAR SPACE</text>
+        <text x="220" y="135" font-family="JetBrains Mono" font-size="8" letter-spacing="2" fill="#7A8278">= ¼ × MARK HEIGHT</text>
+      </svg>
+      <div class="asset-tag">CLEAR SPACE</div>
+    </div>
+    <div class="asset" style="aspect-ratio: 4/3;">
+      <div style="display:flex; gap: 32px; align-items: flex-end;">
+        <img src="brand-assets/mark-only.svg" style="width: 120px;" alt="" />
+        <img src="brand-assets/mark-only.svg" style="width: 64px;" alt="" />
+        <img src="brand-assets/mark-only.svg" style="width: 32px;" alt="" />
+        <img src="brand-assets/mark-only.svg" style="width: 24px;" alt="" />
+      </div>
+      <div style="display:flex; gap:16px; justify-content: space-around; width: 100%; margin-top: 12px; font-family:'JetBrains Mono', monospace; font-size: 9px; letter-spacing: 0.15em; color: var(--muted);">
+        <span>120px</span><span>64px</span><span>32px</span><span style="color:#8B2E2E;">24px ⚠</span>
+      </div>
+      <div class="asset-tag">MIN. SIZE</div>
+      <div class="small" style="margin-top: 8px; text-align:center;">Below 32px, switch to the favicon variant — wordmark drops, mark only.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════ 03 LOGO SYSTEM ═══════════════════════════════ -->
+<section class="page page--warm">
+  <div class="crumbs"><span>03 · Logo System</span><span>p. 08</span></div>
+  <h3 class="kicker">Chapter Three</h3>
+  <h1 class="display">One mark,<br/><em>seven jobs.</em></h1>
+  <p class="lede">The logo system flexes for context — from a billboard to a 16-pixel browser tab — without losing identity.</p>
+
+  <h3 class="kicker" style="margin-top: 80px;">Primary lockups</h3>
+  <div class="grid-2">
+    <div class="asset" style="aspect-ratio: 1.6;">
+      <img src="brand-assets/lockup-horizontal.svg" alt="Horizontal lockup" />
+      <div class="asset-tag">A · HORIZONTAL — Default for headers, signage, ads</div>
+    </div>
+    <div class="asset" style="aspect-ratio: 1.6;">
+      <img src="brand-assets/lockup-vertical.svg" alt="Vertical lockup" style="max-height: 90%;" />
+      <div class="asset-tag">B · VERTICAL — For posters, packaging, square crops</div>
+    </div>
+  </div>
+
+  <h3 class="kicker" style="margin-top: 80px;">Seal variants</h3>
+  <div class="grid-4">
+    <div class="asset"><img src="brand-assets/seal-primary.svg" alt="Primary seal" /><div class="asset-tag">C · PRIMARY</div></div>
+    <div class="asset asset--dark"><img src="brand-assets/seal-reversed.svg" alt="Reversed seal" /><div class="asset-tag">D · REVERSED</div></div>
+    <div class="asset"><img src="brand-assets/seal-mono.svg" alt="Mono seal" /><div class="asset-tag">E · MONO INK</div></div>
+    <div class="asset asset--copper"><img src="brand-assets/seal-reversed.svg" alt="On copper" /><div class="asset-tag">F · ON COPPER</div></div>
+  </div>
+
+  <h3 class="kicker" style="margin-top: 80px;">Reduced — favicon &amp; app icon</h3>
+  <div class="grid-4">
+    <div class="asset"><img src="brand-assets/favicon.svg" alt="Favicon long" style="max-width: 70%;" /><div class="asset-tag">G · STRIP — 200×60</div></div>
+    <div class="asset"><img src="brand-assets/mark-only.svg" alt="Mark only" style="max-width: 60%;" /><div class="asset-tag">H · MARK — for buttons, profile pics</div></div>
+    <div class="asset asset--dark" style="display:flex; align-items:center; justify-content:center;"><div style="width: 64px; height: 64px; border-radius: 12px; background: var(--ink); border: 1px solid rgba(245,240,230,0.2); display:flex; align-items:center; justify-content:center; font-family:'Fraunces', serif; font-weight: 500; color: var(--paper); font-size: 32px; letter-spacing: -0.04em;">CF</div><div class="asset-tag">I · APP ICON 64px</div></div>
+    <div class="asset"><div style="width: 32px; height: 32px; background: var(--ink); display:flex; align-items:center; justify-content:center; font-family:'Fraunces', serif; font-weight: 500; color: var(--paper); font-size: 18px; letter-spacing: -0.04em;">CF</div><div class="asset-tag">J · FAVICON 32px</div></div>
+  </div>
+
+  <h3 class="kicker" style="margin-top: 80px;">Sub-brand lockups</h3>
+  <div class="grid-3">
+    <div class="asset" style="aspect-ratio: 1;"><img src="brand-assets/sub-creamery.svg" alt="Creamery" /><div class="asset-tag">K · CREAMERY</div></div>
+    <div class="asset asset--dark" style="aspect-ratio: 1;"><img src="brand-assets/sub-bakery.svg" alt="Bakery" /><div class="asset-tag">L · BAKERY</div></div>
+    <div class="asset asset--warm" style="aspect-ratio: 1;"><img src="brand-assets/sub-winery.svg" alt="Winery" /><div class="asset-tag">M · WINERY</div></div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════ 04 MISUSE ═══════════════════════════════ -->
+<section class="page">
+  <div class="crumbs"><span>04 · Misuse</span><span>p. 11</span></div>
+  <h3 class="kicker">Chapter Four</h3>
+  <h1 class="display">Don't<br/><em>do this.</em></h1>
+  <p class="lede">When the mark is wrong, the brand looks counterfeit. These are the eight ways to ruin it instantly.</p>
+
+  <div class="grid-4" style="margin-top: 64px;">
+    <div class="asset" style="aspect-ratio: 1;">
+      <div style="position:relative; width: 80%;">
+        <img src="brand-assets/mark-only.svg" style="width: 100%; transform: scaleX(1.4);" alt=""/>
+      </div>
+      <div class="asset-tag" style="color:#8B2E2E;">✗ DON'T STRETCH</div>
+    </div>
+    <div class="asset" style="aspect-ratio: 1;">
+      <img src="brand-assets/mark-only.svg" style="width: 70%; filter: hue-rotate(180deg) saturate(1.5);" alt=""/>
+      <div class="asset-tag" style="color:#8B2E2E;">✗ DON'T RECOLOR</div>
+    </div>
+    <div class="asset" style="aspect-ratio: 1; background: linear-gradient(135deg, #ff6b6b, #4ecdc4);">
+      <img src="brand-assets/mark-only.svg" style="width: 70%;" alt=""/>
+      <div class="asset-tag" style="color: white;">✗ NO LOUD BACKGROUNDS</div>
+    </div>
+    <div class="asset" style="aspect-ratio: 1;">
+      <img src="brand-assets/mark-only.svg" style="width: 70%; transform: rotate(-15deg);" alt=""/>
+      <div class="asset-tag" style="color:#8B2E2E;">✗ DON'T ROTATE</div>
+    </div>
+    <div class="asset" style="aspect-ratio: 1;">
+      <img src="brand-assets/mark-only.svg" style="width: 70%; filter: drop-shadow(4px 4px 0 rgba(0,0,0,0.5)) drop-shadow(-2px -2px 0 #B96A3D);" alt=""/>
+      <div class="asset-tag" style="color:#8B2E2E;">✗ NO EFFECTS</div>
+    </div>
+    <div class="asset" style="aspect-ratio: 1;">
+      <img src="brand-assets/mark-only.svg" style="width: 70%; opacity: 0.3;" alt=""/>
+      <div class="asset-tag" style="color:#8B2E2E;">✗ NO FADING</div>
+    </div>
+    <div class="asset" style="aspect-ratio: 1;">
+      <div style="display:flex; align-items:center; gap: 8px;">
+        <img src="brand-assets/mark-only.svg" style="width: 40%;" alt=""/>
+        <span style="font-family: 'Comic Sans MS', cursive; font-size: 24px; color: var(--ink);">Colchis!</span>
+      </div>
+      <div class="asset-tag" style="color:#8B2E2E;">✗ NO SUBSTITUTE FONTS</div>
+    </div>
+    <div class="asset" style="aspect-ratio: 1;">
+      <img src="brand-assets/mark-only.svg" style="width: 70%; clip-path: inset(0 0 50% 0);" alt=""/>
+      <div class="asset-tag" style="color:#8B2E2E;">✗ DON'T CROP</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════ 05 COLOR ═══════════════════════════════ -->
+<section class="page page--dark">
+  <div class="crumbs"><span>05 · Color</span><span>p. 12</span></div>
+  <h3 class="kicker" style="color: var(--bakery-honey);">Chapter Five</h3>
+  <h1 class="display">A palette of<br/><em>five quiet colors.</em></h1>
+  <p class="lede" style="color: rgba(245,240,230,0.85);">Cream paper. Deep forest ink. A copper accent for warmth. A honey gold for the bakery, a deep wine red for the winery. That's it. Nothing else competes for attention.</p>
+
+  <h3 class="kicker" style="color: var(--bakery-honey); margin-top: 80px;">Primary palette — used everywhere</h3>
+  <div class="grid-3" style="gap: 16px;">
+    <div class="swatch" style="background: var(--ink); color: var(--paper); border: 1px solid rgba(245,240,230,0.15);">
+      <div class="swatch-name">Colchis Green</div>
+      <div class="swatch-meta">
+        HEX  #1F3026<br/>
+        RGB  31 · 48 · 38<br/>
+        CMYK 75 · 50 · 75 · 70<br/>
+        PMS  5605 C
+      </div>
+    </div>
+    <div class="swatch" style="background: var(--copper); color: var(--paper);">
+      <div class="swatch-name">Colchis Copper</div>
+      <div class="swatch-meta">
+        HEX  #B96A3D<br/>
+        RGB  185 · 106 · 61<br/>
+        CMYK 24 · 65 · 78 · 12<br/>
+        PMS  167 C
+      </div>
+    </div>
+    <div class="swatch" style="background: var(--paper); color: var(--ink);">
+      <div class="swatch-name">Cream Paper</div>
+      <div class="swatch-meta">
+        HEX  #F5F0E6<br/>
+        RGB  245 · 240 · 230<br/>
+        CMYK 4 · 5 · 11 · 0<br/>
+        PMS  9180 C
+      </div>
+    </div>
+  </div>
+
+  <h3 class="kicker" style="color: var(--bakery-honey); margin-top: 80px;">Sub-brand accents — used only inside their world</h3>
+  <div class="grid-3" style="gap: 16px;">
+    <div class="swatch" style="background: var(--copper); color: var(--paper);">
+      <div class="swatch-name">Creamery Copper</div>
+      <div class="swatch-meta">
+        HEX  #B96A3D · same as primary<br/>
+        For: cheese labels, dairy ads
+      </div>
+    </div>
+    <div class="swatch" style="background: var(--bakery-honey); color: var(--ink);">
+      <div class="swatch-name">Bakery Honey</div>
+      <div class="swatch-meta">
+        HEX  #D9A876<br/>
+        RGB  217 · 168 · 118<br/>
+        For: hot khachapuri menu, bread<br/>
+        Used on green field
+      </div>
+    </div>
+    <div class="swatch" style="background: var(--winery-wine); color: var(--paper);">
+      <div class="swatch-name">Winery Wine</div>
+      <div class="swatch-meta">
+        HEX  #6B2B2B<br/>
+        RGB  107 · 43 · 43<br/>
+        For: wine labels only<br/>
+        Reserved — coming soon
+      </div>
+    </div>
+  </div>
+
+  <h3 class="kicker" style="color: var(--bakery-honey); margin-top: 80px;">Neutrals &amp; supports</h3>
+  <div class="grid-6" style="gap: 12px;">
+    <div class="swatch" style="background: var(--paper-warm); color: var(--ink); aspect-ratio: 1; padding: 14px;">
+      <div style="font-family:'Fraunces', serif; font-style: italic; font-size: 14px;">Warm Cream</div>
+      <div class="swatch-meta" style="font-size:9px;">#EAE2D2</div>
+    </div>
+    <div class="swatch" style="background: var(--bone); color: var(--ink); aspect-ratio: 1; padding: 14px;">
+      <div style="font-family:'Fraunces', serif; font-style: italic; font-size: 14px;">Bone</div>
+      <div class="swatch-meta" style="font-size:9px;">#DDD3BD</div>
+    </div>
+    <div class="swatch" style="background: var(--rule); color: var(--ink); aspect-ratio: 1; padding: 14px;">
+      <div style="font-family:'Fraunces', serif; font-style: italic; font-size: 14px;">Rule</div>
+      <div class="swatch-meta" style="font-size:9px;">#C9BEA3</div>
+    </div>
+    <div class="swatch" style="background: var(--muted); color: var(--paper); aspect-ratio: 1; padding: 14px;">
+      <div style="font-family:'Fraunces', serif; font-style: italic; font-size: 14px;">Sage</div>
+      <div class="swatch-meta" style="font-size:9px;">#7A8278</div>
+    </div>
+    <div class="swatch" style="background: #4A574E; color: var(--paper); aspect-ratio: 1; padding: 14px;">
+      <div style="font-family:'Fraunces', serif; font-style: italic; font-size: 14px;">Moss</div>
+      <div class="swatch-meta" style="font-size:9px;">#4A574E</div>
+    </div>
+    <div class="swatch" style="background: #0F1A14; color: var(--paper); aspect-ratio: 1; padding: 14px;">
+      <div style="font-family:'Fraunces', serif; font-style: italic; font-size: 14px;">Pitch</div>
+      <div class="swatch-meta" style="font-size:9px;">#0F1A14</div>
+    </div>
+  </div>
+
+  <h3 class="kicker" style="color: var(--bakery-honey); margin-top: 80px;">Accessibility</h3>
+  <div class="grid-3" style="gap: 16px;">
+    <div style="background: var(--ink); padding: 24px; border: 1px solid rgba(245,240,230,0.2);">
+      <div style="font-family:'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.2em; color: var(--bakery-honey);">CONTRAST AA ✓</div>
+      <div style="font-family:'Fraunces', serif; font-size: 24px; color: var(--paper); margin: 12px 0;">Cream on Green</div>
+      <div class="small" style="color: rgba(245,240,230,0.7);">14.2:1 — body &amp; UI text</div>
+    </div>
+    <div style="background: var(--paper); padding: 24px; color: var(--ink);">
+      <div style="font-family:'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.2em; color: var(--copper);">CONTRAST AA ✓</div>
+      <div style="font-family:'Fraunces', serif; font-size: 24px; color: var(--ink); margin: 12px 0;">Green on Cream</div>
+      <div class="small" style="color: var(--muted);">13.5:1 — body &amp; UI text</div>
+    </div>
+    <div style="background: var(--copper); padding: 24px; color: var(--paper);">
+      <div style="font-family:'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.2em; color: var(--paper);">CONTRAST AA · LARGE ONLY</div>
+      <div style="font-family:'Fraunces', serif; font-size: 24px; color: var(--paper); margin: 12px 0;">Cream on Copper</div>
+      <div class="small" style="color: rgba(245,240,230,0.85);">4.6:1 — headlines only</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════ 06 TYPOGRAPHY ═══════════════════════════════ -->
+<section class="page">
+  <div class="crumbs"><span>06 · Typography</span><span>p. 16</span></div>
+  <h3 class="kicker">Chapter Six</h3>
+  <h1 class="display">Type<br/><em>does the heavy lifting.</em></h1>
+  <p class="lede">Three families do all our typesetting. Fraunces is the voice. Inter is the messenger. JetBrains Mono is the receipt.</p>
+
+  <div style="margin-top: 80px;" class="specimen">
+    <div style="display:flex; justify-content: space-between; align-items: baseline;">
+      <span class="specimen-label">A · Display &amp; editorial</span>
+      <span class="specimen-meta">FRAUNCES · Variable, Italic</span>
+    </div>
+    <div class="specimen-glyph" style="line-height:1; margin: 16px 0;">Aa <em style="font-style: italic; color: var(--copper);">Bb</em> Cc</div>
+    <div style="font-family: 'Fraunces', serif; font-size: 56px; line-height: 1; font-weight: 400; margin-top: 8px;">Ancient heritage,<br/><em style="font-style: italic; font-weight: 300; color: var(--copper);">fresh every day.</em></div>
+    <div class="specimen-meta" style="margin-top: 16px;">Weights: 300, 400, 500 · Italic always allowed · Optical size auto · Use for all H1–H3, hero copy, pull quotes, sub-brand names.</div>
+  </div>
+
+  <div style="margin-top: 32px;" class="specimen">
+    <div style="display:flex; justify-content: space-between; align-items: baseline;">
+      <span class="specimen-label">B · UI, body &amp; navigation</span>
+      <span class="specimen-meta">INTER · 400 / 500 / 600</span>
+    </div>
+    <div style="font-family:'Inter', sans-serif; font-size: 96px; line-height: 1; font-weight: 500; letter-spacing: -0.02em; margin: 16px 0;">Aa Bb Cc</div>
+    <div style="font-family:'Inter', sans-serif; font-size: 18px; line-height: 1.6; max-width: 560px;">Inter handles every job that asks for clarity over personality: navigation, buttons, body copy, captions, microcopy, prices, labels, addresses. Never use Inter for headlines.</div>
+    <div class="specimen-meta" style="margin-top: 16px;">Sizes: 11 · 12 · 14 · 16 · 18 · 20 · 24 · 32 — never larger.</div>
+  </div>
+
+  <div style="margin-top: 32px;" class="specimen" style="background: var(--ink);">
+    <div style="display:flex; justify-content: space-between; align-items: baseline;">
+      <span class="specimen-label" style="color: var(--bakery-honey);">C · Kickers, metadata, monospace</span>
+      <span class="specimen-meta" style="color: rgba(245,240,230,0.6);">JETBRAINS MONO · 400 / 500</span>
+    </div>
+    <div style="font-family:'JetBrains Mono', monospace; font-size: 64px; line-height: 1; font-weight: 500; letter-spacing: 0.02em; color: var(--paper); margin: 16px 0;">Aa Bb Cc</div>
+    <div style="font-family:'JetBrains Mono', monospace; font-size: 14px; letter-spacing: 0.2em; color: var(--copper); text-transform: uppercase; margin-top: 12px;">EST · MMXXVI · DUBLIN, OHIO</div>
+    <div class="specimen-meta" style="margin-top: 16px; color: rgba(245,240,230,0.6);">All-caps, letter-spaced 0.2em–0.3em. Used for kickers, dates, batch numbers, addresses, and tiny print.</div>
+  </div>
+
+  <div style="margin-top: 32px;" class="specimen">
+    <div style="display:flex; justify-content: space-between; align-items: baseline;">
+      <span class="specimen-label">D · Georgian script (ქართული)</span>
+      <span class="specimen-meta">NOTO SERIF GEORGIAN</span>
+    </div>
+    <div style="font-family:'Noto Serif Georgian', serif; font-size: 96px; line-height: 1; font-weight: 500; margin: 16px 0;">კოლხეთი</div>
+    <div style="font-family:'Noto Serif Georgian', serif; font-size: 22px; line-height: 1.5; max-width: 560px;">ხაჭაპური · სულგუნი · იმერული · ღვინო</div>
+    <div class="specimen-meta" style="margin-top: 16px;">Used 1:1 with Fraunces in bilingual contexts. Always present at locale=ka and on packaging where the Georgian name precedes the English one.</div>
+  </div>
+
+  <h3 class="kicker" style="margin-top: 80px;">Type scale (web)</h3>
+  <table class="assets-table" style="margin-top: 24px;">
+    <thead><tr><th>Token</th><th>Family</th><th>Size / line-height</th><th>Use</th></tr></thead>
+    <tbody>
+      <tr><td class="file">--display-xl</td><td>Fraunces 400 / italic</td><td>96 / 96</td><td>Hero only — once per page</td></tr>
+      <tr><td class="file">--display-lg</td><td>Fraunces 400</td><td>72 / 76</td><td>Section openers</td></tr>
+      <tr><td class="file">--h1</td><td>Fraunces 500</td><td>48 / 52</td><td>Page titles</td></tr>
+      <tr><td class="file">--h2</td><td>Fraunces 500</td><td>32 / 36</td><td>Section titles</td></tr>
+      <tr><td class="file">--h3</td><td>Fraunces 500</td><td>24 / 30</td><td>Card titles, callouts</td></tr>
+      <tr><td class="file">--lede</td><td>Fraunces 300 italic</td><td>22 / 32</td><td>Intro paragraphs</td></tr>
+      <tr><td class="file">--body</td><td>Inter 400</td><td>16 / 26</td><td>Default body</td></tr>
+      <tr><td class="file">--small</td><td>Inter 400</td><td>13 / 20</td><td>Captions, footnotes</td></tr>
+      <tr><td class="file">--kicker</td><td>JetBrains Mono 500 · 0.3em</td><td>11 / 16</td><td>Section labels, dates</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ═══════════════════════════════ 07 VOICE ═══════════════════════════════ -->
+<section class="page page--warm">
+  <div class="crumbs"><span>07 · Voice</span><span>p. 20</span></div>
+  <h3 class="kicker">Chapter Seven</h3>
+  <h1 class="display">We talk like<br/><em>a confident host.</em></h1>
+  <p class="lede">A Colchis sentence is short, specific, and unembarrassed. It names the milk's town. It tells you the wheat variety. It assumes you're an adult who likes good things.</p>
+
+  <div class="grid-2" style="margin-top: 64px;">
+    <div>
+      <h3 class="kicker">We are</h3>
+      <ul style="font-family:'Fraunces', serif; font-size: 22px; line-height: 1.7; font-style: italic; padding-left: 20px;">
+        <li>Specific (named towns, named cows, named bakers)</li>
+        <li>Confident (no apologies, no hedging)</li>
+        <li>Warm (we host, we don't sell)</li>
+        <li>Quiet (the food is loud enough)</li>
+        <li>Bilingual when it matters (Georgian dish names stay Georgian)</li>
+      </ul>
+    </div>
+    <div>
+      <h3 class="kicker">We are not</h3>
+      <ul style="font-family:'Fraunces', serif; font-size: 22px; line-height: 1.7; font-style: italic; padding-left: 20px; color: var(--muted);">
+        <li>Cute (no puns, no rhyming taglines)</li>
+        <li>Hyped ("amazing," "delicious," "the best")</li>
+        <li>Vague ("artisan," "premium," "crafted with love")</li>
+        <li>Theatrical (no exclamation points)</li>
+        <li>Generic American gourmet — we're Georgian</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3 class="kicker" style="margin-top: 80px;">Vocabulary — say this, not that</h3>
+  <table class="assets-table" style="margin-top: 24px;">
+    <thead><tr><th>Instead of</th><th>Say</th><th>Why</th></tr></thead>
+    <tbody>
+      <tr><td>Cheese flatbread</td><td>Khachapuri</td><td>It has a name. Use it.</td></tr>
+      <tr><td>Mozzarella-style</td><td>Sulguni</td><td>Don't compare. Define.</td></tr>
+      <tr><td>Premium artisan dairy</td><td>Hand-pulled cheese, made in Dublin</td><td>Specific beats fancy.</td></tr>
+      <tr><td>Family recipe</td><td>The way Maia's grandmother made it in Mestia</td><td>Name names.</td></tr>
+      <tr><td>Try our delicious bread</td><td>Today we're baking Imeruli at 4am.</td><td>Don't sell. Tell.</td></tr>
+      <tr><td>Now available</td><td>Open Tuesday</td><td>Adults read calendars.</td></tr>
+    </tbody>
+  </table>
+
+  <h3 class="kicker" style="margin-top: 80px;">Tagline — keep, evolve, never abandon</h3>
+  <div style="background: var(--paper); padding: 48px; border: 1px solid var(--rule); margin-top: 24px;">
+    <div style="font-family:'Fraunces', serif; font-style: italic; font-weight: 300; font-size: 56px; line-height: 1.1; color: var(--ink);">Ancient heritage,<br/><span style="color: var(--copper);">fresh every day.</span></div>
+    <div class="small" style="margin-top: 24px; color: var(--ink);">The original. Required on the homepage hero, the back of the menu, the about page. Use the version with the comma break — never collapse to one line.</div>
+  </div>
+  <div class="grid-2" style="margin-top: 32px;">
+    <div style="background: var(--paper); padding: 32px; border: 1px solid var(--rule);">
+      <div style="font-family:'Fraunces', serif; font-style: italic; font-weight: 300; font-size: 28px; color: var(--ink);">From Colchis,<br/><span style="color: var(--copper);">to your kitchen.</span></div>
+      <div class="small" style="margin-top: 12px;">Use on shipping packaging.</div>
+    </div>
+    <div style="background: var(--paper); padding: 32px; border: 1px solid var(--rule);">
+      <div style="font-family:'Fraunces', serif; font-style: italic; font-weight: 300; font-size: 28px; color: var(--ink);">Hot from the oven.<br/><span style="color: var(--copper);">2,000 years strong.</span></div>
+      <div class="small" style="margin-top: 12px;">Use on bakery delivery bag, hot khachapuri ads.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════ 08 SUB-BRANDS ═══════════════════════════════ -->
+<section class="page">
+  <div class="crumbs"><span>08 · The Three Houses</span><span>p. 22</span></div>
+  <h3 class="kicker">Chapter Eight</h3>
+  <h1 class="display">One roof,<br/><em>three houses.</em></h1>
+  <p class="lede">Colchis Food is the parent. Beneath it, three named houses do the work — each with its own accent color and tone, but always wearing the same seal.</p>
+
+  <div class="grid-3" style="margin-top: 64px;">
+    <div class="sub-card">
+      <div style="display:flex; align-items: center; gap: 12px;"><div style="width: 12px; height: 12px; background: var(--copper); border-radius: 50%;"></div><div class="mono" style="text-transform: uppercase;">House One</div></div>
+      <h2 style="font-family:'Fraunces', serif; font-style: italic; font-weight: 400; font-size: 48px; color: var(--copper); margin: 16px 0 8px;">The Creamery</h2>
+      <div class="mono" style="text-transform: uppercase;">SULGUNI · IMERULI · GUDA</div>
+      <p class="body" style="margin-top: 16px;">Hand-pulled cheese from Ohio milk. The original house. Open daily.</p>
+      <hr style="border: 0; border-top: 1px solid var(--rule); margin: 16px 0;"/>
+      <div class="small"><strong>Tone:</strong> patient, quiet, technical. Talks about milk fat, cure days, cow breeds. <strong>Color:</strong> Cream + green + copper.</div>
+    </div>
+    <div class="sub-card sub-card--dark">
+      <div style="display:flex; align-items: center; gap: 12px;"><div style="width: 12px; height: 12px; background: var(--bakery-honey); border-radius: 50%;"></div><div class="mono" style="text-transform: uppercase; color: rgba(245,240,230,0.7);">House Two</div></div>
+      <h2 style="font-family:'Fraunces', serif; font-style: italic; font-weight: 400; font-size: 48px; color: var(--bakery-honey); margin: 16px 0 8px;">The Bakery</h2>
+      <div class="mono" style="text-transform: uppercase; color: rgba(245,240,230,0.7);">KHACHAPURI · HOT · DUBLIN OH</div>
+      <p class="body" style="margin-top: 16px; color: rgba(245,240,230,0.85);">Hot khachapuri local, frozen 2-pack ships nationwide.</p>
+      <hr style="border: 0; border-top: 1px solid rgba(245,240,230,0.15); margin: 16px 0;"/>
+      <div class="small" style="color: rgba(245,240,230,0.7);"><strong style="color: var(--paper);">Tone:</strong> warm, immediate, present-tense. Talks about heat, ovens, time-of-day. <strong style="color: var(--paper);">Color:</strong> Green + honey + cream.</div>
+    </div>
+    <div class="sub-card sub-card--warm">
+      <div style="display:flex; align-items: center; gap: 12px;"><div style="width: 12px; height: 12px; background: var(--winery-wine); border-radius: 50%;"></div><div class="mono" style="text-transform: uppercase;">House Three</div></div>
+      <h2 style="font-family:'Fraunces', serif; font-style: italic; font-weight: 400; font-size: 48px; color: var(--winery-wine); margin: 16px 0 8px;">The Winery</h2>
+      <div class="mono" style="text-transform: uppercase;">QVEVRI · SAPERAVI · COMING SOON</div>
+      <p class="body" style="margin-top: 16px;">Buried-clay-vessel wine, the way it was done in Colchis 8,000 years ago.</p>
+      <hr style="border: 0; border-top: 1px solid var(--rule); margin: 16px 0;"/>
+      <div class="small"><strong>Tone:</strong> reverent, ancient, sparing. Talks about geology, vintage, depth. <strong>Color:</strong> Cream + wine + ink.</div>
+    </div>
+  </div>
+
+  <h3 class="kicker" style="margin-top: 96px;">Naming hierarchy</h3>
+  <div style="background: var(--paper-warm); padding: 48px; margin-top: 24px;">
+    <div style="display: grid; grid-template-columns: 80px 1fr; gap: 16px 24px; align-items: baseline;">
+      <div class="mono" style="color: var(--copper);">PARENT</div>
+      <div style="font-family:'Fraunces', serif; font-size: 32px;">Colchis Food</div>
+      <div class="mono" style="color: var(--copper);">HOUSE</div>
+      <div style="font-family:'Fraunces', serif; font-size: 24px;">Colchis Food <em style="font-style: italic; color: var(--copper);">— The Creamery</em></div>
+      <div class="mono" style="color: var(--copper);">PRODUCT</div>
+      <div style="font-family:'Fraunces', serif; font-size: 20px;">Colchis Food, The Creamery <em style="font-style: italic; color: var(--copper);">— Sulguni, Aged 7 Days</em></div>
+      <div class="mono" style="color: var(--copper);">SHELF</div>
+      <div style="font-family:'Inter', sans-serif; font-size: 16px; color: var(--ink);">"Colchis Sulguni" is the everyday short name for retail and conversation.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════ 09 IMAGERY ═══════════════════════════════ -->
+<section class="page page--dark">
+  <div class="crumbs"><span>09 · Imagery</span><span>p. 25</span></div>
+  <h3 class="kicker" style="color: var(--bakery-honey);">Chapter Nine</h3>
+  <h1 class="display">We<br/><em>photograph the work.</em></h1>
+  <p class="lede" style="color: rgba(245,240,230,0.85);">Three subjects. Three moods. Repeat.</p>
+
+  <div class="grid-3" style="margin-top: 64px;">
+    <div>
+      <div style="aspect-ratio: 1; background: linear-gradient(135deg, #2A3A2E, #1F3026); border: 1px solid rgba(245,240,230,0.15); display:flex; align-items:center; justify-content:center; position: relative; overflow: hidden;">
+        <div style="position:absolute; inset: 24px; border: 1px dashed rgba(217,168,118,0.4);"></div>
+        <div style="font-family:'Fraunces', serif; font-style: italic; font-size: 28px; color: var(--bakery-honey); text-align: center; padding: 24px;">Hands at work,<br/>mid-action</div>
+      </div>
+      <h3 class="kicker" style="color: var(--bakery-honey); margin-top: 24px;">A · Process</h3>
+      <p class="body" style="color: rgba(245,240,230,0.85);">Cheese being pulled, dough being shaped, qvevri being filled. Always shot in low natural light. Always with a real person's hands. Never staged.</p>
+    </div>
+    <div>
+      <div style="aspect-ratio: 1; background: linear-gradient(135deg, #4A3A2E, #2A1F18); display:flex; align-items:center; justify-content:center; position: relative;">
+        <div style="position:absolute; inset: 24px; border: 1px dashed rgba(217,168,118,0.4);"></div>
+        <div style="font-family:'Fraunces', serif; font-style: italic; font-size: 28px; color: var(--bakery-honey); text-align: center; padding: 24px;">The product,<br/>at the table</div>
+      </div>
+      <h3 class="kicker" style="color: var(--bakery-honey); margin-top: 24px;">B · Product</h3>
+      <p class="body" style="color: rgba(245,240,230,0.85);">Khachapuri torn open, cheese pulled, on a marble or linen surface. Always warm light. Always real food we sell. Never plastic, never fake steam.</p>
+    </div>
+    <div>
+      <div style="aspect-ratio: 1; background: linear-gradient(135deg, #DDD3BD, #B8A98A); display:flex; align-items:center; justify-content:center; position: relative;">
+        <div style="position:absolute; inset: 24px; border: 1px dashed var(--copper);"></div>
+        <div style="font-family:'Fraunces', serif; font-style: italic; font-size: 28px; color: var(--ink); text-align: center; padding: 24px;">Place,<br/>at quiet hours</div>
+      </div>
+      <h3 class="kicker" style="color: var(--bakery-honey); margin-top: 24px;">C · Place</h3>
+      <p class="body" style="color: rgba(245,240,230,0.85);">The bakery before opening. Ohio fields. The Black Sea coast. Architecture. Always wide, always devoid of branding, always with one quiet human or none.</p>
+    </div>
+  </div>
+
+  <h3 class="kicker" style="color: var(--bakery-honey); margin-top: 96px;">Never</h3>
+  <div class="grid-3" style="gap: 16px;">
+    <div style="border: 1px solid rgba(139,46,46,0.4); padding: 20px; color: rgba(245,240,230,0.7);"><span class="cross">✗</span> Stock photography of any kind</div>
+    <div style="border: 1px solid rgba(139,46,46,0.4); padding: 20px; color: rgba(245,240,230,0.7);"><span class="cross">✗</span> Smiling-into-camera customer photos</div>
+    <div style="border: 1px solid rgba(139,46,46,0.4); padding: 20px; color: rgba(245,240,230,0.7);"><span class="cross">✗</span> AI-generated food, hands, places</div>
+    <div style="border: 1px solid rgba(139,46,46,0.4); padding: 20px; color: rgba(245,240,230,0.7);"><span class="cross">✗</span> Heavily filtered / saturated colors</div>
+    <div style="border: 1px solid rgba(139,46,46,0.4); padding: 20px; color: rgba(245,240,230,0.7);"><span class="cross">✗</span> Beauty-shot sweat / glossy oil</div>
+    <div style="border: 1px solid rgba(139,46,46,0.4); padding: 20px; color: rgba(245,240,230,0.7);"><span class="cross">✗</span> "Mediterranean" or "Eastern European" tropes — Georgia is its own place</div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════ 10 IN THE WILD ═══════════════════════════════ -->
+<section class="page">
+  <div class="crumbs"><span>10 · In the Wild</span><span>p. 27</span></div>
+  <h3 class="kicker">Chapter Ten</h3>
+  <h1 class="display">The system<br/><em>at work.</em></h1>
+  <p class="lede">A walk through the brand as it appears on a label, a card, a screen, a sign, a delivery bag.</p>
+
+  <h3 class="kicker" style="margin-top: 80px;">Packaging — Cheese label</h3>
+  <div class="grid-3" style="gap: 24px;">
+    <div class="mockup-card" style="background: var(--paper); padding: 32px; display: flex; flex-direction: column; justify-content: space-between;">
+      <div style="display:flex; justify-content: space-between; align-items: flex-start;">
+        <img src="brand-assets/seal-primary.svg" style="width: 56px; height: 56px;" alt="" />
+        <div class="mono" style="font-size: 9px; color: var(--muted); text-align: right; letter-spacing: 0.15em;">BATCH<br/><strong style="color: var(--ink); font-weight: 500;">№ 0142</strong></div>
+      </div>
+      <div>
+        <div class="mono" style="color: var(--copper); font-size: 10px; letter-spacing: 0.3em;">THE CREAMERY</div>
+        <div style="font-family:'Fraunces', serif; font-weight: 400; font-size: 36px; line-height: 1; margin: 8px 0; color: var(--ink);">Sulguni</div>
+        <div style="font-family:'Fraunces', serif; font-style: italic; font-size: 14px; color: var(--copper);">Aged 7 days · honey-cured</div>
+      </div>
+      <div style="border-top: 1px solid var(--rule); padding-top: 12px; display: flex; justify-content: space-between; font-family:'JetBrains Mono', monospace; font-size: 9px; color: var(--muted); letter-spacing: 0.1em;">
+        <span>NET WT 280g</span><span>DUBLIN, OH</span>
+      </div>
+    </div>
+    <div class="mockup-card" style="background: var(--ink); color: var(--paper); padding: 32px; display: flex; flex-direction: column; justify-content: space-between;">
+      <div style="display:flex; justify-content: space-between; align-items: flex-start;">
+        <img src="brand-assets/seal-reversed.svg" style="width: 56px; height: 56px;" alt="" />
+        <div class="mono" style="font-size: 9px; color: rgba(245,240,230,0.6); text-align: right; letter-spacing: 0.15em;">BATCH<br/><strong style="color: var(--paper); font-weight: 500;">№ 0089</strong></div>
+      </div>
+      <div>
+        <div class="mono" style="color: var(--bakery-honey); font-size: 10px; letter-spacing: 0.3em;">THE BAKERY · FROZEN</div>
+        <div style="font-family:'Fraunces', serif; font-weight: 400; font-size: 36px; line-height: 1; margin: 8px 0;">Imeruli<br/><em style="font-style: italic; font-size: 28px; color: var(--bakery-honey);">khachapuri</em></div>
+        <div style="font-family:'Fraunces', serif; font-style: italic; font-size: 14px; color: var(--bakery-honey);">2-pack · ships UPS · 10h drive radius</div>
+      </div>
+      <div style="border-top: 1px solid rgba(245,240,230,0.2); padding-top: 12px; display: flex; justify-content: space-between; font-family:'JetBrains Mono', monospace; font-size: 9px; color: rgba(245,240,230,0.6); letter-spacing: 0.1em;">
+        <span>NET WT 600g · 2pcs</span><span>BAKE 18 min</span>
+      </div>
+    </div>
+    <div class="mockup-card" style="background: var(--paper-warm); padding: 32px; display: flex; flex-direction: column; justify-content: space-between;">
+      <div style="display:flex; justify-content: space-between; align-items: flex-start;">
+        <img src="brand-assets/seal-primary.svg" style="width: 56px; height: 56px;" alt="" />
+        <div class="mono" style="font-size: 9px; color: var(--muted); text-align: right; letter-spacing: 0.15em;">VINTAGE<br/><strong style="color: var(--winery-wine); font-weight: 500;">2027</strong></div>
+      </div>
+      <div>
+        <div class="mono" style="color: var(--winery-wine); font-size: 10px; letter-spacing: 0.3em;">THE WINERY</div>
+        <div style="font-family:'Fraunces', serif; font-weight: 400; font-size: 36px; line-height: 1; margin: 8px 0; color: var(--ink);">Saperavi</div>
+        <div style="font-family:'Fraunces', serif; font-style: italic; font-size: 14px; color: var(--winery-wine);">Qvevri-aged · cellar floor</div>
+      </div>
+      <div style="border-top: 1px solid var(--rule); padding-top: 12px; display: flex; justify-content: space-between; font-family:'JetBrains Mono', monospace; font-size: 9px; color: var(--muted); letter-spacing: 0.1em;">
+        <span>750ml · 13.5%</span><span>COMING SOON</span>
+      </div>
+    </div>
+  </div>
+
+  <h3 class="kicker" style="margin-top: 80px;">Stationery — Business card &amp; letterhead</h3>
+  <div class="grid-2" style="gap: 24px;">
+    <div style="background: var(--paper); border: 1px solid var(--rule); aspect-ratio: 1.75; padding: 32px; display: flex; flex-direction: column; justify-content: space-between;">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+        <img src="brand-assets/seal-primary.svg" style="width: 56px; height: 56px;" alt=""/>
+        <div class="mono" style="font-size: 8px; color: var(--copper); letter-spacing: 0.3em; text-align: right;">EST · MMXXVI</div>
+      </div>
+      <div>
+        <div style="font-family:'Fraunces', serif; font-weight: 400; font-size: 22px; color: var(--ink); margin-bottom: 4px;">Maia Kvariani</div>
+        <div style="font-family:'Fraunces', serif; font-style: italic; font-size: 14px; color: var(--copper); margin-bottom: 16px;">Founder &amp; Cheesemaker</div>
+        <div style="font-family:'JetBrains Mono', monospace; font-size: 9px; color: var(--muted); letter-spacing: 0.1em; line-height: 1.8;">
+          maia@colchisfood.com<br/>
+          614 · 555 · 0142<br/>
+          5125 BRIDGE ST · DUBLIN OH 43017
+        </div>
+      </div>
+    </div>
+    <div style="background: var(--paper); border: 1px solid var(--rule); aspect-ratio: 1.75; padding: 32px; display: flex; flex-direction: column; justify-content: space-between; position: relative; overflow: hidden;">
+      <div style="position: absolute; inset: 0; background: repeating-linear-gradient(45deg, transparent 0, transparent 12px, rgba(185,106,61,0.04) 12px, rgba(185,106,61,0.04) 13px);"></div>
+      <div style="position: relative;"><img src="brand-assets/lockup-horizontal.svg" style="height: 56px;" alt=""/></div>
+      <div style="position: relative;">
+        <div style="font-family:'Fraunces', serif; font-style: italic; font-size: 28px; color: var(--copper); line-height: 1.2;">A note from the Creamery —</div>
+        <div style="font-family:'JetBrains Mono', monospace; font-size: 9px; color: var(--muted); letter-spacing: 0.15em; margin-top: 16px;">DUBLIN, OH · BATCH №_______ · DATE _______</div>
+      </div>
+    </div>
+  </div>
+
+  <h3 class="kicker" style="margin-top: 80px;">Digital — App icons &amp; social</h3>
+  <div class="grid-4" style="gap: 16px;">
+    <div class="asset" style="aspect-ratio: 1; background: var(--ink);">
+      <div style="width: 80%; aspect-ratio: 1; background: var(--paper); border-radius: 22%; display: flex; align-items: center; justify-content: center; box-shadow: inset 0 0 0 1px rgba(31,48,38,0.1);">
+        <img src="brand-assets/mark-only.svg" style="width: 78%;" alt=""/>
+      </div>
+      <div class="asset-tag" style="color: rgba(245,240,230,0.6);">iOS / ANDROID ICON</div>
+    </div>
+    <div class="asset" style="aspect-ratio: 1; background: var(--paper); display:flex; flex-direction: column; gap: 16px; padding: 24px;">
+      <div style="display:flex; justify-content: space-between; align-items: center;">
+        <img src="brand-assets/seal-primary.svg" style="width: 32px;" alt=""/>
+        <div class="mono" style="font-size: 9px; color: var(--muted);">colchisfood</div>
+      </div>
+      <div style="background: var(--paper-warm); flex: 1; aspect-ratio: 1; display: flex; align-items: center; justify-content: center;">
+        <div style="font-family:'Fraunces', serif; font-style: italic; font-size: 22px; color: var(--copper); text-align: center;">Today<br/>we're baking<br/>Imeruli.</div>
+      </div>
+      <div class="asset-tag">INSTAGRAM POST</div>
+    </div>
+    <div class="asset" style="aspect-ratio: 1; background: var(--ink); padding: 0; overflow: hidden; position: relative;">
+      <div style="background: var(--ink); padding: 16px; height: 100%; display: flex; flex-direction: column; gap: 12px; color: var(--paper);">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <img src="brand-assets/seal-reversed.svg" style="width: 24px;" alt=""/>
+          <div class="mono" style="font-size: 8px; color: rgba(245,240,230,0.7);">COLCHISFOOD.COM</div>
+        </div>
+        <div style="font-family:'Fraunces', serif; font-style: italic; font-weight: 300; font-size: 18px; line-height: 1.2;">Hot khachapuri,<br/><span style="color: var(--bakery-honey);">delivered in 35 min.</span></div>
+        <div style="margin-top: auto; background: var(--bakery-honey); color: var(--ink); text-align: center; padding: 6px; font-family:'JetBrains Mono', monospace; font-size: 8px; letter-spacing: 0.2em;">ORDER NOW</div>
+      </div>
+      <div class="asset-tag" style="color: rgba(245,240,230,0.6);">PUSH / DISPLAY AD</div>
+    </div>
+    <div class="asset" style="aspect-ratio: 1; background: var(--paper-warm); padding: 16px; display: flex; flex-direction: column;">
+      <div style="background: var(--ink); flex: 1; padding: 16px; color: var(--paper); display: flex; flex-direction: column; justify-content: space-between;">
+        <img src="brand-assets/seal-reversed.svg" style="width: 36px;" alt=""/>
+        <div>
+          <div class="mono" style="font-size: 8px; color: var(--bakery-honey); letter-spacing: 0.25em;">EMAIL · 06:42 AM</div>
+          <div style="font-family:'Fraunces', serif; font-style: italic; font-size: 18px; line-height: 1.1; margin-top: 4px;">The oven<br/>is on.</div>
+        </div>
+      </div>
+      <div class="asset-tag">EMAIL HEADER</div>
+    </div>
+  </div>
+
+  <h3 class="kicker" style="margin-top: 80px;">Signage — Bakery storefront</h3>
+  <div style="background: var(--ink); aspect-ratio: 16/6; position: relative; overflow: hidden; padding: 48px;">
+    <div style="position: absolute; inset: 0; background: linear-gradient(180deg, rgba(31,48,38,1) 0%, rgba(31,48,38,0.85) 60%, rgba(31,48,38,1) 100%);"></div>
+    <div style="position: absolute; inset: 32px; border: 1px solid rgba(217,168,118,0.3);"></div>
+    <div style="position: relative; height: 100%; display: flex; flex-direction: column; justify-content: space-between; color: var(--paper);">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+        <img src="brand-assets/seal-reversed.svg" style="width: 90px;" alt=""/>
+        <div class="mono" style="font-size: 11px; color: var(--bakery-honey); letter-spacing: 0.3em; text-align: right;">OPEN<br/>06:00 — 21:00</div>
+      </div>
+      <div style="display: flex; justify-content: space-between; align-items: flex-end;">
+        <div>
+          <div style="font-family:'Fraunces', serif; font-weight: 400; font-size: 56px; line-height: 0.95;">Colchis Food</div>
+          <div style="font-family:'Fraunces', serif; font-style: italic; font-size: 28px; color: var(--bakery-honey); margin-top: 8px;">— The Bakery</div>
+        </div>
+        <div class="mono" style="font-size: 10px; color: rgba(245,240,230,0.6); letter-spacing: 0.25em; text-align: right; line-height: 2;">5125 BRIDGE STREET<br/>DUBLIN, OHIO 43017</div>
+      </div>
+    </div>
+  </div>
+
+  <h3 class="kicker" style="margin-top: 80px;">Hot delivery bag &amp; UPS shipper</h3>
+  <div class="grid-2" style="gap: 24px;">
+    <div style="background: var(--bakery-honey); aspect-ratio: 1.2; padding: 40px; display: flex; flex-direction: column; justify-content: space-between; color: var(--ink);">
+      <div style="display: flex; justify-content: space-between;">
+        <img src="brand-assets/seal-mono.svg" style="width: 64px;" alt=""/>
+        <div class="mono" style="font-size: 10px; letter-spacing: 0.3em;">HOT · LOCAL · 35 MIN</div>
+      </div>
+      <div>
+        <div style="font-family:'Fraunces', serif; font-weight: 400; font-size: 56px; line-height: 0.95;">Hot from<br/><em style="font-style: italic;">the oven.</em></div>
+        <div style="font-family:'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.2em; margin-top: 16px;">2,000 YEARS STRONG</div>
+      </div>
+    </div>
+    <div style="background: var(--paper-warm); aspect-ratio: 1.2; padding: 40px; display: flex; flex-direction: column; justify-content: space-between; color: var(--ink); border: 1px solid var(--rule);">
+      <div style="display: flex; justify-content: space-between;">
+        <img src="brand-assets/seal-primary.svg" style="width: 64px;" alt=""/>
+        <div class="mono" style="font-size: 10px; letter-spacing: 0.3em; color: var(--copper);">SHIP · UPS · 10H RADIUS</div>
+      </div>
+      <div>
+        <div style="font-family:'Fraunces', serif; font-weight: 400; font-size: 48px; line-height: 0.95;">From Colchis,<br/><em style="font-style: italic; color: var(--copper);">to your kitchen.</em></div>
+        <div style="font-family:'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.2em; margin-top: 16px; color: var(--muted);">KEEP REFRIGERATED · COLCHIS FOOD CO. · DUBLIN OH</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════ 11 ASSET LIBRARY ═══════════════════════════════ -->
+<section class="page">
+  <div class="crumbs"><span>11 · Asset Library</span><span>p. 32</span></div>
+  <h3 class="kicker">Chapter Eleven</h3>
+  <h1 class="display">Files,<br/><em>and where they live.</em></h1>
+  <p class="lede">All vector files (SVG) are sitting in <span class="mono">/brand-assets/</span>. Use them directly on the web; convert to .ai / .pdf for print via Illustrator.</p>
+
+  <h3 class="kicker" style="margin-top: 64px;">Logo files</h3>
+  <table class="assets-table">
+    <thead><tr><th>File</th><th>Variant</th><th>Use</th><th>Min size</th></tr></thead>
+    <tbody>
+      <tr><td class="file"><a href="brand-assets/seal-primary.svg" target="_blank">seal-primary.svg</a></td><td>Primary seal</td><td>Default — cream backgrounds, web hero, packaging</td><td>32px</td></tr>
+      <tr><td class="file"><a href="brand-assets/seal-reversed.svg" target="_blank">seal-reversed.svg</a></td><td>Reversed</td><td>Dark / colored backgrounds, dark mode</td><td>32px</td></tr>
+      <tr><td class="file"><a href="brand-assets/seal-mono.svg" target="_blank">seal-mono.svg</a></td><td>Monochrome</td><td>Single-ink print, fax, embossing, foil</td><td>24px</td></tr>
+      <tr><td class="file"><a href="brand-assets/mark-only.svg" target="_blank">mark-only.svg</a></td><td>Mark, no seal text</td><td>App icons, social profile, button avatars</td><td>16px</td></tr>
+      <tr><td class="file"><a href="brand-assets/lockup-horizontal.svg" target="_blank">lockup-horizontal.svg</a></td><td>Horizontal lockup</td><td>Headers, signage, ad units</td><td>240px wide</td></tr>
+      <tr><td class="file"><a href="brand-assets/lockup-vertical.svg" target="_blank">lockup-vertical.svg</a></td><td>Vertical lockup</td><td>Posters, vertical packaging, square crops</td><td>240px wide</td></tr>
+      <tr><td class="file"><a href="brand-assets/sub-creamery.svg" target="_blank">sub-creamery.svg</a></td><td>Creamery sub-brand</td><td>Cheese category pages, dairy ads</td><td>320px wide</td></tr>
+      <tr><td class="file"><a href="brand-assets/sub-bakery.svg" target="_blank">sub-bakery.svg</a></td><td>Bakery sub-brand</td><td>Bakery menu, hot delivery, takeout bag</td><td>320px wide</td></tr>
+      <tr><td class="file"><a href="brand-assets/sub-winery.svg" target="_blank">sub-winery.svg</a></td><td>Winery sub-brand</td><td>Wine page (hidden until launch)</td><td>320px wide</td></tr>
+      <tr><td class="file"><a href="brand-assets/favicon.svg" target="_blank">favicon.svg</a></td><td>Favicon strip</td><td>Browser tab, sitemap</td><td>32px</td></tr>
+    </tbody>
+  </table>
+
+  <h3 class="kicker" style="margin-top: 64px;">Other living documents</h3>
+  <table class="assets-table">
+    <tbody>
+      <tr><td class="file"><a href="Colchis Food Brand.html" target="_blank">Colchis Food Brand.html</a></td><td>Working canvas — exploration of variants</td><td colspan="2" style="color: var(--muted);">Internal — not a deliverable</td></tr>
+      <tr><td class="file"><a href="Colchis Food Homepage.html" target="_blank">Colchis Food Homepage.html</a></td><td>Live homepage design</td><td colspan="2" style="color: var(--muted);">Source for build</td></tr>
+      <tr><td class="file"><a href="Heritage.html" target="_blank">Heritage.html</a></td><td>About / heritage page design</td><td colspan="2" style="color: var(--muted);">Source for build</td></tr>
+      <tr><td class="file"><a href="Bakery.html" target="_blank">Bakery.html</a></td><td>Bakery sub-brand page design</td><td colspan="2" style="color: var(--muted);">Source for build</td></tr>
+      <tr><td class="file"><a href="Wholesale.html" target="_blank">Wholesale.html</a></td><td>Wholesale page design</td><td colspan="2" style="color: var(--muted);">Source for build</td></tr>
+    </tbody>
+  </table>
+
+  <div style="margin-top: 80px; background: var(--paper-warm); padding: 48px; border-left: 4px solid var(--copper);">
+    <h3 class="kicker">Need something not in here?</h3>
+    <p class="body">Anything outside this book — third-party co-branding, a one-off campaign lockup, a special event mark — needs explicit approval before it ships. Errors compound. Ask first.</p>
+    <div class="mono" style="margin-top: 16px;">brand@colchisfood.com</div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════ COLOPHON ═══════════════════════════════ -->
+<section class="colophon">
+  <img src="brand-assets/seal-reversed.svg" style="width: 96px; margin-bottom: 32px;" alt=""/>
+  <h2>End of book.</h2>
+  <p style="font-family:'Fraunces', serif; font-style: italic; font-weight: 300; font-size: 22px; max-width: 540px; margin: 0 auto 48px; color: rgba(245,240,230,0.85);">Now go and make something we'd be proud to put the seal on.</p>
+  <div style="display:flex; gap: 16px; justify-content: center; align-items: center;" class="meta">
+    <span>COLCHIS FOOD CO.</span><span class="diamond" style="background: var(--bakery-honey);"></span>
+    <span>DUBLIN, OHIO</span><span class="diamond" style="background: var(--bakery-honey);"></span>
+    <span>EST · MMXXVI</span>
+  </div>
+</section>
+
+</body>
+</html>

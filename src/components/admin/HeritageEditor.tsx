@@ -79,7 +79,7 @@ export default function HeritageEditor({ configs }: HeritageEditorProps) {
         parseLocaleField(getVal(configs, 'heritage.processTitle'), 'Our Process')
     );
     const [processText, setProcessText] = useState<LocaleStrings>(
-        parseLocaleField(getVal(configs, 'heritage.processText'), 'Every batch of Colchis Creamery cheese is handcrafted in small quantities, ensuring meticulous attention to detail. From stretching and brining to aging — each step follows time-honored methods.')
+        parseLocaleField(getVal(configs, 'heritage.processText'), 'Every batch of Colchis Food cheese is handcrafted in small quantities, ensuring meticulous attention to detail. From stretching and brining to aging — each step follows time-honored methods.')
     );
 
     // ── Sections ──
@@ -197,14 +197,14 @@ export default function HeritageEditor({ configs }: HeritageEditorProps) {
                                     onChange={e => onChange({ ...value, [loc.code]: e.target.value })}
                                     rows={2}
                                     placeholder={loc.code === 'en' ? 'English (required)' : `${loc.label} (optional — falls back to English)`}
-                                    className={`flex-1 bg-[#0D0D0D] border ${loc.code === 'en' ? 'border-[#CBA153]/30' : 'border-white/10'} text-white py-2 px-3 rounded-lg focus:outline-none focus:border-[#CBA153] placeholder-gray-600 text-sm resize-none`}
+                                    className={`flex-1 bg-[#0C0C0C] border ${loc.code === 'en' ? 'border-[#B96A3D]/30' : 'border-[#B96A3D22]'} text-white py-2 px-3 focus:outline-none focus:border-[#B96A3D] placeholder-gray-600 text-sm resize-none`}
                                 />
                             ) : (
                                 <input
                                     value={value[loc.code]}
                                     onChange={e => onChange({ ...value, [loc.code]: e.target.value })}
                                     placeholder={loc.code === 'en' ? 'English (required)' : `${loc.label} (optional — falls back to English)`}
-                                    className={`flex-1 bg-[#0D0D0D] border ${loc.code === 'en' ? 'border-[#CBA153]/30' : 'border-white/10'} text-white py-2 px-3 rounded-lg focus:outline-none focus:border-[#CBA153] placeholder-gray-600 text-sm`}
+                                    className={`flex-1 bg-[#0C0C0C] border ${loc.code === 'en' ? 'border-[#B96A3D]/30' : 'border-[#B96A3D22]'} text-white py-2 px-3 focus:outline-none focus:border-[#B96A3D] placeholder-gray-600 text-sm`}
                                 />
                             )}
                         </div>
@@ -219,7 +219,7 @@ export default function HeritageEditor({ configs }: HeritageEditorProps) {
             {/* ══════════════════════════════════════════════════════════════════ */}
             {/*  SAVE BAR                                                        */}
             {/* ══════════════════════════════════════════════════════════════════ */}
-            <div className="sticky top-0 z-30 bg-[#111111]/95 backdrop-blur-sm border-b border-white/5 -mx-4 px-4 py-3 flex items-center justify-between">
+            <div className="sticky top-0 z-30 bg-[#0F0F0F]/95 backdrop-blur-sm border-b border-[#ffffff0A] -mx-4 px-4 py-3 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                     <Globe className="w-5 h-5 text-emerald-400" />
                     <span className="text-white font-bold">Heritage Page</span>
@@ -228,7 +228,7 @@ export default function HeritageEditor({ configs }: HeritageEditorProps) {
                 <button
                     onClick={handleSave}
                     disabled={isPending}
-                    className="flex items-center gap-2 bg-[#CBA153] text-black px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-white transition-all disabled:opacity-50"
+                    className="flex items-center gap-2 bg-[#B96A3D] text-black px-5 py-2.5 text-xs font-bold uppercase tracking-wider hover:bg-white transition-all disabled:opacity-50"
                 >
                     {isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
                     {isPending ? 'Saving...' : 'Save All Changes'}
@@ -238,8 +238,8 @@ export default function HeritageEditor({ configs }: HeritageEditorProps) {
             {/* ══════════════════════════════════════════════════════════════════ */}
             {/*  PAGE HEADER                                                     */}
             {/* ══════════════════════════════════════════════════════════════════ */}
-            <div className="bg-[#1A1A1A] rounded-xl border border-white/5 overflow-hidden">
-                <div className="px-6 py-4 border-b border-white/5">
+            <div className="bg-[#161616] border border-[#ffffff0A] overflow-hidden">
+                <div className="px-6 py-4 border-b border-[#ffffff0A]">
                     <h2 className="text-white font-bold">Page Header</h2>
                     <p className="text-gray-500 text-xs mt-1">The hero section at the top of the Heritage page</p>
                 </div>
@@ -260,16 +260,16 @@ export default function HeritageEditor({ configs }: HeritageEditorProps) {
                     </div>
                     <button
                         onClick={addSection}
-                        className="flex items-center gap-2 bg-[#CBA153]/10 text-[#CBA153] px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-[#CBA153]/20 transition-all border border-[#CBA153]/20"
+                        className="flex items-center gap-2 bg-[#B96A3D]/10 text-[#B96A3D] px-4 py-2.5 text-xs font-bold uppercase tracking-wider hover:bg-[#B96A3D]/20 transition-all border border-[#B96A3D]/20"
                     >
                         <Plus className="w-3.5 h-3.5" /> Add Section
                     </button>
                 </div>
 
                 {sections.map((section, idx) => (
-                    <div key={section.id} className="bg-[#1A1A1A] rounded-xl border border-white/5 overflow-hidden">
+                    <div key={section.id} className="bg-[#161616] border border-[#ffffff0A] overflow-hidden">
                         {/* Section Header — always visible */}
-                        <div className="px-6 py-4 border-b border-white/5 flex items-center gap-3">
+                        <div className="px-6 py-4 border-b border-[#ffffff0A] flex items-center gap-3">
                             <GripVertical className="w-4 h-4 text-gray-600 flex-shrink-0" />
                             <span className="text-xs text-gray-500 font-mono w-6">#{idx + 1}</span>
                             <span className="text-white font-medium text-sm flex-1 truncate">
@@ -277,7 +277,7 @@ export default function HeritageEditor({ configs }: HeritageEditorProps) {
                             </span>
 
                             {/* Layout indicator */}
-                            <span className="text-[10px] px-2 py-0.5 rounded bg-white/5 text-gray-400">
+                            <span className="text-[10px] px-2 py-0.5 rounded bg-[#ffffff08] text-gray-400">
                                 {section.layout === 'image-left' ? '◀ IMG | TXT ▶' : '◀ TXT | IMG ▶'}
                             </span>
 
@@ -293,7 +293,7 @@ export default function HeritageEditor({ configs }: HeritageEditorProps) {
 
                             {/* Collapse toggle */}
                             <button onClick={() => toggleCollapsed(section.id)}
-                                className="text-gray-500 hover:text-[#CBA153] transition-colors text-xs px-2 py-1 rounded hover:bg-white/5">
+                                className="text-gray-500 hover:text-[#B96A3D] transition-colors text-xs px-2 py-1 rounded hover:bg-[#ffffff08]">
                                 {collapsed[section.id] ? 'Expand' : 'Collapse'}
                             </button>
 
@@ -314,9 +314,9 @@ export default function HeritageEditor({ configs }: HeritageEditorProps) {
                                         <button
                                             type="button"
                                             onClick={() => updateSection(section.id, 'layout', 'image-right')}
-                                            className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-bold transition-all border ${section.layout === 'image-right'
-                                                    ? 'bg-[#CBA153]/20 text-[#CBA153] border-[#CBA153]/30'
-                                                    : 'bg-[#0D0D0D] text-gray-400 border-white/10 hover:border-white/20'
+                                            className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold transition-all border ${section.layout === 'image-right'
+                                                    ? 'bg-[#B96A3D]/20 text-[#B96A3D] border-[#B96A3D]/30'
+                                                    : 'bg-[#0C0C0C] text-gray-400 border-[#B96A3D22] hover:border-white/20'
                                                 }`}
                                         >
                                             <ArrowRight className="w-3.5 h-3.5" /> Text Left · Image Right
@@ -324,9 +324,9 @@ export default function HeritageEditor({ configs }: HeritageEditorProps) {
                                         <button
                                             type="button"
                                             onClick={() => updateSection(section.id, 'layout', 'image-left')}
-                                            className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-bold transition-all border ${section.layout === 'image-left'
-                                                    ? 'bg-[#CBA153]/20 text-[#CBA153] border-[#CBA153]/30'
-                                                    : 'bg-[#0D0D0D] text-gray-400 border-white/10 hover:border-white/20'
+                                            className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold transition-all border ${section.layout === 'image-left'
+                                                    ? 'bg-[#B96A3D]/20 text-[#B96A3D] border-[#B96A3D]/30'
+                                                    : 'bg-[#0C0C0C] text-gray-400 border-[#B96A3D22] hover:border-white/20'
                                                 }`}
                                         >
                                             <ArrowLeft className="w-3.5 h-3.5" /> Image Left · Text Right
@@ -345,7 +345,7 @@ export default function HeritageEditor({ configs }: HeritageEditorProps) {
                                                     value={section.heading[loc.code]}
                                                     onChange={e => updateSectionLocaleField(section.id, 'heading', loc.code, e.target.value)}
                                                     placeholder={loc.code === 'en' ? 'English heading (required)' : `${loc.label} (optional)`}
-                                                    className={`flex-1 bg-[#0D0D0D] border ${loc.code === 'en' ? 'border-[#CBA153]/30' : 'border-white/10'} text-white py-2 px-3 rounded-lg focus:outline-none focus:border-[#CBA153] placeholder-gray-600 text-sm`}
+                                                    className={`flex-1 bg-[#0C0C0C] border ${loc.code === 'en' ? 'border-[#B96A3D]/30' : 'border-[#B96A3D22]'} text-white py-2 px-3 focus:outline-none focus:border-[#B96A3D] placeholder-gray-600 text-sm`}
                                                 />
                                             </div>
                                         ))}
@@ -364,7 +364,7 @@ export default function HeritageEditor({ configs }: HeritageEditorProps) {
                                                     onChange={e => updateSectionLocaleField(section.id, 'text', loc.code, e.target.value)}
                                                     rows={3}
                                                     placeholder={loc.code === 'en' ? 'English body text (required)' : `${loc.label} (optional)`}
-                                                    className={`flex-1 bg-[#0D0D0D] border ${loc.code === 'en' ? 'border-[#CBA153]/30' : 'border-white/10'} text-white py-2 px-3 rounded-lg focus:outline-none focus:border-[#CBA153] placeholder-gray-600 text-sm resize-none`}
+                                                    className={`flex-1 bg-[#0C0C0C] border ${loc.code === 'en' ? 'border-[#B96A3D]/30' : 'border-[#B96A3D22]'} text-white py-2 px-3 focus:outline-none focus:border-[#B96A3D] placeholder-gray-600 text-sm resize-none`}
                                                 />
                                             </div>
                                         ))}
@@ -398,10 +398,10 @@ export default function HeritageEditor({ configs }: HeritageEditorProps) {
                 ))}
 
                 {sections.length === 0 && (
-                    <div className="bg-[#1A1A1A] rounded-xl border border-dashed border-white/10 p-12 text-center">
+                    <div className="bg-[#161616] border border-dashed border-[#B96A3D22] p-12 text-center">
                         <p className="text-gray-500 mb-4">No content sections yet.</p>
                         <button onClick={addSection}
-                            className="text-[#CBA153] text-sm font-bold hover:underline">
+                            className="text-[#B96A3D] text-sm font-bold hover:underline">
                             + Add your first section
                         </button>
                     </div>
@@ -411,8 +411,8 @@ export default function HeritageEditor({ configs }: HeritageEditorProps) {
             {/* ══════════════════════════════════════════════════════════════════ */}
             {/*  PROCESS SECTION (CLOSING)                                       */}
             {/* ══════════════════════════════════════════════════════════════════ */}
-            <div className="bg-[#1A1A1A] rounded-xl border border-white/5 overflow-hidden">
-                <div className="px-6 py-4 border-b border-white/5">
+            <div className="bg-[#161616] border border-[#ffffff0A] overflow-hidden">
+                <div className="px-6 py-4 border-b border-[#ffffff0A]">
                     <h2 className="text-white font-bold">Closing Section — "Our Process"</h2>
                     <p className="text-gray-500 text-xs mt-1">Centered text section at the bottom of the page</p>
                 </div>

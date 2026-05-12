@@ -10,7 +10,7 @@ import type { PinData } from './AnalyticsDashboard';
 const TIER_COLORS: Record<number, string> = {
   1: '#e8614a', // CORE - red/hot
   2: '#c9a84c', // ADJACENT - gold
-  3: '#CBA153', // STRATEGIC - green
+  3: '#B96A3D', // STRATEGIC - green
   4: '#4a7a9a', // GROWTH - blue
   5: '#7a6a8a', // EXPERIMENTAL - purple
 };
@@ -18,7 +18,7 @@ const TIER_COLORS: Record<number, string> = {
 const PRIORITY_COLORS: Record<string, string> = {
   CRITICAL: '#e8614a',
   HIGH: '#c9a84c',
-  MEDIUM: '#CBA153',
+  MEDIUM: '#B96A3D',
   LOW: '#4a7a9a',
   EXPLORATORY: '#7a6a8a',
 };
@@ -60,7 +60,7 @@ function PlacesAutocomplete({
     }, [placeAutocomplete, map, onPlaceSelect]);
 
     return (
-        <div className="absolute top-4 left-4 right-4 md:left-1/2 md:-translate-x-1/2 md:w-[400px] z-10 bg-[#1A1A1A] rounded-xl shadow-2xl border border-white/10 flex items-center overflow-hidden">
+        <div className="absolute top-4 left-4 right-4 md:left-1/2 md:-translate-x-1/2 md:w-[400px] z-10 bg-[#161616] border border-[#B96A3D22] flex items-center overflow-hidden">
             <div className="pl-4 pr-2 text-gray-400">
                 <Search className="w-5 h-5" />
             </div>
@@ -88,7 +88,7 @@ function MapEffect({ selectedPin }: { selectedPin: PinData | null }) {
 // Rich InfoWindow using our own DB data (no Places API fetch)
 function RichInfoWindow({ pin, onClose }: { pin: PinData, onClose: () => void }) {
     const priorityColor = PRIORITY_COLORS[pin.priorityRank || ''] || '#888888';
-    const tierColor = TIER_COLORS[pin.tier || 3] || '#CBA153';
+    const tierColor = TIER_COLORS[pin.tier || 3] || '#B96A3D';
 
     // Build Google Maps URL
     const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(pin.name + ' ' + (pin.address || ''))}`;
@@ -99,7 +99,7 @@ function RichInfoWindow({ pin, onClose }: { pin: PinData, onClose: () => void })
             onCloseClick={onClose}
             pixelOffset={[0, -30]}
         >
-            <div className="max-w-[320px] text-zinc-900 font-sans flex flex-col -m-3 overflow-hidden rounded-lg bg-white shadow-xl">
+            <div className="max-w-[320px] text-zinc-900 font-sans flex flex-col -m-3 overflow-hidden bg-white">
                 {/* Visual header with tier color gradient and brand initial */}
                 <div
                     className="relative h-24 w-full flex items-end px-4 pb-3"
@@ -163,7 +163,7 @@ function RichInfoWindow({ pin, onClose }: { pin: PinData, onClose: () => void })
                     </div>
 
                     {/* Revenue & Volume */}
-                    <div className="bg-gray-50 p-2.5 rounded-md border border-gray-100 flex flex-col gap-1">
+                    <div className="bg-gray-50 p-2.5 border border-gray-100 flex flex-col gap-1">
                         {(pin.revenueMonthlyLow != null || pin.revenueMonthlyHigh != null) && (
                             <div className="text-sm flex justify-between gap-4">
                                 <span className="font-semibold text-gray-500 text-[10px] uppercase">Est. Revenue:</span>
@@ -196,7 +196,7 @@ function RichInfoWindow({ pin, onClose }: { pin: PinData, onClose: () => void })
                         href={googleMapsUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center justify-center gap-1.5 w-full py-2 px-3 rounded-lg text-xs font-semibold text-white transition-all hover:opacity-90"
+                        className="flex items-center justify-center gap-1.5 w-full py-2 px-3 text-xs font-semibold text-white transition-all hover:opacity-90"
                         style={{ backgroundColor: tierColor }}
                     >
                         <ExternalLink className="w-3.5 h-3.5" />
@@ -289,12 +289,12 @@ export function AnalyticsMap({
                             <div className="relative group">
                                 <Pin
                                     background="#ffffff"
-                                    borderColor="#CBA153"
-                                    glyphColor="#CBA153"
+                                    borderColor="#B96A3D"
+                                    glyphColor="#B96A3D"
                                     scale={1.2}
                                 />
                                 {canEdit && (
-                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-[#1A1A1A] p-3 rounded-lg border border-[#CBA153]/30 shadow-2xl whitespace-nowrap z-50 flex flex-col items-center gap-2 transition-all">
+                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-[#161616] p-3 border border-[#B96A3D]/30 whitespace-nowrap z-50 flex flex-col items-center gap-2 transition-all">
                                         <span className="text-white font-bold text-sm block">{selectedPlace.name}</span>
                                         {selectedPlace.formatted_address && (
                                             <span className="text-gray-400 text-xs">{selectedPlace.formatted_address}</span>
@@ -302,7 +302,7 @@ export function AnalyticsMap({
                                         <button
                                             onClick={handleSaveProspect}
                                             disabled={isSaving}
-                                            className="bg-[#CBA153] text-black px-4 py-1.5 rounded text-xs font-bold uppercase tracking-wider hover:bg-white transition-colors w-full"
+                                            className="bg-[#B96A3D] text-black px-4 py-1.5 rounded text-xs font-bold uppercase tracking-wider hover:bg-white transition-colors w-full"
                                         >
                                             {isSaving ? "Saving..." : "+ Add to Prospects"}
                                         </button>
@@ -320,7 +320,7 @@ export function AnalyticsMap({
 
                     {/* Render pins from DB — colored by tier */}
                     {initialPins.map((pin) => {
-                        const tierColor = TIER_COLORS[pin.tier || 3] || '#CBA153';
+                        const tierColor = TIER_COLORS[pin.tier || 3] || '#B96A3D';
                         const isCritical = pin.priorityRank === 'CRITICAL';
                         return (
                             <AdvancedMarker

@@ -3,21 +3,25 @@ import sharp from 'sharp';
 import { put } from '@vercel/blob';
 import { getSession } from '@/lib/session';
 
-// Optimal settings for product images (square 1:1)
-const PRODUCT_IMAGE_CONFIG = {
-    maxWidth: 1200,       // Max width for hi-res display
-    maxHeight: 1200,      // Max height
-    quality: 82,          // WebP quality — visually lossless at this level
-    format: 'webp' as const,
+// Context-aware image optimization profiles
+// Each context maps to optimal dimensions for where the image will be displayed
+const IMAGE_PROFILES: Record<string, { maxWidth: number; maxHeight: number; quality: number; subDir: string }> = {
+    // Product images (square 1:1)
+    product: { maxWidth: 1200, maxHeight: 1200, quality: 82, subDir: 'products' },
+    // Hero & cover images (landscape 16:9)
+    hero: { maxWidth: 2000, maxHeight: 1125, quality: 85, subDir: 'hero' },
+    cover: { maxWidth: 2000, maxHeight: 1125, quality: 85, subDir: 'hero' },
+    // Creamery hero (wide banner)
+    'creamery-hero': { maxWidth: 2000, maxHeight: 1125, quality: 85, subDir: 'hero' },
+    // Story section (wide landscape)
+    story: { maxWidth: 1600, maxHeight: 900, quality: 82, subDir: 'content' },
+    // Visit section (portrait 4:5)
+    visit: { maxWidth: 1000, maxHeight: 1250, quality: 82, subDir: 'content' },
+    // House cards (16:10 landscape)
+    house: { maxWidth: 1400, maxHeight: 875, quality: 82, subDir: 'content' },
 };
 
-// Hero & cover images (landscape 16:9)
-const HERO_IMAGE_CONFIG = {
-    maxWidth: 2000,       // Wide hero banners
-    maxHeight: 1125,      // 16:9 aspect ratio
-    quality: 85,          // Slightly higher quality for large display
-    format: 'webp' as const,
-};
+const DEFAULT_PROFILE = IMAGE_PROFILES.product;
 
 const THUMBNAIL_CONFIG = {
     size: 200,            // 200×200 thumbnail
@@ -34,7 +38,7 @@ export async function POST(request: NextRequest) {
     try {
         const formData = await request.formData();
         const file = formData.get('file') as File | null;
-        const type = formData.get('type') as string || 'product'; // product | video | hero | cover
+        const type = formData.get('type') as string || 'product'; // product | video | hero | cover | story | visit | house | creamery-hero
 
         if (!file) {
             return NextResponse.json({ error: 'No file provided' }, { status: 400 });
@@ -69,10 +73,9 @@ export async function POST(request: NextRequest) {
             const image = sharp(buffer);
             const metadata = await image.metadata();
 
-            // Select config based on upload type
-            const isHero = type === 'hero' || type === 'cover';
-            const config = isHero ? HERO_IMAGE_CONFIG : PRODUCT_IMAGE_CONFIG;
-            const subDir = isHero ? 'hero' : 'products';
+            // Select config based on upload context/type
+            const config = IMAGE_PROFILES[type] || DEFAULT_PROFILE;
+            const subDir = config.subDir;
 
             // ── Full-size output ──
             let pipeline = sharp(buffer); // fresh pipeline (sharp is single-consume)

@@ -1,25 +1,25 @@
 import { Metadata } from 'next';
 import { prisma } from '@/lib/db';
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://colchiscreamery.com';
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://colchisfood.com';
 
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
     const { locale } = await params;
     const canonicalPath = locale === 'en' ? '/legal/terms' : `/${locale}/legal/terms`;
     return {
-        title: 'Terms of Service | Colchis Creamery',
-        description: 'Read the Terms of Service for Colchis Creamery, including wholesale account terms, product information policies, and intellectual property rights.',
-        keywords: ['Colchis Creamery terms', 'terms of service', 'wholesale terms', 'cheese shop terms'],
+        title: 'Terms of Service | Colchis Food',
+        description: 'Read the Terms of Service for Colchis Food, including wholesale account terms, product information policies, and intellectual property rights.',
+        keywords: ['Colchis Food terms', 'terms of service', 'wholesale terms', 'cheese shop terms'],
         alternates: {
             canonical: `${SITE_URL}${canonicalPath}`,
             languages: { 'en': `${SITE_URL}/legal/terms`, 'ka': `${SITE_URL}/ka/legal/terms`, 'ru': `${SITE_URL}/ru/legal/terms`, 'es': `${SITE_URL}/es/legal/terms` },
         },
         openGraph: {
-            type: 'website', title: 'Terms of Service | Colchis Creamery',
-            description: 'Terms and conditions for Colchis Creamery.',
-            url: `${SITE_URL}${canonicalPath}`, siteName: 'Colchis Creamery',
+            type: 'website', title: 'Terms of Service | Colchis Food',
+            description: 'Terms and conditions for Colchis Food.',
+            url: `${SITE_URL}${canonicalPath}`, siteName: 'Colchis Food',
         },
-        twitter: { card: 'summary', title: 'Terms of Service | Colchis Creamery', description: 'Our terms of service.' },
+        twitter: { card: 'summary', title: 'Terms of Service | Colchis Food', description: 'Our terms of service.' },
     };
 }
 
@@ -28,10 +28,10 @@ export const dynamic = 'force-dynamic';
 interface LegalSection { heading: string; body: string; }
 
 const DEFAULTS: LegalSection[] = [
-    { heading: '1. Acceptance of Terms', body: 'By accessing and using colchiscreamery.com, you accept and agree to be bound by the terms and provisions of this agreement.' },
+    { heading: '1. Acceptance of Terms', body: 'By accessing and using colchisfood.com, you accept and agree to be bound by the terms and provisions of this agreement.' },
     { heading: '2. B2B Wholesale Accounts', body: 'Wholesale accounts are subject to approval. By establishing a wholesale account, you agree to our Net-30 payment terms (where applicable) and acknowledge that pricing is confidential. Overdue invoices may incur a late fee of 1.5% per month.' },
     { heading: '3. Product Information', body: 'We attempt to be as accurate as possible regarding product descriptions. However, because our cheeses are handmade artisan products, slight variations in weight and appearance may occur. All weights listed are approximate.' },
-    { heading: '4. Intellectual Property', body: 'The Site and its original content, features, functionalities, and branding (including the "Colchis Creamery" name and logos) are owned by Colchis Creamery LLC and are protected by international copyright, trademark, patent, trade secret, and other intellectual property laws.' },
+    { heading: '4. Intellectual Property', body: 'The Site and its original content, features, functionalities, and branding (including the "Colchis Food" name and logos) are owned by Colchis Food LLC and are protected by international copyright, trademark, patent, trade secret, and other intellectual property laws.' },
     { heading: '5. Modifications', body: 'We reserve the right to modify these terms at any time. Your continued use of the Site following any such modification constitutes your agreement to follow and be bound by the modified terms.' },
 ];
 
@@ -53,10 +53,10 @@ export default async function TermsOfServicePage() {
         '@context': 'https://schema.org',
         '@type': 'WebPage',
         name: 'Terms of Service',
-        description: 'Terms of service for Colchis Creamery',
+        description: 'Terms of service for Colchis Food',
         url: `${SITE_URL}/legal/terms`,
-        isPartOf: { '@type': 'WebSite', name: 'Colchis Creamery', url: SITE_URL },
-        publisher: { '@type': 'Organization', name: 'Colchis Creamery', url: SITE_URL },
+        isPartOf: { '@type': 'WebSite', name: 'Colchis Food', url: SITE_URL },
+        publisher: { '@type': 'Organization', name: 'Colchis Food', url: SITE_URL },
         mainContentOfPage: {
             '@type': 'WebPageElement',
             text: sections.map(s => `${s.heading}: ${s.body}`).join(' '),

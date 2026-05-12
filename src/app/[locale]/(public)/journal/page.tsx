@@ -1,44 +1,30 @@
 import { Metadata } from 'next';
-import Link from 'next/link';
-import Image from 'next/image';
 import { prisma } from '@/lib/db';
-import { getTranslations } from 'next-intl/server';
 import { getOgImage, buildOgImages } from '@/lib/seo';
+import { JournalClient } from '@/components/journal/JournalClient';
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://colchiscreamery.com';
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://colchisfood.com';
 
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
     const { locale } = await params;
     const canonicalPath = locale === 'en' ? '/journal' : `/${locale}/journal`;
-
     const ogImage = await getOgImage('journal');
 
     return {
-        title: 'Journal | Colchis Creamery',
-        description: 'Stories, insights, and news from the world of Georgian artisanal cheese. Explore the heritage and craft behind Colchis Creamery.',
-        keywords: ['Georgian cheese blog', 'artisanal cheese journal', 'Colchis Creamery news', 'cheesemaking stories', 'Georgian dairy'],
+        title: 'The Journal | Colchis Food',
+        description: 'Heritage essays, field notes from the creamery and the bakery, news from the road. We publish when we have something worth saying.',
+        keywords: ['Georgian cheese blog', 'artisanal cheese journal', 'Colchis Food news', 'cheesemaking stories', 'Georgian heritage'],
         alternates: {
             canonical: `${SITE_URL}${canonicalPath}`,
-            languages: {
-                'en': `${SITE_URL}/journal`,
-                'ka': `${SITE_URL}/ka/journal`,
-                'ru': `${SITE_URL}/ru/journal`,
-                'es': `${SITE_URL}/es/journal`,
-            },
+            languages: { 'en': `${SITE_URL}/journal`, 'ka': `${SITE_URL}/ka/journal` },
         },
         openGraph: {
             type: 'website',
-            title: 'Journal | Colchis Creamery',
-            description: 'Stories, insights, and news from the world of Georgian artisanal cheese.',
+            title: 'The Journal | Colchis Food',
+            description: 'Heritage essays, field notes, and news from Colchis Food.',
             url: `${SITE_URL}${canonicalPath}`,
-            siteName: 'Colchis Creamery',
-            ...(ogImage ? { images: buildOgImages(ogImage, 'Colchis Creamery Journal') } : {}),
-        },
-        twitter: {
-            card: 'summary_large_image',
-            title: 'Journal | Colchis Creamery',
-            description: 'Stories, insights, and news from the world of Georgian artisanal cheese.',
-            ...(ogImage ? { images: [ogImage] } : {}),
+            siteName: 'Colchis Food',
+            ...(ogImage ? { images: buildOgImages(ogImage, 'The Journal') } : {}),
         },
     };
 }
@@ -47,113 +33,62 @@ export const dynamic = 'force-dynamic';
 
 export default async function JournalPage({ params }: { params: Promise<{ locale: string }> }) {
     const { locale } = await params;
-    const prefix = locale === 'en' ? '' : `/${locale}`;
-    const t = await getTranslations({ locale, namespace: 'journal' });
 
     const articles = await prisma.article.findMany({
         where: { isPublished: true },
         orderBy: { publishedAt: 'desc' },
     });
 
-    // JSON-LD: Blog + ItemList for article collection
+    // JSON-LD
     const jsonLd = {
         '@context': 'https://schema.org',
         '@type': 'Blog',
-        name: 'Colchis Creamery Journal',
-        description: 'Stories, insights, and news from the world of Georgian artisanal cheese.',
-        url: `${SITE_URL}${prefix}/journal`,
-        publisher: {
-            '@type': 'Organization',
-            name: 'Colchis Creamery',
-            url: SITE_URL,
-        },
-        blogPost: articles.map(article => ({
+        name: 'The Journal — Colchis Food',
+        description: 'Heritage essays, field notes, and news from the creamery and the bakery.',
+        url: `${SITE_URL}/${locale === 'en' ? '' : locale + '/'}journal`,
+        publisher: { '@type': 'Organization', name: 'Colchis Food', url: SITE_URL },
+        blogPost: articles.map(a => ({
             '@type': 'BlogPosting',
-            headline: article.title,
-            description: article.excerpt || article.title,
-            url: `${SITE_URL}${prefix}/journal/${article.slug}`,
-            ...(article.coverImage ? { image: article.coverImage } : {}),
-            ...(article.publishedAt ? { datePublished: article.publishedAt.toISOString() } : {}),
-            dateModified: article.updatedAt.toISOString(),
-            author: { '@type': 'Organization', name: 'Colchis Creamery' },
+            headline: a.title,
+            description: a.excerpt || a.title,
+            url: `${SITE_URL}/journal/${a.slug}`,
+            ...(a.publishedAt ? { datePublished: a.publishedAt.toISOString() } : {}),
         })),
     };
 
+    // Serialize for client component
+    const serialized = articles.map(a => ({
+        id: a.id,
+        slug: a.slug,
+        title: a.title,
+        excerpt: a.excerpt,
+        tags: a.tags,
+        coverImage: a.coverImage,
+        publishedAt: a.publishedAt?.toISOString() || null,
+        content: a.content,
+    }));
+
     return (
         <>
-            <script
-                type="application/ld+json"
-                dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-            />
-            <div className="min-h-screen bg-[#FDFBF7] py-20 px-4">
-                <div className="max-w-7xl mx-auto">
-                    <div className="text-center mb-16 max-w-3xl mx-auto">
-                        <span className="inline-block w-12 h-0.5 bg-[#CBA153] mb-6" />
-                        <h1 className="text-5xl font-serif text-[#2C2A29] mb-4">{t('title')}</h1>
-                        <p className="text-xl text-[#2C2A29] leading-relaxed opacity-80">
-                            {t('subtitle')}
-                        </p>
-                    </div>
+            <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
-                    {articles.length === 0 ? (
-                        <div className="text-center py-20 text-[#2C2A29]/50">
-                            <p className="text-lg">{t('empty')}</p>
-                        </div>
-                    ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-                            {articles.map((article) => (
-                                <Link
-                                    href={`${prefix}/journal/${article.slug}`}
-                                    key={article.id}
-                                    className="group flex flex-col bg-white rounded-lg shadow-sm hover:shadow-xl transition overflow-hidden border border-[#FDFBF7]"
-                                >
-                                    {article.coverImage && (
-                                        <div className="relative w-full aspect-[16/9] overflow-hidden">
-                                            <Image
-                                                src={article.coverImage}
-                                                alt={article.title}
-                                                fill
-                                                sizes="(max-width: 768px) 100vw, 50vw"
-                                                className="object-cover group-hover:scale-105 transition duration-500 ease-in-out"
-                                            />
-                                        </div>
-                                    )}
-                                    <div className="p-8 w-full flex-1 flex flex-col">
-                                        {article.tags && (
-                                            <div className="flex flex-wrap gap-2 mb-3">
-                                                {article.tags.split(',').map((tag, i) => (
-                                                    <span key={i} className="text-xs uppercase tracking-wider text-[#CBA153] font-medium">
-                                                        {tag.trim()}
-                                                    </span>
-                                                ))}
-                                            </div>
-                                        )}
-                                        <h3 className="text-2xl font-serif text-[#2C2A29] mb-3 group-hover:text-[#CBA153] transition">
-                                            {article.title}
-                                        </h3>
-                                        {article.excerpt && (
-                                            <p className="text-[#2C2A29] opacity-75 mb-4 line-clamp-3 flex-1">
-                                                {article.excerpt}
-                                            </p>
-                                        )}
-                                        <div className="flex items-center justify-between mt-auto pt-4">
-                                            <span className="text-sm font-medium text-[#CBA153] uppercase tracking-wide flex items-center">
-                                                {t('readArticle')}
-                                                <span className="ml-2 transform group-hover:translate-x-1 transition">→</span>
-                                            </span>
-                                            {article.publishedAt && (
-                                                <time dateTime={article.publishedAt.toISOString()} className="text-xs text-[#2C2A29]/40">
-                                                    {new Date(article.publishedAt).toLocaleDateString(locale === 'ka' ? 'ka-GE' : locale === 'ru' ? 'ru-RU' : locale === 'es' ? 'es-ES' : 'en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-                                                </time>
-                                            )}
-                                        </div>
-                                    </div>
-                                </Link>
-                            ))}
-                        </div>
-                    )}
+            {/* Hero */}
+            <section className="ch-section" style={{ background: "#1F3026", color: "#F5F0E6", padding: "100px 56px 72px" }}>
+                <div style={{ maxWidth: 1280, margin: "0 auto" }}>
+                    <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.32em", color: "#8B4A28", textTransform: "uppercase", marginBottom: 24 }}>
+                        № 09 — The Journal · ჟურნალი
+                    </div>
+                    <h1 className="ch-h1" style={{ fontFamily: "var(--font-serif)", fontWeight: 300, fontSize: 112, lineHeight: 0.92, letterSpacing: "-0.025em", margin: 0, maxWidth: 1100 }}>
+                        Stories from <em style={{ color: "#8B4A28", fontWeight: 300 }}>a country</em><br />you should know.
+                    </h1>
+                    <p className="ch-lede" style={{ marginTop: 32, fontFamily: "var(--font-serif)", fontStyle: "italic", fontSize: 22, lineHeight: 1.55, color: "#F5F0E6", opacity: 0.78, maxWidth: 720 }}>
+                        Heritage essays, field notes from the creamery and the bakery, news from the road.
+                        We publish when we have something worth saying.
+                    </p>
                 </div>
-            </div>
+            </section>
+
+            <JournalClient articles={serialized} locale={locale} />
         </>
     );
 }

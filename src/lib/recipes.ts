@@ -9,11 +9,11 @@ export const RECIPES: Recipe[] = [
       "The iconic Georgian cheese bread, made with our Imeretian cheese. A crispy boat of dough filled with molten cheese, butter, and a runny egg.",
     content: `## Classic Georgian Khachapuri (Adjarian Style)
 
-This is the most famous Georgian dish — a boat-shaped bread overflowing with melted cheese, crowned with butter and a soft egg. Using authentic Colchis Creamery Imeretian cheese makes all the difference.
+This is the most famous Georgian dish — a boat-shaped bread overflowing with melted cheese, crowned with butter and a soft egg. Using authentic Colchis Food Imeretian cheese makes all the difference.
 
 ### Ingredients
-- 1 lb Colchis Creamery Imeretian Cheese, crumbled
-- 4 oz Colchis Creamery Artisanal Sulguni, shredded
+- 1 lb Colchis Food Imeretian Cheese, crumbled
+- 4 oz Colchis Food Artisanal Sulguni, shredded
 - 2 cups all-purpose flour
 - 1 cup warm water
 - 1 tsp active dry yeast
@@ -54,10 +54,10 @@ This is the most famous Georgian dish — a boat-shaped bread overflowing with m
       "Elevate your burger game with our Smoked Sulguni. The smoky, elastic cheese melts beautifully and adds an unforgettable depth of flavor.",
     content: `## Smoked Sulguni Gourmet Burger
 
-Take your homemade burgers from ordinary to extraordinary with the rich, smoky flavor of Colchis Creamery Smoked Sulguni.
+Take your homemade burgers from ordinary to extraordinary with the rich, smoky flavor of Colchis Food Smoked Sulguni.
 
 ### Ingredients
-- 4 oz Colchis Creamery Smoked Sulguni, sliced
+- 4 oz Colchis Food Smoked Sulguni, sliced
 - 1 lb ground beef (80/20)
 - 4 brioche buns
 - 1 red onion, sliced into rings
@@ -95,7 +95,7 @@ Take your homemade burgers from ordinary to extraordinary with the rich, smoky f
 This elegant salad showcases the fresh, mild flavor of Imeretian cheese paired with the richness of walnuts and the brightness of pomegranate.
 
 ### Ingredients
-- 8 oz Colchis Creamery Imeretian Cheese, cubed
+- 8 oz Colchis Food Imeretian Cheese, cubed
 - 1 cup walnuts, toasted
 - 1 cup pomegranate seeds
 - 4 cups mixed greens (arugula and spinach)

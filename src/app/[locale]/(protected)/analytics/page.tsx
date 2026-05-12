@@ -133,14 +133,14 @@ export default async function AnalyticsDashboardPage({ params }: { params: any }
     return (
         <div className="min-h-screen bg-[#0e110e]">
             {/* Top Bar */}
-            <div className="bg-[#141414] border-b border-[#2A2A2A]">
+            <div className="bg-[#161616] border-b border-[#B96A3D22]">
                 <div className="max-w-[1600px] mx-auto px-6 py-4 flex items-center justify-between">
                     <div className="flex items-center gap-4">
                         <div className="w-10 h-10 rounded-full bg-[#2C2A29] border border-[#3d7a47]/30 flex items-center justify-center">
-                            <Globe className="w-5 h-5 text-[#CBA153]" />
+                            <Globe className="w-5 h-5 text-[#B96A3D]" />
                         </div>
                         <div>
-                            <h1 className="font-serif text-xl text-[#F0EDE6]">Prospect Intelligence</h1>
+                            <h1 className="font-serif text-xl text-[#F5F0E6]">Prospect Intelligence</h1>
                             <span className="text-[10px] text-[#c9a84c]/60 uppercase tracking-[0.3em] font-bold">
                                 {isViewerOnly ? 'Viewer Mode' : 'Business Intelligence Dashboard'}
                             </span>
@@ -151,12 +151,12 @@ export default async function AnalyticsDashboardPage({ params }: { params: any }
                             <span>Updated <strong className="text-[#c9a84c]">Mar 2026</strong></span>
                         </div>
                         {session.role === 'MASTER_ADMIN' && (
-                            <Link href={`/${locale}/admin`} className="text-sm text-[#666666] hover:text-[#F0EDE6] transition-colors flex items-center gap-2">
+                            <Link href={`/${locale}/admin`} className="text-sm text-[#666666] hover:text-[#F5F0E6] transition-colors flex items-center gap-2">
                                 <Shield className="w-4 h-4" /> Admin
                             </Link>
                         )}
                         {['PRODUCT_MANAGER', 'CONTENT_MANAGER', 'SALES'].includes(session.role) && (
-                            <Link href={`/${locale}/staff-portal`} className="text-sm text-[#666666] hover:text-[#F0EDE6] transition-colors flex items-center gap-2">
+                            <Link href={`/${locale}/staff-portal`} className="text-sm text-[#666666] hover:text-[#F5F0E6] transition-colors flex items-center gap-2">
                                 <Shield className="w-4 h-4" /> Staff Portal
                             </Link>
                         )}
@@ -181,7 +181,7 @@ export default async function AnalyticsDashboardPage({ params }: { params: any }
                 {isViewerOnly && (
                     <div className="text-center py-4 mt-8">
                         <span className="text-[10px] text-[#666666] uppercase tracking-[0.3em]">
-                            Colchis Creamery &mdash; Prospect Intelligence &mdash; Confidential
+                            Colchis Food &mdash; Prospect Intelligence &mdash; Confidential
                         </span>
                     </div>
                 )}

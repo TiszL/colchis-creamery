@@ -74,7 +74,7 @@ function AutocompleteInput({
     return (
         <div className="relative">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Search className="h-4 w-4 text-[#CBA153]" />
+                <Search className="h-4 w-4 text-[#B96A3D]" />
             </div>
             <input
                 ref={inputRef}
@@ -84,13 +84,13 @@ function AutocompleteInput({
                 onChange={(e) => setName(e.target.value)}
                 required
                 placeholder="Search businesses, restaurants..."
-                className="w-full bg-white text-black font-medium py-3 pl-10 pr-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#CBA153] shadow-inner"
+                className="w-full bg-white text-black font-medium py-3 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-[#B96A3D] shadow-inner"
             />
         </div>
     );
 }
 
-const inputCls = "w-full bg-[#0D0D0D] border border-white/10 text-white py-2.5 px-3 rounded-lg focus:outline-none focus:border-[#CBA153] text-sm";
+const inputCls = "w-full bg-[#0C0C0C] border border-[#B96A3D22] text-white py-2.5 px-3 focus:outline-none focus:border-[#B96A3D] text-sm";
 const labelCls = "block text-[10px] font-bold text-gray-500 mb-1.5 uppercase tracking-wider";
 
 export function AnalyticsPinForm({ action, apiKey }: { action: (formData: FormData) => void, apiKey: string }) {
@@ -109,9 +109,9 @@ export function AnalyticsPinForm({ action, apiKey }: { action: (formData: FormDa
     const tierLabel = catObj?.tierLabel || '';
 
     return (
-        <div className="bg-[#1A1A1A] rounded-xl border border-white/5 overflow-hidden">
-            <div className="px-6 py-4 border-b border-white/5 flex items-center gap-3">
-                <Plus className="w-5 h-5 text-[#CBA153]" />
+        <div className="bg-[#161616] border border-[#ffffff0A] overflow-hidden">
+            <div className="px-6 py-4 border-b border-[#ffffff0A] flex items-center gap-3">
+                <Plus className="w-5 h-5 text-[#B96A3D]" />
                 <h2 className="text-white font-bold">Add New Prospect</h2>
             </div>
 
@@ -120,13 +120,13 @@ export function AnalyticsPinForm({ action, apiKey }: { action: (formData: FormDa
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="md:col-span-2">
                         <APIProvider apiKey={apiKey}>
-                            <div className="bg-[#CBA153]/10 p-4 rounded-lg border border-[#CBA153]/20">
-                                <label className={labelCls + " !text-[#CBA153]"}>Google Places Search</label>
+                            <div className="bg-[#B96A3D]/10 p-4 border border-[#B96A3D]/20">
+                                <label className={labelCls + " !text-[#B96A3D]"}>Google Places Search</label>
                                 <AutocompleteInput
                                     setLat={setLat} setLng={setLng} name={name} setName={setName}
                                     setAddress={setAddress} setPhone={setPhone} setWebsite={setWebsite} setGoogleRating={setGoogleRating}
                                 />
-                                <p className="text-[9px] text-[#CBA153]/50 mt-1.5 uppercase tracking-wider">Auto-fills address, phone, website & rating</p>
+                                <p className="text-[9px] text-[#B96A3D]/50 mt-1.5 uppercase tracking-wider">Auto-fills address, phone, website & rating</p>
                             </div>
                         </APIProvider>
                     </div>
@@ -233,7 +233,7 @@ export function AnalyticsPinForm({ action, apiKey }: { action: (formData: FormDa
                 </div>
 
                 <div className="flex items-center gap-4 pt-1">
-                    <button type="submit" className="bg-[#CBA153] text-black px-8 py-3 rounded-lg font-bold text-sm uppercase tracking-wider hover:bg-white transition-all">
+                    <button type="submit" className="bg-[#B96A3D] text-black px-8 py-3 font-bold text-sm uppercase tracking-wider hover:bg-white transition-all">
                         Save Prospect
                     </button>
                     <p className="text-gray-600 text-[10px] italic">Syncs with Analytics Dashboard instantly</p>

@@ -32,7 +32,7 @@ export function CategoryView({ pins, stats }: { pins: PinData[]; stats: Dashboar
     datasets: [{
       label: 'Prospects',
       data: catsSorted.map(([, v]) => v.count),
-      backgroundColor: '#CBA153aa',
+      backgroundColor: '#B96A3Daa',
       borderRadius: 4,
     }],
   };
@@ -53,30 +53,30 @@ export function CategoryView({ pins, stats }: { pins: PinData[]; stats: Dashboar
     indexAxis: 'y' as const,
     plugins: { legend: { display: false } },
     scales: {
-      x: { grid: { color: '#2A2A2A55' }, ticks: { color: '#888888', font: { size: 10 }, callback: (v: any) => Number(v) >= 1000 ? (Number(v) / 1000) + 'K' : v } },
-      y: { grid: { color: '#2A2A2A55' }, ticks: { color: '#888888', font: { size: 9 } } },
+      x: { grid: { color: '#B96A3D2255' }, ticks: { color: '#888888', font: { size: 10 }, callback: (v: any) => Number(v) >= 1000 ? (Number(v) / 1000) + 'K' : v } },
+      y: { grid: { color: '#B96A3D2255' }, ticks: { color: '#888888', font: { size: 9 } } },
     },
   };
 
   return (
     <div>
       <div className="mb-2">
-        <h2 className="font-serif text-xl font-semibold text-[#F0EDE6]">Business Category Analysis</h2>
-        <p className="text-xs text-[#888888]">{catsSorted.length} prospect categories — sorted by monthly revenue potential</p>
+        <h2 className="font-serif text-xl font-semibold text-[#F5F0E6]">Business Category Analysis</h2>
+        <p className="text-xs text-[#7A8278]">{catsSorted.length} prospect categories — sorted by monthly revenue potential</p>
       </div>
 
       {/* Charts */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-        <div className="bg-[#141414] border border-[#2A2A2A] rounded-xl p-5">
-          <h3 className="text-xs font-semibold text-[#F0EDE6] tracking-wide mb-1">Prospects per Category</h3>
-          <p className="text-[10px] text-[#666666] mb-3">Count</p>
+        <div className="bg-[#161616] border border-[#B96A3D22] p-5">
+          <h3 className="text-xs font-semibold text-[#F5F0E6] tracking-wide mb-1">Prospects per Category</h3>
+          <p className="text-[10px] text-[#5A6158] mb-3">Count</p>
           <div style={{ height: 380 }}>
             <Bar data={countData} options={hOpts} />
           </div>
         </div>
-        <div className="bg-[#141414] border border-[#2A2A2A] rounded-xl p-5">
-          <h3 className="text-xs font-semibold text-[#F0EDE6] tracking-wide mb-1">Monthly Revenue High by Category</h3>
-          <p className="text-[10px] text-[#666666] mb-3">Ceiling estimate ($)</p>
+        <div className="bg-[#161616] border border-[#B96A3D22] p-5">
+          <h3 className="text-xs font-semibold text-[#F5F0E6] tracking-wide mb-1">Monthly Revenue High by Category</h3>
+          <p className="text-[10px] text-[#5A6158] mb-3">Ceiling estimate ($)</p>
           <div style={{ height: 380 }}>
             <Bar data={revHighData} options={hOpts} />
           </div>
@@ -84,11 +84,11 @@ export function CategoryView({ pins, stats }: { pins: PinData[]; stats: Dashboar
       </div>
 
       {/* Category Table */}
-      <div className="bg-[#141414] border border-[#2A2A2A] rounded-xl overflow-hidden">
+      <div className="bg-[#161616] border border-[#B96A3D22] overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="border-b border-[#242424] text-[10px] uppercase tracking-wider text-[#666666] font-semibold">
+              <tr className="border-b border-[#B96A3D22] text-[10px] uppercase tracking-wider text-[#5A6158] font-semibold">
                 <th className="p-3 pl-5">Category</th>
                 <th className="p-3">Tier</th>
                 <th className="p-3">Count</th>
@@ -99,14 +99,14 @@ export function CategoryView({ pins, stats }: { pins: PinData[]; stats: Dashboar
             </thead>
             <tbody>
               {catsSorted.map(([code, c]) => (
-                <tr key={code} className="border-b border-[#242424] last:border-b-0 hover:bg-[#1F1F1F] transition-colors">
-                  <td className="p-3 pl-5 text-xs font-medium text-[#F0EDE6]">{c.label}</td>
+                <tr key={code} className="border-b border-[#B96A3D22] last:border-b-0 hover:bg-[#1C1C1C] transition-colors">
+                  <td className="p-3 pl-5 text-xs font-medium text-[#F5F0E6]">{c.label}</td>
                   <td className="p-3">
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#1F1F1F] text-[#888888] font-medium">T{c.tier}</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#1C1C1C] text-[#7A8278] font-medium">T{c.tier}</span>
                   </td>
-                  <td className="p-3 text-xs text-[#888888]">{c.count}</td>
-                  <td className="p-3 text-xs text-[#888888] tabular-nums">{fmtMoney(c.revLow)}</td>
-                  <td className="p-3 text-xs text-[#888888] tabular-nums">{fmtMoney(c.revHigh)}</td>
+                  <td className="p-3 text-xs text-[#7A8278]">{c.count}</td>
+                  <td className="p-3 text-xs text-[#7A8278] tabular-nums">{fmtMoney(c.revLow)}</td>
+                  <td className="p-3 text-xs text-[#7A8278] tabular-nums">{fmtMoney(c.revHigh)}</td>
                   <td className="p-3 text-xs text-[#c9a84c] tabular-nums font-medium">{fmtMoney(c.revHigh * 12)}</td>
                 </tr>
               ))}

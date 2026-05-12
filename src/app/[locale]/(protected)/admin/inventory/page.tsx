@@ -1,81 +1,28 @@
 import { prisma } from '@/lib/db';
 import { getSession } from '@/lib/session';
 import { redirect } from 'next/navigation';
-import { revalidatePath } from 'next/cache';
+import { ProductKind, FulfillmentChannel } from '@prisma/client';
 import InventoryClient from '@/components/admin/InventoryClient';
+import { saveProductAction, deleteProductAction, quickStockAction } from '@/app/actions/products';
 
 export const dynamic = 'force-dynamic';
 
-async function saveProductAction(formData: FormData) {
-    'use server';
-    const id = formData.get('id') as string;
+const PRODUCT_KINDS = Object.values(ProductKind);
+const FULFILLMENT_CHANNELS = Object.values(FulfillmentChannel);
 
-    const images = formData.getAll('images[]').filter(v => (v as string).trim() !== '') as string[];
-    const videoUrls = formData.getAll('videoUrls[]').filter(v => (v as string).trim() !== '') as string[];
-
-    const data = {
-        name: formData.get('name') as string,
-        slug: formData.get('slug') as string,
-        sku: formData.get('sku') as string,
-        description: formData.get('description') as string,
-        flavorProfile: (formData.get('flavorProfile') as string) || null,
-        pairsWith: (formData.get('pairsWith') as string) || null,
-        weight: (formData.get('weight') as string) || null,
-        ingredients: (formData.get('ingredients') as string) || null,
-        imageUrl: formData.get('imageUrl') as string,
-        images,
-        videoUrls,
-        priceB2c: formData.get('priceB2c') as string,
-        priceB2b: formData.get('priceB2b') as string,
-        stockQuantity: parseInt(formData.get('stockQuantity') as string, 10) || 0,
-        category: (formData.get('category') as string) || 'cheese',
-        status: (formData.get('status') as any) || 'ACTIVE',
-        isActive: (formData.get('status') as string) !== 'INACTIVE',
-        isB2cVisible: formData.get('isB2cVisible') === 'on',
-        isB2bVisible: formData.get('isB2bVisible') === 'on',
-    };
-
-    if (id) {
-        await prisma.product.update({ where: { id }, data });
-    } else {
-        await prisma.product.create({ data });
-    }
-
-    revalidatePath('/admin/inventory');
-    revalidatePath('/shop');
-}
-
-async function deleteProductAction(formData: FormData) {
-    'use server';
-    const id = formData.get('id') as string;
-    if (id) {
-        await prisma.product.delete({ where: { id } });
-        revalidatePath('/admin/inventory');
-        revalidatePath('/shop');
-    }
-}
-
-async function quickStockAction(formData: FormData) {
-    'use server';
-    const id = formData.get('id') as string;
-    const stock = parseInt(formData.get('stock') as string, 10);
-
-    if (id && !isNaN(stock)) {
-        await prisma.product.update({
-            where: { id },
-            data: { stockQuantity: stock },
-        });
-        revalidatePath('/admin/inventory');
-        revalidatePath('/shop');
-    }
-}
-
-export default async function AdminInventoryPage({ params }: { params: any }) {
+export default async function AdminInventoryPage({ params }: { params: Promise<{ locale: string }> }) {
     const { locale } = await params;
     const session = await getSession();
     if (!session || session.role !== 'MASTER_ADMIN') redirect(`/${locale}/staff`);
 
-    const products = await prisma.product.findMany({ orderBy: { name: 'asc' } });
+    const products = await prisma.product.findMany({
+        orderBy: { name: 'asc' },
+        include: {
+            channels: true,
+            stocks: { include: { location: { select: { id: true, name: true, type: true } } } },
+        },
+    });
+
     const productLines = await prisma.productLine.findMany({
         orderBy: { sortOrder: 'asc' },
         include: {
@@ -86,11 +33,28 @@ export default async function AdminInventoryPage({ params }: { params: any }) {
         },
     });
 
-    // Serialize for client component
+    const locationRows = await prisma.location.findMany({
+        where: { isActive: true },
+        orderBy: [{ type: 'asc' }, { name: 'asc' }],
+        select: {
+            id: true,
+            name: true,
+            type: true,
+            channels: { where: { isActive: true }, select: { channel: true } },
+        },
+    });
+    const locations = locationRows.map(l => ({
+        id: l.id,
+        name: l.name,
+        type: l.type,
+        channels: l.channels.map(c => c.channel),
+    }));
+
     const serialized = products.map(p => ({
         id: p.id,
         sku: p.sku,
         name: p.name,
+        nameKa: p.nameKa,
         slug: p.slug,
         description: p.description,
         flavorProfile: p.flavorProfile,
@@ -104,12 +68,22 @@ export default async function AdminInventoryPage({ params }: { params: any }) {
         priceB2b: p.priceB2b,
         stockQuantity: p.stockQuantity,
         category: p.category,
+        kind: p.kind,
+        isMadeToOrder: p.isMadeToOrder,
+        tag: p.tag,
         productLineId: p.productLineId,
         categoryId: p.categoryId,
         status: p.status,
         isActive: p.isActive,
         isB2cVisible: p.isB2cVisible,
         isB2bVisible: p.isB2bVisible,
+        channels: p.channels.map(c => c.channel),
+        stocks: p.stocks.map(s => ({
+            locationId: s.locationId,
+            locationName: s.location.name,
+            locationType: s.location.type,
+            quantity: s.quantity,
+        })),
     }));
 
     const serializedLines = productLines.map(l => ({
@@ -124,6 +98,9 @@ export default async function AdminInventoryPage({ params }: { params: any }) {
         <InventoryClient
             products={serialized}
             productLines={serializedLines}
+            locations={locations}
+            productKinds={PRODUCT_KINDS}
+            fulfillmentChannels={FULFILLMENT_CHANNELS}
             locale={locale}
             saveAction={saveProductAction}
             deleteAction={deleteProductAction}

@@ -59,16 +59,16 @@ export default async function AccessCodesPage({ params }: { params: any }) {
             </div>
 
             {/* Generator Form */}
-            <div className="bg-[#1A1A1A] rounded-xl border border-white/5 overflow-hidden">
-                <div className="px-6 py-4 border-b border-white/5 flex items-center gap-3">
-                    <Plus className="w-5 h-5 text-[#CBA153]" />
+            <div className="bg-[#161616] border border-[#ffffff0A] overflow-hidden">
+                <div className="px-6 py-4 border-b border-[#ffffff0A] flex items-center gap-3">
+                    <Plus className="w-5 h-5 text-[#B96A3D]" />
                     <h2 className="text-white font-bold">Generate New Code</h2>
                 </div>
                 <form action={generateAccessCode} className="p-6 space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
                             <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Code Type</label>
-                            <select name="type" required className="w-full bg-[#0D0D0D] border border-white/10 text-white py-3 px-4 rounded-lg focus:outline-none focus:border-[#CBA153]">
+                            <select name="type" required className="w-full bg-[#0D0D0D] border border-[#B96A3D22] text-white py-3 px-4 focus:outline-none focus:border-[#B96A3D]">
                                 <option value="B2B">B2B Partner</option>
                                 <option value="STAFF">Staff Member</option>
                                 <option value="ANALYTICS_VIEWER">Analytics Viewer</option>
@@ -76,7 +76,7 @@ export default async function AccessCodesPage({ params }: { params: any }) {
                         </div>
                         <div>
                             <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Target Role</label>
-                            <select name="targetRole" required className="w-full bg-[#0D0D0D] border border-white/10 text-white py-3 px-4 rounded-lg focus:outline-none focus:border-[#CBA153]">
+                            <select name="targetRole" required className="w-full bg-[#0D0D0D] border border-[#B96A3D22] text-white py-3 px-4 focus:outline-none focus:border-[#B96A3D]">
                                 <option value="B2B_PARTNER">B2B Partner</option>
                                 <option value="PRODUCT_MANAGER">Product Expert & Customer Assistance</option>
                                 <option value="CONTENT_MANAGER">Content Manager</option>
@@ -88,24 +88,24 @@ export default async function AccessCodesPage({ params }: { params: any }) {
                             <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Restrict to Email (Optional)</label>
                             <input
                                 type="email" name="email" placeholder="optional@email.com"
-                                className="w-full bg-[#0D0D0D] border border-white/10 text-white placeholder-gray-600 py-3 px-4 rounded-lg focus:outline-none focus:border-[#CBA153]"
+                                className="w-full bg-[#0D0D0D] border border-[#B96A3D22] text-white placeholder-gray-600 py-3 px-4 focus:outline-none focus:border-[#B96A3D]"
                             />
                         </div>
                     </div>
-                    <button type="submit" className="bg-[#CBA153] text-black px-8 py-3 rounded-lg font-bold text-sm uppercase tracking-wider hover:bg-white transition-all">
+                    <button type="submit" className="bg-[#B96A3D] text-black px-8 py-3 font-bold text-sm uppercase tracking-wider hover:bg-white transition-all">
                         Generate Code
                     </button>
                 </form>
             </div>
 
             {/* Active Codes */}
-            <div className="bg-[#1A1A1A] rounded-xl border border-white/5 overflow-hidden">
-                <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between">
+            <div className="bg-[#161616] border border-[#ffffff0A] overflow-hidden">
+                <div className="px-6 py-4 border-b border-[#ffffff0A] flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <KeyRound className="w-5 h-5 text-[#CBA153]" />
+                        <KeyRound className="w-5 h-5 text-[#B96A3D]" />
                         <h2 className="text-white font-bold">Active Codes</h2>
                     </div>
-                    <span className="text-xs text-[#CBA153] bg-[#CBA153]/10 px-3 py-1 rounded-full">{unusedCodes.length} available</span>
+                    <span className="text-xs text-[#B96A3D] bg-[#B96A3D]/10 px-3 py-1 rounded-full">{unusedCodes.length} available</span>
                 </div>
                 <div>
                     {unusedCodes.length > 0 ? (
@@ -113,7 +113,7 @@ export default async function AccessCodesPage({ params }: { params: any }) {
                             {unusedCodes.map((code: any) => {
                                 const roleInfo = ROLE_CONFIG[code.targetRole] || { label: code.targetRole, color: 'text-gray-400' };
                                 return (
-                                    <li key={code.id} className="px-6 py-4 flex items-center justify-between hover:bg-white/5 transition-colors">
+                                    <li key={code.id} className="px-6 py-4 flex items-center justify-between hover:bg-[#ffffff08] transition-colors">
                                         <div className="flex items-center gap-4">
                                             <Clock className="w-4 h-4 text-yellow-500" />
                                             <div>
@@ -123,7 +123,7 @@ export default async function AccessCodesPage({ params }: { params: any }) {
                                                 </p>
                                             </div>
                                         </div>
-                                        <span className={`text-xs font-bold uppercase ${roleInfo.color} bg-white/5 px-3 py-1 rounded-full`}>
+                                        <span className={`text-xs font-bold uppercase ${roleInfo.color} bg-[#ffffff08] px-3 py-1 rounded-full`}>
                                             {roleInfo.label}
                                         </span>
                                     </li>
@@ -138,8 +138,8 @@ export default async function AccessCodesPage({ params }: { params: any }) {
 
             {/* Used Codes */}
             {usedCodes.length > 0 && (
-                <div className="bg-[#1A1A1A] rounded-xl border border-white/5 overflow-hidden opacity-60">
-                    <div className="px-6 py-4 border-b border-white/5 flex items-center gap-3">
+                <div className="bg-[#161616] border border-[#ffffff0A] overflow-hidden opacity-60">
+                    <div className="px-6 py-4 border-b border-[#ffffff0A] flex items-center gap-3">
                         <CheckCircle className="w-5 h-5 text-gray-500" />
                         <h2 className="text-gray-400 font-bold">Used Codes ({usedCodes.length})</h2>
                     </div>

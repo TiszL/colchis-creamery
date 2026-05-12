@@ -39,7 +39,7 @@ export default function B2BLoginPage() {
             <div className="w-full max-w-md relative z-10">
                 <div className="text-center mb-10">
                     <Link href="/" className="inline-block mb-8">
-                        <img src="/logo-optimized.png" alt="Colchis Creamery Logo" className="w-20 h-20 object-contain mx-auto rounded-full border border-[#CBA153]/30" />
+                        <img src="/logo.svg" alt="Colchis Food Logo" className="w-20 h-20 object-contain mx-auto" />
                     </Link>
                     <span className="text-xs tracking-[0.4em] uppercase opacity-60 mb-4 block">Partner Portal</span>
                     <h1 className="text-4xl font-serif text-white mb-2">Sign In</h1>

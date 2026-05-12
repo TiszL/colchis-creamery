@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { MessageCircle, X, Send, Minimize2, Clock, Mail, Wifi, WifiOff, ArrowLeft } from 'lucide-react';
 import { useAuth } from '@/providers/AuthProvider';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -103,7 +102,7 @@ export default function LiveChatWidget() {
         fetch('/api/chat/status')
             .then(r => r.json())
             .then(setChatStatus)
-            .catch(() => setChatStatus({ isOnline: false, schedule: 'Mon–Fri 9AM–6PM EST', offlineEmail: 'sales@colchiscreamery.com' }));
+            .catch(() => setChatStatus({ isOnline: false, schedule: 'Mon–Fri 9AM–6PM EST', offlineEmail: 'hello@colchisfood.com' }));
     }, []);
 
     // ── Resume existing session on mount ─────────────────────────────────────
@@ -135,7 +134,6 @@ export default function LiveChatWidget() {
 
     // ── SSE Connection ───────────────────────────────────────────────────────
     const connectSSE = useCallback((sid: string) => {
-        // Close existing
         if (sseRef.current) {
             sseRef.current.close();
             sseRef.current = null;
@@ -151,18 +149,15 @@ export default function LiveChatWidget() {
                 const data = JSON.parse(event.data);
 
                 if (data.type === 'message' && data.message) {
-                    // Synchronous dedup via ref (avoids React batching race)
                     if (knownMsgIds.current.has(data.message.id)) return;
                     knownMsgIds.current.add(data.message.id);
 
                     setMessages(prev => {
-                        // Also remove any optimistic version of this message
                         const filtered = prev.filter(m => !m.id.startsWith('opt-') || m.body !== data.message.body);
                         if (filtered.some(m => m.id === data.message.id)) return filtered;
                         return [...filtered, data.message];
                     });
 
-                    // Count unread from non-visitor messages
                     if (data.message.sender !== 'visitor') {
                         setUnread(u => u + 1);
                     }
@@ -179,13 +174,11 @@ export default function LiveChatWidget() {
 
         es.onerror = () => {
             setSseConnected(false);
-            // EventSource auto-reconnects
         };
 
         return es;
     }, []);
 
-    // Start SSE when sessionId is set
     useEffect(() => {
         if (sessionId && sessionStatus !== 'CLOSED') {
             const es = connectSSE(sessionId);
@@ -193,7 +186,7 @@ export default function LiveChatWidget() {
         }
     }, [sessionId, sessionStatus, connectSSE]);
 
-    // ── Create session (auth user — instant) ─────────────────────────────────
+    // ── Create session (auth user) ───────────────────────────────────────────
     const startAuthSession = async () => {
         setIsConnecting(true);
         try {
@@ -217,7 +210,7 @@ export default function LiveChatWidget() {
         }
     };
 
-    // ── Create session (anonymous visitor) ───────────────────────────────────
+    // ── Create session (anonymous) ───────────────────────────────────────────
     const startVisitorSession = async () => {
         setFormError('');
         if (!vName.trim()) { setFormError('Name is required'); return; }
@@ -244,7 +237,7 @@ export default function LiveChatWidget() {
                 setMessages(data.session.messages || []);
                 setWidgetState('chatting');
             }
-        } catch (err) {
+        } catch {
             setFormError('Connection failed. Please try again.');
         } finally {
             setIsConnecting(false);
@@ -257,7 +250,6 @@ export default function LiveChatWidget() {
         if (!body || !sessionId) return;
         setInputValue('');
 
-        // Optimistic add
         const optId = `opt-${Date.now()}`;
         const optimistic: ChatMsg = {
             id: optId,
@@ -275,9 +267,7 @@ export default function LiveChatWidget() {
             });
             const data = await res.json();
             if (data.message) {
-                // Mark real ID as known so SSE won't duplicate it
                 knownMsgIds.current.add(data.message.id);
-                // Replace optimistic with real
                 setMessages(prev =>
                     prev.map(m => m.id === optId ? data.message : m)
                 );
@@ -295,7 +285,6 @@ export default function LiveChatWidget() {
 
         if (widgetState === 'idle' && !sessionId) {
             if (isLoggedIn) {
-                // Auto-create session for auth users
                 startAuthSession();
             } else {
                 setWidgetState('info');
@@ -313,6 +302,17 @@ export default function LiveChatWidget() {
     const isOnline = chatStatus?.isOnline ?? true;
     const isClosed = sessionStatus === 'CLOSED';
 
+    // ── Styles ───────────────────────────────────────────────────────────────
+    const mono: React.CSSProperties = { fontFamily: "var(--font-mono)", letterSpacing: "0.24em", textTransform: "uppercase" };
+    const serif: React.CSSProperties = { fontFamily: "var(--font-serif)" };
+    const sans: React.CSSProperties = { fontFamily: "var(--font-sans)" };
+
+    const inputStyle: React.CSSProperties = {
+        width: "100%", padding: "12px 14px",
+        background: "#F5F0E6", border: "1px solid #1F302633",
+        color: "#1F3026", ...sans, fontSize: 13, outline: "none",
+    };
+
     // ══════════════════════════════════════════════════════════════════════════
     // Render
     // ══════════════════════════════════════════════════════════════════════════
@@ -321,118 +321,110 @@ export default function LiveChatWidget() {
         <>
             {/* ── Chat Window ──────────────────────────────────────── */}
             {isOpen && !isMinimized && (
-                <div className="fixed inset-0 md:inset-auto md:bottom-20 md:right-6 md:w-[400px] md:max-h-[600px] md:rounded-2xl bg-[#111] md:shadow-2xl md:shadow-black/50 md:border md:border-white/10 overflow-hidden z-[9999] flex flex-col">
+                <div style={{
+                    position: "fixed", bottom: 88, right: 24,
+                    width: 380, maxHeight: 560,
+                    background: "#F5F0E6", border: "1px solid #1F302622",
+                    boxShadow: "0 20px 60px rgba(31,48,38,0.18)",
+                    zIndex: 9999, display: "flex", flexDirection: "column",
+                    overflow: "hidden",
+                }} className="ch-chat-window">
 
                     {/* Header */}
-                    <div className="bg-gradient-to-r from-[#1A1A1A] to-[#0D0D0D] px-4 py-3 flex items-center justify-between border-b border-white/5 shrink-0 safe-area-top">
-                        <div className="flex items-center gap-3">
-                            {/* Back button on mobile */}
-                            <button
-                                onClick={() => setIsOpen(false)}
-                                className="md:hidden text-gray-400 hover:text-white p-1 -ml-1 transition"
-                            >
-                                <ArrowLeft className="w-5 h-5" />
-                            </button>
-                            <div className="w-8 h-8 rounded-full bg-[#CBA153]/10 border border-[#CBA153]/30 flex items-center justify-center">
-                                <MessageCircle className="w-4 h-4 text-[#CBA153]" />
-                            </div>
+                    <div style={{
+                        background: "#1F3026", color: "#F5F0E6",
+                        padding: "18px 22px", flexShrink: 0,
+                        borderBottom: "1px solid #F5F0E61A",
+                    }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                             <div>
-                                <p className="text-white text-sm font-semibold">Colchis Support</p>
-                                <div className="flex items-center gap-1.5">
-                                    {sessionId && sseConnected ? (
-                                        <>
-                                            <Wifi className="w-3 h-3 text-emerald-400" />
-                                            <span className="text-[10px] text-emerald-400">Connected</span>
-                                        </>
-                                    ) : sessionId ? (
-                                        <>
-                                            <WifiOff className="w-3 h-3 text-amber-400" />
-                                            <span className="text-[10px] text-amber-400">Reconnecting...</span>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <span className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-emerald-400 animate-pulse' : 'bg-gray-500'}`} />
-                                            <span className={`text-[10px] ${isOnline ? 'text-emerald-400' : 'text-gray-500'}`}>
-                                                {isOnline ? 'Online' : 'Offline'}
-                                            </span>
-                                        </>
-                                    )}
+                                <div style={{ ...mono, fontSize: 9, color: "#D9A876" }}>
+                                    № 00 — The Counter
+                                </div>
+                                <div style={{ ...serif, fontStyle: "italic", fontSize: 24, fontWeight: 300, marginTop: 4, color: "#F5F0E6" }}>
+                                    Live support
                                 </div>
                             </div>
+                            <div style={{ display: "flex", gap: 6 }}>
+                                <button onClick={() => setIsMinimized(true)} aria-label="Minimize" style={{ width: 30, height: 30, background: "transparent", border: "1px solid #F5F0E633", color: "#F5F0E6", cursor: "pointer", fontSize: 14, padding: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>−</button>
+                                <button onClick={() => setIsOpen(false)} aria-label="Close" style={{ width: 30, height: 30, background: "transparent", border: "1px solid #F5F0E633", color: "#F5F0E6", cursor: "pointer", fontSize: 14, padding: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
+                            </div>
                         </div>
-                        <div className="flex items-center gap-1">
-                            <button onClick={() => setIsMinimized(true)} className="hidden md:block text-gray-500 hover:text-white p-1.5 transition">
-                                <Minimize2 className="w-4 h-4" />
-                            </button>
-                            <button onClick={() => setIsOpen(false)} className="hidden md:block text-gray-500 hover:text-white p-1.5 transition">
-                                <X className="w-4 h-4" />
-                            </button>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10, ...mono, fontSize: 9 }}>
+                            {sessionId && sseConnected ? (
+                                <><span style={{ width: 6, height: 6, borderRadius: "50%", background: "#B96A3D", display: "inline-block" }} /><span style={{ color: "#D9A876" }}>Connected</span></>
+                            ) : sessionId ? (
+                                <><span style={{ width: 6, height: 6, borderRadius: "50%", background: "#D9A876", display: "inline-block", animation: "pulse 1.5s infinite" }} /><span style={{ color: "#D9A876" }}>Reconnecting...</span></>
+                            ) : (
+                                <><span style={{ width: 6, height: 6, borderRadius: "50%", background: isOnline ? "#B96A3D" : "#7A8278", display: "inline-block" }} /><span style={{ color: isOnline ? "#D9A876" : "#7A8278" }}>{isOnline ? "Online · Tue–Sat" : "Offline"}</span></>
+                            )}
                         </div>
                     </div>
 
                     {/* Offline Banner */}
                     {!isOnline && (
-                        <div className="px-4 py-2.5 bg-amber-500/10 border-b border-amber-500/20 shrink-0">
-                            <div className="flex items-start gap-2 text-amber-400 text-xs">
-                                <Clock className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                                <div>
-                                    <p className="font-medium">We&apos;re currently offline</p>
-                                    <p className="text-amber-400/70 mt-0.5">Hours: {chatStatus?.schedule}</p>
-                                    <a href={`mailto:${chatStatus?.offlineEmail}`} className="flex items-center gap-1 text-[#CBA153] mt-1 hover:underline">
-                                        <Mail className="w-3 h-3" />{chatStatus?.offlineEmail}
-                                    </a>
-                                </div>
+                        <div style={{ padding: "12px 22px", background: "#EAE2D2", borderBottom: "1px solid #1F302614", flexShrink: 0 }}>
+                            <div style={{ ...mono, fontSize: 9, color: "#B96A3D" }}>Currently offline</div>
+                            <div style={{ ...sans, fontSize: 12.5, color: "#2C3D33", marginTop: 4 }}>
+                                Hours: {chatStatus?.schedule}
                             </div>
+                            <a href={`mailto:${chatStatus?.offlineEmail}`} style={{ ...mono, fontSize: 9, color: "#B96A3D", marginTop: 6, display: "inline-block" }}>
+                                {chatStatus?.offlineEmail} →
+                            </a>
                         </div>
                     )}
 
                     {/* ── State: INFO (visitor form) ──────────────────── */}
                     {widgetState === 'info' && (
-                        <div className="flex-1 flex items-center justify-center p-6">
-                            <div className="w-full max-w-sm space-y-5">
-                                <div className="text-center">
-                                    <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-[#CBA153]/10 border border-[#CBA153]/20 flex items-center justify-center">
-                                        <MessageCircle className="w-7 h-7 text-[#CBA153]" />
-                                    </div>
-                                    <h3 className="text-white font-semibold text-lg mb-1">Chat with us</h3>
-                                    <p className="text-gray-500 text-xs">We&apos;ll need a few details to get started</p>
+                        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 28 }}>
+                            <div style={{ width: "100%", maxWidth: 340 }}>
+                                <div style={{ textAlign: "center", marginBottom: 24 }}>
+                                    <div style={{ ...mono, fontSize: 9, color: "#B96A3D", marginBottom: 6 }}>Before we begin</div>
+                                    <div style={{ ...serif, fontStyle: "italic", fontSize: 22, color: "#1F3026", fontWeight: 300 }}>A few details, please.</div>
+                                    <div style={{ ...sans, fontSize: 12.5, color: "#7A8278", marginTop: 6 }}>We&apos;ll use these to follow up if we miss you.</div>
                                 </div>
 
-                                <div className="space-y-3">
-                                    <input
-                                        type="text"
-                                        value={vName}
-                                        onChange={e => setVName(e.target.value)}
-                                        placeholder="Your name *"
-                                        className="w-full bg-white/5 border border-white/10 text-white text-sm rounded-xl px-4 py-3 placeholder:text-gray-600 focus:outline-none focus:border-[#CBA153]/40 transition"
-                                        autoFocus
-                                    />
-                                    <input
-                                        type="email"
-                                        value={vEmail}
-                                        onChange={e => setVEmail(e.target.value)}
-                                        placeholder="Email *"
-                                        className="w-full bg-white/5 border border-white/10 text-white text-sm rounded-xl px-4 py-3 placeholder:text-gray-600 focus:outline-none focus:border-[#CBA153]/40 transition"
-                                    />
-                                    <input
-                                        type="tel"
-                                        value={vPhone}
-                                        onChange={e => setVPhone(e.target.value)}
-                                        placeholder="Phone (optional)"
-                                        className="w-full bg-white/5 border border-white/10 text-white text-sm rounded-xl px-4 py-3 placeholder:text-gray-600 focus:outline-none focus:border-[#CBA153]/40 transition"
-                                    />
+                                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                                    <div>
+                                        <label style={{ display: "block", ...mono, fontSize: 8, color: "#7A8278", marginBottom: 6 }}>Name *</label>
+                                        <input
+                                            type="text" value={vName} onChange={e => setVName(e.target.value)}
+                                            placeholder="Nino Beridze" autoFocus style={inputStyle}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label style={{ display: "block", ...mono, fontSize: 8, color: "#7A8278", marginBottom: 6 }}>Email *</label>
+                                        <input
+                                            type="email" value={vEmail} onChange={e => setVEmail(e.target.value)}
+                                            placeholder="you@colchisfood.com" style={inputStyle}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label style={{ display: "block", ...mono, fontSize: 8, color: "#7A8278", marginBottom: 6 }}>Phone (optional)</label>
+                                        <input
+                                            type="tel" value={vPhone} onChange={e => setVPhone(e.target.value)}
+                                            placeholder="+1 (614) 555 0142" style={inputStyle}
+                                        />
+                                    </div>
                                 </div>
 
                                 {formError && (
-                                    <p className="text-red-400 text-xs text-center">{formError}</p>
+                                    <div style={{ marginTop: 10, padding: 10, background: "#A8312C11", color: "#A8312C", fontSize: 12, border: "1px solid #A8312C33", ...sans }}>
+                                        {formError}
+                                    </div>
                                 )}
 
                                 <button
                                     onClick={startVisitorSession}
                                     disabled={isConnecting}
-                                    className="w-full bg-[#CBA153] text-black font-semibold py-3 rounded-xl hover:bg-white transition-colors disabled:opacity-50 text-sm"
+                                    style={{
+                                        width: "100%", marginTop: 18, background: "#1F3026", color: "#F5F0E6",
+                                        border: "none", padding: "14px 0",
+                                        ...mono, fontSize: 10,
+                                        cursor: "pointer", opacity: isConnecting ? 0.7 : 1,
+                                    }}
                                 >
-                                    {isConnecting ? 'Connecting...' : 'Start Chat'}
+                                    {isConnecting ? 'Connecting...' : 'Start the chat →'}
                                 </button>
                             </div>
                         </div>
@@ -442,34 +434,45 @@ export default function LiveChatWidget() {
                     {widgetState === 'chatting' && (
                         <>
                             {/* Messages */}
-                            <div className="flex-1 overflow-y-auto p-4 space-y-2.5">
+                            <div style={{ flex: 1, overflowY: "auto", padding: "18px 18px 8px" }}>
                                 {messages.map(msg => (
-                                    <div key={msg.id} className={`flex ${msg.sender === 'visitor' ? 'justify-end' : msg.sender === 'system' ? 'justify-center' : 'justify-start'}`}>
+                                    <div key={msg.id} style={{
+                                        display: "flex",
+                                        justifyContent: msg.sender === 'visitor' ? 'flex-end' : msg.sender === 'system' ? 'center' : 'flex-start',
+                                        marginBottom: 10,
+                                    }}>
                                         {msg.sender === 'system' ? (
-                                            <span className="text-[10px] text-gray-600 bg-white/5 px-3 py-1 rounded-full max-w-[90%] text-center">
+                                            <span style={{ ...mono, fontSize: 8, color: "#7A8278", background: "#EAE2D2", padding: "5px 12px", border: "1px solid #1F302614" }}>
                                                 {msg.body}
                                             </span>
                                         ) : (
-                                            <div className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
-                                                msg.sender === 'visitor'
-                                                    ? 'bg-[#CBA153] text-black rounded-br-sm'
-                                                    : 'bg-white/5 text-gray-300 rounded-bl-sm border border-white/5'
-                                            }`}>
+                                            <div style={{
+                                                maxWidth: "82%",
+                                                padding: "12px 16px",
+                                                ...sans, fontSize: 13.5, lineHeight: 1.55,
+                                                ...(msg.sender === 'visitor'
+                                                    ? { background: "#1F3026", color: "#F5F0E6" }
+                                                    : { background: "#fff", color: "#1F3026", border: "1px solid #1F302622" }
+                                                ),
+                                            }}>
                                                 {msg.sender === 'agent' && (
-                                                    <p className="text-[10px] text-[#CBA153] font-semibold mb-0.5">Colchis Support</p>
+                                                    <div style={{ ...mono, fontSize: 8, color: "#B96A3D", marginBottom: 4 }}>Colchis Support</div>
                                                 )}
-                                                <p className="whitespace-pre-wrap">{msg.body}</p>
-                                                <p className={`text-[10px] mt-1 ${msg.sender === 'visitor' ? 'text-black/40' : 'text-gray-600'}`}>
+                                                <div style={{ whiteSpace: "pre-wrap" }}>{msg.body}</div>
+                                                <div style={{
+                                                    ...mono, fontSize: 8, marginTop: 6, letterSpacing: "0.16em",
+                                                    color: msg.sender === 'visitor' ? "#F5F0E688" : "#7A8278",
+                                                }}>
                                                     {fmt(msg.createdAt)}
-                                                </p>
+                                                </div>
                                             </div>
                                         )}
                                     </div>
                                 ))}
 
                                 {isClosed && (
-                                    <div className="text-center pt-2">
-                                        <span className="text-[10px] text-gray-600 bg-white/5 px-3 py-1.5 rounded-full">
+                                    <div style={{ textAlign: "center", padding: "8px 0" }}>
+                                        <span style={{ ...mono, fontSize: 8, color: "#7A8278", background: "#EAE2D2", padding: "5px 12px", border: "1px solid #1F302614" }}>
                                             Chat ended
                                         </span>
                                     </div>
@@ -477,42 +480,50 @@ export default function LiveChatWidget() {
                                 <div ref={messagesEndRef} />
                             </div>
 
-                            {/* Quick Replies (when no messages sent yet) */}
+                            {/* Quick Replies */}
                             {!isClosed && messages.filter(m => m.sender === 'visitor').length === 0 && (
-                                <div className="px-4 pb-2 flex flex-wrap gap-1.5 shrink-0">
+                                <div style={{ padding: "0 18px 8px", display: "flex", flexWrap: "wrap", gap: 6, flexShrink: 0 }}>
                                     {QUICK_REPLIES.map(q => (
-                                        <button key={q} onClick={() => sendMessage(q)}
-                                            className="px-3 py-1.5 text-xs bg-white/5 text-gray-400 border border-white/10 rounded-full hover:bg-[#CBA153]/10 hover:text-[#CBA153] hover:border-[#CBA153]/20 transition-all">
+                                        <button key={q} onClick={() => sendMessage(q)} style={{
+                                            padding: "7px 12px",
+                                            ...mono, fontSize: 9, letterSpacing: "0.2em",
+                                            background: "transparent", color: "#1F3026",
+                                            border: "1px solid #1F302633", cursor: "pointer",
+                                        }}>
                                             {q}
                                         </button>
                                     ))}
                                 </div>
                             )}
 
-                            {/* Input or closed state */}
+                            {/* Input */}
                             {!isClosed ? (
-                                <div className="p-3 border-t border-white/5 shrink-0 safe-area-bottom">
-                                    <div className="flex items-center gap-2 bg-white/5 rounded-xl px-3 py-2.5 border border-white/10 focus-within:border-[#CBA153]/30 transition">
+                                <div style={{ padding: "14px 18px", borderTop: "1px solid #1F302614", flexShrink: 0, background: "#EAE2D2" }}>
+                                    <div style={{ display: "flex", alignItems: "center", gap: 10, background: "#F5F0E6", border: "1px solid #1F302633", padding: "10px 14px" }}>
                                         <input
                                             ref={inputRef}
                                             type="text"
                                             value={inputValue}
                                             onChange={e => setInputValue(e.target.value)}
                                             onKeyDown={handleKeyDown}
-                                            placeholder={isOnline ? 'Type a message...' : 'Leave a message...'}
-                                            className="flex-1 bg-transparent text-white text-sm placeholder:text-gray-600 focus:outline-none"
+                                            placeholder={isOnline ? 'Type a note...' : 'Leave a message...'}
+                                            style={{ flex: 1, background: "transparent", border: "none", outline: "none", color: "#1F3026", ...sans, fontSize: 13 }}
                                         />
                                         <button
                                             onClick={() => sendMessage()}
                                             disabled={!inputValue.trim()}
-                                            className="text-[#CBA153] hover:text-white p-1 transition disabled:text-gray-700 disabled:cursor-not-allowed"
+                                            aria-label="Send"
+                                            style={{ background: "transparent", border: "none", cursor: inputValue.trim() ? "pointer" : "default", color: inputValue.trim() ? "#B96A3D" : "#7A8278", padding: 4 }}
                                         >
-                                            <Send className="w-4 h-4" />
+                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" /></svg>
                                         </button>
+                                    </div>
+                                    <div style={{ ...mono, fontSize: 8, color: "#7A8278", marginTop: 8, textAlign: "center" }}>
+                                        Secure · TLS 1.3
                                     </div>
                                 </div>
                             ) : (
-                                <div className="p-3 border-t border-white/5 shrink-0 safe-area-bottom">
+                                <div style={{ padding: "14px 18px", borderTop: "1px solid #1F302614", flexShrink: 0 }}>
                                     <button
                                         onClick={() => {
                                             setSessionId(null);
@@ -526,9 +537,14 @@ export default function LiveChatWidget() {
                                                 setWidgetState('info');
                                             }
                                         }}
-                                        className="w-full py-3 bg-white/5 text-white text-sm rounded-xl hover:bg-[#CBA153]/10 hover:text-[#CBA153] transition border border-white/10"
+                                        style={{
+                                            width: "100%", padding: "14px 0",
+                                            background: "#1F3026", color: "#F5F0E6",
+                                            border: "none", ...mono, fontSize: 10,
+                                            cursor: "pointer",
+                                        }}
                                     >
-                                        Start New Conversation
+                                        Start new conversation →
                                     </button>
                                 </div>
                             )}
@@ -537,10 +553,10 @@ export default function LiveChatWidget() {
 
                     {/* ── State: IDLE/Loading ──────────────────────────── */}
                     {widgetState === 'idle' && isConnecting && (
-                        <div className="flex-1 flex items-center justify-center p-8">
-                            <div className="text-center">
-                                <div className="w-8 h-8 mx-auto mb-3 border-2 border-[#CBA153] border-t-transparent rounded-full animate-spin" />
-                                <p className="text-gray-500 text-sm">Connecting...</p>
+                        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 32 }}>
+                            <div style={{ textAlign: "center" }}>
+                                <div style={{ width: 28, height: 28, margin: "0 auto 12px", border: "2px solid #B96A3D", borderTop: "2px solid transparent", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+                                <div style={{ ...mono, fontSize: 9, color: "#7A8278" }}>Connecting...</div>
                             </div>
                         </div>
                     )}
@@ -550,18 +566,32 @@ export default function LiveChatWidget() {
             {/* ── Floating Button ──────────────────────────────────── */}
             <button
                 onClick={isOpen && isMinimized ? handleOpen : isOpen ? () => setIsOpen(false) : handleOpen}
-                className="fixed bottom-4 right-4 md:right-6 w-14 h-14 bg-[#CBA153] rounded-full shadow-lg shadow-[#CBA153]/20 flex items-center justify-center z-[9999] hover:bg-white hover:shadow-white/20 transition-all duration-300 group safe-area-bottom"
                 aria-label="Live chat support"
+                style={{
+                    position: "fixed", bottom: 24, right: 24,
+                    width: 52, height: 52,
+                    background: "#1F3026", border: "1px solid #F5F0E622",
+                    borderRadius: "50%",
+                    boxShadow: "0 6px 24px rgba(31,48,38,0.25)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    cursor: "pointer", zIndex: 9999,
+                    transition: "transform 0.2s, box-shadow 0.2s",
+                }}
+                className="ch-chat-fab"
             >
                 {isOpen && !isMinimized ? (
-                    <X className="w-6 h-6 text-black" />
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F5F0E6" strokeWidth={1.6}><path d="M18 6L6 18M6 6l12 12" /></svg>
                 ) : (
                     <>
-                        <MessageCircle className="w-6 h-6 text-black" />
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F5F0E6" strokeWidth={1.4}><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" /></svg>
                         {unread > 0 && (
-                            <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center animate-bounce">
-                                {unread}
-                            </span>
+                            <span style={{
+                                position: "absolute", top: -3, right: -3,
+                                width: 18, height: 18, borderRadius: "50%",
+                                background: "#B96A3D", color: "#F5F0E6",
+                                fontSize: 10, fontWeight: 700,
+                                display: "flex", alignItems: "center", justifyContent: "center",
+                            }}>{unread}</span>
                         )}
                     </>
                 )}

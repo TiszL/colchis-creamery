@@ -2,11 +2,11 @@ export function JsonLdLocalBusiness() {
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "LocalBusiness",
-    name: "Colchis Creamery",
+    name: "Colchis Food",
     description:
       "Authentic Georgian dairy crafted exclusively from 100% Grass-Fed A2 Brown Swiss Milk. Heritage recipes from ancient Colchian traditions, handcrafted fresh in Ohio.",
-    url: "https://colchiscreamery.com",
-    logo: "https://colchiscreamery.com/icon.png",
+    url: "https://colchisfood.com",
+    logo: "https://colchisfood.com/icon.png",
     address: {
       "@type": "PostalAddress",
       addressLocality: "Columbus",

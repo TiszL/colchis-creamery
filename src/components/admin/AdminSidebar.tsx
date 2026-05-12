@@ -3,11 +3,13 @@
 import { useState, useTransition, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Menu, X, LogOut, LayoutDashboard, Package, FileText, ShoppingCart, Users, KeyRound, BarChart3, Settings, Shield, Globe, Inbox, MessageSquare, Tags, MessageCircle } from 'lucide-react';
+import { Menu, X, LogOut, LayoutDashboard, Package, FileText, ShoppingCart, Users, KeyRound, BarChart3, Settings, Shield, Globe, Inbox, MessageSquare, Tags, MessageCircle, MapPin } from 'lucide-react';
+import { ColchisSeal } from '@/components/brand/ColchisSeal';
 
 const NAV_ITEMS = [
     { label: 'Dashboard', href: '/admin', icon: LayoutDashboard },
     { label: 'Inventory', href: '/admin/inventory', icon: Package },
+    { label: 'Locations', href: '/admin/locations', icon: MapPin },
     { label: 'Categories', href: '/admin/categories', icon: Tags },
     { label: 'Live Chat', href: '/admin/chat', icon: MessageCircle },
     { label: 'Orders', href: '/admin/orders', icon: ShoppingCart },
@@ -30,7 +32,6 @@ function NavItems({ items, locale, onNavigate }: { items: typeof NAV_ITEMS; loca
         <>
             {items.map((item) => {
                 const fullHref = `/${locale}${item.href}`;
-                // Exact match for dashboard, startsWith for sub-routes
                 const isActive = item.href === '/admin'
                     ? pathname === fullHref || pathname === `/${locale}/admin`
                     : pathname.startsWith(fullHref);
@@ -40,14 +41,14 @@ function NavItems({ items, locale, onNavigate }: { items: typeof NAV_ITEMS; loca
                         key={item.href}
                         href={fullHref}
                         onClick={onNavigate}
-                        className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all group text-sm ${
+                        className={`ch-admin-nav-item flex items-center gap-3 px-4 py-3 transition-all text-sm ${
                             isActive
-                                ? 'text-white bg-[#CBA153]/10 border-l-2 border-[#CBA153]'
-                                : 'text-gray-400 hover:text-white hover:bg-[#CBA153]/5'
+                                ? 'bg-[#B96A3D15] text-[#B96A3D] border-l-2 border-[#B96A3D]'
+                                : 'text-[#7A8278] hover:text-[#F5F0E6] hover:bg-[#B96A3D08]'
                         }`}
                     >
                         <item.icon className={`w-4 h-4 transition-colors ${
-                            isActive ? 'text-[#CBA153]' : 'text-gray-600 group-hover:text-[#CBA153]'
+                            isActive ? 'text-[#B96A3D]' : 'text-[#5A6158] group-hover:text-[#B96A3D]'
                         }`} />
                         {item.label}
                         {item.href === '/admin/chat' && <ChatBadge />}
@@ -92,7 +93,7 @@ function ChatBadge() {
 
     if (count <= 0) return null;
     return (
-        <span className="ml-auto bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center animate-pulse">
+        <span className="ml-auto bg-[#A8312C] text-[#F5F0E6] text-[9px] font-bold px-1.5 py-0.5 min-w-[18px] text-center" style={{ fontFamily: 'var(--font-mono)' }}>
             {count}
         </span>
     );
@@ -123,13 +124,16 @@ export default function AdminSidebar({
     return (
         <>
             {/* Mobile Header */}
-            <div className="md:hidden fixed top-0 left-0 w-full h-16 bg-[#0F0F0F] border-b border-[#CBA153]/10 z-30 flex items-center justify-between px-4">
+            <div className="md:hidden fixed top-0 left-0 w-full h-16 bg-[#0F0F0F] border-b border-[#B96A3D22] z-30 flex items-center justify-between px-4">
                 <div className="flex items-center gap-3">
-                    <Shield className="w-6 h-6 text-[#CBA153]" />
-                    <h2 className="text-white font-serif text-lg tracking-wide">Colchis Admin</h2>
+                    <ColchisSeal size={28} />
+                    <div>
+                        <h2 className="text-[#F5F0E6] text-sm" style={{ fontFamily: 'var(--font-serif)', fontWeight: 500, letterSpacing: '0.18em', textTransform: 'uppercase' }}>Colchis Food</h2>
+                        <span className="text-[8px] text-[#B96A3D] block" style={{ fontFamily: 'var(--font-mono)', letterSpacing: '0.3em', textTransform: 'uppercase' }}>Master Admin</span>
+                    </div>
                 </div>
-                <button onClick={() => setIsOpen(true)} className="text-[#CBA153] p-2 hover:bg-[#CBA153]/10 rounded transition-colors">
-                    <Menu className="w-6 h-6" />
+                <button onClick={() => setIsOpen(true)} className="text-[#B96A3D] p-2 hover:bg-[#B96A3D15] transition-colors" style={{ border: '1px solid #B96A3D33' }}>
+                    <Menu className="w-5 h-5" />
                 </button>
             </div>
 
@@ -139,66 +143,64 @@ export default function AdminSidebar({
             )}
 
             {/* Sidebar drawer */}
-            <aside className={`w-72 bg-[#0F0F0F] border-r border-[#CBA153]/10 fixed top-0 left-0 h-full flex flex-col z-50 transform transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
+            <aside className={`w-72 bg-[#0F0F0F] border-r border-[#B96A3D22] fixed top-0 left-0 h-full flex flex-col z-50 transform transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
                 
                 {/* Logo Area */}
-                <div className="p-6 border-b border-[#CBA153]/10 flex items-center justify-between">
+                <div className="p-6 border-b border-[#B96A3D22] flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-full bg-[#CBA153] flex items-center justify-center shadow-lg shadow-[#CBA153]/20">
-                            <Shield className="w-5 h-5 text-black" />
-                        </div>
+                        <ColchisSeal size={36} />
                         <div>
-                            <h2 className="text-white font-serif text-lg tracking-wide">Colchis</h2>
-                            <span className="text-[10px] text-[#CBA153] uppercase tracking-[0.3em] font-bold">Master Admin</span>
+                            <h2 className="text-[#F5F0E6]" style={{ fontFamily: 'var(--font-serif)', fontWeight: 500, fontSize: 15, letterSpacing: '0.18em', textTransform: 'uppercase' }}>Colchis Food</h2>
+                            <span className="text-[9px] text-[#B96A3D] block" style={{ fontFamily: 'var(--font-mono)', letterSpacing: '0.3em', textTransform: 'uppercase' }}>Master Admin</span>
                         </div>
                     </div>
                     {/* Close button for mobile inside drawer */}
-                    <button onClick={closeSidebar} className="md:hidden text-gray-400 hover:text-white transition-colors">
-                        <X className="w-6 h-6" />
+                    <button onClick={closeSidebar} className="md:hidden text-[#7A8278] hover:text-[#F5F0E6] transition-colors" style={{ width: 32, height: 32, border: '1px solid #B96A3D33', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <X className="w-4 h-4" />
                     </button>
                 </div>
 
                 {/* Navigation Links */}
-                <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-                    <span className="text-[10px] text-[#CBA153]/40 uppercase tracking-[0.2em] font-bold px-4 mb-3 block">Command Center</span>
+                <nav className="flex-1 p-4 space-y-0.5 overflow-y-auto">
+                    <span className="text-[9px] text-[#D9A876] block px-4 mb-3" style={{ fontFamily: 'var(--font-mono)', letterSpacing: '0.24em', textTransform: 'uppercase' }}>№ 00 — Command Center</span>
                     <NavItems items={NAV_ITEMS} locale={locale} onNavigate={closeSidebar} />
-                    <div className="my-4 border-t border-white/5"></div>
+                    <div className="my-4 border-t border-[#ffffff0A]"></div>
                     <Link
-                        href={`/${locale}/staff-portal`}
+                        href={`/${locale}/portal`}
                         onClick={closeSidebar}
-                        className="flex items-center gap-3 px-4 py-3 text-gray-500 hover:text-white hover:bg-white/5 rounded-lg transition-all group text-sm"
+                        className="flex items-center gap-3 px-4 py-3 text-[#7A8278] hover:text-[#F5F0E6] hover:bg-[#ffffff08] transition-all text-sm"
                     >
-                        <Settings className="w-4 h-4 text-gray-600 group-hover:text-white transition-colors" />
+                        <Settings className="w-4 h-4 text-[#5A6158]" />
                         <span className="truncate">Staff Portal View</span>
                     </Link>
                     <Link
                         href={`/${locale}/analytics`}
                         onClick={closeSidebar}
-                        className="flex items-center gap-3 px-4 py-3 text-gray-500 hover:text-white hover:bg-white/5 rounded-lg transition-all group text-sm"
+                        className="flex items-center gap-3 px-4 py-3 text-[#7A8278] hover:text-[#F5F0E6] hover:bg-[#ffffff08] transition-all text-sm"
                     >
-                        <BarChart3 className="w-4 h-4 text-gray-600 group-hover:text-white transition-colors" />
+                        <BarChart3 className="w-4 h-4 text-[#5A6158]" />
                         <span className="truncate">Analytics Dashboard</span>
                     </Link>
                 </nav>
 
                 {/* User Info & Logout */}
-                <div className="p-4 border-t border-[#CBA153]/10 bg-[#0A0A0A]">
+                <div className="p-4 border-t border-[#B96A3D22] bg-[#0C0C0C]">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3 min-w-0">
-                            <div className="w-9 h-9 rounded-full bg-[#CBA153] flex items-center justify-center shrink-0">
-                                <span className="text-black text-xs font-bold">
+                            <div className="w-9 h-9 rounded-full bg-[#B96A3D] flex items-center justify-center shrink-0">
+                                <span className="text-[#F5F0E6] text-xs" style={{ fontFamily: 'var(--font-mono)', fontWeight: 700 }}>
                                     {sessionName.charAt(0).toUpperCase()}
                                 </span>
                             </div>
                             <div className="min-w-0 pr-2">
-                                <p className="text-sm text-white font-medium truncate">{sessionName}</p>
-                                <p className="text-[10px] text-[#CBA153] uppercase tracking-wider font-bold truncate">Master Admin</p>
+                                <p className="text-sm text-[#F5F0E6] truncate" style={{ fontFamily: 'var(--font-sans)' }}>{sessionName}</p>
+                                <p className="text-[9px] text-[#B96A3D] truncate" style={{ fontFamily: 'var(--font-mono)', letterSpacing: '0.2em', textTransform: 'uppercase' }}>Master Admin</p>
                             </div>
                         </div>
                         <button 
                             onClick={handleLogout} 
                             disabled={isPending}
-                            className="text-gray-600 hover:text-red-400 transition-colors p-2 shrink-0 disabled:opacity-50"
+                            className="text-[#5A6158] hover:text-[#A8312C] transition-colors p-2 shrink-0 disabled:opacity-50"
                             aria-label="Logout"
                         >
                             <LogOut className="w-4 h-4" />

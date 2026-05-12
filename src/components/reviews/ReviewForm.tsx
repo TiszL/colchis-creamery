@@ -25,9 +25,9 @@ export default function ReviewForm({ productId, hasExistingReview, isLoggedIn, o
 
     if (!isLoggedIn) {
         return (
-            <div className="bg-white rounded-lg border border-gray-100 p-8 text-center shadow-sm">
-                <p className="text-gray-500 mb-3">Sign in to share your experience with this product</p>
-                <a href="/login" className="inline-block px-6 py-2.5 bg-[#CBA153] text-white font-bold text-sm rounded-lg hover:bg-[#B5922E] transition-colors tracking-wider uppercase">
+            <div style={{ background: "#EAE2D2", border: "1px solid #1F302614", padding: 32, textAlign: "center" }}>
+                <p style={{ fontFamily: "var(--font-serif)", fontStyle: "italic", fontSize: 16, color: "#2C3D33", margin: "0 0 14px" }}>Sign in to share your experience with this product</p>
+                <a href="/login" style={{ display: "inline-block", padding: "12px 24px", background: "#1F3026", color: "#F5F0E6", fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.28em", textTransform: "uppercase", textDecoration: "none" }}>
                     Sign In
                 </a>
             </div>
@@ -36,9 +36,9 @@ export default function ReviewForm({ productId, hasExistingReview, isLoggedIn, o
 
     if (hasExistingReview) {
         return (
-            <div className="bg-[#CBA153]/5 rounded-lg border border-[#CBA153]/20 p-6 text-center">
-                <p className="text-[#2C2A29] font-medium">You have already reviewed this product.</p>
-                <p className="text-sm text-gray-500 mt-1">You can add a reply to your review above.</p>
+            <div style={{ background: "#B96A3D08", border: "1px solid #B96A3D22", padding: 24, textAlign: "center" }}>
+                <p style={{ fontFamily: "var(--font-serif)", fontSize: 15, color: "#1F3026", margin: 0 }}>You have already reviewed this product.</p>
+                <p style={{ fontFamily: "var(--font-sans)", fontSize: 13, color: "#7A8278", marginTop: 6 }}>You can add a reply to your review above.</p>
             </div>
         );
     }
@@ -123,12 +123,12 @@ export default function ReviewForm({ productId, hasExistingReview, isLoggedIn, o
     };
 
     return (
-        <form onSubmit={handleSubmit} className="bg-white rounded-lg border border-gray-100 p-6 shadow-sm space-y-5">
-            <h3 className="font-serif text-xl text-[#2C2A29]">Write a Review</h3>
+        <form onSubmit={handleSubmit} style={{ background: "#EAE2D2", border: "1px solid #1F302614", padding: 28, display: "flex", flexDirection: "column", gap: 20 }}>
+            <h3 style={{ fontFamily: "var(--font-serif)", fontSize: 20, color: "#1F3026", margin: 0, fontWeight: 400 }}>Write a Review</h3>
 
             {/* Star selector */}
             <div>
-                <label className="block text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">Your Rating</label>
+                <label style={{ display: "block", fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.32em", color: "#7A8278", textTransform: "uppercase", marginBottom: 8 }}>Your Rating</label>
                 <StarRating
                     value={rating}
                     size="lg"
@@ -141,55 +141,55 @@ export default function ReviewForm({ productId, hasExistingReview, isLoggedIn, o
 
             {/* Title */}
             <div>
-                <label className="block text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">Title</label>
+                <label style={{ display: "block", fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.32em", color: "#7A8278", textTransform: "uppercase", marginBottom: 8 }}>Title</label>
                 <input
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                     placeholder="Sum up your experience..."
                     maxLength={100}
-                    className="w-full border border-gray-200 rounded-lg px-4 py-3 text-sm text-[#2C2A29] focus:outline-none focus:border-[#CBA153] transition-colors"
+                    style={{ width: "100%", border: "1px solid #1F302622", padding: "10px 14px", fontFamily: "var(--font-sans)", fontSize: 14, color: "#1F3026", background: "#F5F0E6", outline: "none" }}
                 />
-                <p className="text-[10px] text-gray-400 mt-1 text-right">{title.length}/100</p>
+                <p style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "#7A8278", textAlign: "right", marginTop: 4, letterSpacing: "0.16em" }}>{title.length}/100</p>
             </div>
 
             {/* Body */}
             <div>
-                <label className="block text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">Your Review</label>
+                <label style={{ display: "block", fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.32em", color: "#7A8278", textTransform: "uppercase", marginBottom: 8 }}>Your Review</label>
                 <textarea
                     value={body}
                     onChange={(e) => setBody(e.target.value)}
                     placeholder="What did you like or dislike? How did you use the product?"
                     maxLength={2000}
                     rows={4}
-                    className="w-full border border-gray-200 rounded-lg px-4 py-3 text-sm text-[#2C2A29] focus:outline-none focus:border-[#CBA153] transition-colors resize-none"
+                    style={{ width: "100%", border: "1px solid #1F302622", padding: "10px 14px", fontFamily: "var(--font-sans)", fontSize: 14, color: "#1F3026", background: "#F5F0E6", outline: "none", resize: "none" }}
                 />
-                <p className="text-[10px] text-gray-400 mt-1 text-right">{body.length}/2000</p>
+                <p style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "#7A8278", textAlign: "right", marginTop: 4, letterSpacing: "0.16em" }}>{body.length}/2000</p>
             </div>
 
             {/* Photos */}
             <div>
-                <label className="block text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">Photos (optional, max 3)</label>
-                <div className="flex flex-wrap gap-3 items-center">
+                <label style={{ display: "block", fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.32em", color: "#7A8278", textTransform: "uppercase", marginBottom: 8 }}>Photos (optional, max 3)</label>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
                     {photos.map((url, idx) => (
-                        <div key={idx} className="relative w-20 h-20 rounded-lg overflow-hidden border border-gray-200 group">
-                            <img src={url} alt="" className="w-full h-full object-cover" />
+                        <div key={idx} style={{ position: "relative", width: 72, height: 72, overflow: "hidden", border: "1px solid #1F302622" }}>
+                            <img src={url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                             <button
                                 type="button"
                                 onClick={() => removePhoto(idx)}
-                                className="absolute top-1 right-1 w-5 h-5 bg-black/60 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                                style={{ position: "absolute", top: 4, right: 4, width: 18, height: 18, background: "rgba(31,48,38,0.7)", border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", padding: 0 }}
                             >
-                                <X className="w-3 h-3 text-white" />
+                                <X style={{ width: 12, height: 12, color: "#F5F0E6" }} />
                             </button>
                         </div>
                     ))}
                     {photos.length < 3 && (
-                        <label className={`w-20 h-20 rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center cursor-pointer hover:border-[#CBA153] transition-colors ${uploading ? 'opacity-50' : ''}`}>
+                        <label style={{ width: 72, height: 72, border: "2px dashed #1F302633", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", cursor: "pointer", opacity: uploading ? 0.5 : 1 }}>
                             {uploading ? (
-                                <Loader2 className="w-5 h-5 text-gray-400 animate-spin" />
+                                <Loader2 style={{ width: 18, height: 18, color: "#7A8278", animation: "spin 1s linear infinite" }} />
                             ) : (
                                 <>
-                                    <Camera className="w-5 h-5 text-gray-400" />
-                                    <span className="text-[9px] text-gray-400 mt-1">Add</span>
+                                    <Camera style={{ width: 18, height: 18, color: "#7A8278" }} />
+                                    <span style={{ fontFamily: "var(--font-mono)", fontSize: 8, color: "#7A8278", marginTop: 4, textTransform: "uppercase", letterSpacing: "0.16em" }}>Add</span>
                                 </>
                             )}
                             <input
@@ -198,7 +198,7 @@ export default function ReviewForm({ productId, hasExistingReview, isLoggedIn, o
                                 accept="image/jpeg,image/png,image/webp"
                                 multiple
                                 onChange={handlePhotoUpload}
-                                className="hidden"
+                                style={{ display: "none" }}
                                 disabled={uploading}
                             />
                         </label>
@@ -207,20 +207,20 @@ export default function ReviewForm({ productId, hasExistingReview, isLoggedIn, o
             </div>
 
             {/* Error / Success */}
-            {error && <p className="text-sm text-red-500 bg-red-50 rounded-lg px-4 py-2">{error}</p>}
-            {success && <p className="text-sm text-green-700 bg-green-50 rounded-lg px-4 py-2">{success}</p>}
+            {error && <p style={{ fontFamily: "var(--font-sans)", fontSize: 13, color: "#A8312C", background: "#A8312C11", padding: "10px 14px", border: "1px solid #A8312C33", margin: 0 }}>{error}</p>}
+            {success && <p style={{ fontFamily: "var(--font-sans)", fontSize: 13, color: "#2C3D33", background: "#B96A3D11", padding: "10px 14px", border: "1px solid #B96A3D33", margin: 0 }}>{success}</p>}
 
             {/* Submit */}
             <button
                 type="submit"
                 disabled={submitting || rating === 0}
-                className="w-full py-3.5 bg-[#CBA153] text-white font-bold text-sm rounded-lg hover:bg-[#B5922E] transition-colors tracking-wider uppercase disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{ width: "100%", padding: "14px 0", background: "#1F3026", color: "#F5F0E6", border: "none", fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.28em", textTransform: "uppercase", cursor: "pointer", opacity: (submitting || rating === 0) ? 0.5 : 1 }}
             >
                 {submitting ? 'Submitting...' : 'Submit Review'}
             </button>
 
-            <p className="text-[10px] text-gray-400 text-center">
-                Your review will be visible after moderation approval. Links are not allowed.
+            <p style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "#7A8278", textAlign: "center", letterSpacing: "0.16em", textTransform: "uppercase", margin: 0 }}>
+                Your review will be visible after moderation approval
             </p>
         </form>
     );

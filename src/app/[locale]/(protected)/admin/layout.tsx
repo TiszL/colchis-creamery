@@ -17,11 +17,11 @@ export default async function AdminLayout({
     const session = await getSession();
 
     if (!session || session.role !== 'MASTER_ADMIN') {
-        redirect(`/${locale}/staff`);
+        redirect(`/${locale}/portal-login`);
     }
 
     return (
-        <div className="min-h-screen bg-[#0A0A0A]">
+        <div className="min-h-screen bg-[#0C0C0C]">
             <AdminSidebar 
                 locale={locale} 
                 sessionName={session.name || session.email} 

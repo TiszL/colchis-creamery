@@ -187,13 +187,13 @@ export default function RecipeEditorClient({ recipes: initialRecipes, locale }: 
             <div className="space-y-4">
                 <button
                     onClick={handleCreate}
-                    className="w-full flex items-center justify-center gap-2 bg-[#CBA153] text-black px-6 py-4 rounded-xl text-sm font-bold uppercase tracking-wider hover:bg-white transition-all"
+                    className="w-full flex items-center justify-center gap-2 bg-[#B96A3D] text-black px-6 py-4 text-sm font-bold uppercase tracking-wider hover:bg-white transition-all"
                 >
                     <Plus className="w-4 h-4" /> Create New Recipe
                 </button>
 
                 {recipes.length === 0 ? (
-                    <div className="bg-[#1A1A1A] rounded-xl border border-white/5 p-12 text-center text-gray-500">
+                    <div className="bg-[#161616] border border-[#ffffff0A] p-12 text-center text-gray-500">
                         No recipes yet. Create your first recipe above.
                     </div>
                 ) : (
@@ -201,13 +201,13 @@ export default function RecipeEditorClient({ recipes: initialRecipes, locale }: 
                         {recipes.map((recipe) => (
                             <div
                                 key={recipe.id}
-                                className="bg-[#1A1A1A] rounded-xl border border-white/5 hover:border-[#CBA153]/20 transition-all overflow-hidden"
+                                className="bg-[#161616] border border-[#ffffff0A] hover:border-[#B96A3D]/20 transition-all overflow-hidden"
                             >
                                 <div className="p-3 sm:p-4">
                                     {/* Top row: thumbnail + title + mobile actions */}
                                     <div className="flex items-start gap-3">
                                         {/* Thumbnail */}
-                                        <div className="w-11 h-11 sm:w-14 sm:h-14 rounded-lg overflow-hidden bg-[#0D0D0D] border border-white/10 flex-shrink-0">
+                                        <div className="w-11 h-11 sm:w-14 sm:h-14 overflow-hidden bg-[#0C0C0C] border border-[#B96A3D22] flex-shrink-0">
                                             {recipe.imageUrl ? (
                                                 <img src={recipe.imageUrl} alt="" className="w-full h-full object-cover" />
                                             ) : (
@@ -225,7 +225,7 @@ export default function RecipeEditorClient({ recipes: initialRecipes, locale }: 
                                     </div>
 
                                     {/* Bottom row: status + actions */}
-                                    <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/5">
+                                    <div className="flex items-center justify-between mt-3 pt-3 border-t border-[#ffffff0A]">
                                         {recipe.isPublished ? (
                                             <span className="text-[11px] sm:text-xs bg-emerald-900/30 text-emerald-400 px-2 py-1 rounded-full flex items-center gap-1">
                                                 <Eye className="w-3 h-3" /> Published
@@ -238,7 +238,7 @@ export default function RecipeEditorClient({ recipes: initialRecipes, locale }: 
                                         <div className="flex items-center gap-2">
                                             <button
                                                 onClick={() => loadRecipe(recipe)}
-                                                className="flex items-center gap-1 text-xs text-[#CBA153] hover:text-white transition-colors px-2 py-1.5"
+                                                className="flex items-center gap-1 text-xs text-[#B96A3D] hover:text-white transition-colors px-2 py-1.5"
                                             >
                                                 Edit <ChevronRight className="w-3 h-3" />
                                             </button>
@@ -260,7 +260,7 @@ export default function RecipeEditorClient({ recipes: initialRecipes, locale }: 
     }
 
     // ─── EDITOR VIEW ─────────────────────────────────────────────────────────────
-    const inputClass = "w-full bg-[#0D0D0D] border border-white/10 text-white py-3 px-4 rounded-lg focus:outline-none focus:border-[#CBA153] placeholder-gray-600";
+    const inputClass = "w-full bg-[#0C0C0C] border border-[#B96A3D22] text-white py-3 px-4 focus:outline-none focus:border-[#B96A3D] placeholder-gray-600";
 
     return (
         <div className="space-y-6">
@@ -268,7 +268,7 @@ export default function RecipeEditorClient({ recipes: initialRecipes, locale }: 
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                 <button
                     onClick={() => { setEditingId(null); setIsCreating(false); resetForm(); }}
-                    className="flex items-center gap-2 text-sm text-[#CBA153] hover:text-white transition-colors"
+                    className="flex items-center gap-2 text-sm text-[#B96A3D] hover:text-white transition-colors"
                 >
                     <ArrowLeft className="w-4 h-4" /> Back to list
                 </button>
@@ -278,14 +278,14 @@ export default function RecipeEditorClient({ recipes: initialRecipes, locale }: 
                             type="checkbox"
                             checked={isPublished}
                             onChange={(e) => setIsPublished(e.target.checked)}
-                            className="accent-[#CBA153] w-4 h-4"
+                            className="accent-[#B96A3D] w-4 h-4"
                         />
                         {isPublished ? 'Published' : 'Draft'}
                     </label>
                     <button
                         onClick={handleSave}
                         disabled={saving || !title || !slug}
-                        className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-[#CBA153] text-black px-6 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-white transition-all disabled:opacity-50"
+                        className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-[#B96A3D] text-black px-6 py-2.5 text-xs font-bold uppercase tracking-wider hover:bg-white transition-all disabled:opacity-50"
                     >
                         {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
                         {isCreating ? 'Create' : 'Save'}
@@ -294,7 +294,7 @@ export default function RecipeEditorClient({ recipes: initialRecipes, locale }: 
             </div>
 
             {/* Cover image */}
-            <div className="bg-[#1A1A1A] rounded-xl border border-white/5 p-6">
+            <div className="bg-[#161616] border border-[#ffffff0A] p-6">
                 <MediaUploadZone
                     value={imageUrl ? [imageUrl] : []}
                     onChange={(urls) => setImageUrl(urls[0] || '')}
@@ -306,7 +306,7 @@ export default function RecipeEditorClient({ recipes: initialRecipes, locale }: 
             </div>
 
             {/* Title + Slug */}
-            <div className="bg-[#1A1A1A] rounded-xl border border-white/5 p-6 space-y-4">
+            <div className="bg-[#161616] border border-[#ffffff0A] p-6 space-y-4">
                 <div>
                     <input
                         value={title}
@@ -324,7 +324,7 @@ export default function RecipeEditorClient({ recipes: initialRecipes, locale }: 
                         value={slug}
                         onChange={(e) => setSlug(e.target.value)}
                         placeholder="recipe-slug"
-                        className="flex-1 bg-[#0D0D0D] border border-white/10 text-white py-2 px-3 rounded-lg focus:outline-none focus:border-[#CBA153] placeholder-gray-600 text-sm font-mono"
+                        className="flex-1 bg-[#0C0C0C] border border-[#B96A3D22] text-white py-2 px-3 focus:outline-none focus:border-[#B96A3D] placeholder-gray-600 text-sm font-mono"
                     />
                 </div>
                 <textarea
@@ -337,7 +337,7 @@ export default function RecipeEditorClient({ recipes: initialRecipes, locale }: 
             </div>
 
             {/* Metadata bar */}
-            <div className="bg-[#1A1A1A] rounded-xl border border-white/5 p-4">
+            <div className="bg-[#161616] border border-[#ffffff0A] p-4">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div>
                         <label className="block text-[10px] font-bold text-gray-500 mb-1.5 uppercase tracking-wider">Prep Time</label>
@@ -365,7 +365,7 @@ export default function RecipeEditorClient({ recipes: initialRecipes, locale }: 
             {/* Content block editor */}
             <div>
                 <label className="block text-xs font-bold text-gray-400 mb-3 uppercase tracking-wider flex items-center gap-2">
-                    <BookOpen className="w-3.5 h-3.5 text-[#CBA153]" />
+                    <BookOpen className="w-3.5 h-3.5 text-[#B96A3D]" />
                     Recipe Content
                 </label>
                 <ContentBlockEditor

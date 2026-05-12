@@ -165,7 +165,7 @@ export default function WholesaleForm() {
                 <SubmitButton />
 
                 <p className="text-[11px] text-gray-400 text-center mt-2">
-                    By submitting this form, you agree to be contacted by Colchis Creamery regarding wholesale partnership opportunities.
+                    By submitting this form, you agree to be contacted by Colchis Food regarding wholesale partnership opportunities.
                 </p>
             </form>
         </div>

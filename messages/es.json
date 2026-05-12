@@ -41,14 +41,14 @@
   },
   "heritage": {
     "title": "Nuestra herencia",
-    "subtitle": "La historia de Colchis Creamery",
+    "subtitle": "La historia de Colchis Food",
     "intro": "En la antigua tierra de Cólquida, donde se buscó el Vellocino de Oro, una tradición quesera ha florecido durante milenios. Llevamos esa tradición a Ohio.",
     "traditionTitle": "Tradición quesera georgiana",
     "traditionText": "Georgia es una de las regiones queseras más antiguas del mundo. Durante más de 8.000 años, los queseros georgianos han perfeccionado el arte de elaborar quesos únicos que no se encuentran en ningún otro lugar.",
     "ohioTitle": "Elaborado en Ohio",
     "ohioText": "Utilizamos la mejor leche local de las granjas lecheras de primera calidad de Ohio, combinando técnicas georgianas ancestrales con estándares modernos de seguridad alimentaria para crear un queso que honra la tradición y cumple con los más altos estándares de calidad.",
     "processTitle": "Nuestro proceso",
-    "processText": "Cada lote de queso de Colchis Creamery se elabora a mano en pequeñas cantidades, garantizando una atención meticulosa al detalle. Desde el estirado y la salmuera hasta la maduración, cada paso sigue métodos consagrados por el tiempo."
+    "processText": "Cada lote de queso de Colchis Food se elabora a mano en pequeñas cantidades, garantizando una atención meticulosa al detalle. Desde el estirado y la salmuera hasta la maduración, cada paso sigue métodos consagrados por el tiempo."
   },
   "shop": {
     "title": "Nuestra colección láctea A2",
@@ -107,7 +107,7 @@
   "wholesale": {
     "title": "Alianza mayorista",
     "subtitle": "Ofrezca auténtico queso georgiano a sus clientes",
-    "heroText": "Asóciese con Colchis Creamery para la distribución de queso artesanal de primera calidad en el Medio Oeste y más allá.",
+    "heroText": "Asóciese con Colchis Food para la distribución de queso artesanal de primera calidad en el Medio Oeste y más allá.",
     "benefitsTitle": "Por qué asociarse con nosotros",
     "benefit1Title": "Calidad premium",
     "benefit1Text": "Queso artesanal hecho a mano con la mejor leche de Ohio",
@@ -155,7 +155,7 @@
     "quickLinks": "Enlaces rápidos",
     "support": "Soporte",
     "connect": "Conectar",
-    "copyright": "© {year} Colchis Creamery. Todos los derechos reservados.",
+    "copyright": "© {year} Colchis Food. Todos los derechos reservados.",
     "madeIn": "Elaborado con amor en Ohio, EE. UU."
   }
 }

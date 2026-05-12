@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
             grant_type: "authorization_code",
             client_id: clientId,
             redirect_uri: redirectUri,
-            code_verifier: "colchiscreamery-twitter-oauth-pkce-challenge-string", // Matches the 53-char plain string from initiator
+            code_verifier: "colchisfood-twitter-oauth-pkce-challenge-string-v2", // Matches the 53-char plain string from initiator
         });
 
         // For Twitter OAuth 2.0 PKCE, if it is a Confidential Client, you need the Basic Auth header.

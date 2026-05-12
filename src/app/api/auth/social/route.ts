@@ -52,7 +52,7 @@ export async function GET(req: NextRequest) {
 
         // Twitter requires code_challenge and state for OAuth 2.0 PKCE. Length must be 43-128 chars.
         const state = Math.random().toString(36).substring(2, 15);
-        const codeChallenge = "colchiscreamery-twitter-oauth-pkce-challenge-string"; // 53 chars, valid length
+        const codeChallenge = "colchisfood-twitter-oauth-pkce-challenge-string-v2"; // 53 chars, valid length
 
         const url = new URL("https://twitter.com/i/oauth2/authorize");
         url.searchParams.append("response_type", "code");

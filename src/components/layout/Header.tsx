@@ -1,378 +1,178 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { useTranslations, useLocale } from "next-intl";
 import { LocaleSwitcher } from "./LocaleSwitcher";
 import { useCart } from "@/providers/CartProvider";
 import { useAuth } from "@/providers/AuthProvider";
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
+
+function initials(name = "") {
+  return name.trim().split(/\s+/).map(p => p[0]).slice(0, 2).join("").toUpperCase() || "·";
+}
 
 export function Header() {
   const t = useTranslations("nav");
   const locale = useLocale();
   const { itemCount } = useCart();
   const { user, isLoggedIn, isLoading, logout } = useAuth();
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const [dropdownOpen, setDropdownOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
-  // Priority+ nav state
-  const [visibleCount, setVisibleCount] = useState(7); // show all by default
-  const [moreOpen, setMoreOpen] = useState(false);
-  const navContainerRef = useRef<HTMLElement>(null);
-  const navItemsRef = useRef<(HTMLElement | null)[]>([]);
-  const moreButtonRef = useRef<HTMLDivElement>(null);
-
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
   const prefix = locale === "en" ? "" : `/${locale}`;
 
-  const navLinks = [
-    { href: `${prefix}/`, label: t("home") },
-    { href: `${prefix}/heritage`, label: t("heritage") },
+  const links = [
     { href: `${prefix}/shop`, label: t("shop") },
-    { href: `${prefix}/recipes`, label: t("recipes") },
-    { href: `${prefix}/journal`, label: t("journal") },
-    { href: `${prefix}/wholesale`, label: t("wholesale") },
-    { href: `${prefix}/contact`, label: t("contact") },
+    { href: `${prefix}/bakery`, label: "Bakery" },
+    { href: `${prefix}/journal`, label: "Journal" },
+    { href: `${prefix}/recipes`, label: "Recipes" },
+    { href: `${prefix}/heritage`, label: t("heritage") },
+    { href: `${prefix}/wholesale`, label: "Wholesale" },
+    { href: `${prefix}/contact`, label: "Contact" },
   ];
 
-  // Calculate how many nav items fit in the available space
-  const calculateVisibleItems = useCallback(() => {
-    const container = navContainerRef.current;
-    if (!container) return;
-
-    // Only run on desktop (lg+)
-    if (window.innerWidth < 1024) {
-      setVisibleCount(navLinks.length);
-      return;
-    }
-
-    const containerWidth = container.offsetWidth;
-    const moreButtonWidth = 48; // approximate width of "•••" button
-    let totalWidth = 0;
-    let count = 0;
-
-    for (let i = 0; i < navItemsRef.current.length; i++) {
-      const item = navItemsRef.current[i];
-      if (!item) continue;
-      const itemWidth = item.scrollWidth + 4; // + gap
-      if (totalWidth + itemWidth <= containerWidth) {
-        totalWidth += itemWidth;
-        count++;
-      } else {
-        // Check if remaining items need a "more" button
-        // Re-evaluate: can we fit this item if we don't need more button?
-        break;
-      }
-    }
-
-    // If not all items fit, we need space for the "more" button
-    if (count < navLinks.length) {
-      // Recalculate with space reserved for the more button
-      totalWidth = 0;
-      count = 0;
-      for (let i = 0; i < navItemsRef.current.length; i++) {
-        const item = navItemsRef.current[i];
-        if (!item) continue;
-        const itemWidth = item.scrollWidth + 4;
-        if (totalWidth + itemWidth + moreButtonWidth <= containerWidth) {
-          totalWidth += itemWidth;
-          count++;
-        } else {
-          break;
-        }
-      }
-    }
-
-    setVisibleCount(Math.max(count, 1)); // Always show at least 1
-  }, [navLinks.length]);
-
-  // Observe container resize
   useEffect(() => {
-    const container = navContainerRef.current;
-    if (!container) return;
-
-    // Initial calculation after fonts load
-    const timer = setTimeout(calculateVisibleItems, 100);
-
-    const observer = new ResizeObserver(() => {
-      calculateVisibleItems();
-    });
-    observer.observe(container);
-
-    window.addEventListener("resize", calculateVisibleItems);
-
-    return () => {
-      clearTimeout(timer);
-      observer.disconnect();
-      window.removeEventListener("resize", calculateVisibleItems);
-    };
-  }, [calculateVisibleItems]);
-
-  // Recalculate when locale changes (labels change width)
-  useEffect(() => {
-    const timer = setTimeout(calculateVisibleItems, 50);
-    return () => clearTimeout(timer);
-  }, [locale, calculateVisibleItems]);
-
-  // Close dropdown on outside click
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setDropdownOpen(false);
-      }
-      if (moreButtonRef.current && !moreButtonRef.current.contains(event.target as Node)) {
-        setMoreOpen(false);
-      }
+    if (drawerOpen) {
+      const scrollY = window.scrollY;
+      document.body.style.position = "fixed";
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.left = "0";
+      document.body.style.right = "0";
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.position = "";
+        document.body.style.top = "";
+        document.body.style.left = "";
+        document.body.style.right = "";
+        document.body.style.overflow = "";
+        window.scrollTo(0, scrollY);
+      };
     }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  }, [drawerOpen]);
 
-  const handleLogout = async () => {
-    setDropdownOpen(false);
-    setMobileOpen(false);
-    await logout();
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onDoc = (e: MouseEvent) => { if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false); };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [menuOpen]);
+
+  const handleLogout = async () => { setMenuOpen(false); setDrawerOpen(false); await logout(); };
+
+  const menuItemStyle: React.CSSProperties = {
+    display: "block", padding: "14px 20px",
+    fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.22em",
+    color: "#1F3026", textDecoration: "none", textTransform: "uppercase",
+    border: "none", background: "transparent", width: "100%", textAlign: "left",
+    cursor: "pointer",
   };
 
-  const userInitial = user?.name?.charAt(0)?.toUpperCase() || user?.email?.charAt(0)?.toUpperCase() || "U";
-
-  const visibleLinks = navLinks.slice(0, visibleCount);
-  const overflowLinks = navLinks.slice(visibleCount);
-
   return (
-    <header className="sticky top-0 z-40 bg-cream/95 backdrop-blur-sm border-b border-border-light">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-20 sm:h-28 py-2">
-          {/* Left: Logo — fixed width, doesn't expand */}
-          <div className="flex items-center shrink-0">
-            <Link href={`${prefix}/`} className="flex items-center gap-3">
-              <Image src="/logo-optimized.png" alt="Colchis Creamery Logo" width={90} height={90} priority className="w-[70px] h-[70px] sm:w-[90px] sm:h-[90px] object-contain rounded-full border border-gold/30 shadow-md" />
-              <span className="font-serif text-xl sm:text-2xl font-bold text-charcoal tracking-tight hidden xl:block">
-                Colchis<span className="text-gold-text"> Creamery</span>
-              </span>
-            </Link>
-          </div>
+    <>
+      <header style={{ position: "sticky", top: 0, zIndex: 50, background: "#F5F0E6F2", backdropFilter: "blur(12px)", borderBottom: "1px solid #1F302614" }}>
+        <div className="ch-header-inner" style={{ maxWidth: 1440, margin: "0 auto", padding: "20px 40px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 24 }}>
+          {/* Logo */}
+          <Link href={`${prefix}/`} style={{ display: "flex", alignItems: "center", gap: 12, textDecoration: "none", flexShrink: 0 }}>
+            <img src="/brand/seal-primary.svg" alt="Colchis Food" width={88} height={88} style={{ display: "block", flexShrink: 0 }} />
+            <div style={{ fontFamily: "var(--font-serif)", fontWeight: 500, fontSize: 15, letterSpacing: "0.18em", textTransform: "uppercase", color: "#1F3026", whiteSpace: "nowrap" }}>Colchis Food</div>
+          </Link>
 
-          {/* Center: Desktop Navigation with Priority+ overflow */}
-          <nav
-            ref={navContainerRef}
-            className="hidden lg:flex items-center justify-center flex-1 min-w-0 mx-2 xl:mx-4"
-          >
-            {/* Visible nav items */}
-            {visibleLinks.map((link, i) => (
-              <Link
-                key={link.href}
-                ref={(el) => { navItemsRef.current[i] = el; }}
-                href={link.href}
-                className="px-2 xl:px-3 py-2 text-[13px] xl:text-sm font-medium text-charcoal/80 hover:text-gold-text transition rounded whitespace-nowrap"
-              >
-                {link.label}
-              </Link>
+          {/* Desktop nav */}
+          <nav className="ch-nav ch-nav-desktop" style={{ display: "flex", gap: 22, fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", alignItems: "center" }}>
+            {links.map(l => (
+              <Link key={l.href} href={l.href} style={{ color: "#1F3026", textDecoration: "none" }}>{l.label}</Link>
             ))}
-
-            {/* Hidden measurement refs for items not currently visible */}
-            {overflowLinks.map((link, i) => (
-              <span
-                key={`measure-${link.href}`}
-                ref={(el) => { navItemsRef.current[visibleCount + i] = el; }}
-                className="px-2 xl:px-3 py-2 text-[13px] xl:text-sm font-medium whitespace-nowrap"
-                style={{ position: 'absolute', visibility: 'hidden', pointerEvents: 'none' }}
-                aria-hidden="true"
-              >
-                {link.label}
-              </span>
-            ))}
-
-            {/* "More" dropdown button */}
-            {overflowLinks.length > 0 && (
-              <div ref={moreButtonRef} className="relative">
-                <button
-                  onClick={() => setMoreOpen(!moreOpen)}
-                  className="px-2 py-2 text-sm font-medium text-charcoal/80 hover:text-gold-text transition rounded flex items-center gap-1"
-                  aria-label="More pages"
-                >
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h.01M12 12h.01M19 12h.01" />
-                  </svg>
-                </button>
-
-                {moreOpen && (
-                  <div className="absolute right-0 top-full mt-1 w-52 bg-white rounded-lg shadow-xl border border-border-light py-1.5 z-50 animate-fade-in">
-                    {overflowLinks.map((link) => (
-                      <Link
-                        key={link.href}
-                        href={link.href}
-                        onClick={() => setMoreOpen(false)}
-                        className="block px-4 py-2.5 text-sm text-charcoal/80 hover:bg-cream hover:text-gold-text transition"
-                      >
-                        {link.label}
-                      </Link>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
           </nav>
 
-          {/* Right side: locale, cart, auth — fixed width */}
-          <div className="flex items-center shrink-0 gap-2">
+          {/* Desktop CTA + auth */}
+          <div className="ch-header-cta" style={{ display: "flex", gap: 14, alignItems: "center", fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", flexShrink: 0 }}>
             <LocaleSwitcher />
 
-            <Link
-              href={`${prefix}/cart`}
-              className="relative p-2 rounded hover:bg-charcoal/5 transition"
-              aria-label={t("cart")}
-            >
-              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.5}
-                  d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
-                />
+            {/* Cart */}
+            <Link href={`${prefix}/cart`} aria-label={t("cart")} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 38, height: 38, color: "#1F3026", textDecoration: "none", position: "relative" }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.4}>
+                <path d="M5 7h14l-1.5 11a2 2 0 0 1-2 1.75H8.5A2 2 0 0 1 6.5 18L5 7z" />
+                <path d="M9 7V5a3 3 0 0 1 6 0v2" />
               </svg>
               {itemCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-gold text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-medium">
-                  {itemCount}
-                </span>
+                <span style={{ position: "absolute", top: -2, right: -2, background: "#B96A3D", color: "#F5F0E6", fontSize: 10, fontWeight: 700, width: 18, height: 18, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center" }}>{itemCount}</span>
               )}
             </Link>
 
-            {/* Desktop Auth */}
+            {/* Auth */}
             {!isLoading && (
-              <>
-                {isLoggedIn && user ? (
-                  <div className="hidden lg:block relative" ref={dropdownRef}>
-                    <button
-                      onClick={() => setDropdownOpen(!dropdownOpen)}
-                      className="flex items-center justify-center w-10 h-10 rounded-full border-2 border-transparent hover:border-gold transition-all focus:outline-none focus:ring-2 focus:ring-gold/50"
-                      aria-label="User Menu"
-                    >
-                      <div className="w-9 h-9 rounded-full bg-gold flex items-center justify-center shadow-sm">
-                        <span className="text-white text-sm font-bold">{userInitial}</span>
+              isLoggedIn && user ? (
+                <div ref={menuRef} style={{ position: "relative" }}>
+                  <button onClick={() => setMenuOpen(m => !m)} aria-label="Account menu" aria-expanded={menuOpen} style={{ width: 38, height: 38, borderRadius: "50%", background: "#B96A3D", color: "#F5F0E6", border: "none", cursor: "pointer", fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.08em", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>
+                    {initials(user.name || user.email)}
+                  </button>
+                  {menuOpen && (
+                    <div role="menu" style={{ position: "absolute", top: "calc(100% + 14px)", right: 0, width: 280, background: "#F5F0E6", border: "1px solid #1F302622", boxShadow: "0 18px 40px rgba(31,48,38,0.14)", zIndex: 60 }}>
+                      <div style={{ padding: "18px 20px", borderBottom: "1px solid #1F302614" }}>
+                        <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.18em", color: "#1F3026", textTransform: "uppercase", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{user.name || "Customer"}</div>
+                        <div style={{ fontFamily: "var(--font-sans)", fontSize: 12, color: "#7A8278", marginTop: 4, textTransform: "none", letterSpacing: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{user.email}</div>
                       </div>
-                    </button>
-
-                    {/* Dropdown */}
-                    {dropdownOpen && (
-                      <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-xl border border-border-light py-2 animate-fade-in z-50">
-                        <div className="px-4 py-2 border-b border-border-light">
-                          <p className="text-sm font-medium text-charcoal truncate">{user.name || "Customer"}</p>
-                          <p className="text-xs text-charcoal/50 truncate">{user.email}</p>
-                        </div>
-                        <Link
-                          href={`${prefix}/account`}
-                          onClick={() => setDropdownOpen(false)}
-                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-charcoal/80 hover:bg-cream hover:text-gold-text transition"
-                        >
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                          </svg>
-                          My Account
-                        </Link>
-                        <Link
-                          href={`${prefix}/account`}
-                          onClick={() => setDropdownOpen(false)}
-                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-charcoal/80 hover:bg-cream hover:text-gold-text transition"
-                        >
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                          </svg>
-                          Order History
-                        </Link>
-                        <div className="border-t border-border-light my-1"></div>
-                        <button
-                          onClick={handleLogout}
-                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition w-full text-left"
-                        >
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                          </svg>
-                          Sign Out
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <Link
-                    href={`${prefix}/login`}
-                    className="hidden lg:flex items-center gap-2 px-5 py-2 ml-2 rounded-full border border-charcoal text-charcoal text-xs font-bold tracking-tight uppercase hover:bg-charcoal hover:text-white transition-all"
-                  >
-                    Sign In
-                  </Link>
-                )}
-              </>
+                      <Link href={`${prefix}/account`} onClick={() => setMenuOpen(false)} style={menuItemStyle} role="menuitem">My Account</Link>
+                      <Link href={`${prefix}/account`} onClick={() => setMenuOpen(false)} style={menuItemStyle} role="menuitem">Orders</Link>
+                      <button onClick={handleLogout} style={{ ...menuItemStyle, color: "#B96A3D", borderTop: "1px solid #1F302614" }} role="menuitem">Sign Out</button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <Link href={`${prefix}/login`} style={{ color: "#1F3026", textDecoration: "none", padding: "11px 4px", whiteSpace: "nowrap", borderBottom: "1px solid #1F302633" }}>Sign In</Link>
+              )
             )}
 
-            {/* Mobile menu button */}
-            <button
-              onClick={() => setMobileOpen(!mobileOpen)}
-              className="lg:hidden p-2 rounded hover:bg-charcoal/5 transition"
-              aria-label="Menu"
-            >
-              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                {mobileOpen ? (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                ) : (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                )}
-              </svg>
-            </button>
+            {/* Order CTA */}
+            <Link href={`${prefix}/shop`} style={{ background: "#1F3026", color: "#F5F0E6", border: "none", padding: "11px 20px", fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.24em", textTransform: "uppercase", textDecoration: "none", whiteSpace: "nowrap" }}>Order →</Link>
+          </div>
+
+          {/* Burger button (mobile) */}
+          <button className="ch-burger" onClick={() => setDrawerOpen(true)} aria-label="Open menu" style={{ display: "none", flexDirection: "column", justifyContent: "center", alignItems: "center", gap: 5, width: 42, height: 42, background: "transparent", border: "1px solid #1F302633", cursor: "pointer", padding: 0 }}>
+            <span style={{ display: "block", width: 18, height: 1.5, background: "#1F3026" }} />
+            <span style={{ display: "block", width: 18, height: 1.5, background: "#1F3026" }} />
+            <span style={{ display: "block", width: 18, height: 1.5, background: "#1F3026" }} />
+          </button>
+        </div>
+      </header>
+
+      {/* Mobile Drawer */}
+      <div className={`ch-drawer-backdrop ${drawerOpen ? "open" : ""}`} onClick={() => setDrawerOpen(false)} />
+      <aside className={`ch-drawer ${drawerOpen ? "open" : ""}`}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 24px", borderBottom: "1px solid #1F302614" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <img src="/brand/seal-primary.svg" alt="Colchis Food" width={64} height={64} style={{ display: "block", flexShrink: 0 }} />
+            <div style={{ fontFamily: "var(--font-serif)", fontWeight: 500, fontSize: 13, letterSpacing: "0.18em", textTransform: "uppercase", color: "#1F3026" }}>Colchis Food</div>
+          </div>
+          <button onClick={() => setDrawerOpen(false)} aria-label="Close menu" style={{ width: 36, height: 36, background: "transparent", border: "1px solid #1F302633", cursor: "pointer", fontFamily: "var(--font-serif)", fontSize: 18, color: "#1F3026", padding: 0, lineHeight: 1 }}>×</button>
+        </div>
+        <nav style={{ flex: 1, padding: "32px 24px", display: "flex", flexDirection: "column", gap: 4 }}>
+          {links.map(l => (
+            <Link key={l.href} href={l.href} onClick={() => setDrawerOpen(false)} style={{ display: "block", padding: "18px 4px", fontFamily: "var(--font-serif)", fontStyle: "italic", fontSize: 32, color: "#1F3026", textDecoration: "none", borderBottom: "1px solid #1F302614" }}>{l.label}</Link>
+          ))}
+        </nav>
+        <div style={{ padding: "20px 24px", borderTop: "1px solid #1F302614", display: "flex", flexDirection: "column", gap: 14 }}>
+          {!isLoading && isLoggedIn && user ? (
+            <>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0" }}>
+                <span style={{ width: 38, height: 38, borderRadius: "50%", background: "#B96A3D", color: "#F5F0E6", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-mono)", fontSize: 11 }}>{initials(user.name || user.email)}</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.2em", color: "#1F3026", textTransform: "uppercase", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{user.name || user.email.split("@")[0]}</div>
+                  <Link href={`${prefix}/account`} onClick={() => setDrawerOpen(false)} style={{ fontFamily: "var(--font-sans)", fontSize: 12, color: "#B96A3D", textDecoration: "none" }}>My account →</Link>
+                </div>
+                <button onClick={handleLogout} style={{ background: "transparent", border: "1px solid #1F302633", color: "#1F3026", padding: "8px 12px", fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.2em", textTransform: "uppercase", cursor: "pointer" }}>Sign out</button>
+              </div>
+            </>
+          ) : (
+            <Link href={`${prefix}/login`} onClick={() => setDrawerOpen(false)} style={{ display: "block", textAlign: "center", background: "transparent", color: "#1F3026", border: "1px solid #1F3026", padding: "14px 0", fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.28em", textTransform: "uppercase", textDecoration: "none" }}>Sign In</Link>
+          )}
+          <Link href={`${prefix}/shop`} onClick={() => setDrawerOpen(false)} style={{ display: "block", textAlign: "center", background: "#1F3026", color: "#F5F0E6", border: "none", padding: "16px 0", fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.28em", textTransform: "uppercase", textDecoration: "none" }}>Order →</Link>
+          <div style={{ display: "flex", justifyContent: "space-between", fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.24em", textTransform: "uppercase", color: "#7A8278" }}>
+            <span>EN / ქართული</span>
+            <span>5340 Tuller Rd</span>
           </div>
         </div>
-
-        {/* Mobile Navigation — completely unchanged */}
-        {mobileOpen && (
-          <nav className="lg:hidden pb-4 border-t border-border-light pt-4">
-            {navLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                onClick={() => setMobileOpen(false)}
-                className="block px-3 py-3 text-base font-medium text-charcoal/80 hover:text-gold-text hover:bg-cream transition rounded"
-              >
-                {link.label}
-              </Link>
-            ))}
-            <div className="border-t border-border-light my-2"></div>
-            {!isLoading && isLoggedIn && user ? (
-              <>
-                <div className="flex items-center gap-3 px-3 py-3">
-                  <div className="w-8 h-8 rounded-full bg-gold flex items-center justify-center">
-                    <span className="text-white text-xs font-bold">{userInitial}</span>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-charcoal">{user.name || user.email.split("@")[0]}</p>
-                    <p className="text-xs text-charcoal/50">{user.email}</p>
-                  </div>
-                </div>
-                <Link
-                  href={`${prefix}/account`}
-                  onClick={() => setMobileOpen(false)}
-                  className="block px-3 py-3 text-base font-medium text-charcoal/80 hover:text-gold-text hover:bg-cream transition rounded"
-                >
-                  My Account
-                </Link>
-                <button
-                  onClick={handleLogout}
-                  className="block w-full text-left px-3 py-3 text-base font-medium text-red-500 hover:bg-red-50 transition rounded"
-                >
-                  Sign Out
-                </button>
-              </>
-            ) : (
-              <Link
-                href={`${prefix}/login`}
-                onClick={() => setMobileOpen(false)}
-                className="block px-3 py-3 text-base font-medium text-gold-text hover:text-charcoal hover:bg-cream transition rounded"
-              >
-                Sign In
-              </Link>
-            )}
-          </nav>
-        )}
-      </div>
-    </header>
+      </aside>
+    </>
   );
 }

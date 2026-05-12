@@ -5,101 +5,173 @@ import { revalidatePath } from 'next/cache';
 import { Resend } from 'resend';
 
 const resend = new Resend(process.env.RESEND_API_KEY || 're_dummy_string_for_build_time');
-const FROM_EMAIL = process.env.EMAIL_FROM || 'noreply@updates.colchiscreamery.com';
-const FROM_NAME = 'Colchis Creamery';
+function getFrom(): string {
+    const email = process.env.EMAIL_FROM || 'hello@noreply.colchisfood.com';
+    return `Colchis Food <${email}>`;
+}
 
 const SALES_RECIPIENTS = [
-    'sales@colchiscreamery.com',
-    't.shergelashvili@colchiscreamery.com',
+    'sales@colchisfood.com',
+    't.shergelashvili@colchisfood.com',
 ];
 
-// ─── HTML Email Templates ──────────────────────────────────────────────────────
+// ─── Brand tokens — exactly matching globals.css ────────────────────────────
 
-function buildApplicantConfirmationEmail(contactName: string, companyName: string): string {
+const C = {
+    forest:    '#1F3026',   // --color-ink (hero bg, primary text)
+    moss:      '#2C3D33',   // --color-ink2 (body text)
+    accent:    '#B96A3D',   // --color-accent (primary copper)
+    accent2:   '#8B4A28',   // --color-accent2 / --color-primary-dark (eyebrows)
+    cream:     '#F5F0E6',   // --color-cream (page bg)
+    cream2:    '#EAE2D2',   // --color-cream2 (card bg)
+    muted:     '#7A8278',   // --color-muted
+    white:     '#ffffff',
+};
+
+// Hosted PNG — works in Gmail/Outlook (SVG and data URIs are stripped)
+const SEAL_URL = 'https://colchisfood.com/brand/seal-primary.png';
+
+// ─── Shared building blocks ─────────────────────────────────────────────────
+
+function emailShell(inner: string): string {
     return `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
-<body style="margin:0;padding:0;background-color:#FDFBF7;font-family:'Georgia',serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#FDFBF7;padding:40px 20px;">
-    <tr>
-      <td align="center">
-        <table width="560" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);max-width:100%;">
-          
-          <!-- Header -->
-          <tr>
-            <td style="background: linear-gradient(135deg, #2C2A29 0%, #1A1A1A 100%);padding:40px 40px 30px;text-align:center;">
-              <h1 style="margin:0;font-family:'Georgia',serif;font-size:28px;color:#CBA153;letter-spacing:2px;">
-                COLCHIS CREAMERY
-              </h1>
-              <p style="margin:8px 0 0;font-size:11px;color:#CBA153;letter-spacing:4px;text-transform:uppercase;opacity:0.7;">
-                Wholesale Partnership
-              </p>
-            </td>
-          </tr>
+<body style="margin:0;padding:0;background-color:${C.cream};font-family:'Georgia','Times New Roman',serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:${C.cream};padding:40px 16px;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="max-width:100%;">
+        ${inner}
+      </table>
 
-          <!-- Body -->
-          <tr>
-            <td style="padding:40px;">
-              <h2 style="margin:0 0 20px;font-family:'Georgia',serif;font-size:22px;color:#2C2A29;">
-                Application Received
-              </h2>
-              <p style="margin:0 0 20px;font-size:15px;color:#555;line-height:1.7;">
-                Dear ${contactName},
-              </p>
-              <p style="margin:0 0 20px;font-size:15px;color:#555;line-height:1.7;">
-                Thank you for your interest in partnering with Colchis Creamery. We're thrilled that <strong>${companyName}</strong> is considering our artisanal Georgian cheeses for your offerings.
-              </p>
-              <p style="margin:0 0 25px;font-size:15px;color:#555;line-height:1.7;">
-                Your partnership application has been received and is currently under review. Our sales team will reach out to you within <strong>0–48 business hours</strong> to discuss the next steps.
-              </p>
-
-              <!-- Highlight Box -->
-              <table width="100%" cellpadding="0" cellspacing="0" style="margin:25px 0;">
-                <tr>
-                  <td style="background-color:#FDFBF7;border-left:4px solid #CBA153;padding:20px 24px;border-radius:0 8px 8px 0;">
-                    <p style="margin:0 0 8px;font-size:13px;color:#CBA153;font-weight:bold;letter-spacing:1px;text-transform:uppercase;">
-                      What Happens Next?
-                    </p>
-                    <p style="margin:0;font-size:14px;color:#666;line-height:1.6;">
-                      1. Our sales team reviews your application<br>
-                      2. A dedicated account manager will contact you<br>
-                      3. We'll arrange product sampling & pricing discussion<br>
-                      4. Paperless contract via Adobe Sign
-                    </p>
-                  </td>
-                </tr>
-              </table>
-
-              <p style="margin:25px 0 0;font-size:15px;color:#555;line-height:1.7;">
-                In the meantime, feel free to explore our product line at <a href="https://colchiscreamery.com/shop" style="color:#CBA153;text-decoration:none;font-weight:bold;">colchiscreamery.com/shop</a>.
-              </p>
-            </td>
-          </tr>
-
-          <!-- Footer -->
-          <tr>
-            <td style="background-color:#2C2A29;padding:30px 40px;text-align:center;">
-              <p style="margin:0 0 8px;font-size:13px;color:#CBA153;font-weight:bold;letter-spacing:1px;">
-                COLCHIS CREAMERY
-              </p>
-              <p style="margin:0 0 4px;font-size:12px;color:#888;">
-                Columbus, Ohio | Premium Artisanal Georgian Cheese
-              </p>
-              <p style="margin:0;font-size:12px;color:#888;">
-                <a href="mailto:sales@colchiscreamery.com" style="color:#CBA153;text-decoration:none;">sales@colchiscreamery.com</a>
-              </p>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
+      <!-- Brand sign-off -->
+      <table width="600" cellpadding="0" cellspacing="0" style="max-width:100%;">
+        <tr><td style="padding:32px 0 8px;text-align:center;">
+          <p style="margin:0;font-family:'Courier New',monospace;font-size:9px;letter-spacing:4px;color:${C.muted};text-transform:uppercase;">
+            Colchis Food · Dublin, Ohio · Est. 2026
+          </p>
+        </td></tr>
+      </table>
+    </td></tr>
   </table>
 </body>
 </html>`;
 }
+
+function sealHeader(subtitle: string): string {
+    return `
+        <!-- Hero header with grid overlay -->
+        <tr>
+          <td style="background:${C.forest};padding:48px 48px 44px;text-align:center;background-image:linear-gradient(rgba(245,240,230,0.03) 1px, transparent 1px),linear-gradient(90deg,rgba(245,240,230,0.03) 1px, transparent 1px);background-size:40px 40px;">
+            <img src="${SEAL_URL}" alt="Colchis Food" width="64" height="64" style="display:block;margin:0 auto 20px;" />
+            <p style="margin:0 0 6px;font-family:'Courier New',monospace;font-size:10px;letter-spacing:5px;color:rgba(245,240,230,0.45);text-transform:uppercase;">
+              Colchis Food
+            </p>
+            <p style="margin:0;font-family:'Courier New',monospace;font-size:10px;letter-spacing:3px;color:${C.accent2};text-transform:uppercase;">
+              ${subtitle}
+            </p>
+          </td>
+        </tr>
+        <!-- Thin copper rule -->
+        <tr><td style="height:2px;background:${C.accent};font-size:0;line-height:0;">&nbsp;</td></tr>`;
+}
+
+function darkFooter(): string {
+    return `
+        <tr>
+          <td style="background:${C.forest};padding:28px 48px;text-align:center;">
+            <p style="margin:0 0 2px;font-family:'Courier New',monospace;font-size:9px;letter-spacing:3px;color:rgba(245,240,230,0.25);text-transform:uppercase;">
+              © ${new Date().getFullYear()} Colchis Food
+            </p>
+            <p style="margin:0;font-family:'Georgia',serif;font-size:10px;color:rgba(245,240,230,0.18);font-style:italic;">
+              Heritage in every bite
+            </p>
+          </td>
+        </tr>`;
+}
+
+// ─── Wholesale Applicant Confirmation ───────────────────────────────────────
+
+function buildApplicantConfirmationEmail(contactName: string, companyName: string): string {
+    return emailShell(`
+        ${sealHeader('Wholesale Partnership')}
+
+        <!-- Main body on parchment -->
+        <tr>
+          <td style="background:${C.cream2};padding:48px 48px 24px;">
+            <p style="margin:0 0 20px;font-family:'Courier New',monospace;font-size:10px;letter-spacing:3px;color:${C.accent2};text-transform:uppercase;">
+              Application Received
+            </p>
+            <h1 style="margin:0 0 24px;font-family:'Georgia',serif;font-size:30px;font-weight:300;color:${C.forest};line-height:1.15;letter-spacing:-0.5px;">
+              Thank you, <em style="color:${C.accent2};font-weight:400;">${contactName}.</em>
+            </h1>
+            <p style="margin:0;font-family:'Georgia',serif;font-size:15px;color:${C.moss};line-height:1.75;font-style:italic;">
+              We've received the partnership application for <strong style="color:${C.forest};font-style:normal;">${companyName}</strong>. Our wholesale team reviews every request personally — expect to hear back within 1–2 business days.
+            </p>
+          </td>
+        </tr>
+
+        <!-- Separator -->
+        <tr><td style="background:${C.cream2};padding:0 48px;"><div style="height:1px;background:${C.forest};opacity:0.12;"></div></td></tr>
+
+        <!-- Steps -->
+        <tr>
+          <td style="background:${C.cream2};padding:28px 48px 40px;">
+            <p style="margin:0 0 20px;font-family:'Courier New',monospace;font-size:10px;letter-spacing:3px;color:${C.accent2};text-transform:uppercase;">
+              What happens next
+            </p>
+            <table width="100%" cellpadding="0" cellspacing="0">
+              <tr><td style="padding:10px 0;border-bottom:1px solid ${C.forest}0d;">
+                <table cellpadding="0" cellspacing="0"><tr>
+                  <td style="width:28px;font-family:'Georgia',serif;font-size:18px;color:${C.accent};vertical-align:top;font-style:italic;">01</td>
+                  <td style="padding-left:14px;font-family:'Georgia',serif;font-size:14px;color:${C.moss};line-height:1.5;">Application review by our sales team</td>
+                </tr></table>
+              </td></tr>
+              <tr><td style="padding:10px 0;border-bottom:1px solid ${C.forest}0d;">
+                <table cellpadding="0" cellspacing="0"><tr>
+                  <td style="width:28px;font-family:'Georgia',serif;font-size:18px;color:${C.accent};vertical-align:top;font-style:italic;">02</td>
+                  <td style="padding-left:14px;font-family:'Georgia',serif;font-size:14px;color:${C.moss};line-height:1.5;">Dedicated account manager reaches out</td>
+                </tr></table>
+              </td></tr>
+              <tr><td style="padding:10px 0;border-bottom:1px solid ${C.forest}0d;">
+                <table cellpadding="0" cellspacing="0"><tr>
+                  <td style="width:28px;font-family:'Georgia',serif;font-size:18px;color:${C.accent};vertical-align:top;font-style:italic;">03</td>
+                  <td style="padding-left:14px;font-family:'Georgia',serif;font-size:14px;color:${C.moss};line-height:1.5;">Product sampling &amp; pricing discussion</td>
+                </tr></table>
+              </td></tr>
+              <tr><td style="padding:10px 0;">
+                <table cellpadding="0" cellspacing="0"><tr>
+                  <td style="width:28px;font-family:'Georgia',serif;font-size:18px;color:${C.accent};vertical-align:top;font-style:italic;">04</td>
+                  <td style="padding-left:14px;font-family:'Georgia',serif;font-size:14px;color:${C.moss};line-height:1.5;">Paperless contract &amp; first order</td>
+                </tr></table>
+              </td></tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- CTA -->
+        <tr>
+          <td style="background:${C.cream2};padding:0 48px 48px;">
+            <table width="100%" cellpadding="0" cellspacing="0">
+              <tr>
+                <td style="background:${C.forest};padding:18px 28px;text-align:center;">
+                  <a href="https://colchisfood.com/shop" style="font-family:'Courier New',monospace;font-size:11px;letter-spacing:3px;color:${C.cream};text-decoration:none;text-transform:uppercase;">
+                    Explore our products →
+                  </a>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        ${darkFooter()}
+    `);
+}
+
+// ─── Sales Team Notification ────────────────────────────────────────────────
 
 function buildSalesNotificationEmail(data: {
     companyName: string;
@@ -110,44 +182,64 @@ function buildSalesNotificationEmail(data: {
     volume: string;
     message: string;
 }): string {
-    return `<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"></head>
-<body style="margin:0;padding:0;background-color:#f5f5f5;font-family:Arial,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f5f5f5;padding:30px 20px;">
-    <tr>
-      <td align="center">
-        <table width="560" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.1);max-width:100%;">
-          <tr>
-            <td style="background:#CBA153;padding:20px 30px;">
-              <h1 style="margin:0;color:#000;font-size:18px;font-weight:bold;">🔔 New Wholesale Partnership Request</h1>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:30px;">
-              <table width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;color:#333;">
-                <tr><td style="padding:8px 0;font-weight:bold;width:140px;color:#666;">Company:</td><td style="padding:8px 0;">${data.companyName}</td></tr>
-                <tr><td style="padding:8px 0;font-weight:bold;color:#666;">Contact:</td><td style="padding:8px 0;">${data.contactName}</td></tr>
-                <tr><td style="padding:8px 0;font-weight:bold;color:#666;">Email:</td><td style="padding:8px 0;"><a href="mailto:${data.email}" style="color:#CBA153;">${data.email}</a></td></tr>
-                <tr><td style="padding:8px 0;font-weight:bold;color:#666;">Phone:</td><td style="padding:8px 0;"><a href="tel:${data.phone}" style="color:#CBA153;">${data.phone}</a></td></tr>
-                <tr><td style="padding:8px 0;font-weight:bold;color:#666;">Address:</td><td style="padding:8px 0;">${data.address}</td></tr>
-                <tr><td style="padding:8px 0;font-weight:bold;color:#666;">Est. Volume:</td><td style="padding:8px 0;">${data.volume}</td></tr>
-                ${data.message ? `<tr><td style="padding:8px 0;font-weight:bold;color:#666;vertical-align:top;">Message:</td><td style="padding:8px 0;">${data.message}</td></tr>` : ''}
-              </table>
-              <p style="margin:20px 0 0;padding:15px;background:#f9f9f9;border-radius:6px;font-size:13px;color:#888;">
-                This lead has been saved to the admin panel. <a href="https://colchiscreamery.com/admin/requests" style="color:#CBA153;">View all requests →</a>
-              </p>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>`;
+    const row = (label: string, value: string, link = false) => `
+              <tr>
+                <td style="padding:10px 0;border-bottom:1px solid ${C.forest}0d;font-family:'Courier New',monospace;font-size:9px;letter-spacing:2px;color:${C.muted};text-transform:uppercase;width:100px;vertical-align:top;">${label}</td>
+                <td style="padding:10px 0 10px 16px;border-bottom:1px solid ${C.forest}0d;font-family:'Georgia',serif;font-size:14px;color:${C.forest};">${link ? `<a href="mailto:${value}" style="color:${C.accent2};text-decoration:none;">${value}</a>` : value}</td>
+              </tr>`;
+
+    return emailShell(`
+        <!-- Copper alert bar -->
+        <tr>
+          <td style="background:${C.accent2};padding:16px 48px;">
+            <p style="margin:0;font-family:'Courier New',monospace;font-size:11px;letter-spacing:3px;color:${C.cream};text-transform:uppercase;">
+              🔔 New wholesale request
+            </p>
+          </td>
+        </tr>
+
+        <tr>
+          <td style="background:${C.cream2};padding:36px 48px 16px;">
+            <h2 style="margin:0 0 4px;font-family:'Georgia',serif;font-size:26px;font-weight:300;color:${C.forest};letter-spacing:-0.5px;">${data.companyName}</h2>
+            <p style="margin:0;font-family:'Georgia',serif;font-size:14px;color:${C.muted};font-style:italic;">${data.contactName} · ${data.volume}</p>
+          </td>
+        </tr>
+
+        <tr><td style="background:${C.cream2};padding:0 48px;"><div style="height:1px;background:${C.forest};opacity:0.12;"></div></td></tr>
+
+        <tr>
+          <td style="background:${C.cream2};padding:20px 48px 36px;">
+            <table width="100%" cellpadding="0" cellspacing="0">
+              ${row('Company', data.companyName)}
+              ${row('Contact', data.contactName)}
+              ${row('Email', data.email, true)}
+              ${row('Phone', data.phone)}
+              ${row('Address', data.address)}
+              ${row('Volume', data.volume)}
+              ${data.message ? row('Message', data.message) : ''}
+            </table>
+          </td>
+        </tr>
+
+        <tr>
+          <td style="background:${C.cream2};padding:0 48px 36px;">
+            <table width="100%" cellpadding="0" cellspacing="0">
+              <tr>
+                <td style="border-left:2px solid ${C.accent};padding:12px 20px;background:${C.cream};">
+                  <p style="margin:0;font-family:'Courier New',monospace;font-size:9px;letter-spacing:2px;color:${C.muted};text-transform:uppercase;">
+                    Lead saved · <a href="https://colchisfood.com/admin/requests" style="color:${C.accent2};text-decoration:none;">View in admin →</a>
+                  </p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        ${darkFooter()}
+    `);
 }
 
-// ─── Server Action ──────────────────────────────────────────────────────────────
+// ─── Server Action ──────────────────────────────────────────────────────────
 
 export async function submitWholesaleLead(prevState: any, formData: FormData) {
     const companyName = (formData.get('companyName') as string)?.trim();
@@ -155,31 +247,30 @@ export async function submitWholesaleLead(prevState: any, formData: FormData) {
     const email = (formData.get('email') as string)?.trim();
     const phone = (formData.get('phone') as string)?.trim();
     const address = (formData.get('address') as string)?.trim();
+    const zipCode = (formData.get('zipCode') as string)?.trim();
     const volume = (formData.get('volume') as string) || 'Under 50 lbs';
     const message = (formData.get('message') as string)?.trim() || '';
 
     // ─── Anti-bot checks ─────────────────────────────────────────────────────
-    // 1. Honeypot: hidden field that bots auto-fill
-    const honeypot = formData.get('website_url') as string;
+    const honeypot = (formData.get('website_url') as string || '').trim();
     if (honeypot) {
-        // Bot detected — return fake success to not reveal detection
+        console.log('[Wholesale] Honeypot triggered, blocking submission');
         await new Promise(r => setTimeout(r, 1000));
-        return { success: 'Your request has been received. Our sales team will contact you within 0–48 business hours.' };
+        return { success: 'Your partnership request has been received. Our sales team will reach out within 1–2 business days.' };
     }
 
-    // 2. Timing: real humans take at least 5 seconds to fill a form
-    const loadTime = parseInt(formData.get('_loadTime') as string, 10);
-    if (loadTime && (Date.now() - loadTime) < 4000) {
+    const loadTimeStr = formData.get('_loadTime') as string;
+    const loadTime = loadTimeStr ? parseInt(loadTimeStr, 10) : 0;
+    if (loadTime && !isNaN(loadTime) && (Date.now() - loadTime) < 3000) {
+        console.log('[Wholesale] Timing check triggered, blocking submission');
         await new Promise(r => setTimeout(r, 1000));
-        return { success: 'Your request has been received. Our sales team will contact you within 0–48 business hours.' };
+        return { success: 'Your partnership request has been received. Our sales team will reach out within 1–2 business days.' };
     }
 
     // ─── Validation ──────────────────────────────────────────────────────────
-    if (!companyName || !contactName || !email || !phone || !address) {
+    if (!companyName || !contactName || !email || !phone || !address || !zipCode) {
         return { error: 'Please fill in all required fields.' };
     }
-
-    // Basic email format check
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
         return { error: 'Please enter a valid email address.' };
     }
@@ -187,50 +278,48 @@ export async function submitWholesaleLead(prevState: any, formData: FormData) {
     try {
         // ─── 1. Save to database ─────────────────────────────────────────────
         await prisma.b2bLead.create({
-            data: {
-                companyName,
-                contactName,
-                email,
-                phone,
-                address,
-                expectedVolume: volume,
-                message: message || null,
-                status: 'NEW',
-            },
+            data: { companyName, contactName, email, phone, address: `${address}, ${zipCode}`, expectedVolume: volume, message: message || null, status: 'NEW' },
         });
 
         // ─── 2. Send confirmation email to applicant ─────────────────────────
         try {
-            await resend.emails.send({
-                from: `${FROM_NAME} <${FROM_EMAIL}>`,
+            const { data: confData, error: confError } = await resend.emails.send({
+                from: getFrom(),
                 to: [email],
-                subject: `Partnership Application Received — Colchis Creamery`,
+                subject: `Partnership Application Received — Colchis Food`,
                 html: buildApplicantConfirmationEmail(contactName, companyName),
             });
+            if (confError) {
+                console.error('[Wholesale] Resend rejected confirmation email:', JSON.stringify(confError));
+            } else {
+                console.log('[Wholesale] Confirmation email sent to', email, '| ID:', confData?.id);
+            }
         } catch (emailErr) {
-            console.error('[Wholesale] Failed to send confirmation email:', emailErr);
-            // Don't block the submission if email fails
+            console.error('[Wholesale] Exception sending confirmation email:', emailErr);
         }
 
         // ─── 3. Notify sales team ────────────────────────────────────────────
         try {
-            await resend.emails.send({
-                from: `${FROM_NAME} <${FROM_EMAIL}>`,
+            const { data: salesData, error: salesError } = await resend.emails.send({
+                from: getFrom(),
                 to: SALES_RECIPIENTS,
                 subject: `🔔 New Wholesale Request: ${companyName}`,
-                html: buildSalesNotificationEmail({ companyName, contactName, email, phone, address, volume, message }),
+                html: buildSalesNotificationEmail({ companyName, contactName, email, phone, address: `${address}, ${zipCode}`, volume, message }),
                 replyTo: email,
             });
+            if (salesError) {
+                console.error('[Wholesale] Resend rejected sales notification:', JSON.stringify(salesError));
+            } else {
+                console.log('[Wholesale] Sales notification sent to', SALES_RECIPIENTS.join(', '), '| ID:', salesData?.id);
+            }
         } catch (emailErr) {
-            console.error('[Wholesale] Failed to send sales notification:', emailErr);
+            console.error('[Wholesale] Exception sending sales notification:', emailErr);
         }
 
-        // ─── 4. Revalidate admin pages ───────────────────────────────────────
         revalidatePath('/admin/requests');
-
-        return { success: 'Your partnership request has been received. Our sales team will reach out to you within 0–48 business hours. Check your email for confirmation.' };
+        return { success: 'Your partnership request has been received. Our sales team will reach out within 1–2 business days. Check your email for confirmation.' };
     } catch (error) {
         console.error('[Wholesale] Lead submission error:', error);
-        return { error: 'System error. Please try again later or email us at sales@colchiscreamery.com.' };
+        return { error: 'System error. Please try again later or email us at sales@colchisfood.com.' };
     }
 }

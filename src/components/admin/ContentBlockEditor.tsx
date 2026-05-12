@@ -75,7 +75,7 @@ function BlockEditor({
     isFirst: boolean;
     isLast: boolean;
 }) {
-    const inputClass = "w-full bg-[#0D0D0D] border border-white/10 text-white py-2.5 px-4 rounded-lg focus:outline-none focus:border-[#CBA153] placeholder-gray-700 text-sm";
+    const inputClass = "w-full bg-[#0C0C0C] border border-[#B96A3D22] text-white py-2.5 px-4 focus:outline-none focus:border-[#B96A3D] placeholder-gray-700 text-sm";
 
     const renderBlock = () => {
         switch (block.type) {
@@ -98,14 +98,14 @@ function BlockEditor({
                             <button
                                 type="button"
                                 onClick={() => onUpdate({ ...block.data, level: 2 })}
-                                className={`px-2.5 py-1 rounded text-xs font-bold transition-all ${level === 2 ? 'bg-[#CBA153] text-black' : 'bg-white/5 text-gray-400 hover:text-white'}`}
+                                className={`px-2.5 py-1 rounded text-xs font-bold transition-all ${level === 2 ? 'bg-[#B96A3D] text-black' : 'bg-[#ffffff08] text-gray-400 hover:text-white'}`}
                             >
                                 H2
                             </button>
                             <button
                                 type="button"
                                 onClick={() => onUpdate({ ...block.data, level: 3 })}
-                                className={`px-2.5 py-1 rounded text-xs font-bold transition-all ${level === 3 ? 'bg-[#CBA153] text-black' : 'bg-white/5 text-gray-400 hover:text-white'}`}
+                                className={`px-2.5 py-1 rounded text-xs font-bold transition-all ${level === 3 ? 'bg-[#B96A3D] text-black' : 'bg-[#ffffff08] text-gray-400 hover:text-white'}`}
                             >
                                 H3
                             </button>
@@ -158,7 +158,7 @@ function BlockEditor({
                             className={inputClass}
                         />
                         {block.data.url && getYouTubeId(block.data.url) && (
-                            <div className="relative aspect-video rounded-lg overflow-hidden bg-black">
+                            <div className="relative aspect-video overflow-hidden bg-black">
                                 <iframe
                                     src={`https://www.youtube.com/embed/${getYouTubeId(block.data.url)}`}
                                     className="absolute inset-0 w-full h-full"
@@ -184,14 +184,14 @@ function BlockEditor({
                             <button
                                 type="button"
                                 onClick={() => onUpdate({ ...block.data, style: 'unordered' })}
-                                className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs font-bold transition-all ${style === 'unordered' ? 'bg-[#CBA153] text-black' : 'bg-white/5 text-gray-400 hover:text-white'}`}
+                                className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs font-bold transition-all ${style === 'unordered' ? 'bg-[#B96A3D] text-black' : 'bg-[#ffffff08] text-gray-400 hover:text-white'}`}
                             >
                                 <List className="w-3 h-3" /> Bullet
                             </button>
                             <button
                                 type="button"
                                 onClick={() => onUpdate({ ...block.data, style: 'ordered' })}
-                                className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs font-bold transition-all ${style === 'ordered' ? 'bg-[#CBA153] text-black' : 'bg-white/5 text-gray-400 hover:text-white'}`}
+                                className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs font-bold transition-all ${style === 'ordered' ? 'bg-[#B96A3D] text-black' : 'bg-[#ffffff08] text-gray-400 hover:text-white'}`}
                             >
                                 <ListOrdered className="w-3 h-3" /> Numbered
                             </button>
@@ -237,7 +237,7 @@ function BlockEditor({
                         <button
                             type="button"
                             onClick={() => onUpdate({ ...block.data, items: [...items, ''] })}
-                            className="flex items-center gap-1 text-xs text-[#CBA153] hover:text-white transition-colors"
+                            className="flex items-center gap-1 text-xs text-[#B96A3D] hover:text-white transition-colors"
                         >
                             <Plus className="w-3 h-3" /> Add item
                         </button>
@@ -247,7 +247,7 @@ function BlockEditor({
 
             case 'quote':
                 return (
-                    <div className="space-y-3 border-l-3 border-[#CBA153]/30 pl-4">
+                    <div className="space-y-3 border-l-3 border-[#B96A3D]/30 pl-4">
                         <textarea
                             value={block.data.text || ''}
                             onChange={(e) => onUpdate({ ...block.data, text: e.target.value })}
@@ -267,9 +267,9 @@ function BlockEditor({
             case 'divider':
                 return (
                     <div className="flex items-center justify-center gap-3 py-2">
-                        <span className="w-12 h-px bg-[#CBA153]/30" />
-                        <span className="w-2 h-2 rounded-full bg-[#CBA153]/20" />
-                        <span className="w-12 h-px bg-[#CBA153]/30" />
+                        <span className="w-12 h-px bg-[#B96A3D]/30" />
+                        <span className="w-2 h-2 rounded-full bg-[#B96A3D]/20" />
+                        <span className="w-12 h-px bg-[#B96A3D]/30" />
                     </div>
                 );
         }
@@ -279,12 +279,12 @@ function BlockEditor({
     const TypeIcon = BLOCK_TYPES.find(t => t.type === block.type)?.icon || Type;
 
     return (
-        <div className="group relative bg-[#1A1A1A] rounded-xl border border-white/5 hover:border-[#CBA153]/20 transition-all overflow-hidden">
+        <div className="group relative bg-[#161616] border border-[#ffffff0A] hover:border-[#B96A3D]/20 transition-all overflow-hidden">
             {/* Block header */}
-            <div className="px-3 sm:px-4 py-2 sm:py-2.5 border-b border-white/5 flex items-center justify-between bg-[#141414]">
+            <div className="px-3 sm:px-4 py-2 sm:py-2.5 border-b border-[#ffffff0A] flex items-center justify-between bg-[#161616]">
                 <div className="flex items-center gap-2">
                     <GripVertical className="w-3.5 h-3.5 text-gray-700 cursor-grab hidden sm:block" />
-                    <TypeIcon className="w-3.5 h-3.5 text-[#CBA153]/60" />
+                    <TypeIcon className="w-3.5 h-3.5 text-[#B96A3D]/60" />
                     <span className="text-[10px] text-gray-500 uppercase tracking-wider font-bold">
                         {BLOCK_TYPES.find(t => t.type === block.type)?.label}
                     </span>
@@ -389,7 +389,7 @@ export default function ContentBlockEditor({ initialBlocks = [], onChange }: Con
                         <button
                             type="button"
                             onClick={() => setShowAddMenu(showAddMenu === index ? null : index)}
-                            className="w-7 h-7 rounded-full bg-[#1A1A1A] border border-white/10 hover:border-[#CBA153]/40 flex items-center justify-center text-gray-600 hover:text-[#CBA153] transition-all hover:scale-110"
+                            className="w-7 h-7 rounded-full bg-[#161616] border border-[#B96A3D22] hover:border-[#B96A3D]/40 flex items-center justify-center text-gray-600 hover:text-[#B96A3D] transition-all hover:scale-110"
                         >
                             <Plus className="w-3.5 h-3.5" />
                         </button>
@@ -398,16 +398,16 @@ export default function ContentBlockEditor({ initialBlocks = [], onChange }: Con
                         {showAddMenu === index && (
                             <div
                                 ref={addMenuRef}
-                                className="absolute z-50 top-full mt-1 bg-[#1A1A1A] border border-white/10 rounded-xl shadow-2xl py-2 min-w-[200px]"
+                                className="absolute z-50 top-full mt-1 bg-[#161616] border border-[#B96A3D22] py-2 min-w-[200px]"
                             >
                                 {BLOCK_TYPES.map((bt) => (
                                     <button
                                         key={bt.type}
                                         type="button"
                                         onClick={() => addBlock(bt.type, index)}
-                                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-400 hover:text-white hover:bg-[#CBA153]/10 transition-all"
+                                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-400 hover:text-white hover:bg-[#B96A3D]/10 transition-all"
                                     >
-                                        <bt.icon className="w-4 h-4 text-[#CBA153]/60" />
+                                        <bt.icon className="w-4 h-4 text-[#B96A3D]/60" />
                                         {bt.label}
                                     </button>
                                 ))}

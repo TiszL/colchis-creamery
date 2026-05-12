@@ -123,7 +123,7 @@ export default function HeroPreview(props: HeroPreviewProps) {
     return (
         <div
             ref={containerRef}
-            className={`relative rounded-xl overflow-hidden border border-white/10 bg-[#0D0D0D] select-none ${dragging ? 'cursor-grabbing' : 'cursor-crosshair'}`}
+            className={`relative overflow-hidden border border-[#B96A3D22] bg-[#0C0C0C] select-none ${dragging ? 'cursor-grabbing' : 'cursor-crosshair'}`}
             style={{ aspectRatio: `${VP_W} / ${VP_H}` }}
             onMouseDown={onMouseDown}
             onMouseMove={onMouseMove}
@@ -173,7 +173,7 @@ export default function HeroPreview(props: HeroPreviewProps) {
                             <div className="flex flex-col items-center">
                                 {props.showBadge && (
                                     <div className={`flex w-full ${btnJustifyClass(props.badgeAlign)} mb-8`}>
-                                        <div className="inline-block px-4 py-1 border border-[#CBA153] rounded-full text-[#CBA153] text-xs font-bold tracking-[0.2em] uppercase">
+                                        <div className="inline-block px-4 py-1 border border-[#B96A3D] rounded-full text-[#B96A3D] text-xs font-bold tracking-[0.2em] uppercase">
                                             {props.badgeText}
                                         </div>
                                     </div>
@@ -181,7 +181,7 @@ export default function HeroPreview(props: HeroPreviewProps) {
                                 {props.showTitle && (
                                     <h1 className={`w-full ${titleSizes[props.textSize] || titleSizes.lg} font-serif mb-8 text-[#2C2A29] leading-tight tracking-tight ${textAlignClass(props.titleAlign)}`}>
                                         {titleLine1} <br />
-                                        <span className="italic text-[#CBA153]">{titleLine2}</span>
+                                        <span className="italic text-[#B96A3D]">{titleLine2}</span>
                                     </h1>
                                 )}
                                 {props.showSubtitle && (
@@ -192,7 +192,7 @@ export default function HeroPreview(props: HeroPreviewProps) {
                                 {(props.showBtnPrimary || props.showBtnSecondary) && (
                                     <div className={`flex flex-row gap-4 w-full ${btnJustifyClass(props.btnAlign)}`}>
                                         {props.showBtnPrimary && (
-                                            <span className="px-10 py-5 bg-[#CBA153] text-white font-bold rounded-sm tracking-widest uppercase shadow-xl shadow-[#CBA153]/20 text-sm">
+                                            <span className="px-10 py-5 bg-[#B96A3D] text-white font-bold rounded-sm tracking-widest uppercase shadow-[#B96A3D]/20 text-sm">
                                                 {props.shopCta}
                                             </span>
                                         )}
@@ -220,7 +220,7 @@ export default function HeroPreview(props: HeroPreviewProps) {
             )}
 
             {/* Position indicator */}
-            <div className="absolute top-2 right-2 z-40 bg-black/70 backdrop-blur-sm text-[9px] text-[#CBA153] font-mono px-2 py-1 rounded-md pointer-events-none">
+            <div className="absolute top-2 right-2 z-40 bg-black/70 backdrop-blur-sm text-[9px] text-[#B96A3D] font-mono px-2 py-1 pointer-events-none">
                 X:{props.posX}% Y:{props.posY}%
             </div>
 

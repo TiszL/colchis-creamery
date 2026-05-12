@@ -402,7 +402,7 @@ export async function verify2FAAction(email: string, code: string) {
         if (user.totpSecret) {
             const { TOTP } = await import("otpauth");
             const totp = new TOTP({
-                issuer: "Colchis Creamery",
+                issuer: "Colchis Food",
                 label: user.email,
                 algorithm: "SHA1",
                 digits: 6,
@@ -621,7 +621,7 @@ export async function setupTOTPAction() {
         const secret = new Secret({ size: 20 });
 
         const totp = new TOTP({
-            issuer: "Colchis Creamery",
+            issuer: "Colchis Food",
             label: session.email,
             algorithm: "SHA1",
             digits: 6,
@@ -652,7 +652,7 @@ export async function enableTOTPAction(secret: string, code: string) {
     try {
         const { TOTP } = await import("otpauth");
         const totp = new TOTP({
-            issuer: "Colchis Creamery",
+            issuer: "Colchis Food",
             label: session.email,
             algorithm: "SHA1",
             digits: 6,
@@ -691,7 +691,7 @@ export async function disableTOTPAction(code: string) {
 
         const { TOTP } = await import("otpauth");
         const totp = new TOTP({
-            issuer: "Colchis Creamery",
+            issuer: "Colchis Food",
             label: user.email,
             algorithm: "SHA1",
             digits: 6,
@@ -923,6 +923,6 @@ export async function quickResetPasswordAction(userId: string) {
 export async function logoutAction() {
     await clearSession();
     revalidatePath("/");
-    redirect("/staff");
+    redirect("/portal-login");
 }
 

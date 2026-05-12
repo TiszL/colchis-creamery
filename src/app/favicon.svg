@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="64" height="64">
+  <title>Colchis Food — Favicon</title>
+
+  <defs>
+    <clipPath id="cf-clip">
+      <circle cx="100" cy="100" r="92"></circle>
+    </clipPath>
+  </defs>
+  <circle cx="100" cy="100" r="92" fill="#F5F0E6" stroke="#1F3026" stroke-width="2"></circle>
+  <circle cx="100" cy="100" r="86" fill="none" stroke="#B96A3D" stroke-width="0.6"></circle>
+  
+  <g clip-path="url(#cf-clip)">
+    <path d="M 78 64 Q 56 64 56 100 Q 56 136 78 136 L 86 136 L 86 124 L 80 124 Q 70 124 70 100 Q 70 76 80 76 L 86 76 L 86 64 Z" fill="#1F3026"></path>
+    <path d="M 96 64 L 96 136 L 110 136 L 110 106 L 132 106 L 132 94 L 110 94 L 110 76 L 138 76 L 138 64 Z" fill="#1F3026"></path>
+    
+    
+  </g>
+  
+  
+</svg>

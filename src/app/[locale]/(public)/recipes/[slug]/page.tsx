@@ -2,10 +2,9 @@ import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import Link from 'next/link';
-import Image from 'next/image';
 import ContentBlockRenderer from '@/components/content/ContentBlockRenderer';
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://colchiscreamery.com';
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://colchisfood.com';
 
 interface RecipePageProps {
     params: Promise<{ locale: string; slug: string }>;
@@ -16,51 +15,85 @@ export const dynamic = 'force-dynamic';
 export async function generateMetadata({ params }: RecipePageProps): Promise<Metadata> {
     const { locale, slug } = await params;
     const recipe = await prisma.recipe.findFirst({ where: { slug, isPublished: true } });
-
-    if (!recipe) return { title: 'Recipe Not Found | Colchis Creamery' };
-
+    if (!recipe) return { title: 'Recipe Not Found | Colchis Food' };
     const canonicalPath = locale === 'en' ? `/recipes/${slug}` : `/${locale}/recipes/${slug}`;
-
     return {
-        title: `${recipe.title} | Recipes & Pairings | Colchis Creamery`,
+        title: `${recipe.title} | Recipes | Colchis Food`,
         description: recipe.description,
-        keywords: ['Georgian cheese recipe', recipe.title, 'Colchis Creamery', 'artisanal cheese', recipe.difficulty || 'cooking'].filter(Boolean),
         openGraph: {
             title: recipe.title,
             description: recipe.description,
             images: recipe.imageUrl ? [{ url: recipe.imageUrl, width: 1200, height: 675, alt: recipe.title }] : [],
             type: 'article',
-            siteName: 'Colchis Creamery',
+            siteName: 'Colchis Food',
             url: `${SITE_URL}${canonicalPath}`,
         },
-        twitter: {
-            card: 'summary_large_image',
-            title: recipe.title,
-            description: recipe.description,
-            images: recipe.imageUrl ? [recipe.imageUrl] : [],
-        },
-        alternates: {
-            canonical: `${SITE_URL}${canonicalPath}`,
-            languages: {
-                'en': `${SITE_URL}/recipes/${slug}`,
-                'ka': `${SITE_URL}/ka/recipes/${slug}`,
-                'ru': `${SITE_URL}/ru/recipes/${slug}`,
-                'es': `${SITE_URL}/es/recipes/${slug}`,
-            },
-        },
+        alternates: { canonical: `${SITE_URL}${canonicalPath}` },
     };
 }
+
+function RecipeArt({ slug, ratio = "4/5" }: { slug: string; ratio?: string }) {
+    const seed = slug.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
+    const treat = seed % 4;
+    const p = [
+        { bg: "#EAE2D2", fg: "#1F3026", glyph: "○" },
+        { bg: "#1F3026", fg: "#8B4A28", glyph: "◐" },
+        { bg: "#B96A3D", fg: "#F5F0E6", glyph: "✶" },
+        { bg: "#2C3D33", fg: "#F5F0E6", glyph: "▸" },
+    ][treat];
+    return (
+        <div style={{ width: "100%", aspectRatio: ratio, background: p.bg, position: "relative", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ position: "absolute", inset: 0, backgroundImage: `radial-gradient(circle at 30% 30%, ${p.fg}22 0 1px, transparent 1px)`, backgroundSize: "12px 12px", opacity: 0.7 }} />
+            <div style={{ fontFamily: "var(--font-serif)", fontSize: 88, color: p.fg, opacity: 0.5, position: "relative" }}>{p.glyph}</div>
+        </div>
+    );
+}
+
+// Default ingredients/steps (placeholder for DB content)
+const DEFAULT_INGREDIENTS = [
+    { group: "Dough", items: ["500g bread flour", "300ml warm milk", "7g instant yeast", "10g fine salt", "1 tbsp olive oil", "1 tsp sugar"] },
+    { group: "Filling & top", items: ["300g Colchis Sulguni Fresh, shredded", "200g Colchis Imeruli, crumbled", "4 egg yolks", "60g cold butter, in cubes", "Flaky salt", "Black pepper"] },
+];
+const DEFAULT_STEPS = [
+    { t: "Bloom the yeast", d: "Stir yeast and sugar into warm milk and let it foam — 8 minutes." },
+    { t: "Mix and knead", d: "Combine flour, salt, oil. Pour in the yeast milk. Knead 10 minutes by hand." },
+    { t: "First rise", d: "Cover and let rise in a warm spot until doubled — 60 to 90 minutes." },
+    { t: "Shape", d: "Divide the dough and shape according to the recipe style." },
+    { t: "Fill", d: "Mix the cheeses with seasoning. Fill the dough generously." },
+    { t: "Bake hot", d: "Bake at highest oven temperature until golden and bubbling." },
+    { t: "Serve immediately", d: "Eat while hot — this is best fresh from the oven." },
+];
 
 export default async function SingleRecipePage({ params }: RecipePageProps) {
     const { locale, slug } = await params;
     const prefix = locale === 'en' ? '' : `/${locale}`;
     const recipe = await prisma.recipe.findFirst({ where: { slug, isPublished: true } });
+    if (!recipe) notFound();
 
-    if (!recipe) {
-        notFound();
-    }
+    const more = await prisma.recipe.findMany({
+        where: { isPublished: true, slug: { not: slug } },
+        take: 3,
+        orderBy: { createdAt: 'desc' },
+    });
 
-    // JSON-LD structured data for Google recipe rich results
+    // Parse contentBlocks for metadata
+    let meta = { cuisine: "Traditional", ka: "", pairing: "", diet: [] as string[], ingredients: DEFAULT_INGREDIENTS, steps: DEFAULT_STEPS };
+    try {
+        const cb = recipe.contentBlocks ? JSON.parse(recipe.contentBlocks) : {};
+        meta = {
+            cuisine: cb.cuisine || "Traditional",
+            ka: cb.ka || "",
+            pairing: cb.pairing || "",
+            diet: cb.diet || [],
+            ingredients: cb.ingredients || DEFAULT_INGREDIENTS,
+            steps: cb.steps || DEFAULT_STEPS,
+        };
+    } catch { /* use defaults */ }
+
+    const serves = recipe.servings || "4";
+    const timeLabel = recipe.prepTime || "1 hour";
+
+    // JSON-LD
     const jsonLd = {
         '@context': 'https://schema.org',
         '@type': 'Recipe',
@@ -68,99 +101,160 @@ export default async function SingleRecipePage({ params }: RecipePageProps) {
         description: recipe.description,
         image: recipe.imageUrl || undefined,
         ...(recipe.prepTime && { prepTime: `PT${recipe.prepTime.replace(/\s/g, '').toUpperCase()}` }),
-        ...(recipe.cookTime && { cookTime: `PT${recipe.cookTime.replace(/\s/g, '').toUpperCase()}` }),
         ...(recipe.servings && { recipeYield: recipe.servings }),
         recipeCategory: 'Georgian Cuisine',
         recipeCuisine: 'Georgian',
-        author: {
-            '@type': 'Organization',
-            name: 'Colchis Creamery',
-            url: 'https://colchiscreamery.com',
-        },
-        publisher: {
-            '@type': 'Organization',
-            name: 'Colchis Creamery',
-            logo: {
-                '@type': 'ImageObject',
-                url: 'https://colchiscreamery.com/icon.png',
-            },
-        },
+        author: { '@type': 'Organization', name: 'Colchis Food', url: SITE_URL },
         datePublished: recipe.createdAt.toISOString(),
-        dateModified: recipe.updatedAt.toISOString(),
     };
 
     return (
         <>
-            <script
-                type="application/ld+json"
-                dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-            />
-            <div className="min-h-screen bg-[#FAFAFA] py-16 px-4">
-                <article className="max-w-4xl mx-auto bg-white shadow-xl rounded-lg overflow-hidden flex flex-col" itemScope itemType="https://schema.org/Recipe">
-                    {/* Cover Photo */}
-                    {recipe.imageUrl && (
-                        <div className="relative w-full h-[400px]">
-                            <Image
-                                src={recipe.imageUrl}
-                                alt={recipe.title}
-                                fill
-                                priority
-                                sizes="(max-width: 768px) 100vw, 896px"
-                                className="object-cover"
-                            />
-                        </div>
-                    )}
-
-                    {/* Recipe Content */}
-                    <div className="p-8 md:p-12">
-
-                        <Link href={`${prefix}/recipes`} className="text-sm uppercase tracking-wider text-[#A6812F] font-medium hover:underline mb-6 inline-block">
-                            ← Back to Recipes
-                        </Link>
-
-                        <h1 className="text-4xl md:text-5xl font-serif text-[#2C2A29] mb-6" itemProp="name">
-                            {recipe.title}
-                        </h1>
-
-                        <p className="text-xl text-[#2C2A29] opacity-80 mb-10 leading-relaxed font-serif italic border-l-4 border-[#CBA153] pl-6" itemProp="description">
-                            {recipe.description}
-                        </p>
-
-                        <div className="flex flex-wrap gap-8 py-6 border-y border-[#FDFBF7] mb-12">
-                            {recipe.servings && (
-                                <div>
-                                    <span className="block text-xs uppercase text-gray-400 font-bold mb-1">Servings</span>
-                                    <span className="font-serif text-[#2C2A29] text-lg" itemProp="recipeYield">{recipe.servings}</span>
-                                </div>
-                            )}
-                            {recipe.prepTime && (
-                                <div>
-                                    <span className="block text-xs uppercase text-gray-400 font-bold mb-1">Prep Time</span>
-                                    <span className="font-serif text-[#2C2A29] text-lg">{recipe.prepTime}</span>
-                                </div>
-                            )}
-                            {recipe.cookTime && (
-                                <div>
-                                    <span className="block text-xs uppercase text-gray-400 font-bold mb-1">Cook Time</span>
-                                    <span className="font-serif text-[#2C2A29] text-lg">{recipe.cookTime}</span>
-                                </div>
-                            )}
-                            {recipe.difficulty && (
-                                <div>
-                                    <span className="block text-xs uppercase text-gray-400 font-bold mb-1">Difficulty</span>
-                                    <span className="font-serif text-[#2C2A29] text-lg">{recipe.difficulty}</span>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Render content blocks (with legacy fallback) */}
-                        <ContentBlockRenderer
-                            blocks={recipe.contentBlocks}
-                            legacyContent={recipe.content}
-                        />
+            <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+            <article>
+                {/* Breadcrumb */}
+                <div className="ch-breadcrumb" style={{ background: "#F5F0E6", padding: "24px 56px 0" }}>
+                    <div style={{ maxWidth: 1120, margin: "0 auto", fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.28em", color: "#7A8278", textTransform: "uppercase" }}>
+                        <Link href={`${prefix}/`} style={{ color: "#7A8278", textDecoration: "none" }}>Colchis Food</Link>
+                        <span style={{ margin: "0 10px" }}>/</span>
+                        <Link href={`${prefix}/recipes`} style={{ color: "#7A8278", textDecoration: "none" }}>Recipes</Link>
+                        <span style={{ margin: "0 10px" }}>/</span>
+                        <span style={{ color: "#1F3026" }}>{meta.cuisine}</span>
                     </div>
-                </article>
-            </div>
+                </div>
+
+                {/* HERO: title + meta on left, photo on right */}
+                <header className="ch-rec-detail-head" style={{ background: "#F5F0E6", padding: "40px 56px 64px" }}>
+                    <div className="ch-rec-hero-grid" style={{ maxWidth: 1280, margin: "0 auto", display: "grid", gridTemplateColumns: "1.05fr 1fr", gap: 64, alignItems: "center" }}>
+                        <div>
+                            <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.32em", color: "#B96A3D", textTransform: "uppercase", marginBottom: 20 }}>{meta.cuisine} · {recipe.difficulty || "Easy"}</div>
+                            <h1 className="ch-rec-h1" style={{ fontFamily: "var(--font-serif)", fontWeight: 300, fontSize: 80, lineHeight: 1.0, letterSpacing: "-0.025em", margin: 0, color: "#1F3026" }}>{recipe.title}</h1>
+                            {meta.ka && <div style={{ fontFamily: "var(--font-serif-ka, 'Noto Serif Georgian', serif)", fontSize: 28, color: "#B96A3D", marginTop: 14, opacity: 0.85 }}>{meta.ka}</div>}
+                            <p className="ch-rec-dek" style={{ fontFamily: "var(--font-serif)", fontStyle: "italic", fontSize: 22, lineHeight: 1.55, color: "#2C3D33", marginTop: 24, marginBottom: 0 }}>{recipe.description}</p>
+                            <div className="ch-rec-meta-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginTop: 36, paddingTop: 28, borderTop: "1px solid #1F302622" }}>
+                                {[
+                                    { l: "Time", v: timeLabel },
+                                    { l: "Serves", v: serves },
+                                    { l: "Difficulty", v: recipe.difficulty || "Easy" },
+                                    { l: "Pairs with", v: meta.pairing || "—" },
+                                ].map(m => (
+                                    <div key={m.l}>
+                                        <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.28em", color: "#7A8278", textTransform: "uppercase" }}>{m.l}</div>
+                                        <div style={{ fontFamily: "var(--font-serif)", fontSize: 20, color: "#1F3026", marginTop: 6, lineHeight: 1.15 }}>{m.v}</div>
+                                    </div>
+                                ))}
+                            </div>
+                            <div style={{ display: "flex", gap: 12, marginTop: 32, flexWrap: "wrap" }}>
+                                <button style={{ background: "#1F3026", color: "#F5F0E6", border: "none", padding: "14px 24px", fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.28em", textTransform: "uppercase", cursor: "pointer" }}>Save recipe ♡</button>
+                                <button style={{ background: "transparent", color: "#1F3026", border: "1px solid #1F3026", padding: "14px 24px", fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.28em", textTransform: "uppercase", cursor: "pointer" }}>Print · Share</button>
+                            </div>
+                        </div>
+                        {recipe.imageUrl ? (
+                            <img src={recipe.imageUrl} alt={recipe.title} style={{ width: "100%", aspectRatio: "4/5", objectFit: "cover" }} />
+                        ) : (
+                            <RecipeArt slug={recipe.slug} />
+                        )}
+                    </div>
+                </header>
+
+                {/* Story intro */}
+                <section className="ch-section" style={{ background: "#F5F0E6", padding: "32px 56px 56px" }}>
+                    <div style={{ maxWidth: 720, margin: "0 auto" }}>
+                        <div style={{ fontFamily: "var(--font-serif)", fontSize: 21, lineHeight: 1.65, color: "#2C3D33" }}>
+                            <ContentBlockRenderer blocks={null} legacyContent={recipe.content} />
+                        </div>
+                    </div>
+                </section>
+
+                {/* INGREDIENTS + STEPS */}
+                <section className="ch-section" style={{ background: "#F5F0E6", padding: "0 56px 96px" }}>
+                    <div className="ch-rec-cook-grid" style={{ maxWidth: 1120, margin: "0 auto", display: "grid", gridTemplateColumns: "320px 1fr", gap: 64, alignItems: "start" }}>
+                        <aside className="ch-rec-ingredients" style={{ position: "sticky", top: 100 }}>
+                            <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.32em", color: "#B96A3D", textTransform: "uppercase", marginBottom: 16 }}>Ingredients</div>
+                            <div style={{ fontFamily: "var(--font-serif)", fontStyle: "italic", fontSize: 32, color: "#1F3026", marginBottom: 28 }}>For {serves}</div>
+                            {meta.ingredients.map((g: { group: string; items: string[] }) => (
+                                <div key={g.group} style={{ marginBottom: 28 }}>
+                                    <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.28em", color: "#7A8278", textTransform: "uppercase", marginBottom: 10 }}>{g.group}</div>
+                                    <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                                        {g.items.map((it: string, i: number) => (
+                                            <li key={i} style={{ display: "flex", gap: 12, padding: "10px 0", borderBottom: "1px solid #1F302611", fontFamily: "var(--font-sans)", fontSize: 14, color: "#1F3026", lineHeight: 1.45 }}>
+                                                <input type="checkbox" style={{ accentColor: "#B96A3D", marginTop: 4 }} />
+                                                <span>{it}</span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            ))}
+                        </aside>
+                        <div className="ch-rec-steps">
+                            <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.32em", color: "#B96A3D", textTransform: "uppercase", marginBottom: 16 }}>Method · {meta.steps.length} steps</div>
+                            <div style={{ fontFamily: "var(--font-serif)", fontStyle: "italic", fontSize: 32, color: "#1F3026", marginBottom: 32 }}>
+                                {timeLabel === "all day" ? "All day, mostly cooking" : `${timeLabel}, mostly waiting`}
+                            </div>
+                            <ol style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column" }}>
+                                {meta.steps.map((s: { t: string; d: string }, i: number) => (
+                                    <li key={i} style={{ display: "grid", gridTemplateColumns: "60px 1fr", gap: 24, padding: "28px 0", borderBottom: "1px solid #1F302614" }}>
+                                        <div style={{ fontFamily: "var(--font-serif)", fontSize: 40, fontWeight: 300, color: "#B96A3D", lineHeight: 1 }}>{String(i + 1).padStart(2, "0")}</div>
+                                        <div>
+                                            <div style={{ fontFamily: "var(--font-serif)", fontStyle: "italic", fontSize: 24, color: "#1F3026", lineHeight: 1.2 }}>{s.t}</div>
+                                            <div style={{ fontFamily: "var(--font-serif)", fontSize: 18, lineHeight: 1.6, color: "#2C3D33", marginTop: 10 }}>{s.d}</div>
+                                        </div>
+                                    </li>
+                                ))}
+                            </ol>
+                        </div>
+                    </div>
+                </section>
+
+                {/* Pairing CTA */}
+                {meta.pairing && (
+                    <section className="ch-section" style={{ background: "#1F3026", color: "#F5F0E6", padding: "72px 56px" }}>
+                        <div className="ch-split" style={{ maxWidth: 1120, margin: "0 auto", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 48, alignItems: "center" }}>
+                            <div>
+                                <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.32em", color: "#8B4A28", textTransform: "uppercase", marginBottom: 18 }}>Made with</div>
+                                <div className="ch-h2" style={{ fontFamily: "var(--font-serif)", fontWeight: 300, fontSize: 48, lineHeight: 1.05, letterSpacing: "-0.02em", color: "#F5F0E6" }}>
+                                    {meta.pairing}
+                                </div>
+                                <p style={{ fontFamily: "var(--font-serif)", fontSize: 18, lineHeight: 1.6, color: "#F5F0E6", opacity: 0.78, marginTop: 18, fontStyle: "italic" }}>
+                                    We make this every morning in Dublin, Ohio. Order it for delivery tonight, or have it shipped overnight to anywhere in the US.
+                                </p>
+                            </div>
+                            <div style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}>
+                                <Link href={`${prefix}/`} style={{ display: "inline-block", background: "#B96A3D", color: "#F5F0E6", border: "none", padding: "16px 28px", fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.28em", textTransform: "uppercase", textDecoration: "none" }}>Shop the Creamery →</Link>
+                            </div>
+                        </div>
+                    </section>
+                )}
+
+                {/* More recipes */}
+                {more.length > 0 && (
+                    <section className="ch-section" style={{ background: "#EAE2D2", padding: "96px 56px" }}>
+                        <div style={{ maxWidth: 1280, margin: "0 auto" }}>
+                            <div className="ch-section-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 36 }}>
+                                <div className="ch-h2" style={{ fontFamily: "var(--font-serif)", fontWeight: 300, fontSize: 48 }}>
+                                    Cook <em style={{ color: "#B96A3D", fontWeight: 400 }}>more.</em>
+                                </div>
+                                <Link href={`${prefix}/recipes`} style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.28em", color: "#1F3026", textTransform: "uppercase", textDecoration: "none", borderBottom: "1px solid #1F3026" }}>All recipes →</Link>
+                            </div>
+                            <div className="ch-grid-3" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 24 }}>
+                                {more.map(m => (
+                                    <Link key={m.slug} href={`${prefix}/recipes/${m.slug}`} style={{ display: "flex", flexDirection: "column", textDecoration: "none", color: "#1F3026", background: "#F5F0E6", border: "1px solid #1F302614" }}>
+                                        {m.imageUrl ? (
+                                            <img src={m.imageUrl} alt={m.title} style={{ width: "100%", aspectRatio: "4/3", objectFit: "cover" }} />
+                                        ) : (
+                                            <RecipeArt slug={m.slug} ratio="4/3" />
+                                        )}
+                                        <div style={{ padding: "24px 24px 26px", flex: 1, display: "flex", flexDirection: "column" }}>
+                                            <h3 style={{ fontFamily: "var(--font-serif)", fontStyle: "italic", fontWeight: 400, fontSize: 26, lineHeight: 1.15, margin: 0, color: "#1F3026" }}>{m.title}</h3>
+                                            <p style={{ fontFamily: "var(--font-sans)", fontSize: 13, lineHeight: 1.6, color: "#2C3D33", opacity: 0.85, marginTop: 12, flex: 1 }}>{m.description}</p>
+                                        </div>
+                                    </Link>
+                                ))}
+                            </div>
+                        </div>
+                    </section>
+                )}
+            </article>
         </>
     );
 }

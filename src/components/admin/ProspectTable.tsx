@@ -14,7 +14,7 @@ function fmtMoney(v: number) {
 const PRIORITY_BG: Record<string, string> = {
   CRITICAL: 'bg-[#e8614a]/15 text-[#e8614a]',
   HIGH: 'bg-[#c9a84c]/15 text-[#c9a84c]',
-  MEDIUM: 'bg-[#CBA153]/15 text-[#CBA153]',
+  MEDIUM: 'bg-[#B96A3D]/15 text-[#B96A3D]',
   LOW: 'bg-[#4a7a9a]/15 text-[#4a7a9a]',
   EXPLORATORY: 'bg-[#7a6a8a]/15 text-[#7a6a8a]',
 };
@@ -85,35 +85,35 @@ export function ProspectTable({ pins }: { pins: PinData[] }) {
   };
 
   return (
-    <div className="bg-[#141414] border border-[#2A2A2A] rounded-xl overflow-hidden">
+    <div className="bg-[#161616] border border-[#B96A3D22] overflow-hidden">
       {/* Header with filters */}
-      <div className="px-5 py-3 border-b border-[#242424] flex flex-wrap items-center gap-3">
-        <div className="text-sm font-semibold text-[#F0EDE6]">All Prospects</div>
-        <span className="text-[11px] text-[#666666] bg-[#1F1F1F] px-2 py-0.5 rounded-full">{sorted.length} results</span>
+      <div className="px-5 py-3 border-b border-[#B96A3D22] flex flex-wrap items-center gap-3">
+        <div className="text-sm font-semibold text-[#F5F0E6]">All Prospects</div>
+        <span className="text-[11px] text-[#5A6158] bg-[#1C1C1C] px-2 py-0.5 rounded-full">{sorted.length} results</span>
         <div className="ml-auto flex flex-wrap items-center gap-2">
           <div className="relative">
-            <Search className="w-3.5 h-3.5 text-[#666666] absolute left-2.5 top-1/2 -translate-y-1/2" />
+            <Search className="w-3.5 h-3.5 text-[#5A6158] absolute left-2.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               placeholder="Search..."
               value={searchQuery}
               onChange={e => { setSearchQuery(e.target.value); setPage(0); }}
-              className="bg-[#1F1F1F] border border-[#2A2A2A] rounded-lg pl-8 pr-3 py-1.5 text-[11px] text-[#F0EDE6] placeholder-[#666666] focus:outline-none focus:border-[#3d7a47] w-40"
+              className="bg-[#1C1C1C] border border-[#B96A3D22] pl-8 pr-3 py-1.5 text-[11px] text-[#F5F0E6] placeholder-[#666666] focus:outline-none focus:border-[#3d7a47] w-40"
             />
           </div>
-          <select value={tierFilter} onChange={e => { setTierFilter(e.target.value); setPage(0); }} className="bg-[#1F1F1F] border border-[#2A2A2A] rounded-lg px-2.5 py-1.5 text-[11px] text-[#888888] focus:outline-none focus:border-[#3d7a47]">
+          <select value={tierFilter} onChange={e => { setTierFilter(e.target.value); setPage(0); }} className="bg-[#1C1C1C] border border-[#B96A3D22] px-2.5 py-1.5 text-[11px] text-[#7A8278] focus:outline-none focus:border-[#3d7a47]">
             <option value="">All Tiers</option>
             {tiers.map(t => <option key={t} value={t!}>{t}</option>)}
           </select>
-          <select value={categoryFilter} onChange={e => { setCategoryFilter(e.target.value); setPage(0); }} className="bg-[#1F1F1F] border border-[#2A2A2A] rounded-lg px-2.5 py-1.5 text-[11px] text-[#888888] focus:outline-none focus:border-[#3d7a47]">
+          <select value={categoryFilter} onChange={e => { setCategoryFilter(e.target.value); setPage(0); }} className="bg-[#1C1C1C] border border-[#B96A3D22] px-2.5 py-1.5 text-[11px] text-[#7A8278] focus:outline-none focus:border-[#3d7a47]">
             <option value="">All Categories</option>
             {categories.map(c => <option key={c} value={c!}>{c}</option>)}
           </select>
-          <select value={stateFilter} onChange={e => { setStateFilter(e.target.value); setPage(0); }} className="bg-[#1F1F1F] border border-[#2A2A2A] rounded-lg px-2.5 py-1.5 text-[11px] text-[#888888] focus:outline-none focus:border-[#3d7a47]">
+          <select value={stateFilter} onChange={e => { setStateFilter(e.target.value); setPage(0); }} className="bg-[#1C1C1C] border border-[#B96A3D22] px-2.5 py-1.5 text-[11px] text-[#7A8278] focus:outline-none focus:border-[#3d7a47]">
             <option value="">All States</option>
             {states.map(s => <option key={s} value={s!}>{s}</option>)}
           </select>
-          <select value={priorityFilter} onChange={e => { setPriorityFilter(e.target.value); setPage(0); }} className="bg-[#1F1F1F] border border-[#2A2A2A] rounded-lg px-2.5 py-1.5 text-[11px] text-[#888888] focus:outline-none focus:border-[#3d7a47]">
+          <select value={priorityFilter} onChange={e => { setPriorityFilter(e.target.value); setPage(0); }} className="bg-[#1C1C1C] border border-[#B96A3D22] px-2.5 py-1.5 text-[11px] text-[#7A8278] focus:outline-none focus:border-[#3d7a47]">
             <option value="">All Priorities</option>
             {priorities.map(p => <option key={p} value={p!}>{p}</option>)}
           </select>
@@ -124,13 +124,13 @@ export function ProspectTable({ pins }: { pins: PinData[] }) {
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="border-b border-[#242424] text-[10px] uppercase tracking-wider text-[#666666] font-semibold select-none">
-              <th className="p-3 pl-5 cursor-pointer hover:text-[#888888]" onClick={() => handleSort('name')}>Company <SortIcon field="name" /></th>
-              <th className="p-3 cursor-pointer hover:text-[#888888]" onClick={() => handleSort('category')}>Category <SortIcon field="category" /></th>
-              <th className="p-3 cursor-pointer hover:text-[#888888]" onClick={() => handleSort('state')}>State <SortIcon field="state" /></th>
-              <th className="p-3 cursor-pointer hover:text-[#888888]" onClick={() => handleSort('priorityScore')}>Score <SortIcon field="priorityScore" /></th>
-              <th className="p-3 cursor-pointer hover:text-[#888888]" onClick={() => handleSort('revenueMonthlyHigh')}>Monthly High <SortIcon field="revenueMonthlyHigh" /></th>
-              <th className="p-3 cursor-pointer hover:text-[#888888]" onClick={() => handleSort('googleRating')}>Rating <SortIcon field="googleRating" /></th>
+            <tr className="border-b border-[#B96A3D22] text-[10px] uppercase tracking-wider text-[#5A6158] font-semibold select-none">
+              <th className="p-3 pl-5 cursor-pointer hover:text-[#7A8278]" onClick={() => handleSort('name')}>Company <SortIcon field="name" /></th>
+              <th className="p-3 cursor-pointer hover:text-[#7A8278]" onClick={() => handleSort('category')}>Category <SortIcon field="category" /></th>
+              <th className="p-3 cursor-pointer hover:text-[#7A8278]" onClick={() => handleSort('state')}>State <SortIcon field="state" /></th>
+              <th className="p-3 cursor-pointer hover:text-[#7A8278]" onClick={() => handleSort('priorityScore')}>Score <SortIcon field="priorityScore" /></th>
+              <th className="p-3 cursor-pointer hover:text-[#7A8278]" onClick={() => handleSort('revenueMonthlyHigh')}>Monthly High <SortIcon field="revenueMonthlyHigh" /></th>
+              <th className="p-3 cursor-pointer hover:text-[#7A8278]" onClick={() => handleSort('googleRating')}>Rating <SortIcon field="googleRating" /></th>
               <th className="p-3">City</th>
             </tr>
           </thead>
@@ -138,44 +138,44 @@ export function ProspectTable({ pins }: { pins: PinData[] }) {
             {pageData.map(pin => (
               <tr
                 key={pin.id}
-                className="border-b border-[#242424] last:border-b-0 hover:bg-[#1F1F1F] cursor-pointer transition-colors"
+                className="border-b border-[#B96A3D22] last:border-b-0 hover:bg-[#1C1C1C] cursor-pointer transition-colors"
                 onClick={() => setSelectedPin(pin)}
               >
-                <td className="p-3 pl-5 text-xs font-medium text-[#F0EDE6]">{pin.brandName || pin.name}</td>
-                <td className="p-3 text-[11px] text-[#666666]">{pin.categoryLabel}</td>
-                <td className="p-3 text-xs text-[#888888]">{pin.state}</td>
+                <td className="p-3 pl-5 text-xs font-medium text-[#F5F0E6]">{pin.brandName || pin.name}</td>
+                <td className="p-3 text-[11px] text-[#5A6158]">{pin.categoryLabel}</td>
+                <td className="p-3 text-xs text-[#7A8278]">{pin.state}</td>
                 <td className="p-3">
                   <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${PRIORITY_BG[pin.priorityRank || ''] || ''}`}>
                     {pin.priorityScore?.toFixed(1)}
                   </span>
                 </td>
-                <td className="p-3 text-xs text-[#888888] tabular-nums">{fmtMoney(pin.revenueMonthlyHigh || 0)}</td>
-                <td className="p-3 text-xs text-[#888888]">{pin.googleRating ? `⭐ ${pin.googleRating}` : '–'}</td>
-                <td className="p-3 text-xs text-[#666666]">{pin.city || '–'}</td>
+                <td className="p-3 text-xs text-[#7A8278] tabular-nums">{fmtMoney(pin.revenueMonthlyHigh || 0)}</td>
+                <td className="p-3 text-xs text-[#7A8278]">{pin.googleRating ? `⭐ ${pin.googleRating}` : '–'}</td>
+                <td className="p-3 text-xs text-[#5A6158]">{pin.city || '–'}</td>
               </tr>
             ))}
             {pageData.length === 0 && (
-              <tr><td colSpan={7} className="p-8 text-center text-[#666666] text-sm">No prospects match your filters.</td></tr>
+              <tr><td colSpan={7} className="p-8 text-center text-[#5A6158] text-sm">No prospects match your filters.</td></tr>
             )}
           </tbody>
         </table>
       </div>
 
       {/* Pagination */}
-      <div className="flex items-center justify-between px-5 py-3 border-t border-[#242424] text-[11px] text-[#888888]">
+      <div className="flex items-center justify-between px-5 py-3 border-t border-[#B96A3D22] text-[11px] text-[#7A8278]">
         <span>Page {page + 1} of {totalPages || 1}</span>
         <div className="flex gap-2">
           <button
             disabled={page === 0}
             onClick={() => setPage(p => p - 1)}
-            className="px-3 py-1 rounded-lg bg-[#1F1F1F] hover:bg-[#2A2A2A] hover:text-[#F0EDE6] transition-all disabled:opacity-40 disabled:cursor-default"
+            className="px-3 py-1 bg-[#1C1C1C] hover:bg-[#B96A3D22] hover:text-[#F5F0E6] transition-all disabled:opacity-40 disabled:cursor-default"
           >
             ← Prev
           </button>
           <button
             disabled={page >= totalPages - 1}
             onClick={() => setPage(p => p + 1)}
-            className="px-3 py-1 rounded-lg bg-[#1F1F1F] hover:bg-[#2A2A2A] hover:text-[#F0EDE6] transition-all disabled:opacity-40 disabled:cursor-default"
+            className="px-3 py-1 bg-[#1C1C1C] hover:bg-[#B96A3D22] hover:text-[#F5F0E6] transition-all disabled:opacity-40 disabled:cursor-default"
           >
             Next →
           </button>

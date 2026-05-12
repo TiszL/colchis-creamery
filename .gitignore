@@ -44,3 +44,7 @@ prisma/test-*.js
 
 # Uploaded media
 /public/uploads/
+CLAUDE.local.md
+
+# Claude Code worktrees
+.claude/worktrees/

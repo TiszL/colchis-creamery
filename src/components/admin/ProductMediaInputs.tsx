@@ -27,7 +27,7 @@ export function ProductMediaInputs({ initialImages, initialVideos }: ProductMedi
     };
 
     return (
-        <div className="space-y-6 border-t border-white/5 pt-6">
+        <div className="space-y-6 border-t border-[#ffffff0A] pt-6">
 
             {/* Additional Images */}
             <div>
@@ -38,7 +38,7 @@ export function ProductMediaInputs({ initialImages, initialVideos }: ProductMedi
                     <button
                         type="button"
                         onClick={addImage}
-                        className="flex items-center gap-1.5 text-xs text-[#CBA153] hover:text-white transition-colors"
+                        className="flex items-center gap-1.5 text-xs text-[#B96A3D] hover:text-white transition-colors"
                     >
                         <Plus className="w-3.5 h-3.5" /> Add Image
                     </button>
@@ -51,7 +51,7 @@ export function ProductMediaInputs({ initialImages, initialVideos }: ProductMedi
                         <div key={idx} className="flex items-center gap-3">
                             {/* Thumbnail preview */}
                             {url && (
-                                <div className="w-10 h-10 rounded-md overflow-hidden bg-[#2C2A29] flex-shrink-0 border border-white/10">
+                                <div className="w-10 h-10 overflow-hidden bg-[#2C2A29] flex-shrink-0 border border-[#B96A3D22]">
                                     <img src={url} alt={`Gallery ${idx + 1}`} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                                 </div>
                             )}
@@ -60,7 +60,7 @@ export function ProductMediaInputs({ initialImages, initialVideos }: ProductMedi
                                 value={url}
                                 onChange={(e) => updateImage(idx, e.target.value)}
                                 placeholder="https://images.unsplash.com/..."
-                                className="flex-1 bg-[#0D0D0D] border border-white/10 text-white py-2.5 px-4 rounded-lg focus:outline-none focus:border-[#CBA153] placeholder-gray-600 text-sm"
+                                className="flex-1 bg-[#0C0C0C] border border-[#B96A3D22] text-white py-2.5 px-4 focus:outline-none focus:border-[#B96A3D] placeholder-gray-600 text-sm"
                             />
                             <button
                                 type="button"
@@ -83,7 +83,7 @@ export function ProductMediaInputs({ initialImages, initialVideos }: ProductMedi
                     <button
                         type="button"
                         onClick={addVideo}
-                        className="flex items-center gap-1.5 text-xs text-[#CBA153] hover:text-white transition-colors"
+                        className="flex items-center gap-1.5 text-xs text-[#B96A3D] hover:text-white transition-colors"
                     >
                         <Plus className="w-3.5 h-3.5" /> Add Video
                     </button>
@@ -99,7 +99,7 @@ export function ProductMediaInputs({ initialImages, initialVideos }: ProductMedi
                                 <div className="flex items-center gap-3">
                                     {/* YouTube thumbnail preview */}
                                     {ytId && (
-                                        <div className="w-10 h-10 rounded-md overflow-hidden bg-[#2C2A29] flex-shrink-0 border border-white/10">
+                                        <div className="w-10 h-10 overflow-hidden bg-[#2C2A29] flex-shrink-0 border border-[#B96A3D22]">
                                             <img src={`https://img.youtube.com/vi/${ytId}/default.jpg`} alt={`Video ${idx + 1}`} className="w-full h-full object-cover" />
                                         </div>
                                     )}
@@ -108,7 +108,7 @@ export function ProductMediaInputs({ initialImages, initialVideos }: ProductMedi
                                         value={url}
                                         onChange={(e) => updateVideo(idx, e.target.value)}
                                         placeholder="https://www.youtube.com/watch?v=... or https://cdn.example.com/video.mp4"
-                                        className="flex-1 bg-[#0D0D0D] border border-white/10 text-white py-2.5 px-4 rounded-lg focus:outline-none focus:border-[#CBA153] placeholder-gray-600 text-sm"
+                                        className="flex-1 bg-[#0C0C0C] border border-[#B96A3D22] text-white py-2.5 px-4 focus:outline-none focus:border-[#B96A3D] placeholder-gray-600 text-sm"
                                     />
                                     <button
                                         type="button"
@@ -120,7 +120,7 @@ export function ProductMediaInputs({ initialImages, initialVideos }: ProductMedi
                                 </div>
                                 {/* YouTube embed preview */}
                                 {ytId && (
-                                    <div className="ml-13 aspect-video max-w-xs rounded-lg overflow-hidden border border-white/10">
+                                    <div className="ml-13 aspect-video max-w-xs overflow-hidden border border-[#B96A3D22]">
                                         <iframe
                                             src={`https://www.youtube.com/embed/${ytId}`}
                                             className="w-full h-full"

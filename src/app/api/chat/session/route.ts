@@ -120,7 +120,7 @@ export async function POST(req: NextRequest) {
             data: {
                 sessionId: session.id,
                 sender: 'system',
-                body: 'Welcome to Colchis Creamery! 🧀 How can we help you today?',
+                body: 'Welcome to Colchis Food! 🧀 How can we help you today?',
             },
         });
 

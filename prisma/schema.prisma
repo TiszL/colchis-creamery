@@ -1,5 +1,5 @@
-// Colchis Creamery - Prisma Schema
-// Georgian artisanal cheese e-commerce platform
+// Colchis Food - Prisma Schema
+// Georgian artisanal cheese & bakery e-commerce platform
 // ─── Multi-Role RBAC Architecture ────────────────────────────────────────────
 
 generator client {
@@ -45,8 +45,33 @@ model User {
   accounts         Account[]
   reviews          ProductReview[]
   reviewReplies    ReviewReply[]
+  addresses        UserAddress[]
   chatSessionsAsVisitor ChatSession[] @relation("ChatVisitor")
   chatSessionsAsAgent   ChatSession[] @relation("ChatAgent")
+}
+
+// ─── UserAddress ─────────────────────────────────────────────────────────────
+// Multiple shipping/delivery addresses per user, geocoded for radius lookups.
+
+model UserAddress {
+  id            String   @id @default(uuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  label         String?              // "Home" | "Work" | "Mom's" — free text
+  addressLine1  String
+  addressLine2  String?
+  city          String
+  state         String
+  postalCode    String
+  country       String   @default("US")
+  latitude      Float?
+  longitude     Float?
+  googlePlaceId String?
+  isDefault     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([userId])
 }
 
 model Account {
@@ -133,10 +158,24 @@ enum ProductStatus {
   COMING_SOON
 }
 
+// Classification for admin/UI grouping. Routing/eligibility decisions are
+// driven by ProductChannel and Stock, not by this enum.
+enum ProductKind {
+  CREAMERY_CHEESE
+  CREAMERY_BUTTER
+  CREAMERY_SPREAD
+  CREAMERY_OTHER
+  BAKERY_HOT
+  BAKERY_FROZEN
+  BAKERY_PASTRY
+  BAKERY_BREAD
+}
+
 model Product {
   id             String        @id @default(uuid())
   sku            String        @unique
   name           String
+  nameKa         String?       // Georgian localized name, e.g. "აჭარული"
   slug           String        @unique
   description    String
   flavorProfile  String?
@@ -148,8 +187,12 @@ model Product {
   videoUrls      String[]      @default([])
   priceB2c       String
   priceB2b       String
-  stockQuantity  Int
+  stockQuantity  Int           // legacy: cached total. Stock per location is in Stock[].
   category       String?       @default("cheese")
+  house          String?       @default("CREAMERY") // legacy: superseded by `kind`. Will be dropped after migration.
+  kind           ProductKind   @default(CREAMERY_CHEESE)
+  isMadeToOrder  Boolean       @default(false) // true => no stock tracking at location (e.g. hot khachapuri)
+  tag            String?       // Optional UI badge: "Bestseller" | "Vegan" | "Limited" | "Ships" | etc.
   productLineId  String?
   categoryId     String?
   status         ProductStatus @default(ACTIVE)
@@ -163,6 +206,8 @@ model Product {
   productCategory Category?   @relation(fields: [categoryId], references: [id])
   orderItems  OrderItem[]
   reviews     ProductReview[]
+  channels    ProductChannel[]
+  stocks      Stock[]
 }
 
 // ─── Contract ────────────────────────────────────────────────────────────────
@@ -191,17 +236,33 @@ model Order {
   userId                 String
   orderType              String      @default("B2C")
   totalAmount            String
-  stripePaymentIntentId  String?
+  // Phase 7a — monetary breakdown (kept as strings to match existing money convention)
+  subtotalAmount         String?     // items × qty before shipping/tax
+  shippingAmount         String?     // sum of OrderFulfillment.shippingCost
+  taxAmount              String?     // total tax (Stripe Tax computed)
+  // Phase 7a — guest checkout. Order.userId still required; we create User rows
+  // with passwordHash=null for guests. Email/phone duplicated here for fast lookup
+  // independent of the User row (also helps cross-user-merge later).
+  guestEmail             String?
+  guestPhone             String?
+  // Phase 7a — scheduled fulfillment (earliest "ready" time across all fulfillments)
+  scheduledFor           DateTime?
+  // Phase 7a — auto-release reserved stock if payment doesn't complete in time
+  reservationExpiresAt   DateTime?
+  stripePaymentIntentId  String?     @unique  // used for idempotency on webhooks
   stripeInvoiceId        String?
   paymentStatus          String      @default("UNPAID")
   orderStatus            String      @default("PROCESSING")
   shippingAddress        String?
+  shippingLat            Float?
+  shippingLng            Float?
   notes                  String?
   createdAt              DateTime    @default(now())
 
-  user       User        @relation(fields: [userId], references: [id])
-  orderItems OrderItem[]
-  shipment   Shipment?
+  user         User              @relation(fields: [userId], references: [id])
+  orderItems   OrderItem[]
+  shipment     Shipment?
+  fulfillments OrderFulfillment[]
 }
 
 // ─── OrderItem ───────────────────────────────────────────────────────────────
@@ -213,8 +274,9 @@ model OrderItem {
   quantity  Int
   unitPrice String
 
-  order   Order   @relation(fields: [orderId], references: [id])
-  product Product @relation(fields: [productId], references: [id])
+  order            Order                  @relation(fields: [orderId], references: [id])
+  product          Product                @relation(fields: [productId], references: [id])
+  fulfillmentItems OrderFulfillmentItem[]
 }
 
 // ─── Shipment ────────────────────────────────────────────────────────────────
@@ -478,5 +540,135 @@ model ChatMessage {
   session ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
   @@index([sessionId, createdAt])
+}
+
+// ─── Multi-Location Fulfillment ──────────────────────────────────────────────
+// A Location is a physical place that holds Stock for Products and offers one
+// or more delivery Channels with their own radius / fee rules. Each Product can
+// opt into specific Channels (ProductChannel); a Customer at lat/lng sees only
+// products whose (Stock at L, Channel at L) reaches them.
+
+enum LocationType {
+  BAKERY              // hot bakery — local delivery + 3rd-party platforms + walk-in
+  D2C_COLD_WAREHOUSE  // owned cold storage, UPS 2-day shipping
+  B2B_3PL_WAREHOUSE   // third-party logistics for B2B cold chain (future)
+}
+
+enum FulfillmentChannel {
+  UPS_GROUND_2DAY        // nationwide-ish, capped by drive-hours from warehouse
+  HOT_DELIVERY_OWN       // bakery's own drivers, short radius
+  DOORDASH_DRIVE         // DoorDash Drive API (your platform, lower fee)
+  UBER_DIRECT            // Uber Direct API (your platform, lower fee)
+  DOORDASH_MARKETPLACE   // listed on DoorDash app (higher fee, future)
+  UBER_EATS_MARKETPLACE  // listed on Uber Eats app (higher fee, future)
+  IN_STORE_PICKUP        // customer picks up at the bakery
+  IN_STORE_DINE_IN       // customer eats at the bakery (e.g. hot khachapuri)
+}
+
+model Location {
+  id            String       @id @default(uuid())
+  name          String                                // "Bakery — Dublin OH" / "Cold Warehouse — Columbus"
+  type          LocationType
+  addressLine1  String
+  addressLine2  String?
+  city          String
+  state         String
+  postalCode    String
+  country       String       @default("US")
+  latitude      Float?                                // populated via Google Places at admin save
+  longitude     Float?
+  googlePlaceId String?                               // store Place ID for re-lookup
+  phone         String?
+  hours         Json?                                 // { mon: "07:00-21:00", tue: "07:00-21:00", ... }
+  isActive      Boolean      @default(true)
+  notes         String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  channels     LocationChannel[]
+  stocks       Stock[]
+  fulfillments OrderFulfillment[]
+}
+
+model LocationChannel {
+  id              String             @id @default(uuid())
+  locationId      String
+  location        Location           @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  channel         FulfillmentChannel
+  radiusMiles     Float?                            // 25 for HOT_DELIVERY_OWN, ~1200 for UPS (20h drive); null = no radius gate
+  maxDriveHours   Float?                            // alt to radiusMiles, used for UPS cold-chain
+  flatFee         String?                           // dollars, stringly-typed to match Product.priceB2c convention
+  perMileFee      String?                           // dollars per mile
+  priceMultiplier Float              @default(1.0)  // 1.0 own platform, 1.3 marketplace markup
+  isActive        Boolean            @default(true)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  @@unique([locationId, channel])
+}
+
+model Stock {
+  id                String   @id @default(uuid())
+  locationId        String
+  location          Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  productId         String
+  product           Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  quantity          Int?                              // NULL = made-to-order (unlimited while location open)
+  reservedQuantity  Int      @default(0)
+  lowStockThreshold Int      @default(0)
+  updatedAt         DateTime @updatedAt
+  createdAt         DateTime @default(now())
+
+  @@unique([locationId, productId])
+  @@index([productId])
+}
+
+model ProductChannel {
+  productId String
+  product   Product            @relation(fields: [productId], references: [id], onDelete: Cascade)
+  channel   FulfillmentChannel
+
+  @@id([productId, channel])
+  @@index([channel])
+}
+
+// One Order may split across multiple OrderFulfillment rows (one per location).
+// Created at checkout time when checkout is implemented (Phase 7).
+
+model OrderFulfillment {
+  id                String             @id @default(uuid())
+  orderId           String
+  order             Order              @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  locationId        String
+  location          Location           @relation(fields: [locationId], references: [id])
+  channel           FulfillmentChannel
+  status            String             @default("PENDING") // PENDING|CONFIRMED|PREPARING|OUT_FOR_DELIVERY|DELIVERED|CANCELLED
+  trackingNumber    String?
+  externalOrderId   String?                              // DoorDash/Uber Direct order id
+  estimatedDelivery DateTime?
+  shippingCost      String?
+  // Phase 7a — scheduled fulfillment time (MTO hot food outside hours, or
+  // customer-chosen later slot). Null means "as soon as possible".
+  scheduledFor      DateTime?
+  // Phase 7a — packaging requirement, e.g. "INSULATED_COLD_CHAIN" for UPS creamery.
+  // Helps the kitchen/warehouse pick the right packaging.
+  packagingType     String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  items OrderFulfillmentItem[]
+
+  @@index([orderId])
+}
+
+model OrderFulfillmentItem {
+  id            String           @id @default(uuid())
+  fulfillmentId String
+  fulfillment   OrderFulfillment @relation(fields: [fulfillmentId], references: [id], onDelete: Cascade)
+  orderItemId   String
+  orderItem     OrderItem        @relation(fields: [orderItemId], references: [id])
+  quantity      Int
+
+  @@index([fulfillmentId])
 }
 

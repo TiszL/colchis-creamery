@@ -1,6 +1,6 @@
 import { MetadataRoute } from 'next';
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://colchiscreamery.com';
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://colchisfood.com';
 
 /**
  * Dynamic robots.txt
@@ -30,6 +30,7 @@ export default function robots(): MetadataRoute.Robots {
                     // API & internal routes
                     '/api/',
                     '/admin/',
+                    '/portal/',
                     '/staff-portal/',
                     '/cart',
                     '/checkout',
@@ -37,6 +38,7 @@ export default function robots(): MetadataRoute.Robots {
                     '/login',
                     '/register',
                     '/verify-email',
+                    '/portal-login',
                     '/staff',
                     '/b2b/login',
                     '/b2b/register',
@@ -44,11 +46,13 @@ export default function robots(): MetadataRoute.Robots {
                     '/*/login',
                     '/*/register',
                     '/*/verify-email',
+                    '/*/portal-login',
                     '/*/staff',
                     '/*/b2b/login',
                     '/*/b2b/register',
                     '/*/forgot-password',
                     '/*/admin/',
+                    '/*/portal/',
                     '/*/staff-portal/',
                     '/*/account/',
                     '/*/b2b-portal/',

@@ -4,20 +4,12 @@ import { useLocale } from "next-intl";
 import { useRouter, usePathname } from "next/navigation";
 import { routing } from "@/i18n/routing";
 import { useState, useRef, useEffect } from "react";
-import "flag-icons/css/flag-icons.min.css";
 
-const localeNames: Record<string, string> = {
-  en: "English",
-  ka: "ქართული",
-  ru: "Русский",
-  es: "Español",
-};
-
-const localeFlags: Record<string, string> = {
-  en: "fi fi-us border border-black/10 text-lg rounded-sm",
-  ka: "fi fi-ge border border-black/10 text-lg rounded-sm",
-  ru: "fi fi-ru border border-black/10 text-lg rounded-sm",
-  es: "fi fi-es border border-black/10 text-lg rounded-sm",
+const localeCodes: Record<string, string> = {
+  en: "EN",
+  ka: "KA",
+  ru: "RU",
+  es: "ES",
 };
 
 export function LocaleSwitcher() {
@@ -49,37 +41,46 @@ export function LocaleSwitcher() {
   }
 
   return (
-    <div ref={ref} className="relative">
+    <div ref={ref} style={{ position: "relative" }}>
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 px-3 py-2 text-sm rounded hover:bg-charcoal/5 transition"
+        style={{
+          display: "flex", alignItems: "center", gap: 6,
+          background: "transparent", border: "none", cursor: "pointer", padding: "4px 0",
+          fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.28em",
+          color: "inherit", textTransform: "uppercase",
+        }}
         aria-haspopup="listbox"
         aria-expanded={open}
       >
-        <span className={localeFlags[locale]}></span>
-        <span className="hidden sm:inline lg:hidden xl:inline pt-0.5">{localeNames[locale]}</span>
-        <svg
-          className={`w-4 h-4 transition-transform ${open ? "rotate-180" : ""}`}
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        {localeCodes[locale]}
+        <svg width="8" height="8" viewBox="0 0 8 8" fill="none" style={{ transition: "transform 200ms", transform: open ? "rotate(180deg)" : "none" }}>
+          <path d="M1 2.5L4 5.5L7 2.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </button>
 
       {open && (
-        <div className="absolute right-0 mt-2 w-44 bg-white rounded-lg shadow-lg border border-border-light z-50">
+        <div style={{
+          position: "absolute", right: 0, top: "100%", marginTop: 8,
+          background: "#FFFFFF", border: "1px solid #1F302622",
+          minWidth: 80, zIndex: 50, display: "flex", flexDirection: "column",
+        }}>
           {routing.locales.map((loc) => (
             <button
               key={loc}
               onClick={() => switchLocale(loc)}
-              className={`w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-cream transition text-left ${
-                loc === locale ? "text-gold-text font-medium" : "text-charcoal"
-              }`}
+              style={{
+                display: "block", width: "100%", textAlign: "left",
+                padding: "10px 16px", border: "none", cursor: "pointer",
+                fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.28em",
+                textTransform: "uppercase",
+                background: loc === locale ? "#F5F0E6" : "transparent",
+                color: loc === locale ? "#B96A3D" : "#1F3026",
+                borderBottom: "1px solid #1F302611",
+                transition: "background 150ms",
+              }}
             >
-              <span className={localeFlags[loc]}></span>
-              <span className="pt-0.5">{localeNames[loc]}</span>
+              {localeCodes[loc]}
             </button>
           ))}
         </div>

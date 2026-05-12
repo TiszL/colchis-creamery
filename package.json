@@ -11,6 +11,8 @@
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
+    "@stripe/react-stripe-js": "^6.3.0",
+    "@stripe/stripe-js": "^9.4.0",
     "@types/qrcode": "^1.5.6",
     "@vercel/analytics": "^2.0.1",
     "@vercel/blob": "^2.3.3",

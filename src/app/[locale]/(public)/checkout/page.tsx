@@ -1,52 +1,65 @@
 import { getTranslations } from "next-intl/server";
-import Link from "next/link";
-import { Button } from "@/components/ui/Button";
+import { getSession } from "@/lib/session";
+import { getMyAddresses } from "@/app/actions/addresses";
+import { prisma } from "@/lib/db";
+import CheckoutClient from "@/components/checkout/CheckoutClient";
+
+export const dynamic = 'force-dynamic';
 
 interface CheckoutPageProps {
-  params: Promise<{ locale: string }>;
+    params: Promise<{ locale: string }>;
 }
 
 export async function generateMetadata({ params }: CheckoutPageProps) {
-  const { locale } = await params;
-  const t = await getTranslations({ locale, namespace: "checkout" });
-
-  return {
-    title: t("title"),
-    robots: { index: false, follow: true },
-  };
+    const { locale } = await params;
+    const t = await getTranslations({ locale, namespace: "checkout" });
+    return {
+        title: t("title"),
+        robots: { index: false, follow: true },
+    };
 }
 
 export default async function CheckoutPage({ params }: CheckoutPageProps) {
-  const { locale } = await params;
-  const t = await getTranslations({ locale, namespace: "checkout" });
-  const prefix = locale === "en" ? "" : `/${locale}`;
+    const { locale } = await params;
+    const session = await getSession();
+    const isLoggedIn = !!session?.userId;
 
-  return (
-    <div className="bg-cream min-h-screen">
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">
-        {/* Placeholder checkout */}
-        <div className="bg-white rounded-lg p-10 shadow-sm border border-border-light">
-          <div className="w-16 h-16 bg-gold/10 rounded-full flex items-center justify-center mx-auto mb-6">
-            <svg className="w-8 h-8 text-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </div>
+    const [userAddresses, locationsRaw, userProfile] = await Promise.all([
+        isLoggedIn ? getMyAddresses() : Promise.resolve([]),
+        prisma.location.findMany({
+            where: { isActive: true },
+            select: { id: true, name: true, hours: true },
+        }),
+        isLoggedIn && session?.userId
+            ? prisma.user.findUnique({
+                where: { id: session.userId },
+                select: { name: true, email: true, phone: true },
+            })
+            : Promise.resolve(null),
+    ]);
 
-          <h1 className="font-serif text-3xl text-charcoal mb-4">
-            {t("comingSoon")}
-          </h1>
+    // Hours is a Prisma JsonValue at the type level. The seed shape is
+    // { mon: "07:00-21:00", tue: "...", ... } — a flat map of day-key -> "HH:MM-HH:MM".
+    // Cast here so the client can consume it without re-validating per render.
+    const locations = locationsRaw.map(l => ({
+        id: l.id,
+        name: l.name,
+        hours: (l.hours as Record<string, string> | null) ?? null,
+    }));
 
-          <p className="text-charcoal/60 mb-8 leading-relaxed max-w-md mx-auto">
-            {t("comingSoonText")}
-          </p>
-
-          <Link href={`${prefix}/contact`}>
-            <Button variant="primary" size="lg">
-              {t("contactUs")}
-            </Button>
-          </Link>
-        </div>
-      </div>
-    </div>
-  );
+    return (
+        <CheckoutClient
+            locale={locale}
+            apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY || ''}
+            stripePublishableKey={process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || ''}
+            isLoggedIn={isLoggedIn}
+            userAddresses={userAddresses}
+            locations={locations}
+            initialContact={{
+                name: userProfile?.name ?? '',
+                email: userProfile?.email ?? '',
+                phone: userProfile?.phone ?? '',
+            }}
+        />
+    );
 }

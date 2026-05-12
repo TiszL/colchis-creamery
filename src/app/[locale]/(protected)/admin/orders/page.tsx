@@ -1,5 +1,6 @@
 import { prisma as db } from '@/lib/db';
-import { Truck, ExternalLink } from 'lucide-react';
+import { Truck } from 'lucide-react';
+import Link from 'next/link';
 import { revalidatePath } from 'next/cache';
 
 export const dynamic = 'force-dynamic';
@@ -28,7 +29,13 @@ async function updateOrderStatus(formData: FormData) {
     }
 }
 
-export default async function AdminOrdersPage() {
+export default async function AdminOrdersPage({
+    params,
+}: {
+    params: Promise<{ locale: string }>;
+}) {
+    const { locale } = await params;
+    const prefix = locale === 'en' ? '' : `/${locale}`;
 
     const orders = await db.order.findMany({
         include: {
@@ -36,7 +43,9 @@ export default async function AdminOrdersPage() {
             orderItems: {
                 include: { product: true }
             },
-            shipment: true
+            shipment: true,
+            // Phase 7a.8: surface fulfillment count + statuses in the list view
+            fulfillments: { select: { id: true, status: true } },
         },
         orderBy: { createdAt: 'desc' },
         take: 50
@@ -71,8 +80,18 @@ export default async function AdminOrdersPage() {
                             {orders.map((order: any) => (
                                 <tr key={order.id} className="hover:bg-gray-50 transition">
                                     <td className="px-6 py-4">
-                                        <div className="font-mono text-xs text-gray-900 mb-1">{order.id.split('-').pop()}</div>
+                                        <Link
+                                            href={`${prefix}/admin/orders/${order.id}`}
+                                            className="font-mono text-xs text-blue-700 hover:underline mb-1 inline-block"
+                                        >
+                                            {order.id.split('-').pop()}
+                                        </Link>
                                         <div className="text-xs text-gray-500">{new Date(order.createdAt).toLocaleDateString()}</div>
+                                        {order.fulfillments.length > 0 && (
+                                            <div className="text-[10px] text-gray-400 uppercase tracking-wider mt-1">
+                                                {order.fulfillments.length} fulfillment{order.fulfillments.length === 1 ? '' : 's'}
+                                            </div>
+                                        )}
                                     </td>
                                     <td className="px-6 py-4">
                                         <div className="font-medium text-gray-900">{order.user.companyName || 'Retail Customer'}</div>

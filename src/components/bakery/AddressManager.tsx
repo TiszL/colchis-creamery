@@ -22,7 +22,37 @@ export type ActiveAddress = {
 
 const GUEST_STORAGE_KEY = 'colchis-delivery-address';
 
-type GuestSaved = { formatted: string; lat: number; lng: number; googlePlaceId: string };
+// Phase 7b: BroadcastChannel for live cross-tab sync of the saved-address LIST
+// (the storage event handles the *active* selection but not the underlying list,
+// which is a server prop). Falls back silently in browsers without the API.
+const ADDRESS_BROADCAST_NAME = 'colchis-address-sync';
+
+type AddressBroadcastMessage =
+    | { type: 'upsert'; dto: UserAddressDto }
+    | { type: 'deleted'; id: string }
+    | { type: 'setDefault'; id: string };
+
+// Phase 7a.5: extended to persist parsed address components. Checkout needs them
+// for Stripe Tax + carrier-API shipping labels. Pre-7a.5 entries (missing the new
+// fields) still load cleanly — the fields are optional on the type. Server-side
+// checkout validation rejects guest carts whose components didn't make it through.
+type GuestSaved = {
+    formatted: string;
+    lat: number;
+    lng: number;
+    googlePlaceId: string;
+    addressLine1?: string;
+    addressLine2?: string;
+    city?: string;
+    state?: string;
+    postalCode?: string;
+    country?: string;
+    // Phase 7b: shared cache for the *currently active* address. Set for both
+    // guests and logged-in users so that switching the address on /shop is
+    // reflected on /bakery, /cart, /checkout, etc. on next mount. For logged-in
+    // users we additionally record which saved UserAddress this corresponds to.
+    userAddressId?: string;
+};
 
 export function readGuestAddress(): GuestSaved | null {
     if (typeof window === 'undefined') return null;
@@ -62,6 +92,74 @@ function dtoToActive(a: UserAddressDto): ActiveAddress | null {
         lng: a.longitude,
         googlePlaceId: a.googlePlaceId,
     };
+}
+
+/* ─── Shared component-resolver (Phase 8.2) ──────────────────────────────── */
+
+/** Parsed street-address components needed by checkout server actions and live
+ *  carrier quotes (Uber Direct requires structured JSON; DoorDash accepts free-
+ *  text but components are nicer if available). */
+export type ActiveAddressComponents = {
+    line1: string;
+    line2?: string;
+    city: string;
+    state: string;
+    postalCode: string;
+    country: string;
+    lat: number;
+    lng: number;
+    formatted: string;
+    googlePlaceId?: string;
+};
+
+/**
+ * Resolve the parsed components for whatever `activeAddress` currently points at.
+ *
+ * Logged-in path: look up the matching `UserAddressDto` in the supplied list.
+ * Guest path:     read from localStorage (AddressManager persists components
+ *                 since 7a.5 + cross-page-sync since 7b).
+ *
+ * Returns null if components aren't recoverable (e.g. legacy guest entry without
+ * components saved, or stale UserAddressDto missing lat/lng). Callers surface
+ * "please re-enter your delivery address" in that case.
+ */
+export function getActiveAddressComponents(
+    activeAddress: ActiveAddress,
+    userAddresses: UserAddressDto[],
+): ActiveAddressComponents | null {
+    const found = userAddresses.find(a => a.id === activeAddress.id);
+    if (found && found.latitude !== null && found.longitude !== null) {
+        return {
+            line1: found.addressLine1,
+            line2: found.addressLine2 || undefined,
+            city: found.city,
+            state: found.state,
+            postalCode: found.postalCode,
+            country: found.country,
+            lat: found.latitude,
+            lng: found.longitude,
+            formatted: activeAddress.formatted,
+            googlePlaceId: found.googlePlaceId || undefined,
+        };
+    }
+    if (activeAddress.id === 'guest') {
+        const g = readGuestAddress();
+        if (g?.addressLine1 && g.city && g.state && g.postalCode && g.country) {
+            return {
+                line1: g.addressLine1,
+                line2: g.addressLine2 || undefined,
+                city: g.city,
+                state: g.state,
+                postalCode: g.postalCode,
+                country: g.country,
+                lat: g.lat,
+                lng: g.lng,
+                formatted: g.formatted,
+                googlePlaceId: g.googlePlaceId || undefined,
+            };
+        }
+    }
+    return null;
 }
 
 /* ─── Places autocomplete (extracted) ────────────────────────────────────── */
@@ -315,9 +413,24 @@ export default function AddressManager({
         }
     }, [activeAddress, isLoggedIn, onActiveAddressChange]);
 
-    // Auto-select default address on mount for logged-in users
+    // Auto-select address on mount for logged-in users.
+    // Phase 7b: prefer the user's last-picked address (read from the shared
+    // localStorage cache) so navigation between /shop, /bakery, /cart, /checkout
+    // keeps the same selection. Falls back to isDefault on first visit or if the
+    // stored id is stale (e.g., user deleted that address).
     useEffect(() => {
         if (!isLoggedIn || activeAddress) return;
+        const stored = readGuestAddress();
+        if (stored?.userAddressId) {
+            const matched = addresses.find(a => a.id === stored.userAddressId);
+            if (matched) {
+                const active = dtoToActive(matched);
+                if (active) {
+                    onActiveAddressChange(active);
+                    return;
+                }
+            }
+        }
         const def = addresses.find(a => a.isDefault) || addresses[0];
         if (def) {
             const active = dtoToActive(def);
@@ -325,18 +438,115 @@ export default function AddressManager({
         }
     }, [isLoggedIn, addresses, activeAddress, onActiveAddressChange]);
 
+    // Phase 7b: cross-tab broadcast for the saved-addresses LIST. When tab A
+    // adds/edits/deletes/sets-default, tab B's AddressManager updates its local
+    // list without requiring a page reload. Note: the `message` event fires on
+    // OTHER tabs only — same-tab postMessage doesn't loop back (per the API),
+    // so the broadcaster's own setAddresses + receivers stay in sync.
+    const broadcastRef = useRef<BroadcastChannel | null>(null);
+    useEffect(() => {
+        if (typeof window === 'undefined' || typeof BroadcastChannel === 'undefined') return;
+        const channel = new BroadcastChannel(ADDRESS_BROADCAST_NAME);
+        broadcastRef.current = channel;
+        const handler = (e: MessageEvent<AddressBroadcastMessage>) => {
+            const msg = e.data;
+            switch (msg.type) {
+                case 'upsert':
+                    setAddresses(prev => {
+                        const others = prev.filter(a => a.id !== msg.dto.id);
+                        // If incoming is the new default, clear isDefault on others to mirror server constraint
+                        const cleaned = msg.dto.isDefault ? others.map(a => ({ ...a, isDefault: false })) : others;
+                        return [...cleaned, msg.dto].sort((a, b) =>
+                            a.isDefault === b.isDefault ? 0 : a.isDefault ? -1 : 1,
+                        );
+                    });
+                    break;
+                case 'deleted':
+                    setAddresses(prev => prev.filter(a => a.id !== msg.id));
+                    break;
+                case 'setDefault':
+                    setAddresses(prev => prev.map(a => ({ ...a, isDefault: a.id === msg.id })));
+                    break;
+            }
+        };
+        channel.addEventListener('message', handler);
+        return () => {
+            channel.removeEventListener('message', handler);
+            channel.close();
+            broadcastRef.current = null;
+        };
+    }, []);
+
+    // Phase 7b: cross-tab live sync of the ACTIVE address (separate concern
+    // from the list above). The `storage` event fires in tab B when tab A
+    // writes to the same localStorage key. Same-tab writes don't fire (by
+    // spec), so no feedback loop.
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const handler = (e: StorageEvent) => {
+            if (e.key !== GUEST_STORAGE_KEY) return;
+            const fresh = readGuestAddress();
+            if (!fresh) {
+                onActiveAddressChange(null);
+                return;
+            }
+            // Prefer the matching saved-address record for logged-in users so the
+            // ActiveAddress.id stays canonical (matches AddressManager's picker).
+            if (isLoggedIn && fresh.userAddressId) {
+                const matched = addresses.find(a => a.id === fresh.userAddressId);
+                if (matched) {
+                    const active = dtoToActive(matched);
+                    if (active) {
+                        onActiveAddressChange(active);
+                        return;
+                    }
+                }
+            }
+            onActiveAddressChange({
+                id: fresh.userAddressId || 'guest',
+                label: null,
+                formatted: fresh.formatted,
+                lat: fresh.lat,
+                lng: fresh.lng,
+                googlePlaceId: fresh.googlePlaceId,
+            });
+        };
+        window.addEventListener('storage', handler);
+        return () => window.removeEventListener('storage', handler);
+    }, [isLoggedIn, addresses, onActiveAddressChange]);
+
     /* ─── Handlers ───────────────────────────────────────────────────────── */
 
     const selectAddress = (a: UserAddressDto) => {
         const active = dtoToActive(a);
         if (active) {
             onActiveAddressChange(active);
+            // Phase 7b: persist to the shared localStorage cache so other pages
+            // pick up this selection on mount. Skip if lat/lng aren't available
+            // (legacy UserAddress rows pre-Places-autocomplete).
+            if (a.latitude !== null && a.longitude !== null) {
+                saveGuestAddress({
+                    formatted: dtoToFormatted(a),
+                    lat: a.latitude,
+                    lng: a.longitude,
+                    googlePlaceId: a.googlePlaceId || '',
+                    addressLine1: a.addressLine1,
+                    addressLine2: a.addressLine2 || undefined,
+                    city: a.city,
+                    state: a.state,
+                    postalCode: a.postalCode,
+                    country: a.country,
+                    userAddressId: a.id,
+                });
+            }
             setShowPicker(false);
         }
     };
 
     const clearActive = () => {
-        if (!isLoggedIn) clearGuestAddress();
+        // Phase 7b: clear shared cache for guests AND logged-in users so the
+        // next mount falls back through hydration logic (default for logged-in).
+        clearGuestAddress();
         onActiveAddressChange(null);
         setShowPicker(false);
         setIsAdding(false);
@@ -346,7 +556,17 @@ export default function AddressManager({
     };
 
     const handleGuestPlace = (p: ParsedPlace) => {
-        saveGuestAddress({ formatted: p.formatted, lat: p.lat, lng: p.lng, googlePlaceId: p.googlePlaceId });
+        saveGuestAddress({
+            formatted: p.formatted,
+            lat: p.lat,
+            lng: p.lng,
+            googlePlaceId: p.googlePlaceId,
+            addressLine1: p.addressLine1,
+            city: p.city,
+            state: p.state,
+            postalCode: p.postalCode,
+            country: p.country,
+        });
         onActiveAddressChange({
             id: 'guest',
             label: null,
@@ -385,6 +605,7 @@ export default function AddressManager({
                 a.isDefault === b.isDefault ? 0 : a.isDefault ? -1 : 1,
             );
             setAddresses(next);
+            broadcastRef.current?.postMessage({ type: 'upsert', dto: saved } satisfies AddressBroadcastMessage);
 
             // If this is the user's FIRST address, auto-select it (no point not to).
             // For subsequent adds, leave their current active selection alone so they
@@ -412,6 +633,7 @@ export default function AddressManager({
             if (ok) {
                 const next = addresses.filter(a => a.id !== id);
                 setAddresses(next);
+                broadcastRef.current?.postMessage({ type: 'deleted', id } satisfies AddressBroadcastMessage);
                 if (activeAddress?.id === id) {
                     const fallback = next.find(a => a.isDefault) || next[0];
                     onActiveAddressChange(fallback ? dtoToActive(fallback) : null);
@@ -425,6 +647,7 @@ export default function AddressManager({
             const ok = await setDefaultAddress(id);
             if (ok) {
                 setAddresses(prev => prev.map(a => ({ ...a, isDefault: a.id === id })));
+                broadcastRef.current?.postMessage({ type: 'setDefault', id } satisfies AddressBroadcastMessage);
             }
         });
     };

@@ -137,9 +137,9 @@ export async function sendVerificationEmail(to: string, code: string, name?: str
     }
     console.log('[Resend] Verification email sent to', to, '| ID:', data?.id);
     return { success: true, id: data?.id };
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('[Resend] Error sending email:', err);
-    return { success: false, error: err.message };
+    return { success: false, error: err instanceof Error ? err.message : 'unknown error' };
   }
 }
 
@@ -218,9 +218,9 @@ export async function send2FAEmail(to: string, code: string, name?: string) {
     }
     console.log('[Resend] 2FA email sent to', to, '| ID:', data?.id);
     return { success: true, id: data?.id };
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('[Resend] Error sending 2FA email:', err);
-    return { success: false, error: err.message };
+    return { success: false, error: err instanceof Error ? err.message : 'unknown error' };
   }
 }
 
@@ -298,9 +298,9 @@ export async function sendContactFormEmail(data: {
     }
     console.log('[Resend] Contact form email sent | ID:', result?.id);
     return { success: true, id: result?.id };
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('[Resend] Error sending contact form email:', err);
-    return { success: false, error: err.message };
+    return { success: false, error: err instanceof Error ? err.message : 'unknown error' };
   }
 }
 
@@ -403,9 +403,9 @@ export async function sendB2bApprovalEmail(
     }
     console.log('[Resend] B2B approval email sent to', to, '| ID:', data?.id);
     return { success: true, id: data?.id };
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('[Resend] Error sending B2B approval email:', err);
-    return { success: false, error: err.message };
+    return { success: false, error: err instanceof Error ? err.message : 'unknown error' };
   }
 }
 
@@ -464,8 +464,295 @@ export async function sendB2bRejectionEmail(
     }
     console.log('[Resend] B2B rejection email sent to', to, '| ID:', data?.id);
     return { success: true, id: data?.id };
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('[Resend] Error sending B2B rejection email:', err);
-    return { success: false, error: err.message };
+    return { success: false, error: err instanceof Error ? err.message : 'unknown error' };
+  }
+}
+
+// ─── 7. Order confirmation (Phase 7a.7) ─────────────────────────────────────
+//
+// Sent from the Stripe webhook handler on payment_intent.succeeded. "Plain-but-
+// readable" per the 7a plan — the pretty refresh ships in 7b. Best-effort: the
+// webhook catches send failures and continues (payment + fulfillment is already
+// committed by the time we get here).
+//
+// Phase 7b.3: includes a signed "View your order" link so guests (who don't have
+// an account-based session) can revisit their order from the email.
+
+import { signOrderToken } from './order-token';
+
+export type OrderForEmail = {
+  id: string;
+  totalAmount: string;
+  subtotalAmount: string | null;
+  shippingAmount: string | null;
+  taxAmount: string | null;
+  guestEmail: string | null;
+  shippingAddress: string | null;
+  createdAt: Date;
+  user: { email: string; name: string | null };
+  fulfillments: {
+    channel: string;
+    shippingCost: string | null;
+    location: { name: string };
+    items: {
+      quantity: number;
+      orderItem: { unitPrice: string; product: { name: string } };
+    }[];
+  }[];
+};
+
+function escHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function fmtMoney(s: string | null | undefined): string {
+  if (!s) return '$0.00';
+  const n = parseFloat(s);
+  if (isNaN(n)) return '$0.00';
+  return `$${n.toFixed(2)}`;
+}
+
+function fmtChannel(channel: string): string {
+  return channel.replace(/_/g, ' ');
+}
+
+export async function sendOrderConfirmation(order: OrderForEmail) {
+  const recipient = order.guestEmail || order.user.email;
+  if (!recipient) {
+    console.warn('[Resend] No recipient for order confirmation:', order.id);
+    return { success: false, error: 'No recipient email on order' };
+  }
+  const bcc = process.env.BAKERY_NOTIFICATION_EMAIL || undefined;
+
+  const shortId = order.id.slice(0, 8).toUpperCase();
+  const customerName = order.user.name?.trim() || 'there';
+  const placedOn = order.createdAt.toLocaleString('en-US', {
+    weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
+    hour: 'numeric', minute: '2-digit',
+  });
+
+  // Phase 7b.3: signed lookup link. Default 30-day expiry — long enough that
+  // even slow buyers can click through, short enough that a leaked email's
+  // link is bounded.
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+  const token = await signOrderToken(order.id);
+  const lookupUrl = `${siteUrl}/orders/${token}`;
+
+  // Phase 7b.7: aggregate stats for the hero strip
+  const totalItemCount = order.fulfillments.reduce(
+    (sum, f) => sum + f.items.reduce((ss, i) => ss + i.quantity, 0),
+    0,
+  );
+
+  // Phase 7b.7: per-fulfillment cards (white panel on cream2 backdrop). Item
+  // rows have stronger typographic rhythm — serif name + mono quantity + price.
+  const fulfillmentBlocks = order.fulfillments.map((f, idx) => {
+    const itemRows = f.items.map((it, i) => `
+      <tr>
+        <td style="padding:10px 0;font-family:'Georgia',serif;font-size:15px;color:${C.forest};${i > 0 ? `border-top:1px solid ${C.forest}10;` : ''}">
+          ${escHtml(it.orderItem.product.name)}
+          <span style="font-family:'Courier New',monospace;font-size:11px;letter-spacing:1px;color:${C.muted};margin-left:6px;">×${it.quantity}</span>
+        </td>
+        <td style="padding:10px 0;font-family:'Georgia',serif;font-size:15px;color:${C.forest};text-align:right;${i > 0 ? `border-top:1px solid ${C.forest}10;` : ''}">
+          ${fmtMoney((parseFloat(it.orderItem.unitPrice) * it.quantity).toFixed(2))}
+        </td>
+      </tr>`).join('');
+
+    return `
+      <tr>
+        <td style="background:${C.cream2};padding:0 48px 16px;">
+          <table width="100%" cellpadding="0" cellspacing="0" style="background:${C.white};border:1px solid ${C.forest}22;">
+            <tr>
+              <td style="padding:20px 24px 14px;border-bottom:1px solid ${C.forest}14;">
+                <p style="margin:0 0 4px;font-family:'Courier New',monospace;font-size:9px;letter-spacing:3px;color:${C.accent2};text-transform:uppercase;">
+                  № ${String(idx + 1).padStart(2, '0')} — Fulfillment ${idx + 1} of ${order.fulfillments.length}
+                </p>
+                <p style="margin:0;font-family:'Georgia',serif;font-style:italic;font-size:22px;color:${C.forest};line-height:1.2;">
+                  ${escHtml(f.location.name)}
+                </p>
+                <p style="margin:6px 0 0;font-family:'Courier New',monospace;font-size:10px;letter-spacing:2.5px;color:${C.muted};text-transform:uppercase;">
+                  ${escHtml(fmtChannel(f.channel))}${f.shippingCost && parseFloat(f.shippingCost) > 0 ? ` · ${fmtMoney(f.shippingCost)} shipping` : f.shippingCost === '0.00' ? ' · free' : ''}
+                </p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:6px 24px 18px;">
+                <table width="100%" cellpadding="0" cellspacing="0">${itemRows}</table>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>`;
+  }).join('');
+
+  try {
+    const { data, error } = await resend.emails.send({
+      from: getFrom(),
+      to: recipient,
+      bcc,
+      subject: `Order placed — Colchis Food (#${shortId})`,
+      html: wrap(`
+          ${sealHead('Order placed')}
+
+          <!-- Hero / greeting -->
+          <tr>
+            <td style="background:${C.cream2};padding:44px 48px 18px;">
+              <p style="margin:0 0 8px;font-family:'Courier New',monospace;font-size:10px;letter-spacing:3px;color:${C.accent2};text-transform:uppercase;">
+                ✓ Confirmed · Order #${shortId}
+              </p>
+              <h1 style="margin:0;font-family:'Georgia',serif;font-size:38px;font-weight:300;color:${C.forest};letter-spacing:-1px;line-height:1.05;">
+                Thank you, <em style="color:${C.accent};">${escHtml(customerName)}.</em>
+              </h1>
+              <p style="margin:16px 0 0;font-family:'Georgia',serif;font-size:14px;color:${C.muted};font-style:italic;line-height:1.55;">
+                We received your order on ${placedOn}. Here&rsquo;s everything that&rsquo;s on its way.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Stats strip -->
+          <tr>
+            <td style="background:${C.cream2};padding:0 48px 24px;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${C.forest}22;">
+                <tr>
+                  <td width="33%" style="padding:14px 18px;border-right:1px solid ${C.forest}14;background:${C.white};">
+                    <p style="margin:0;font-family:'Courier New',monospace;font-size:9px;letter-spacing:2.5px;color:${C.muted};text-transform:uppercase;">Items</p>
+                    <p style="margin:6px 0 0;font-family:'Georgia',serif;font-size:24px;color:${C.forest};font-weight:300;line-height:1;">${totalItemCount}</p>
+                  </td>
+                  <td width="34%" style="padding:14px 18px;border-right:1px solid ${C.forest}14;background:${C.white};">
+                    <p style="margin:0;font-family:'Courier New',monospace;font-size:9px;letter-spacing:2.5px;color:${C.muted};text-transform:uppercase;">Fulfillments</p>
+                    <p style="margin:6px 0 0;font-family:'Georgia',serif;font-size:24px;color:${C.forest};font-weight:300;line-height:1;">${order.fulfillments.length}</p>
+                  </td>
+                  <td width="33%" style="padding:14px 18px;background:${C.white};text-align:right;">
+                    <p style="margin:0;font-family:'Courier New',monospace;font-size:9px;letter-spacing:2.5px;color:${C.muted};text-transform:uppercase;">Total</p>
+                    <p style="margin:6px 0 0;font-family:'Georgia',serif;font-size:24px;color:${C.forest};font-weight:400;line-height:1;">${fmtMoney(order.totalAmount)}</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- CTA -->
+          <tr>
+            <td style="background:${C.cream2};padding:0 48px 32px;">
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="background:${C.forest};padding:18px 28px;text-align:center;">
+                    <a href="${lookupUrl}" style="font-family:'Courier New',monospace;font-size:11px;letter-spacing:3px;color:${C.cream};text-decoration:none;text-transform:uppercase;">View your order →</a>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin:8px 0 0;font-family:'Courier New',monospace;font-size:9px;letter-spacing:2px;color:${C.muted};text-transform:uppercase;text-align:center;">
+                Link valid for 30 days · no login required
+              </p>
+            </td>
+          </tr>
+
+          ${divider(C.cream2)}
+
+          <!-- Section heading: fulfillments -->
+          <tr>
+            <td style="background:${C.cream2};padding:24px 48px 8px;">
+              <p style="margin:0;font-family:'Courier New',monospace;font-size:10px;letter-spacing:3px;color:${C.accent2};text-transform:uppercase;">
+                What you ordered
+              </p>
+              <p style="margin:4px 0 18px;font-family:'Georgia',serif;font-style:italic;font-size:16px;color:${C.muted};">
+                Grouped by where each leg ships from.
+              </p>
+            </td>
+          </tr>
+
+          ${fulfillmentBlocks}
+
+          ${divider(C.cream2)}
+
+          <!-- Totals -->
+          <tr>
+            <td style="background:${C.cream2};padding:32px 48px 24px;">
+              <p style="margin:0 0 18px;font-family:'Courier New',monospace;font-size:10px;letter-spacing:3px;color:${C.accent2};text-transform:uppercase;">
+                The reckoning
+              </p>
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="padding:5px 0;font-family:'Courier New',monospace;font-size:10px;letter-spacing:2px;color:${C.muted};text-transform:uppercase;">Subtotal</td>
+                  <td style="padding:5px 0;font-family:'Georgia',serif;font-size:15px;color:${C.forest};text-align:right;">${fmtMoney(order.subtotalAmount)}</td>
+                </tr>
+                <tr>
+                  <td style="padding:5px 0;font-family:'Courier New',monospace;font-size:10px;letter-spacing:2px;color:${C.muted};text-transform:uppercase;">Shipping</td>
+                  <td style="padding:5px 0;font-family:'Georgia',serif;font-size:15px;color:${C.forest};text-align:right;">${fmtMoney(order.shippingAmount)}</td>
+                </tr>
+                <tr>
+                  <td style="padding:5px 0;font-family:'Courier New',monospace;font-size:10px;letter-spacing:2px;color:${C.muted};text-transform:uppercase;">Sales tax</td>
+                  <td style="padding:5px 0;font-family:'Georgia',serif;font-size:15px;color:${C.forest};text-align:right;">${fmtMoney(order.taxAmount)}</td>
+                </tr>
+                <tr>
+                  <td style="padding:16px 0 0;border-top:1px solid ${C.forest};font-family:'Courier New',monospace;font-size:11px;letter-spacing:3px;color:${C.accent2};text-transform:uppercase;">Total</td>
+                  <td style="padding:16px 0 0;border-top:1px solid ${C.forest};font-family:'Georgia',serif;font-size:32px;font-weight:400;color:${C.forest};text-align:right;letter-spacing:-0.5px;line-height:1;">${fmtMoney(order.totalAmount)}</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          ${order.shippingAddress ? `
+          <tr>
+            <td style="background:${C.cream2};padding:0 48px 28px;">
+              <p style="margin:0 0 6px;font-family:'Courier New',monospace;font-size:10px;letter-spacing:3px;color:${C.accent2};text-transform:uppercase;">Shipping to</p>
+              <p style="margin:0;font-family:'Georgia',serif;font-size:15px;color:${C.forest};line-height:1.55;">
+                ${escHtml(order.shippingAddress)}
+              </p>
+            </td>
+          </tr>` : ''}
+
+          ${divider(C.cream2)}
+
+          <!-- What's next -->
+          <tr>
+            <td style="background:${C.cream2};padding:32px 48px 36px;">
+              <p style="margin:0 0 18px;font-family:'Courier New',monospace;font-size:10px;letter-spacing:3px;color:${C.accent2};text-transform:uppercase;">
+                What&rsquo;s next
+              </p>
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="padding:0 0 14px;font-family:'Georgia',serif;font-size:14.5px;color:${C.forest};line-height:1.65;">
+                    <strong style="color:${C.accent2};font-family:'Courier New',monospace;font-size:11px;letter-spacing:2px;margin-right:8px;">01</strong>
+                    We start preparing as soon as the kitchen opens (hot items) or when our cold warehouse staff is on shift (creamery).
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:0 0 14px;font-family:'Georgia',serif;font-size:14.5px;color:${C.forest};line-height:1.65;">
+                    <strong style="color:${C.accent2};font-family:'Courier New',monospace;font-size:11px;letter-spacing:2px;margin-right:8px;">02</strong>
+                    You&rsquo;ll get a separate note when each fulfillment ships or is ready for pickup.
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:0;font-family:'Georgia',serif;font-size:14.5px;color:${C.forest};line-height:1.65;">
+                    <strong style="color:${C.accent2};font-family:'Courier New',monospace;font-size:11px;letter-spacing:2px;margin-right:8px;">03</strong>
+                    Questions? Reply to this email or write to
+                    <a href="mailto:hello@colchisfood.com?subject=Order%20%23${shortId}" style="color:${C.accent2};text-decoration:none;border-bottom:1px solid ${C.accent2}55;">hello@colchisfood.com</a>
+                    — your order number will be pre-filled.
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          ${darkFoot()}
+      `),
+    });
+
+    if (error) {
+      console.error('[Resend] Failed to send order confirmation:', error);
+      return { success: false, error: error.message };
+    }
+    console.log('[Resend] Order confirmation sent to', recipient, '| Order:', order.id, '| ID:', data?.id);
+    return { success: true, id: data?.id };
+  } catch (err: unknown) {
+    console.error('[Resend] Error sending order confirmation:', err);
+    return { success: false, error: err instanceof Error ? err.message : 'unknown error' };
   }
 }

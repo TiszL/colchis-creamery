@@ -1,64 +1,22 @@
-// PLACEHOLDER: Stripe integration
-// Replace with real Stripe client when company is established and Stripe account is created.
+// Server-only Stripe SDK client.
+// Import from server actions / route handlers only — never from a client component.
+//
+// 7a.5 (createCheckoutSession server action) calls `stripe.paymentIntents.create({...})`.
+// 7a.6 (webhook handler) calls `stripe.webhooks.constructEvent(...)`.
 
-const STRIPE_KEY = process.env.STRIPE_SECRET_KEY;
+import Stripe from 'stripe';
+
+const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
+
+if (!STRIPE_SECRET_KEY) {
+    console.warn('[stripe] STRIPE_SECRET_KEY is not set — server-side Stripe calls will fail.');
+}
+
+export const stripe = new Stripe(STRIPE_SECRET_KEY ?? 'sk_test_placeholder', {
+    apiVersion: '2026-01-28.clover',
+    typescript: true,
+});
 
 export function isStripeConfigured(): boolean {
-  return !!STRIPE_KEY && STRIPE_KEY !== "sk_placeholder";
-}
-
-export async function createCheckoutSession(items: { priceId: string; quantity: number }[]) {
-  if (!isStripeConfigured()) {
-    console.warn("[Stripe Placeholder] createCheckoutSession called without valid Stripe key");
-    return {
-      id: "placeholder_session_" + Date.now(),
-      url: null,
-      status: "placeholder",
-    };
-  }
-
-  // TODO: Real Stripe implementation
-  // const stripe = new Stripe(STRIPE_KEY);
-  // return stripe.checkout.sessions.create({ ... });
-  return {
-    id: "placeholder_session_" + Date.now(),
-    url: null,
-    status: "placeholder",
-  };
-}
-
-export async function createPaymentIntent(amount: number, currency = "usd") {
-  if (!isStripeConfigured()) {
-    console.warn("[Stripe Placeholder] createPaymentIntent called without valid Stripe key");
-    return {
-      id: "placeholder_pi_" + Date.now(),
-      clientSecret: null,
-      status: "placeholder",
-    };
-  }
-
-  // TODO: Real Stripe implementation
-  return {
-    id: "placeholder_pi_" + Date.now(),
-    clientSecret: null,
-    status: "placeholder",
-  };
-}
-
-export async function createInvoice(customerId: string, items: { description: string; amount: number; quantity: number }[]) {
-  if (!isStripeConfigured()) {
-    console.warn("[Stripe Placeholder] createInvoice called without valid Stripe key");
-    return {
-      id: "placeholder_inv_" + Date.now(),
-      hostedUrl: null,
-      status: "placeholder",
-    };
-  }
-
-  // TODO: Real Stripe implementation
-  return {
-    id: "placeholder_inv_" + Date.now(),
-    hostedUrl: null,
-    status: "placeholder",
-  };
+    return !!STRIPE_SECRET_KEY && STRIPE_SECRET_KEY !== 'sk_test_placeholder';
 }

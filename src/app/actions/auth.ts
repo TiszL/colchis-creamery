@@ -537,43 +537,6 @@ export async function updateProfileAction(formData: FormData) {
     }
 }
 
-export async function updateAddressAction(formData: FormData) {
-    const userId = formData.get("userId") as string;
-    const shippingAddress = formData.get("shippingAddress") as string;
-    const shippingCity = formData.get("shippingCity") as string;
-    const shippingState = formData.get("shippingState") as string;
-    const shippingZip = formData.get("shippingZip") as string;
-    const shippingCountry = formData.get("shippingCountry") as string;
-
-    if (!userId) return { error: "Not authenticated." };
-
-    try {
-        await prisma.userProfile.upsert({
-            where: { userId },
-            update: {
-                shippingAddress: shippingAddress || null,
-                shippingCity: shippingCity || null,
-                shippingState: shippingState || null,
-                shippingZip: shippingZip || null,
-                shippingCountry: shippingCountry || "US",
-            },
-            create: {
-                userId,
-                shippingAddress: shippingAddress || null,
-                shippingCity: shippingCity || null,
-                shippingState: shippingState || null,
-                shippingZip: shippingZip || null,
-                shippingCountry: shippingCountry || "US",
-            },
-        });
-        revalidatePath("/account");
-        return { success: true };
-    } catch (error) {
-        console.error("Update address error:", error);
-        return { error: "Failed to update address." };
-    }
-}
-
 export async function changePasswordAction(formData: FormData) {
     const userId = formData.get("userId") as string;
     const currentPassword = formData.get("currentPassword") as string;

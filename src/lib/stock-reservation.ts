@@ -9,6 +9,11 @@
 
 import { prisma } from './db';
 
+// Prisma's default interactive transaction timeout is 5s. With cold Neon and a
+// few cart items doing sequential findUnique + update, that can exceed budget.
+// 15s is conservative — actual happy-path latency is sub-second once warm.
+const TX_TIMEOUT_MS = 15_000;
+
 export type ReservationItem = {
     productId: string;
     locationId: string;
@@ -67,7 +72,7 @@ export async function reserveStock(items: ReservationItem[]): Promise<ReserveRes
                     data: { reservedQuantity: { increment: item.quantity } },
                 });
             }
-        });
+        }, { timeout: TX_TIMEOUT_MS });
         return { ok: true };
     } catch (e) {
         if (e instanceof ReservationError) {
@@ -99,7 +104,7 @@ export async function releaseStock(items: ReservationItem[]): Promise<void> {
             }
             await tx.stock.update({ where: { id: stock.id }, data: { reservedQuantity: newReserved } });
         }
-    });
+    }, { timeout: TX_TIMEOUT_MS });
 }
 
 /**
@@ -124,7 +129,7 @@ export async function commitStock(items: ReservationItem[]): Promise<void> {
             }
             await tx.stock.update({ where: { id: stock.id }, data });
         }
-    });
+    }, { timeout: TX_TIMEOUT_MS });
 }
 
 class ReservationError extends Error {
@@ -134,4 +139,34 @@ class ReservationError extends Error {
         this.name = 'ReservationError';
         this.failingItem = failingItem;
     }
+}
+
+/**
+ * Restore previously-committed stock back to inventory.
+ *
+ * Inverse of `commitStock` for the customer-cancel and admin-refund paths
+ * (Phase 7b.5+). Only increments Stock.quantity — reservedQuantity is already
+ * at zero (commit decremented it) so we leave it alone. MTO products are
+ * skipped because they don't track quantity in the first place.
+ *
+ * Idempotency: not enforced here. Callers must check Order.paymentStatus
+ * before invoking, so we never restore stock twice for the same Order.
+ */
+export async function restoreStock(items: ReservationItem[]): Promise<void> {
+    if (items.length === 0) return;
+    await prisma.$transaction(async (tx) => {
+        for (const item of items) {
+            const stock = await tx.stock.findUnique({
+                where: { locationId_productId: { locationId: item.locationId, productId: item.productId } },
+                include: { product: { select: { isMadeToOrder: true } } },
+            });
+            if (!stock) continue;
+            // MTO products have no quantity counter — nothing to restore.
+            if (stock.product.isMadeToOrder || stock.quantity === null) continue;
+            await tx.stock.update({
+                where: { id: stock.id },
+                data: { quantity: { increment: item.quantity } },
+            });
+        }
+    }, { timeout: TX_TIMEOUT_MS });
 }

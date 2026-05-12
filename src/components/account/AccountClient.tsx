@@ -3,20 +3,21 @@
 import { useState } from "react";
 import Link from "next/link";
 import { AccountProfileForm } from "./AccountProfileForm";
-import { AccountAddressForm } from "./AccountAddressForm";
 import { AccountPasswordForm } from "./AccountPasswordForm";
+import AddressManager, { type ActiveAddress } from "@/components/bakery/AddressManager";
+import type { UserAddressDto } from "@/app/actions/addresses";
 import { formatCurrency } from "@/lib/utils";
 
 interface OrderItem { product: { name: string }; quantity: number }
 interface Order { id: string; createdAt: string; orderStatus: string; totalAmount: number; orderItems: OrderItem[] }
 interface UserData { id: string; name: string | null; email: string; phone: string | null; createdAt: string }
-interface ProfileData { shippingAddress: string | null; shippingCity: string | null; shippingState: string | null; shippingZip: string | null; shippingCountry: string | null }
 
 interface Props {
     user: UserData;
-    profile: ProfileData | null;
     orders: Order[];
     locale: string;
+    apiKey: string;
+    userAddresses: UserAddressDto[];
 }
 
 const tabDefs = [
@@ -29,7 +30,7 @@ const tabDefs = [
 
 type TabId = typeof tabDefs[number]["id"];
 
-export default function AccountClient({ user, profile, orders, locale }: Props) {
+export default function AccountClient({ user, orders, locale, apiKey, userAddresses }: Props) {
     const [tab, setTab] = useState<TabId>("overview");
     const prefix = locale === "en" ? "" : `/${locale}`;
     const firstName = user.name?.split(" ")[0] || "Customer";
@@ -88,7 +89,7 @@ export default function AccountClient({ user, profile, orders, locale }: Props) 
             <div style={{ maxWidth: 1440, margin: "0 auto", padding: "56px 56px 96px" }}>
                 {tab === "overview" && <OverviewTab orders={orders} prefix={prefix} setTab={setTab} />}
                 {tab === "orders" && <OrdersTab orders={orders} prefix={prefix} />}
-                {tab === "addresses" && <AddressesTab user={user} profile={profile} />}
+                {tab === "addresses" && <AddressesTab apiKey={apiKey} userAddresses={userAddresses} />}
                 {tab === "preferences" && <PreferencesTab user={user} />}
                 {tab === "security" && <SecurityTab user={user} />}
             </div>
@@ -182,32 +183,56 @@ function OrdersTab({ orders, prefix }: { orders: Order[]; prefix: string }) {
 function OrderRow({ order, last, prefix }: { order: Order; last: boolean; prefix: string }) {
     const items = order.orderItems.map(i => `${i.quantity}× ${i.product.name}`).join(" · ");
     const date = new Date(order.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-    const statusColor = order.orderStatus === "SHIPPED" ? "#B96A3D" : order.orderStatus === "DELIVERED" ? "#1F3026" : "#7A8278";
+    const statusColor =
+        order.orderStatus === "CONFIRMED" || order.orderStatus === "DELIVERED" ? "#1F3026"
+        : order.orderStatus === "PROCESSING" ? "#B96A3D"
+        : order.orderStatus === "CANCELLED" ? "#A8312C"
+        : "#7A8278";
 
     return (
-        <div className="ch-order-row" style={{ padding: "20px 28px", borderBottom: last ? "none" : "1px solid #1F302614", display: "grid", gridTemplateColumns: "1fr auto auto", gap: 24, alignItems: "center" }}>
+        <Link
+            href={`${prefix}/account/orders/${order.id}`}
+            className="ch-order-row"
+            style={{
+                padding: "20px 28px",
+                borderBottom: last ? "none" : "1px solid #1F302614",
+                display: "grid",
+                gridTemplateColumns: "1fr auto auto auto",
+                gap: 24,
+                alignItems: "center",
+                textDecoration: "none",
+                color: "inherit",
+            }}
+        >
             <div>
                 <div style={{ fontFamily: "var(--font-serif)", fontStyle: "italic", fontSize: 17, color: "#1F3026", lineHeight: 1.3 }}>{items || "Order"}</div>
                 <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.24em", color: "#7A8278", textTransform: "uppercase", marginTop: 4 }}>{date}</div>
             </div>
             <span style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.28em", color: statusColor, textTransform: "uppercase", border: `1px solid ${statusColor}55`, padding: "5px 10px" }}>{order.orderStatus}</span>
             <span style={{ fontFamily: "var(--font-serif)", fontSize: 20, color: "#1F3026", fontWeight: 500 }}>{formatCurrency(order.totalAmount)}</span>
-        </div>
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.24em", color: "#B96A3D", textTransform: "uppercase" }}>View →</span>
+        </Link>
     );
 }
 
 /* ─── ADDRESSES TAB ────────────────────────────────────────────────────── */
-function AddressesTab({ user, profile }: { user: UserData; profile: ProfileData | null }) {
+// Phase 7b: now uses AddressManager — same component + UX as /shop, /bakery,
+// /cart, /checkout. Single source of truth (UserAddress[] table). Adding an
+// address here shows up everywhere; switching the active address here
+// propagates via the shared localStorage cache.
+function AddressesTab({ apiKey, userAddresses }: { apiKey: string; userAddresses: UserAddressDto[] }) {
+    const [activeAddress, setActiveAddress] = useState<ActiveAddress | null>(null);
     return (
-        <Card number="03" title="Addresses" subtitle="Shipping">
-            <AccountAddressForm
-                userId={user.id}
-                initialAddress={profile?.shippingAddress || ""}
-                initialCity={profile?.shippingCity || ""}
-                initialState={profile?.shippingState || ""}
-                initialZip={profile?.shippingZip || ""}
-                initialCountry={profile?.shippingCountry || "US"}
-            />
+        <Card number="03" title="Addresses" subtitle="Manage your saved shipping addresses">
+            <div style={{ padding: 24 }}>
+                <AddressManager
+                    apiKey={apiKey}
+                    isLoggedIn={true}
+                    initialAddresses={userAddresses}
+                    activeAddress={activeAddress}
+                    onActiveAddressChange={setActiveAddress}
+                />
+            </div>
         </Card>
     );
 }

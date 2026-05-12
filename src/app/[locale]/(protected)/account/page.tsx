@@ -2,10 +2,11 @@ import { getSession } from '@/lib/session';
 import { prisma } from '@/lib/db';
 import { redirect } from 'next/navigation';
 import AccountClient from '@/components/account/AccountClient';
+import { getMyAddresses } from '@/app/actions/addresses';
 
 export const dynamic = 'force-dynamic';
 
-export default async function CustomerAccountPage({ params }: { params: any }) {
+export default async function CustomerAccountPage({ params }: { params: Promise<{ locale: string }> }) {
     const { locale } = await params;
     const session = await getSession();
 
@@ -13,14 +14,16 @@ export default async function CustomerAccountPage({ params }: { params: any }) {
         redirect(`/${locale}/login`);
     }
 
-    const [user, profile, orders] = await Promise.all([
+    const [user, orders, userAddresses] = await Promise.all([
         prisma.user.findUnique({ where: { id: session.userId } }),
-        prisma.userProfile.findUnique({ where: { userId: session.userId } }),
         prisma.order.findMany({
             where: { userId: session.userId },
             orderBy: { createdAt: 'desc' },
             include: { orderItems: { include: { product: true } } },
         }),
+        // Phase 7b: addresses come from the new UserAddress[] table that
+        // AddressManager writes to on /shop, /bakery, /cart, /checkout.
+        getMyAddresses(),
     ]);
 
     if (!user) redirect(`/${locale}/login`);
@@ -32,14 +35,6 @@ export default async function CustomerAccountPage({ params }: { params: any }) {
         phone: user.phone,
         createdAt: user.createdAt.toISOString(),
     };
-
-    const profileData = profile ? {
-        shippingAddress: profile.shippingAddress,
-        shippingCity: profile.shippingCity,
-        shippingState: profile.shippingState,
-        shippingZip: profile.shippingZip,
-        shippingCountry: profile.shippingCountry,
-    } : null;
 
     const ordersData = orders.map(o => ({
         id: o.id,
@@ -55,9 +50,10 @@ export default async function CustomerAccountPage({ params }: { params: any }) {
     return (
         <AccountClient
             user={userData}
-            profile={profileData}
             orders={ordersData}
             locale={locale}
+            apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY || ''}
+            userAddresses={userAddresses}
         />
     );
 }

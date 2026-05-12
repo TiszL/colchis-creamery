@@ -23,7 +23,24 @@
 import { prisma } from './db';
 import { distanceMiles, channelMaxRadius } from './distance';
 import { cartEligibleChannels } from './fulfillment';
+import { doordashCreateQuote, isDoorDashConfigured } from './doordash';
+import { uberCreateQuote, isUberDirectConfigured } from './uber-direct';
 import { FulfillmentChannel, ProductKind } from '@prisma/client';
+
+/** Phase 8.2: customer address bundle passed into planFulfillment. All fields
+ *  optional so callers can pass partial info — carrier branches that need
+ *  specific fields fall back to flat-fee if their required fields are missing.
+ *  `formatted` works for DoorDash (free-text); structured fields work for Uber
+ *  Direct (JSON-encoded). */
+export type CustomerAddressInfo = {
+    formatted?: string;
+    line1?: string;
+    line2?: string;
+    city?: string;
+    state?: string;
+    postalCode?: string;
+    country?: string;
+};
 
 /* ─── Types ─────────────────────────────────────────────────────────────── */
 
@@ -122,13 +139,48 @@ function etaMinutesFor(channel: FulfillmentChannel, distanceMi: number): number 
     }
 }
 
+/* ─── In-memory quote cache (Phase 8.x perf fix) ──────────────────────── */
+//
+// Carrier API calls dominate cart/checkout latency in dev. With 2 carriers
+// (DoorDash + Uber) and 2 fulfillment groups, an uncached planFulfillment
+// can do 4 network round-trips. Cache hits avoid the network entirely.
+//
+// Keyed on (location, channel, lat-coarse, lng-coarse, orderValueCents).
+// Lat/lng coarsened to ~110m to dedupe near-identical addresses. Per-process
+// only (Vercel cold starts get a fresh cache; that's fine).
+
+const QUOTE_CACHE_TTL_MS = 5 * 60 * 1000;
+const quoteCache = new Map<string, { quote: ChannelQuote | null; expiresAt: number }>();
+
+function quoteCacheKey(opts: {
+    locationId: string;
+    channel: FulfillmentChannel;
+    customerLat: number;
+    customerLng: number;
+    orderValueCents?: number;
+}): string {
+    // Coarsen lat/lng to 3 decimals (~110m) so trivially-near addresses share.
+    const lat = opts.customerLat.toFixed(3);
+    const lng = opts.customerLng.toFixed(3);
+    return `${opts.locationId}|${opts.channel}|${lat},${lng}|${opts.orderValueCents ?? 0}`;
+}
+
+function cacheAndReturn(key: string, quote: ChannelQuote | null): ChannelQuote | null {
+    quoteCache.set(key, { quote, expiresAt: Date.now() + QUOTE_CACHE_TTL_MS });
+    return quote;
+}
+
 /* ─── Single quote ──────────────────────────────────────────────────────── */
 
 /**
  * Compute a single (location, channel) quote for a customer.
  *
- * Phase 7a: returns the LocationChannel.flatFee (plus perMileFee × distance if flatFee is null).
- * Phase 8: this is where the carrier API call goes. Function signature unchanged.
+ * Phase 7a: flat-fee from LocationChannel.flatFee (or perMileFee × distance).
+ * Phase 8.1: DOORDASH_DRIVE channel now calls DoorDash Drive's live quote API
+ * when credentials are configured AND we have the cart-side context (order
+ * value + addresses). Falls back to flat-fee on any DD failure so checkout
+ * stays unblocked. Other channels stay on the flat-fee path until their own
+ * carrier integrations land (Uber Direct = 8.2, UPS = 8.3).
  */
 export async function getShippingQuote(opts: {
     locationId: string;
@@ -136,37 +188,166 @@ export async function getShippingQuote(opts: {
     customerLat: number;
     customerLng: number;
     productKind: ProductKind;       // used for packaging choice (and Phase 8 carrier item details)
+    /** Phase 8.1: order value in cents — needed for live DoorDash/Uber quotes.
+        Omit and we fall back to flat fee even if credentials are present. */
+    orderValueCents?: number;
+    /** Phase 8.1: customer dropoff address (free-text, full street line). */
+    customerAddress?: string;
+    /** Phase 8.2: parsed customer address components — required for Uber Direct
+        live quotes (their API takes structured JSON, not free-text). */
+    customerAddressInfo?: CustomerAddressInfo;
 }): Promise<ChannelQuote | null> {
+    // Phase 8.x perf fix: check the in-memory cache before doing any DB or
+    // carrier work. Cached null IS a valid result (means "no quote possible").
+    const cacheKey = quoteCacheKey(opts);
+    const cached = quoteCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) {
+        return cached.quote;
+    }
+
     const loc = await prisma.location.findUnique({
         where: { id: opts.locationId },
         include: { channels: { where: { channel: opts.channel, isActive: true } } },
     });
-    if (!loc || loc.latitude === null || loc.longitude === null) return null;
+    if (!loc || loc.latitude === null || loc.longitude === null) {
+        quoteCache.set(cacheKey, { quote: null, expiresAt: Date.now() + QUOTE_CACHE_TTL_MS });
+        return null;
+    }
     const lc = loc.channels[0];
-    if (!lc) return null;
+    if (!lc) {
+        quoteCache.set(cacheKey, { quote: null, expiresAt: Date.now() + QUOTE_CACHE_TTL_MS });
+        return null;
+    }
 
     const distance = distanceMiles(opts.customerLat, opts.customerLng, loc.latitude, loc.longitude);
 
     // In-store channels are zero-cost regardless of LocationChannel.flatFee config
     const isInStore = opts.channel === 'IN_STORE_PICKUP' || opts.channel === 'IN_STORE_DINE_IN';
     if (isInStore) {
-        return {
+        // Phase 7b fix: pickup respects radiusMiles (with 100mi default).
+        const PICKUP_DEFAULT_RADIUS_MILES = 100;
+        if (opts.channel === 'IN_STORE_PICKUP') {
+            const maxReach = channelMaxRadius(lc.radiusMiles, lc.maxDriveHours) ?? PICKUP_DEFAULT_RADIUS_MILES;
+            if (distance > maxReach) return cacheAndReturn(cacheKey, null);
+        }
+        return cacheAndReturn(cacheKey, {
             locationId: loc.id,
             locationName: loc.name,
             channel: opts.channel,
             shippingCost: 0,
             baseShippingCost: 0,
-            isFreeShipping: false, // not "free shipping" — there's no shipping
+            isFreeShipping: false,
             etaMinutes: etaMinutesFor(opts.channel, distance),
             distanceMiles: distance,
             carrier: carrierFor(opts.channel),
             packagingType: packagingFor(opts.channel, opts.productKind),
-        };
+        });
     }
 
     // Verify reachability — UPS uses maxDriveHours, others use radiusMiles
     const maxReach = channelMaxRadius(lc.radiusMiles, lc.maxDriveHours);
-    if (maxReach !== null && distance > maxReach) return null;
+    if (maxReach !== null && distance > maxReach) return cacheAndReturn(cacheKey, null);
+
+    // Phase 8.1: live DoorDash Drive quote when applicable. Quote uses a
+    // throwaway external_delivery_id; the real delivery is created from the
+    // Stripe webhook after payment. If DD fails (no creds, bad address, rate-
+    // limited, etc.) we fall back to the flat-fee path so checkout stays
+    // unblocked — UX wording in cart already calls the shipping "estimate".
+    if (
+        opts.channel === 'DOORDASH_DRIVE'
+        && isDoorDashConfigured()
+        && opts.orderValueCents !== undefined && opts.orderValueCents > 0
+        && opts.customerAddress
+    ) {
+        const pickupAddress = [loc.addressLine1, loc.city, loc.state, loc.postalCode]
+            .filter(Boolean).join(', ');
+        const quote = await doordashCreateQuote({
+            pickup: {
+                address: pickupAddress,
+                phone: loc.phone || '+15555550123', // sandbox-safe placeholder
+                businessName: loc.name,
+            },
+            dropoff: {
+                address: opts.customerAddress,
+                phone: '+15555550123', // cart-time placeholder; real phone passed at delivery creation
+            },
+            orderValueCents: opts.orderValueCents,
+        });
+        if (quote) {
+            const liveCost = Math.round(quote.feeCents) / 100;
+            const withMarkup = Math.round(liveCost * (lc.priceMultiplier || 1.0) * 100) / 100;
+            return cacheAndReturn(cacheKey, {
+                locationId: loc.id,
+                locationName: loc.name,
+                channel: opts.channel,
+                shippingCost: withMarkup,
+                baseShippingCost: withMarkup,
+                isFreeShipping: false,
+                etaMinutes: quote.etaMinutes ?? etaMinutesFor(opts.channel, distance),
+                distanceMiles: distance,
+                carrier: carrierFor(opts.channel),
+                packagingType: packagingFor(opts.channel, opts.productKind),
+            });
+        }
+        // fall through to flat-fee on failure
+    }
+
+    // Phase 8.2: live Uber Direct quote. Requires parsed address components
+    // (Uber's API takes structured JSON, not free-text). Falls back to flat-fee
+    // if components are missing or the call fails.
+    if (
+        opts.channel === 'UBER_DIRECT'
+        && isUberDirectConfigured()
+        && opts.orderValueCents !== undefined && opts.orderValueCents > 0
+        && opts.customerAddressInfo?.line1
+        && opts.customerAddressInfo.city
+        && opts.customerAddressInfo.state
+        && opts.customerAddressInfo.postalCode
+        && opts.customerAddressInfo.country
+        && loc.addressLine1 && loc.city && loc.state && loc.postalCode
+    ) {
+        const quote = await uberCreateQuote({
+            pickup: {
+                address: {
+                    line1: loc.addressLine1,
+                    line2: loc.addressLine2 || undefined,
+                    city: loc.city,
+                    state: loc.state,
+                    postalCode: loc.postalCode,
+                    country: loc.country || 'US',
+                },
+                phone: loc.phone || '+15555550123',
+            },
+            dropoff: {
+                address: {
+                    line1: opts.customerAddressInfo.line1,
+                    line2: opts.customerAddressInfo.line2,
+                    city: opts.customerAddressInfo.city,
+                    state: opts.customerAddressInfo.state,
+                    postalCode: opts.customerAddressInfo.postalCode,
+                    country: opts.customerAddressInfo.country,
+                },
+                phone: '+15555550123', // cart-time placeholder; replaced at delivery creation
+            },
+            orderValueCents: opts.orderValueCents,
+        });
+        if (quote) {
+            const liveCost = Math.round(quote.feeCents) / 100;
+            const withMarkup = Math.round(liveCost * (lc.priceMultiplier || 1.0) * 100) / 100;
+            return cacheAndReturn(cacheKey, {
+                locationId: loc.id,
+                locationName: loc.name,
+                channel: opts.channel,
+                shippingCost: withMarkup,
+                baseShippingCost: withMarkup,
+                isFreeShipping: false,
+                etaMinutes: quote.durationMinutes ?? etaMinutesFor(opts.channel, distance),
+                distanceMiles: distance,
+                carrier: carrierFor(opts.channel),
+                packagingType: packagingFor(opts.channel, opts.productKind),
+            });
+        }
+    }
 
     // Calculate cost: prefer flatFee, fall back to perMileFee × distance
     const flat = parseDollars(lc.flatFee);
@@ -175,7 +356,7 @@ export async function getShippingQuote(opts: {
     cost = cost * (lc.priceMultiplier || 1.0);  // marketplace markup
     cost = Math.round(cost * 100) / 100;        // 2dp
 
-    return {
+    return cacheAndReturn(cacheKey, {
         locationId: loc.id,
         locationName: loc.name,
         channel: opts.channel,
@@ -186,7 +367,7 @@ export async function getShippingQuote(opts: {
         distanceMiles: distance,
         carrier: carrierFor(opts.channel),
         packagingType: packagingFor(opts.channel, opts.productKind),
-    };
+    });
 }
 
 /* ─── Full fulfillment plan ─────────────────────────────────────────────── */
@@ -202,6 +383,12 @@ export async function planFulfillment(
     items: CartItemForShipping[],
     customerLat: number,
     customerLng: number,
+    /** Phase 8.1: customer's formatted dropoff address. Required for live DoorDash
+        quotes (free-text). If omitted (e.g. older callsites), DD falls back to flat-fee. */
+    customerAddress?: string,
+    /** Phase 8.2: parsed customer address components for Uber Direct's structured
+        address payload. Falls back to flat-fee for Uber when omitted. */
+    customerAddressInfo?: CustomerAddressInfo,
 ): Promise<FulfillmentPlan> {
     if (items.length === 0) {
         return { groups: [], undeliverableItems: [], hasUndeliverable: false };
@@ -255,13 +442,21 @@ export async function planFulfillment(
             const stockOk = product.isMadeToOrder || (stock.quantity ?? 0) >= item.quantity;
             const distance = distanceMiles(customerLat, customerLng, loc.latitude, loc.longitude);
 
-            // Compute reachable channels at this location for this customer
+            // Compute reachable channels at this location for this customer.
+            // Phase 7b fix: IN_STORE_PICKUP now respects radiusMiles too (with a
+            // 100mi default if admin hasn't configured one). Previously pickup was
+            // unconditionally reachable, which let far-away customers (e.g. Hawaii)
+            // "place orders" for pickup-only items they couldn't realistically pick
+            // up at a Dublin OH bakery. Admin can override per-location via
+            // LocationChannel.radiusMiles.
+            const PICKUP_DEFAULT_RADIUS_MILES = 100;
             const reachableHere: FulfillmentChannel[] = [];
             for (const lc of loc.channels) {
                 if (lc.channel === FulfillmentChannel.IN_STORE_DINE_IN) continue;
                 const isPickup = lc.channel === FulfillmentChannel.IN_STORE_PICKUP;
                 const maxReach = channelMaxRadius(lc.radiusMiles, lc.maxDriveHours);
-                if (isPickup || (maxReach !== null && distance <= maxReach)) {
+                const effectiveMaxReach = isPickup ? (maxReach ?? PICKUP_DEFAULT_RADIUS_MILES) : maxReach;
+                if (effectiveMaxReach !== null && distance <= effectiveMaxReach) {
                     if (productCartChannels.includes(lc.channel)) reachableHere.push(lc.channel);
                 }
             }
@@ -326,18 +521,40 @@ export async function planFulfillment(
             }
             continue;
         }
-        const quotes: ChannelQuote[] = [];
         // Pick representative kind for packaging (use first item; if multiple kinds, packagingFor still works per channel)
         const representativeKind = acc.items[0].productKind;
-        for (const channel of acc.candidateChannels) {
-            const quote = await getShippingQuote({
+
+        // Phase 8.1: order value for this group, in cents. DB prices are
+        // strings; coerce here. Passed to live carrier quotes (DoorDash etc.).
+        // If parseFloat returns NaN for some reason, fall back to 0 — carrier
+        // calls will then skip and we'll use flat-fee.
+        const orderValueCents = acc.items.reduce((sum, it) => {
+            const p = products.find(prod => prod.id === it.productId);
+            if (!p) return sum;
+            const unit = parseFloat(p.priceB2c);
+            if (isNaN(unit)) return sum;
+            return sum + Math.round(unit * 100) * it.quantity;
+        }, 0);
+
+        // Phase 8.x perf fix: previously this loop awaited each carrier call
+        // sequentially. With DoorDash (~2-4s) + Uber Direct OAuth+quote (~3-7s
+        // cold) the total stacked to 10+ seconds per group. Promise.allSettled
+        // runs them concurrently and ignores failures.
+        const settled = await Promise.allSettled(
+            Array.from(acc.candidateChannels).map(channel => getShippingQuote({
                 locationId: acc.locationId,
                 channel,
                 customerLat,
                 customerLng,
                 productKind: representativeKind,
-            });
-            if (quote) quotes.push(quote);
+                orderValueCents,
+                customerAddress,
+                customerAddressInfo,
+            })),
+        );
+        const quotes: ChannelQuote[] = [];
+        for (const r of settled) {
+            if (r.status === 'fulfilled' && r.value) quotes.push(r.value);
         }
         // Sort: cheapest first, then fastest ETA
         quotes.sort((a, b) => a.shippingCost - b.shippingCost || (a.etaMinutes ?? 9999) - (b.etaMinutes ?? 9999));

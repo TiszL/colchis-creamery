@@ -48,6 +48,7 @@ model User {
   addresses        UserAddress[]
   chatSessionsAsVisitor ChatSession[] @relation("ChatVisitor")
   chatSessionsAsAgent   ChatSession[] @relation("ChatAgent")
+  refundsInitiated      Refund[]
 }
 
 // ─── UserAddress ─────────────────────────────────────────────────────────────
@@ -251,6 +252,12 @@ model Order {
   reservationExpiresAt   DateTime?
   stripePaymentIntentId  String?     @unique  // used for idempotency on webhooks
   stripeInvoiceId        String?
+  // Phase 7a.6 — Stripe Tax integration.
+  // calculation id is set in 7a.5 right after we call tax.calculations.create.
+  // transaction id is set in 7a.6 webhook after createFromCalculation succeeds.
+  // Admin tooling (7b) can find orders with calculation but no transaction to retry.
+  stripeTaxCalculationId String?
+  stripeTaxTransactionId String?
   paymentStatus          String      @default("UNPAID")
   orderStatus            String      @default("PROCESSING")
   shippingAddress        String?
@@ -263,6 +270,7 @@ model Order {
   orderItems   OrderItem[]
   shipment     Shipment?
   fulfillments OrderFulfillment[]
+  refunds      Refund[]
 }
 
 // ─── OrderItem ───────────────────────────────────────────────────────────────
@@ -670,5 +678,32 @@ model OrderFulfillmentItem {
   quantity      Int
 
   @@index([fulfillmentId])
+}
+
+// Phase 7b.6 — Refund audit trail.
+//
+// One row per refund issued against an Order. Captures the Stripe refund id
+// for cross-reference, the initiator (admin user or null for system/customer-
+// cancel paths), the amount in cents, and a free-text reason + notes.
+//
+// Multiple refunds can exist per Order (partial refunds accumulate). Sum of
+// amountCents must not exceed Order.totalAmount * 100. Enforcement is in the
+// refundOrder server action, not at the DB level.
+model Refund {
+  id                String   @id @default(uuid())
+  orderId           String
+  order             Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  initiatedByUserId String?  // null = system (customer-cancel or webhook)
+  initiatedBy       User?    @relation(fields: [initiatedByUserId], references: [id])
+  amountCents       Int      // refund amount in cents
+  reason            String   // 'customer_cancellation' | 'admin_full' | 'admin_partial' | 'admin_other'
+  notes             String?  // optional free-text admin note
+  stripeRefundId    String?  @unique
+  restoredStock     Boolean  @default(false) // did we run restoreStock?
+  reversedTax       Boolean  @default(false) // did we issue a tax reversal?
+  createdAt         DateTime @default(now())
+
+  @@index([orderId])
+  @@index([initiatedByUserId])
 }
 

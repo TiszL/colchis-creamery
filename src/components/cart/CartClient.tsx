@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { useCart } from "@/providers/CartProvider";
 import { formatCurrency } from "@/lib/utils";
-import AddressManager, { type ActiveAddress } from "@/components/bakery/AddressManager";
+import AddressManager, { type ActiveAddress, getActiveAddressComponents } from "@/components/bakery/AddressManager";
 import type { UserAddressDto } from "@/app/actions/addresses";
 import { applyFreeShippingRule, freeShippingProgress, type FulfillmentPlan } from "@/lib/shipping";
 import { planFulfillment } from "@/app/actions/shipping-plan";
@@ -29,6 +29,27 @@ export default function CartClient({ locale, apiKey, isLoggedIn, userAddresses }
 
     // Address state — same pattern as bakery/shop
     const [activeAddress, setActiveAddress] = useState<ActiveAddress | null>(null);
+
+    // Phase 7b.4: post-reorder toast. ReorderButton writes the payload to
+    // sessionStorage right before routing here; we pop + display, then auto-hide.
+    const [reorderToast, setReorderToast] = useState<{ added: number; skipped: number; replaced: boolean } | null>(null);
+    useEffect(() => {
+        try {
+            const raw = window.sessionStorage.getItem('colchis-reorder-toast');
+            if (!raw) return;
+            window.sessionStorage.removeItem('colchis-reorder-toast');
+            const parsed = JSON.parse(raw);
+            if (typeof parsed?.added === 'number') {
+                setReorderToast({
+                    added: parsed.added,
+                    skipped: parsed.skipped ?? 0,
+                    replaced: !!parsed.replaced,
+                });
+                const t = setTimeout(() => setReorderToast(null), 6000);
+                return () => clearTimeout(t);
+            }
+        } catch { /* ignore */ }
+    }, []);
     const [plan, setPlan] = useState<FulfillmentPlan | null>(null);
     const [planning, setPlanning] = useState(false);
 
@@ -40,10 +61,21 @@ export default function CartClient({ locale, apiKey, isLoggedIn, userAddresses }
         }
         setPlanning(true);
         try {
+            const components = getActiveAddressComponents(activeAddress, userAddresses);
             const result = await planFulfillment(
                 items.map(i => ({ productId: i.product.id, quantity: i.quantity })),
                 activeAddress.lat,
                 activeAddress.lng,
+                activeAddress.formatted, // Phase 8.1: enables live DoorDash quotes
+                // Phase 8.2: structured components enable live Uber Direct quotes
+                components ? {
+                    line1: components.line1,
+                    line2: components.line2,
+                    city: components.city,
+                    state: components.state,
+                    postalCode: components.postalCode,
+                    country: components.country,
+                } : undefined,
             );
             setPlan(result);
         } catch (e) {
@@ -52,7 +84,7 @@ export default function CartClient({ locale, apiKey, isLoggedIn, userAddresses }
         } finally {
             setPlanning(false);
         }
-    }, [activeAddress, items]);
+    }, [activeAddress, items, userAddresses]);
 
     useEffect(() => { refetchPlan(); }, [refetchPlan]);
 
@@ -133,6 +165,26 @@ export default function CartClient({ locale, apiKey, isLoggedIn, userAddresses }
                     )}
                 </div>
             </section>
+
+            {/* Phase 7b.4: reorder toast — auto-dismisses after 6s */}
+            {reorderToast && (
+                <div style={{ maxWidth: 1440, margin: "0 auto", padding: "20px 56px 0" }}>
+                    <div style={{ background: "#DDE9DC", border: "1px solid #1F302655", padding: "14px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+                        <div style={{ fontFamily: "var(--font-serif)", fontStyle: "italic", fontSize: 15, color: "#1F3026" }}>
+                            ✓ {reorderToast.replaced ? "Cart replaced — " : ""}{reorderToast.added} {reorderToast.added === 1 ? "item" : "items"} added from your past order
+                            {reorderToast.skipped > 0 && (
+                                <span style={{ color: "#A8312C" }}> · {reorderToast.skipped} skipped (unavailable)</span>
+                            )}
+                        </div>
+                        <button
+                            onClick={() => setReorderToast(null)}
+                            style={{ background: "transparent", border: "none", cursor: "pointer", fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.24em", color: "#7A8278", textTransform: "uppercase" }}
+                        >
+                            Dismiss ✕
+                        </button>
+                    </div>
+                </div>
+            )}
 
             <div className="ch-cart-body" style={{ maxWidth: 1440, margin: "0 auto", padding: "40px 56px 96px", display: "grid", gridTemplateColumns: "minmax(0, 1.55fr) minmax(0, 1fr)", gap: 48, alignItems: "flex-start" }}>
                 {/* ─── ITEMS COLUMN ───────────────────────────────────── */}

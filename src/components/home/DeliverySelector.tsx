@@ -58,8 +58,8 @@ export function DeliverySelector() {
         </span>
       </div>
 
-      {/* ZIP Input */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+      {/* ZIP Input — stacks vertically on mobile (see .ch-zip-row in globals.css) */}
+      <div className="ch-zip-row" style={{ display: "flex", gap: 8, marginBottom: 16 }}>
         <input
           value={zip}
           onChange={(e) => setZip(e.target.value.replace(/\D/g, "").slice(0, 5))}
@@ -67,6 +67,7 @@ export function DeliverySelector() {
           placeholder="ZIP code"
           style={{
             flex: 1,
+            minWidth: 0,
             fontFamily: "var(--font-mono)",
             fontSize: 18,
             letterSpacing: "0.2em",
@@ -87,10 +88,9 @@ export function DeliverySelector() {
             background: "#1F3026",
             color: "#F5F0E6",
             border: "none",
-            padding: "0 22px",
+            padding: "14px 22px",
             cursor: "pointer",
             whiteSpace: "nowrap",
-            flexShrink: 0,
           }}
         >
           Use location

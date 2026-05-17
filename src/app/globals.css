@@ -643,29 +643,79 @@ img, svg, video { max-width: 100%; height: auto; }
 @media (max-width: 640px) {
   .ch-hero-h1 { word-wrap: break-word; overflow-wrap: break-word; hyphens: auto; }
 }
+/* Aggressive mobile constraint — iOS Safari can ignore container widths for
+   Next/Image fill+sizes="100vw" inside nested relative+overflow:hidden chains.
+   Cap everything at the viewport width explicitly so no child element can
+   pull the layout wider than the screen, regardless of nesting. */
 @media (max-width: 480px) {
-  .ch-hero-grid { padding-left: 20px !important; padding-right: 20px !important; }
-  .ch-hero-h1 { font-size: 44px !important; }
-  /* Stack hero CTAs vertically — side-by-side at this width forces button text
-     to overflow its container ("SHOP THE CREAMERY →" needs ~200px but each
-     button only gets ~170px in a 2-column flex). Stacking gives full width to
-     each label and avoids text bleeding past the right edge. */
-  .ch-hero-ctas { flex-direction: column !important; gap: 10px !important; }
+  /* Grid itself: explicit padding + viewport cap + border-box */
+  .ch-hero-grid {
+    padding-left: 20px !important;
+    padding-right: 20px !important;
+    padding-inline: 20px !important;
+    max-width: 100vw !important;
+    box-sizing: border-box !important;
+    overflow: hidden;
+  }
+  /* Every direct child + grandchild can't exceed available width */
+  .ch-hero-grid > *,
+  .ch-hero-grid > * > * {
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+  }
+  /* Heading */
+  .ch-hero-h1 {
+    font-size: 44px !important;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    hyphens: auto;
+  }
+  /* CTAs stacked + full width */
+  .ch-hero-ctas {
+    flex-direction: column !important;
+    gap: 10px !important;
+    width: 100% !important;
+  }
   .ch-hero-ctas a {
     flex: 0 0 auto !important;
     width: 100% !important;
     min-width: 0 !important;
+    max-width: 100% !important;
     box-sizing: border-box !important;
   }
-  /* Photo column safety — ensure media + selectors honour the grid's
-     20px right padding instead of bleeding to the viewport edge.
-     iOS Safari sometimes lets <img> inside position:relative escape. */
-  .ch-hero-grid > div { max-width: 100% !important; }
+  /* PHOTO — the actual culprit. Force img + video to viewport-minus-padding
+     explicitly. Without this, Next/Image fill+sizes="100vw" can make Safari
+     render the underlying img element at 100vw and the overflow:hidden on the
+     parent only visually clips, not layout-constrains. */
   .ch-hero-grid img,
-  .ch-hero-grid video { width: 100% !important; max-width: 100% !important; display: block; }
+  .ch-hero-grid video {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto;
+    display: block;
+  }
+  /* Force the photo container itself (the one with aspect-ratio) to never
+     exceed viewport-minus-grid-padding */
+  .ch-hero-grid > div > div[style*="aspect"],
+  .ch-hero-grid > div > div[style*="aspectRatio"] {
+    max-width: calc(100vw - 40px) !important;
+    width: 100% !important;
+  }
 }
 @media (max-width: 380px) {
-  .ch-hero-grid { padding-left: 16px !important; padding-right: 16px !important; }
+  .ch-hero-grid {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+    padding-inline: 16px !important;
+  }
   .ch-hero-h1 { font-size: 36px !important; }
+  .ch-hero-grid > div > div[style*="aspect"],
+  .ch-hero-grid > div > div[style*="aspectRatio"] {
+    max-width: calc(100vw - 32px) !important;
+  }
 }
+/* Universal extra safety net — prevents any single rogue child anywhere on the
+   site from pushing layout wider than viewport */
+body { max-width: 100vw; position: relative; }
 

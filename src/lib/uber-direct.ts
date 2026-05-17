@@ -132,7 +132,17 @@ export type UberQuoteResponse = {
     expiresAt: Date | null;
 };
 
-export async function uberCreateQuote(req: UberQuoteRequest): Promise<UberQuoteResponse | null> {
+/** Same sentinel + outcome type as doordash.ts — re-exported for symmetry. */
+export const UNDELIVERABLE = 'undeliverable' as const;
+export type QuoteOutcome<T> = T | null | typeof UNDELIVERABLE;
+
+/**
+ * Get a live shipping quote. Returns:
+ *   - UberQuoteResponse  → quote succeeded, use real price
+ *   - 'undeliverable'    → Uber explicitly refuses (outside delivery radius) — caller should EXCLUDE this channel
+ *   - null               → unknown / outage / misconfig — caller MAY fall back to flat-fee
+ */
+export async function uberCreateQuote(req: UberQuoteRequest): Promise<QuoteOutcome<UberQuoteResponse>> {
     if (!isUberDirectConfigured()) return null;
     try {
         const body = {
@@ -148,6 +158,13 @@ export async function uberCreateQuote(req: UberQuoteRequest): Promise<UberQuoteR
         });
         if (!res || !res.ok) {
             const text = res ? await res.text().catch(() => '') : '';
+            // Detect Uber's explicit "we don't serve this address" so the caller
+            // can drop the channel entirely instead of presenting a flatFee that
+            // would fail at dispatch time. Uber's error code is "address_undeliverable".
+            if (res?.status === 400 && /address_undeliverable|not.*deliverable.*area|outside.*delivery.*radius/i.test(text)) {
+                console.warn('[uber-direct] address not deliverable — excluding channel');
+                return UNDELIVERABLE;
+            }
             console.warn(`[uber-direct] quote ${res?.status ?? 'no-response'}: ${text.slice(0, 200)}`);
             return null;
         }
@@ -249,6 +266,35 @@ export async function uberCreateDelivery(
     } catch (err) {
         console.error('[uber-direct] create-delivery error:', err instanceof Error ? err.message : err);
         return null;
+    }
+}
+
+/* ─── Cancel delivery ──────────────────────────────────────────────────── */
+
+/**
+ * Cancel an in-flight delivery. Called from cancelOrder / refundOrder when
+ * the customer or an admin cancels within the policy window. Best-effort:
+ * Uber may reject the cancel if a courier is too close to pickup — we log
+ * and the caller continues (the customer's Stripe refund has already
+ * succeeded; carrier reconciliation is an admin concern).
+ */
+export async function uberCancelDelivery(deliveryId: string): Promise<boolean> {
+    if (!isUberDirectConfigured()) return false;
+    if (!deliveryId) return false;
+    try {
+        const res = await uberRequest(
+            `/deliveries/${encodeURIComponent(deliveryId)}/cancel`,
+            { method: 'POST' },
+        );
+        if (!res || !res.ok) {
+            const text = res ? await res.text().catch(() => '') : '';
+            console.warn(`[uber-direct] cancel-delivery ${res?.status ?? 'no-response'}: ${text.slice(0, 200)}`);
+            return false;
+        }
+        return true;
+    } catch (err) {
+        console.error('[uber-direct] cancel-delivery error:', err instanceof Error ? err.message : err);
+        return false;
     }
 }
 

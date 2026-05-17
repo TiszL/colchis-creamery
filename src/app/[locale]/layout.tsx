@@ -51,6 +51,8 @@ import { Fraunces, Inter, JetBrains_Mono, Noto_Serif_Georgian, Noto_Sans_Georgia
 import { CartProvider } from "@/providers/CartProvider";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Analytics } from "@vercel/analytics/next";
+import TestingBanner from "@/components/site/TestingBanner";
+import { getTestingMode } from "@/lib/site-config";
 import "../globals.css";
 
 const fraunces = Fraunces({
@@ -97,6 +99,9 @@ export default async function LocaleLayout({
   }
 
   const messages = (await import(`../../../messages/${locale}.json`)).default;
+  // Phase E1.2 — fetch the pre-launch testing-mode config server-side so the
+  // strip + modal render on first paint. Admin toggle in /admin/website/settings.
+  const testingMode = await getTestingMode();
 
   return (
     <html
@@ -104,6 +109,7 @@ export default async function LocaleLayout({
       className={`${fraunces.variable} ${inter.variable} ${jetbrainsMono.variable} ${notoSerifGeorgian.variable} ${notoSansGeorgian.variable}`}
     >
       <body className="antialiased min-h-screen bg-cream text-ink" suppressHydrationWarning>
+        <TestingBanner config={testingMode} />
         <NextIntlClientProvider locale={locale} messages={messages}>
           <CartProvider>
             {children}

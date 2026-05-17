@@ -1,20 +1,22 @@
 // Phase 8.1 — DoorDash Drive status webhook.
 //
 // DoorDash POSTs here on every delivery lifecycle event (created, dasher
-// confirmed, picked up, dropped off, cancelled). We verify the signature,
-// map their event to our OrderFulfillment.status enum, and update the row.
+// confirmed, picked up, dropped off, cancelled). We verify the Authorization
+// header against the value we configured in DD's webhook dashboard, then
+// map their event to our OrderFulfillment.status enum and update the row.
 //
 // Idempotency: state-machine checks ensure repeat deliveries are no-ops. The
 // fulfillment is matched via OrderFulfillment.externalOrderId (which we set
 // when creating the delivery in the Stripe webhook).
 //
-// Webhook setup: configure in DoorDash developer dashboard to POST to
-// https://yourdomain.com/api/webhooks/doordash with the X-DoorDash-Signature
-// header. Use the same signing secret that the JWT auth uses.
+// Webhook setup: in DoorDash developer dashboard → Webhooks → Add endpoint
+// → URL = https://<your-public-host>/api/webhooks/doordash, Authentication
+// type = Basic, Header key = Authorization, Header value = "Bearer <token>".
+// That same value goes into DOORDASH_WEBHOOK_AUTH in our env.
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { mapDoorDashEvent, verifyDoorDashSignature } from '@/lib/doordash';
+import { mapDoorDashEvent, verifyDoorDashAuth } from '@/lib/doordash';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -32,17 +34,17 @@ interface DoorDashWebhookPayload {
 
 export async function POST(req: Request) {
     const rawBody = await req.text();
-    const signatureHeader = req.headers.get('x-doordash-signature');
+    const authHeader = req.headers.get('authorization');
 
-    // In production, refuse unsigned requests. In dev (no secret configured),
+    // In production, refuse unauthenticated requests. In dev (no auth configured),
     // accept everything so test webhooks fired from the DD dashboard work.
-    if (process.env.DOORDASH_SIGNING_SECRET) {
-        if (!verifyDoorDashSignature(rawBody, signatureHeader)) {
-            console.warn('[doordash-webhook] Invalid signature');
-            return new NextResponse('Invalid signature', { status: 401 });
+    if (process.env.DOORDASH_WEBHOOK_AUTH) {
+        if (!verifyDoorDashAuth(authHeader)) {
+            console.warn('[doordash-webhook] Invalid Authorization header');
+            return new NextResponse('Invalid auth', { status: 401 });
         }
     } else {
-        console.warn('[doordash-webhook] DOORDASH_SIGNING_SECRET unset — accepting unsigned request');
+        console.warn('[doordash-webhook] DOORDASH_WEBHOOK_AUTH unset — accepting unauthenticated request');
     }
 
     let payload: DoorDashWebhookPayload;

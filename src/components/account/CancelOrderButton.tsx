@@ -12,7 +12,7 @@ import { cancelOrder } from '@/app/actions/orders';
 
 interface Props {
     orderId: string;
-    /** Minutes remaining in the 15-min cancel window. Used for UI hint only;
+    /** Minutes remaining in the 3-min cancel window. Used for UI hint only;
         server re-validates on action invocation. */
     minutesRemaining: number;
 }

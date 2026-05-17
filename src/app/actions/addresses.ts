@@ -17,6 +17,10 @@ export type UserAddressDto = {
     longitude: number | null;
     googlePlaceId: string | null;
     isDefault: boolean;
+    // Phase B: extended delivery details — fed to DD/Uber driver notes at dispatch.
+    accessCode: string | null;
+    buildingName: string | null;
+    deliveryNotes: string | null;
 };
 
 /**
@@ -71,6 +75,9 @@ export async function getMyAddresses(): Promise<UserAddressDto[]> {
         longitude: r.longitude,
         googlePlaceId: r.googlePlaceId,
         isDefault: r.isDefault,
+        accessCode: r.accessCode,
+        buildingName: r.buildingName,
+        deliveryNotes: r.deliveryNotes,
     }));
 }
 
@@ -96,6 +103,10 @@ export async function saveMyAddress(formData: FormData): Promise<SaveAddressResu
         longitude: formData.get('longitude') ? parseFloat(formData.get('longitude') as string) : null,
         googlePlaceId: (formData.get('googlePlaceId') as string) || null,
         isDefault: formData.get('isDefault') === 'on',
+        // Phase B fields — all optional
+        accessCode:    (formData.get('accessCode') as string)?.trim()    || null,
+        buildingName:  (formData.get('buildingName') as string)?.trim()  || null,
+        deliveryNotes: (formData.get('deliveryNotes') as string)?.trim() || null,
     };
 
     // Validate. lat/lng is the actual key for delivery routing; without it we can't
@@ -152,6 +163,9 @@ export async function saveMyAddress(formData: FormData): Promise<SaveAddressResu
             longitude: row.longitude,
             googlePlaceId: row.googlePlaceId,
             isDefault: row.isDefault,
+            accessCode: row.accessCode,
+            buildingName: row.buildingName,
+            deliveryNotes: row.deliveryNotes,
         },
     };
 }

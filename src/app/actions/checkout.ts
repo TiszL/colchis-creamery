@@ -23,6 +23,7 @@ import { stripe } from '@/lib/stripe';
 import { getSession } from '@/lib/session';
 import { reserveStock, releaseStock } from '@/lib/stock-reservation';
 import { applyFreeShippingRule, planFulfillment } from '@/lib/shipping';
+import { normalizeUSPhone } from '@/lib/phone';
 import type { FulfillmentChannel } from '@prisma/client';
 import type Stripe from 'stripe';
 
@@ -39,6 +40,12 @@ export type CheckoutInput = {
         lng: number;
         formatted: string;
         googlePlaceId?: string;
+        // Phase B: optional delivery details, snapshotted onto the Order so
+        // historical orders remain accurate after UserAddress edits/deletes.
+        // Carriers consume these as DD dropoff_instructions / Uber dropoff_notes.
+        accessCode?: string;
+        buildingName?: string;
+        deliveryNotes?: string;
     };
     selectedChannels: { locationId: string; channel: FulfillmentChannel }[];
     contact: { name: string; email: string; phone: string };
@@ -58,6 +65,14 @@ export async function createCheckoutSession(input: CheckoutInput): Promise<Check
     }
     if (!input.contact?.email || !input.contact?.phone || !input.contact?.name) {
         return { ok: false, error: 'Please fill in your contact details.' };
+    }
+    // Normalize + validate US phone server-side (client-side hint is best-effort).
+    // Dispatch APIs (DoorDash / Uber Direct) reject non-US-E.164 formats; we want
+    // the canonical "+1XXXXXXXXXX" form persisted so all downstream callers can
+    // trust the value without re-parsing.
+    const normalizedPhone = normalizeUSPhone(input.contact.phone);
+    if (!normalizedPhone) {
+        return { ok: false, error: 'Please provide a valid US phone number.' };
     }
     const addr = input.address;
     if (!addr || !addr.lat || !addr.lng || !addr.line1 || !addr.city || !addr.state || !addr.postalCode || !addr.country) {
@@ -86,7 +101,25 @@ export async function createCheckoutSession(input: CheckoutInput): Promise<Check
 
     /* ─── 3. Re-plan fulfillment with the chosen address ───────────────── */
 
-    const plan = await planFulfillment(input.items, addr.lat, addr.lng);
+    // Pass full context (address text + components + phone) so server-side
+    // re-validation produces the same live carrier quotes the cart showed.
+    // Without these args we'd silently fall back to flatFee on the server,
+    // charging a different price than the customer saw at cart time.
+    const plan = await planFulfillment(
+        input.items,
+        addr.lat,
+        addr.lng,
+        addr.formatted,
+        {
+            line1: addr.line1,
+            line2: addr.line2,
+            city: addr.city,
+            state: addr.state,
+            postalCode: addr.postalCode,
+            country: addr.country,
+        },
+        normalizedPhone,
+    );
     if (plan.hasUndeliverable) {
         const first = plan.undeliverableItems[0];
         return {
@@ -132,20 +165,61 @@ export async function createCheckoutSession(input: CheckoutInput): Promise<Check
     let isGuest = false;
     if (session?.userId) {
         userId = session.userId;
+        // Phase 9: enforce User.phone @unique — friendly error if this phone is
+        // already on a DIFFERENT user. Without this check the backfill below
+        // would throw a raw Prisma constraint error.
+        const phoneConflict = await prisma.user.findFirst({
+            where: { phone: normalizedPhone, id: { not: userId } },
+            select: { id: true },
+        });
+        if (phoneConflict) {
+            return { ok: false, error: 'This phone number is already registered to another account.' };
+        }
+        // Backfill phone if logged-in user has none yet — they just entered one.
+        // updateMany silently skips if phone is already set (idempotent, one DB call).
+        await prisma.user.updateMany({
+            where: { id: userId, phone: null },
+            data: { phone: normalizedPhone },
+        });
     } else {
         isGuest = true;
         const existing = await prisma.user.findUnique({ where: { email: input.contact.email } });
         if (existing) {
-            // Existing email — attach order to that User (may or may not have a password).
-            // We don't overwrite passwordHash/name/phone here — that would let strangers
-            // mutate other people's accounts via guest checkout.
             userId = existing.id;
+            // Phase 9: phone uniqueness — input phone must not belong to a
+            // DIFFERENT user than the one we just matched by email.
+            const phoneConflict = await prisma.user.findFirst({
+                where: { phone: normalizedPhone, id: { not: existing.id } },
+                select: { id: true },
+            });
+            if (phoneConflict) {
+                return { ok: false, error: 'This phone number is registered to another account. Please log in or use a different phone.' };
+            }
+            // Existing email — attach order to that User (may or may not have a password).
+            // We don't overwrite passwordHash/name here — that would let strangers mutate
+            // other people's accounts via guest checkout. Phone is an exception: if the
+            // user has none recorded yet, we backfill it from this checkout so future
+            // orders + carrier dispatch have it.
+            await prisma.user.updateMany({
+                where: { id: existing.id, phone: null },
+                data: { phone: normalizedPhone },
+            });
         } else {
+            // Phase 9: don't auto-attach by phone alone (security — would let a
+            // stranger who knows someone's phone place orders under their name).
+            // If phone matches an existing account, refuse + suggest login.
+            const phoneOwner = await prisma.user.findFirst({
+                where: { phone: normalizedPhone },
+                select: { id: true },
+            });
+            if (phoneOwner) {
+                return { ok: false, error: 'This phone number is already registered. Please log in to continue, or use a different phone.' };
+            }
             const newUser = await prisma.user.create({
                 data: {
                     email: input.contact.email,
                     name: input.contact.name,
-                    phone: input.contact.phone,
+                    phone: normalizedPhone,
                     passwordHash: null,
                     role: 'B2C_CUSTOMER',
                 },
@@ -189,12 +263,19 @@ export async function createCheckoutSession(input: CheckoutInput): Promise<Check
                     subtotalAmount: subtotal.toFixed(2),
                     shippingAmount: shippingTotal.toFixed(2),
                     guestEmail: isGuest ? input.contact.email : null,
-                    guestPhone: isGuest ? input.contact.phone : null,
+                    // Always snapshot contact phone on the order, regardless of guest/logged-in
+                    // status — dispatch needs it and User.phone may be stale or null.
+                    guestPhone: normalizedPhone,
                     paymentStatus: 'UNPAID',
                     orderStatus: 'PROCESSING',
                     shippingAddress: addr.formatted,
                     shippingLat: addr.lat,
                     shippingLng: addr.lng,
+                    // Phase B: snapshot extended delivery details onto the order.
+                    shippingAddressLine2:  addr.line2         || null,
+                    shippingAccessCode:    addr.accessCode    || null,
+                    shippingBuildingName:  addr.buildingName  || null,
+                    shippingDeliveryNotes: addr.deliveryNotes || null,
                     reservationExpiresAt: new Date(Date.now() + RESERVATION_TTL_MS),
                 },
             });
@@ -273,7 +354,9 @@ export async function createCheckoutSession(input: CheckoutInput): Promise<Check
                 }),
                 {
                     amount: Math.round(shippingTotal * 100),
-                    reference: 'shipping',
+                    // 'shipping' is a Stripe-Tax-reserved keyword for the reference field;
+                    // any non-reserved string works as a line-item identifier.
+                    reference: 'shipping-fee',
                     quantity: 1,
                     tax_behavior: 'exclusive' as const,
                     tax_code: 'txcd_92010001', // Stripe Tax code for shipping
@@ -325,7 +408,7 @@ export async function createCheckoutSession(input: CheckoutInput): Promise<Check
             currency: 'usd',
             shipping: {
                 name: input.contact.name,
-                phone: input.contact.phone,
+                phone: normalizedPhone,
                 address: stripeAddress,
             },
             metadata,

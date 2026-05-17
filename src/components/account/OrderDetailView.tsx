@@ -70,6 +70,16 @@ function fmtChannel(channel: string): string {
     return channel.replace(/_/g, ' ');
 }
 
+function trackingButtonLabel(channel: string): string {
+    switch (channel) {
+        case 'DOORDASH_DRIVE':   return 'Track on DoorDash';
+        case 'UBER_DIRECT':      return 'Track on Uber';
+        case 'UPS_GROUND_2DAY':  return 'Track on UPS';
+        case 'HOT_DELIVERY_OWN': return 'Track with our driver';
+        default:                 return 'Track delivery';
+    }
+}
+
 function statusColors(status: string): { bg: string; fg: string; border: string } {
     switch (status) {
         case 'PENDING':          return { bg: '#EAE2D2', fg: '#7A8278', border: '#1F302622' };
@@ -201,9 +211,31 @@ export default function OrderDetailView({
                                     ))}
                                 </ul>
                                 {f.trackingNumber && (
-                                    <div style={{ padding: '14px 28px', borderTop: '1px solid #1F302614', background: '#EAE2D2' }}>
-                                        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.28em', color: '#B96A3D', textTransform: 'uppercase' }}>Tracking</div>
-                                        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: '#1F3026', marginTop: 4 }}>{f.trackingNumber}</div>
+                                    <div style={{ padding: '20px 28px', borderTop: '1px solid #1F302614', background: '#EAE2D2' }}>
+                                        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.32em', color: '#B96A3D', textTransform: 'uppercase', marginBottom: 12 }}>
+                                            Live tracking
+                                        </div>
+                                        <a
+                                            href={f.trackingNumber}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            style={{
+                                                display: 'inline-block',
+                                                background: '#1F3026',
+                                                color: '#F5F0E6',
+                                                padding: '13px 24px',
+                                                fontFamily: 'var(--font-mono)',
+                                                fontSize: 10,
+                                                letterSpacing: '0.32em',
+                                                textTransform: 'uppercase',
+                                                textDecoration: 'none',
+                                            }}
+                                        >
+                                            {trackingButtonLabel(f.channel)} →
+                                        </a>
+                                        <div style={{ marginTop: 12, fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.22em', color: '#7A8278', textTransform: 'uppercase' }}>
+                                            Opens in new tab · Live updates from your driver
+                                        </div>
                                     </div>
                                 )}
                             </section>

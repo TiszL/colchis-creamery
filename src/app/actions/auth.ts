@@ -6,6 +6,7 @@ import { setSession, clearSession, getSession } from "@/lib/session";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { sendVerificationEmail, send2FAEmail, generateVerificationCode } from "@/lib/email";
+import { normalizeUSPhone } from "@/lib/phone";
 
 // ── Role Constants ────────────────────────────────────────────────────────────
 const STAFF_ROLES = ["MASTER_ADMIN", "PRODUCT_MANAGER", "CONTENT_MANAGER", "SALES"];
@@ -521,12 +522,30 @@ export async function updateProfileAction(formData: FormData) {
 
     if (!userId) return { error: "Not authenticated." };
 
+    // Phase 9: validate + normalize US phone, enforce @unique with a friendly
+    // error before Prisma throws a raw constraint violation. Empty input clears
+    // the phone (allowed).
+    let normalizedPhone: string | null = null;
+    if (phone && phone.trim()) {
+        normalizedPhone = normalizeUSPhone(phone);
+        if (!normalizedPhone) {
+            return { error: "Please provide a valid US phone number." };
+        }
+        const conflict = await prisma.user.findFirst({
+            where: { phone: normalizedPhone, id: { not: userId } },
+            select: { id: true },
+        });
+        if (conflict) {
+            return { error: "This phone number is already registered to another account." };
+        }
+    }
+
     try {
         await prisma.user.update({
             where: { id: userId },
             data: {
                 name: name || null,
-                phone: phone || null,
+                phone: normalizedPhone,
             },
         });
         revalidatePath("/account");

@@ -47,6 +47,11 @@ type GuestSaved = {
     state?: string;
     postalCode?: string;
     country?: string;
+    // Phase B: optional delivery details — carriers (DD/Uber) use these
+    // as driver instructions at dispatch time.
+    accessCode?: string;
+    buildingName?: string;
+    deliveryNotes?: string;
     // Phase 7b: shared cache for the *currently active* address. Set for both
     // guests and logged-in users so that switching the address on /shop is
     // reflected on /bakery, /cart, /checkout, etc. on next mount. For logged-in
@@ -110,6 +115,11 @@ export type ActiveAddressComponents = {
     lng: number;
     formatted: string;
     googlePlaceId?: string;
+    // Phase B: optional delivery details — propagated through to Order snapshot
+    // and carrier dispatch (DD dropoff_instructions, Uber dropoff_notes).
+    accessCode?: string;
+    buildingName?: string;
+    deliveryNotes?: string;
 };
 
 /**
@@ -140,6 +150,9 @@ export function getActiveAddressComponents(
             lng: found.longitude,
             formatted: activeAddress.formatted,
             googlePlaceId: found.googlePlaceId || undefined,
+            accessCode: found.accessCode || undefined,
+            buildingName: found.buildingName || undefined,
+            deliveryNotes: found.deliveryNotes || undefined,
         };
     }
     if (activeAddress.id === 'guest') {
@@ -156,6 +169,9 @@ export function getActiveAddressComponents(
                 lng: g.lng,
                 formatted: g.formatted,
                 googlePlaceId: g.googlePlaceId || undefined,
+                accessCode: g.accessCode || undefined,
+                buildingName: g.buildingName || undefined,
+                deliveryNotes: g.deliveryNotes || undefined,
             };
         }
     }
@@ -391,6 +407,20 @@ export default function AddressManager({
     // Pending "new address" buffer (filled from Places autocomplete OR map pin)
     const [pendingPlace, setPendingPlace] = useState<ParsedPlace | null>(null);
     const [pendingLabel, setPendingLabel] = useState('');
+    // Phase B — extended delivery-details buffer. Optional fields collected
+    // alongside any new address. Carriers (DD/Uber) consume these as driver
+    // dropoff_instructions / dropoff_notes at dispatch time.
+    const [pendingAddressLine2, setPendingAddressLine2] = useState('');
+    const [pendingAccessCode, setPendingAccessCode] = useState('');
+    const [pendingBuildingName, setPendingBuildingName] = useState('');
+    const [pendingDeliveryNotes, setPendingDeliveryNotes] = useState('');
+    const resetPendingDetails = () => {
+        setPendingLabel('');
+        setPendingAddressLine2('');
+        setPendingAccessCode('');
+        setPendingBuildingName('');
+        setPendingDeliveryNotes('');
+    };
     // Map-fallback toggle — shared across both entry points (guest + logged-in add-new)
     const [showMapPicker, setShowMapPicker] = useState(false);
     // Feedback from server (validation errors / success)
@@ -551,21 +581,31 @@ export default function AddressManager({
         setShowPicker(false);
         setIsAdding(false);
         setPendingPlace(null);
-        setPendingLabel('');
+        resetPendingDetails();
         setShowMapPicker(false);
     };
 
-    const handleGuestPlace = (p: ParsedPlace) => {
+    // Phase B: guests now also use the pendingPlace buffer so they can fill in
+    // optional delivery details (apt/access/notes) before committing. The
+    // explicit "Use this address" button below replaces what used to be an
+    // immediate save the moment Places autocomplete returned a result.
+    const handleGuestSave = () => {
+        if (!pendingPlace) return;
+        const p = pendingPlace;
         saveGuestAddress({
             formatted: p.formatted,
             lat: p.lat,
             lng: p.lng,
             googlePlaceId: p.googlePlaceId,
             addressLine1: p.addressLine1,
+            addressLine2: pendingAddressLine2.trim() || undefined,
             city: p.city,
             state: p.state,
             postalCode: p.postalCode,
             country: p.country,
+            accessCode:    pendingAccessCode.trim()    || undefined,
+            buildingName:  pendingBuildingName.trim()  || undefined,
+            deliveryNotes: pendingDeliveryNotes.trim() || undefined,
         });
         onActiveAddressChange({
             id: 'guest',
@@ -575,7 +615,50 @@ export default function AddressManager({
             lng: p.lng,
             googlePlaceId: p.googlePlaceId,
         });
+        setPendingPlace(null);
+        resetPendingDetails();
+        setShowMapPicker(false);
     };
+
+    // Phase B — reusable JSX for the optional delivery-detail inputs. Shown
+    // below the address label in each save flow (logged-in add-new, logged-in
+    // initial-add, guest). State is shared via closure.
+    const renderDeliveryDetailFields = () => (
+        <>
+            <input
+                value={pendingAddressLine2}
+                onChange={e => setPendingAddressLine2(e.target.value)}
+                placeholder="Apt / Suite / Unit (optional)"
+                style={{ padding: '10px 14px', fontFamily: 'var(--font-sans)', fontSize: 14, color: '#1F3026', background: '#FFFFFF', border: '1px solid #1F302633', outline: 'none' }}
+            />
+            <details style={{ background: '#F5F0E6', border: '1px solid #1F302622', padding: '10px 12px' }}>
+                <summary style={{ cursor: 'pointer', fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.28em', color: '#B96A3D', textTransform: 'uppercase', userSelect: 'none' }}>
+                    + Access code, building, delivery notes
+                </summary>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
+                    <input
+                        value={pendingAccessCode}
+                        onChange={e => setPendingAccessCode(e.target.value)}
+                        placeholder="Access / gate / buzzer code"
+                        style={{ padding: '10px 14px', fontFamily: 'var(--font-sans)', fontSize: 14, color: '#1F3026', background: '#FFFFFF', border: '1px solid #1F302633', outline: 'none' }}
+                    />
+                    <input
+                        value={pendingBuildingName}
+                        onChange={e => setPendingBuildingName(e.target.value)}
+                        placeholder="Building name"
+                        style={{ padding: '10px 14px', fontFamily: 'var(--font-sans)', fontSize: 14, color: '#1F3026', background: '#FFFFFF', border: '1px solid #1F302633', outline: 'none' }}
+                    />
+                    <textarea
+                        value={pendingDeliveryNotes}
+                        onChange={e => setPendingDeliveryNotes(e.target.value)}
+                        placeholder='Delivery notes for the driver (e.g. "Leave at door", "Side entrance", "Ring buzzer 3x")'
+                        rows={3}
+                        style={{ padding: '10px 14px', fontFamily: 'var(--font-sans)', fontSize: 14, color: '#1F3026', background: '#FFFFFF', border: '1px solid #1F302633', outline: 'none', resize: 'vertical' }}
+                    />
+                </div>
+            </details>
+        </>
+    );
 
     const handleSaveLoggedIn = () => {
         if (!pendingPlace) return;
@@ -592,6 +675,10 @@ export default function AddressManager({
         fd.set('longitude', String(pendingPlace.lng));
         fd.set('googlePlaceId', pendingPlace.googlePlaceId);
         if (pendingLabel.trim()) fd.set('label', pendingLabel.trim());
+        if (pendingAddressLine2.trim()) fd.set('addressLine2', pendingAddressLine2.trim());
+        if (pendingAccessCode.trim()) fd.set('accessCode', pendingAccessCode.trim());
+        if (pendingBuildingName.trim()) fd.set('buildingName', pendingBuildingName.trim());
+        if (pendingDeliveryNotes.trim()) fd.set('deliveryNotes', pendingDeliveryNotes.trim());
         if (addresses.length === 0) fd.set('isDefault', 'on');
 
         startTransition(async () => {
@@ -619,7 +706,7 @@ export default function AddressManager({
 
             setIsAdding(false);
             setPendingPlace(null);
-            setPendingLabel('');
+            resetPendingDetails();
             setShowMapPicker(false);
             setSaveSuccess(saved.label ? `"${saved.label}" saved` : 'Address saved');
             setTimeout(() => setSaveSuccess(null), 2500);
@@ -819,6 +906,7 @@ export default function AddressManager({
                                         placeholder="Label (Home, Work, Mom's…) — optional"
                                         style={{ padding: '10px 14px', fontFamily: 'var(--font-sans)', fontSize: 14, color: '#1F3026', background: '#FFFFFF', border: '1px solid #1F302633', outline: 'none' }}
                                     />
+                                    {renderDeliveryDetailFields()}
                                     {saveError && (
                                         <div style={{ background: '#A8312C', color: '#F5F0E6', padding: '10px 14px', fontFamily: 'var(--font-sans)', fontSize: 13, lineHeight: 1.4 }}>
                                             {saveError}
@@ -829,7 +917,7 @@ export default function AddressManager({
                                             style={{ background: '#B96A3D', border: 'none', color: '#F5F0E6', fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.24em', textTransform: 'uppercase', cursor: 'pointer', padding: '12px 22px' }}>
                                             Save address
                                         </button>
-                                        <button onClick={() => { setIsAdding(false); setPendingPlace(null); setPendingLabel(''); setShowMapPicker(false); setSaveError(null); }}
+                                        <button onClick={() => { setIsAdding(false); setPendingPlace(null); resetPendingDetails(); setShowMapPicker(false); setSaveError(null); }}
                                             style={{ background: 'transparent', border: '1px solid #1F302633', fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.24em', color: '#1F3026', textTransform: 'uppercase', cursor: 'pointer', padding: '12px 18px' }}>
                                             Cancel
                                         </button>
@@ -882,6 +970,7 @@ export default function AddressManager({
                                     placeholder="Label (Home, Work…) — optional"
                                     style={{ padding: '10px 14px', fontFamily: 'var(--font-sans)', fontSize: 14, color: '#1F3026', background: '#FFFFFF', border: '1px solid #1F302633', outline: 'none' }}
                                 />
+                                {renderDeliveryDetailFields()}
                                 {saveError && (
                                     <div style={{ background: '#A8312C', color: '#F5F0E6', padding: '10px 14px', fontFamily: 'var(--font-sans)', fontSize: 13, lineHeight: 1.4 }}>
                                         {saveError}
@@ -896,7 +985,7 @@ export default function AddressManager({
                     </div>
                 ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                        <PlacesAutocomplete onPlace={p => { handleGuestPlace(p); setShowMapPicker(false); }} autoFocus />
+                        <PlacesAutocomplete onPlace={p => { setPendingPlace(p); setShowMapPicker(false); }} autoFocus />
                         <button
                             type="button"
                             onClick={() => setShowMapPicker(s => !s)}
@@ -904,7 +993,25 @@ export default function AddressManager({
                         >
                             {showMapPicker ? <><X className="w-3 h-3" /> Hide map</> : <><MapIcon className="w-3 h-3" /> Can&apos;t find it? Drop a pin on the map</>}
                         </button>
-                        {showMapPicker && <MapPinPicker onPlace={handleGuestPlace} />}
+                        {showMapPicker && <MapPinPicker onPlace={p => setPendingPlace(p)} />}
+                        {pendingPlace && (
+                            <>
+                                <div style={{ fontFamily: 'var(--font-sans)', fontSize: 13, color: '#2C3D33', padding: '4px 0' }}>
+                                    Selected: <strong>{pendingPlace.formatted}</strong>
+                                </div>
+                                {renderDeliveryDetailFields()}
+                                <div style={{ display: 'flex', gap: 8 }}>
+                                    <button onClick={handleGuestSave}
+                                        style={{ background: '#1F3026', border: 'none', color: '#F5F0E6', fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.28em', textTransform: 'uppercase', cursor: 'pointer', padding: '12px 22px' }}>
+                                        Use this address →
+                                    </button>
+                                    <button onClick={() => { setPendingPlace(null); resetPendingDetails(); setShowMapPicker(false); }}
+                                        style={{ background: 'transparent', border: '1px solid #1F302633', fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.24em', color: '#1F3026', textTransform: 'uppercase', cursor: 'pointer', padding: '12px 18px' }}>
+                                        Cancel
+                                    </button>
+                                </div>
+                            </>
+                        )}
                     </div>
                 )}
             </APIProvider>

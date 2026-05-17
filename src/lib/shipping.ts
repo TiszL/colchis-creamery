@@ -23,8 +23,8 @@
 import { prisma } from './db';
 import { distanceMiles, channelMaxRadius } from './distance';
 import { cartEligibleChannels } from './fulfillment';
-import { doordashCreateQuote, isDoorDashConfigured } from './doordash';
-import { uberCreateQuote, isUberDirectConfigured } from './uber-direct';
+import { doordashCreateQuote, isDoorDashConfigured, UNDELIVERABLE as DD_UNDELIVERABLE } from './doordash';
+import { uberCreateQuote, isUberDirectConfigured, UNDELIVERABLE as UBER_UNDELIVERABLE } from './uber-direct';
 import { FulfillmentChannel, ProductKind } from '@prisma/client';
 
 /** Phase 8.2: customer address bundle passed into planFulfillment. All fields
@@ -158,11 +158,16 @@ function quoteCacheKey(opts: {
     customerLat: number;
     customerLng: number;
     orderValueCents?: number;
+    customerPhone?: string;
 }): string {
     // Coarsen lat/lng to 3 decimals (~110m) so trivially-near addresses share.
     const lat = opts.customerLat.toFixed(3);
     const lng = opts.customerLng.toFixed(3);
-    return `${opts.locationId}|${opts.channel}|${lat},${lng}|${opts.orderValueCents ?? 0}`;
+    // Include phone-PRESENCE (not value) — quote success path differs whether
+    // we have a real phone for the carrier; we don't want a no-phone null
+    // cached against a future with-phone request, or vice versa.
+    const phoneFlag = opts.customerPhone ? 'p1' : 'p0';
+    return `${opts.locationId}|${opts.channel}|${lat},${lng}|${opts.orderValueCents ?? 0}|${phoneFlag}`;
 }
 
 function cacheAndReturn(key: string, quote: ChannelQuote | null): ChannelQuote | null {
@@ -196,6 +201,11 @@ export async function getShippingQuote(opts: {
     /** Phase 8.2: parsed customer address components — required for Uber Direct
         live quotes (their API takes structured JSON, not free-text). */
     customerAddressInfo?: CustomerAddressInfo;
+    /** Phase 9: customer's real US-E.164 phone. Required for DD/Uber live quotes
+        (their validators reject any placeholder we'd substitute). Omit and we
+        fall back to LocationChannel.flatFee. Logged-in users' phone is plumbed
+        through from the shipping-plan action via session. */
+    customerPhone?: string;
 }): Promise<ChannelQuote | null> {
     // Phase 8.x perf fix: check the in-memory cache before doing any DB or
     // carrier work. Cached null IS a valid result (means "no quote possible").
@@ -258,21 +268,29 @@ export async function getShippingQuote(opts: {
         && isDoorDashConfigured()
         && opts.orderValueCents !== undefined && opts.orderValueCents > 0
         && opts.customerAddress
+        && loc.phone           // require real pickup phone (DD rejects placeholders)
+        && opts.customerPhone  // require real dropoff phone (same — guests fall through to flatFee)
     ) {
         const pickupAddress = [loc.addressLine1, loc.city, loc.state, loc.postalCode]
             .filter(Boolean).join(', ');
         const quote = await doordashCreateQuote({
             pickup: {
                 address: pickupAddress,
-                phone: loc.phone || '+15555550123', // sandbox-safe placeholder
+                phone: loc.phone,
                 businessName: loc.name,
             },
             dropoff: {
                 address: opts.customerAddress,
-                phone: '+15555550123', // cart-time placeholder; real phone passed at delivery creation
+                phone: opts.customerPhone,
             },
             orderValueCents: opts.orderValueCents,
         });
+        // Carrier explicitly refused (out of radius / unable_to_quote) → drop
+        // the channel entirely. Showing flatFee here would let the customer pay
+        // for a delivery that fails to dispatch post-payment.
+        if (quote === DD_UNDELIVERABLE) {
+            return cacheAndReturn(cacheKey, null);
+        }
         if (quote) {
             const liveCost = Math.round(quote.feeCents) / 100;
             const withMarkup = Math.round(liveCost * (lc.priceMultiplier || 1.0) * 100) / 100;
@@ -289,7 +307,7 @@ export async function getShippingQuote(opts: {
                 packagingType: packagingFor(opts.channel, opts.productKind),
             });
         }
-        // fall through to flat-fee on failure
+        // quote === null (generic outage / misconfig) → fall through to flat-fee
     }
 
     // Phase 8.2: live Uber Direct quote. Requires parsed address components
@@ -305,6 +323,8 @@ export async function getShippingQuote(opts: {
         && opts.customerAddressInfo.postalCode
         && opts.customerAddressInfo.country
         && loc.addressLine1 && loc.city && loc.state && loc.postalCode
+        && loc.phone           // require real pickup phone
+        && opts.customerPhone  // require real dropoff phone
     ) {
         const quote = await uberCreateQuote({
             pickup: {
@@ -316,7 +336,7 @@ export async function getShippingQuote(opts: {
                     postalCode: loc.postalCode,
                     country: loc.country || 'US',
                 },
-                phone: loc.phone || '+15555550123',
+                phone: loc.phone,
             },
             dropoff: {
                 address: {
@@ -327,10 +347,15 @@ export async function getShippingQuote(opts: {
                     postalCode: opts.customerAddressInfo.postalCode,
                     country: opts.customerAddressInfo.country,
                 },
-                phone: '+15555550123', // cart-time placeholder; replaced at delivery creation
+                phone: opts.customerPhone,
             },
             orderValueCents: opts.orderValueCents,
         });
+        // Same explicit-refusal handling as DD above — exclude channel rather
+        // than presenting a flatFee for a delivery that won't dispatch.
+        if (quote === UBER_UNDELIVERABLE) {
+            return cacheAndReturn(cacheKey, null);
+        }
         if (quote) {
             const liveCost = Math.round(quote.feeCents) / 100;
             const withMarkup = Math.round(liveCost * (lc.priceMultiplier || 1.0) * 100) / 100;
@@ -389,6 +414,9 @@ export async function planFulfillment(
     /** Phase 8.2: parsed customer address components for Uber Direct's structured
         address payload. Falls back to flat-fee for Uber when omitted. */
     customerAddressInfo?: CustomerAddressInfo,
+    /** Phase 9: customer's E.164 phone. When present (logged-in users) lets DD/Uber
+        live quotes succeed at cart time instead of falling through to flat-fee. */
+    customerPhone?: string,
 ): Promise<FulfillmentPlan> {
     if (items.length === 0) {
         return { groups: [], undeliverableItems: [], hasUndeliverable: false };
@@ -550,6 +578,7 @@ export async function planFulfillment(
                 orderValueCents,
                 customerAddress,
                 customerAddressInfo,
+                customerPhone,
             })),
         );
         const quotes: ChannelQuote[] = [];

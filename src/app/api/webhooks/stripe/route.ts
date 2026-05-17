@@ -235,6 +235,23 @@ async function handlePaymentFailed(pi: Stripe.PaymentIntent) {
 
 type OrderForWebhook = NonNullable<Awaited<ReturnType<typeof loadOrderForPI>>>;
 
+/** Phase B — compose driver-facing dropoff instructions from the order's
+ *  optional snapshot fields. Returns undefined if none are set, in which case
+ *  carriers receive no instructions field at all. */
+function combineDropoffInstructions(order: {
+    shippingAddressLine2:  string | null;
+    shippingAccessCode:    string | null;
+    shippingBuildingName:  string | null;
+    shippingDeliveryNotes: string | null;
+}): string | undefined {
+    const parts: string[] = [];
+    if (order.shippingAddressLine2)  parts.push(`Apt/Suite: ${order.shippingAddressLine2}`);
+    if (order.shippingBuildingName)  parts.push(`Building: ${order.shippingBuildingName}`);
+    if (order.shippingAccessCode)    parts.push(`Access code: ${order.shippingAccessCode}`);
+    if (order.shippingDeliveryNotes) parts.push(order.shippingDeliveryNotes);
+    return parts.length > 0 ? parts.join(' · ') : undefined;
+}
+
 async function loadOrderForPI(paymentIntentId: string) {
     return prisma.order.findUnique({
         where: { stripePaymentIntentId: paymentIntentId },
@@ -292,6 +309,25 @@ async function dispatchDoorDashDeliveries(orderId: string) {
         if (f.externalOrderId) continue; // idempotency — already dispatched
 
         const loc = f.location;
+
+        // Fail-loud on missing phones. DD's validator rejects any placeholder
+        // we'd substitute, and creating a doomed-to-fail delivery just wastes
+        // an API call + leaves admin to clean up. Skip + log; admin reconciles.
+        if (!loc.phone) {
+            console.warn(
+                '[doordash] Skipping dispatch for fulfillment', f.id,
+                '— pickup location', loc.name, 'has no phone configured. Set Location.phone in /admin/locations.',
+            );
+            continue;
+        }
+        if (!recipientPhone) {
+            console.warn(
+                '[doordash] Skipping dispatch for fulfillment', f.id,
+                '— Order', order.id, 'has no contact phone. (Should not happen — checkout validates.)',
+            );
+            continue;
+        }
+
         const pickupAddress = [loc.addressLine1, loc.city, loc.state, loc.postalCode]
             .filter(Boolean).join(', ');
 
@@ -306,16 +342,17 @@ async function dispatchDoorDashDeliveries(orderId: string) {
             externalOrderId: order.id,
             pickup: {
                 address: pickupAddress,
-                phone: loc.phone || '+15555550123',
+                phone: loc.phone,
                 businessName: loc.name,
                 instructions: loc.notes || undefined,
             },
             dropoff: {
                 address: order.shippingAddress || '',
-                phone: recipientPhone || '+15555550123',
+                phone: recipientPhone,
                 firstName,
                 lastName,
                 email: recipientEmail || undefined,
+                instructions: combineDropoffInstructions(order),
             },
             orderValueCents,
             items: f.items.map(it => ({
@@ -389,6 +426,23 @@ async function dispatchUberDirectDeliveries(orderId: string) {
             continue;
         }
 
+        // Same fail-loud contract as DD: don't substitute a fake phone if the
+        // real one is missing. Skip + log; admin sets Location.phone in admin/UI.
+        if (!loc.phone) {
+            console.warn(
+                '[uber-direct] Skipping dispatch for fulfillment', f.id,
+                '— pickup location', loc.name, 'has no phone configured. Set Location.phone in /admin/locations.',
+            );
+            continue;
+        }
+        if (!recipientPhone) {
+            console.warn(
+                '[uber-direct] Skipping dispatch for fulfillment', f.id,
+                '— Order', order.id, 'has no contact phone. (Should not happen — checkout validates.)',
+            );
+            continue;
+        }
+
         const orderValueCents = f.items.reduce((sum, it) => {
             const unit = parseFloat(it.orderItem.unitPrice);
             if (isNaN(unit)) return sum;
@@ -408,15 +462,16 @@ async function dispatchUberDirectDeliveries(orderId: string) {
                     postalCode: loc.postalCode,
                     country: loc.country || 'US',
                 },
-                phone: loc.phone || '+15555550123',
+                phone: loc.phone,
                 instructions: loc.notes || undefined,
             },
             dropoff: {
                 firstName,
                 lastName,
                 address: parsed,
-                phone: recipientPhone || '+15555550123',
+                phone: recipientPhone,
                 email: recipientEmail || undefined,
+                instructions: combineDropoffInstructions(order),
             },
             orderValueCents,
             items: f.items.map(it => ({

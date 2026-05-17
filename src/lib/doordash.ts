@@ -99,13 +99,20 @@ export type DoorDashQuoteResponse = {
     expiresAt: Date | null;
 };
 
+/** Sentinel returned when DoorDash explicitly says the address can't be served
+ *  (vs a generic outage/null where we don't know and might fall back to flatFee). */
+export const UNDELIVERABLE = 'undeliverable' as const;
+export type QuoteOutcome<T> = T | null | typeof UNDELIVERABLE;
+
 /**
- * Get a live shipping quote. Returns null on failure (missing config, bad
- * address, DoorDash outage, etc.) — caller should fall back to flat-fee.
+ * Get a live shipping quote. Returns:
+ *   - DoorDashQuoteResponse  → quote succeeded, use real price
+ *   - 'undeliverable'        → DD explicitly refuses (out of radius, etc.) — caller should EXCLUDE this channel
+ *   - null                   → unknown / outage / misconfig — caller MAY fall back to flat-fee
  */
 export async function doordashCreateQuote(
     req: DoorDashQuoteRequest,
-): Promise<DoorDashQuoteResponse | null> {
+): Promise<QuoteOutcome<DoorDashQuoteResponse>> {
     if (!isDoorDashConfigured()) return null;
     const externalDeliveryId = `quote-${randomBytes(12).toString('hex')}`;
     const body = {
@@ -126,6 +133,12 @@ export async function doordashCreateQuote(
         });
         if (!res.ok) {
             const text = await res.text().catch(() => '');
+            // Detect "explicit refusal" patterns so the caller can drop the channel
+            // entirely instead of presenting a flatFee that won't actually dispatch.
+            if (res.status === 400 && /unable_to_quote|outside.*(radius|range)|undeliverable|cannot_deliver/i.test(text)) {
+                console.warn('[doordash] address not deliverable — excluding channel');
+                return UNDELIVERABLE;
+            }
             console.warn(`[doordash] quote ${res.status}: ${text.slice(0, 200)}`);
             return null;
         }
@@ -227,6 +240,35 @@ export async function doordashCreateDelivery(
     }
 }
 
+/* ─── Cancel delivery ──────────────────────────────────────────────────── */
+
+/**
+ * Cancel an in-flight delivery. Called from cancelOrder / refundOrder when
+ * the customer or an admin cancels within the policy window. Best-effort:
+ * if the driver has already picked up the order DoorDash will reject the
+ * cancel with 4xx — we log and let the caller continue (the customer's
+ * Stripe refund has already gone through).
+ */
+export async function doordashCancelDelivery(externalDeliveryId: string): Promise<boolean> {
+    if (!isDoorDashConfigured()) return false;
+    if (!externalDeliveryId) return false;
+    try {
+        const res = await ddRequest(
+            `/drive/v2/deliveries/${encodeURIComponent(externalDeliveryId)}/cancel`,
+            { method: 'PUT' },
+        );
+        if (!res.ok) {
+            const text = await res.text().catch(() => '');
+            console.warn(`[doordash] cancel-delivery ${res.status}: ${text.slice(0, 200)}`);
+            return false;
+        }
+        return true;
+    } catch (err) {
+        console.error('[doordash] cancel-delivery error:', err instanceof Error ? err.message : err);
+        return false;
+    }
+}
+
 /* ─── Webhook ──────────────────────────────────────────────────────────── */
 
 /** Map a DoorDash webhook event name to our OrderFulfillment.status enum.
@@ -253,16 +295,21 @@ export function mapDoorDashEvent(eventName: string):
     }
 }
 
-/** Verify a DoorDash webhook signature header.
- *  DoorDash signs the raw request body with HMAC-SHA256 + signing secret. */
-export function verifyDoorDashSignature(rawBody: string, signatureHeader: string | null): boolean {
-    if (!signatureHeader || !SIGNING_SECRET) return false;
+/** Verify an incoming DoorDash webhook by comparing the Authorization header
+ *  against the expected value configured in DD's webhook dashboard.
+ *
+ *  DD's webhook UI uses what they call "Basic" authentication-type — but it's
+ *  not HTTP Basic Auth; it's "send this custom header with this exact value
+ *  on every webhook call". By convention we use header `Authorization` with a
+ *  Bearer-style token, so the value DD sends is e.g. "Bearer <token>". We
+ *  store the entire expected header value in DOORDASH_WEBHOOK_AUTH and
+ *  constant-time-compare to prevent timing leaks. */
+export function verifyDoorDashAuth(authHeader: string | null): boolean {
+    const expected = process.env.DOORDASH_WEBHOOK_AUTH;
+    if (!expected || !authHeader) return false;
+    if (expected.length !== authHeader.length) return false;
     try {
-        const secretBuf = Buffer.from(SIGNING_SECRET, 'base64');
-        const expected = createHmac('sha256', secretBuf).update(rawBody).digest('hex');
-        const actual = signatureHeader.replace(/^sha256=/, '').trim();
-        if (expected.length !== actual.length) return false;
-        return timingSafeEqual(Buffer.from(expected, 'hex'), Buffer.from(actual, 'hex'));
+        return timingSafeEqual(Buffer.from(expected, 'utf8'), Buffer.from(authHeader, 'utf8'));
     } catch {
         return false;
     }

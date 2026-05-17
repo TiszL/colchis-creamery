@@ -5,7 +5,7 @@
 // Customer can cancel their own order if ALL of:
 //   - paymentStatus = PAID (so there's a payment to refund)
 //   - orderStatus != CANCELLED (idempotency)
-//   - (now - createdAt) < 15 min (recent enough to refund cleanly)
+//   - (now - createdAt) < CANCEL_WINDOW_MS (currently 3 min — see order-policy.ts)
 //   - no fulfillment has advanced past CONFIRMED (kitchen hasn't started)
 //
 // Effects: Stripe refund (full) + Stripe Tax reversal (best-effort) + restore
@@ -19,8 +19,45 @@ import { prisma } from '@/lib/db';
 import { stripe } from '@/lib/stripe';
 import { getSession } from '@/lib/session';
 import { restoreStock } from '@/lib/stock-reservation';
+import { doordashCancelDelivery } from '@/lib/doordash';
+import { uberCancelDelivery } from '@/lib/uber-direct';
 import { CANCEL_WINDOW_MS, PAST_CONFIRMED_FULFILLMENT_STATUSES } from '@/lib/order-policy';
 import { revalidatePath } from 'next/cache';
+
+/* ─── Carrier cancel helper (private to this module) ───────────────────── */
+//
+// Used by both cancelOrder (customer) and refundOrder (admin, full first
+// refund only) to call the carrier's cancel API for any in-flight delivery.
+// Best-effort: failure (e.g., driver already picked up) is logged and ignored
+// — the customer's Stripe refund has already gone through. Skips fulfillments
+// without an externalOrderId, with terminal status, or on non-carrier channels.
+async function cancelActiveCarrierDeliveries(
+    fulfillments: ReadonlyArray<{
+        id: string;
+        channel: string;
+        externalOrderId: string | null;
+        status: string;
+    }>,
+    logPrefix: string,
+): Promise<void> {
+    for (const f of fulfillments) {
+        if (!f.externalOrderId) continue;
+        if (f.status === 'DELIVERED' || f.status === 'CANCELLED') continue;
+        let cancelled = false;
+        if (f.channel === 'DOORDASH_DRIVE') {
+            cancelled = await doordashCancelDelivery(f.externalOrderId);
+        } else if (f.channel === 'UBER_DIRECT') {
+            cancelled = await uberCancelDelivery(f.externalOrderId);
+        } else {
+            continue; // non-carrier channels (pickup/dine-in/own-driver) have nothing to cancel
+        }
+        if (cancelled) {
+            console.log(`${logPrefix} Cancelled carrier delivery`, f.externalOrderId, '(', f.channel, ')');
+        } else {
+            console.warn(`${logPrefix} Could not cancel carrier delivery`, f.externalOrderId, '(', f.channel, ') — may have been picked up; reconcile in carrier dashboard');
+        }
+    }
+}
 
 export type CancelOrderResult =
     | { ok: true }
@@ -115,6 +152,10 @@ export async function cancelOrder(orderId: string): Promise<CancelOrderResult> {
         })),
     );
     await restoreStock(restoreItems);
+
+    // Cancel any active carrier deliveries so the driver isn't en route after
+    // we've refunded the customer. Best-effort — see helper for the contract.
+    await cancelActiveCarrierDeliveries(order.fulfillments, '[cancelOrder]');
 
     // amountCents from totalAmount (string dollars) — fall back to 0 if NaN
     const amountCents = Math.round((parseFloat(order.totalAmount) || 0) * 100);
@@ -279,6 +320,13 @@ export async function refundOrder(input: RefundOrderInput): Promise<RefundOrderR
         );
         await restoreStock(restoreItems);
         stockRestored = true;
+    }
+
+    // On a full first refund, also cancel any active carrier deliveries.
+    // Partial refunds skip this — admin reconciles separately because the
+    // partial usually means "delivery happened but customer was unhappy".
+    if (isFullFirstRefund) {
+        await cancelActiveCarrierDeliveries(order.fulfillments, '[refundOrder]');
     }
 
     /* ─── Audit + Order status update ─────────────────────────────────── */

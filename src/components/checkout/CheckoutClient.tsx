@@ -11,6 +11,7 @@ import type { UserAddressDto } from '@/app/actions/addresses';
 import { applyFreeShippingRule, type FulfillmentPlan, type ChannelQuote } from '@/lib/shipping';
 import { planFulfillment } from '@/app/actions/shipping-plan';
 import { createCheckoutSession, type CheckoutInput } from '@/app/actions/checkout';
+import { isValidUSPhone } from '@/lib/phone';
 import type { FulfillmentChannel } from '@prisma/client';
 
 /* ─── Types ────────────────────────────────────────────────────────────── */
@@ -84,10 +85,6 @@ function isValidEmail(s: string): boolean {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
 }
 
-function isValidPhone(s: string): boolean {
-    return s.replace(/\D/g, '').length >= 10;
-}
-
 /**
  * Resolve full parsed address components for the active address.
  * Logged-in: pull from the UserAddressDto already in props.
@@ -112,6 +109,9 @@ function getAddressComponents(
             lng: found.longitude ?? activeAddress.lng,
             formatted: activeAddress.formatted,
             googlePlaceId: found.googlePlaceId || undefined,
+            accessCode: found.accessCode || undefined,
+            buildingName: found.buildingName || undefined,
+            deliveryNotes: found.deliveryNotes || undefined,
         };
     }
     if (activeAddress.id === 'guest') {
@@ -119,6 +119,7 @@ function getAddressComponents(
         if (g?.addressLine1 && g.city && g.state && g.postalCode && g.country) {
             return {
                 line1: g.addressLine1,
+                line2: g.addressLine2 || undefined,
                 city: g.city,
                 state: g.state,
                 postalCode: g.postalCode,
@@ -127,6 +128,9 @@ function getAddressComponents(
                 lng: g.lng,
                 formatted: g.formatted,
                 googlePlaceId: g.googlePlaceId,
+                accessCode: g.accessCode || undefined,
+                buildingName: g.buildingName || undefined,
+                deliveryNotes: g.deliveryNotes || undefined,
             };
         }
     }
@@ -261,7 +265,7 @@ export default function CheckoutClient({
     const contactValid =
         contact.name.trim().length > 0 &&
         isValidEmail(contact.email) &&
-        isValidPhone(contact.phone);
+        isValidUSPhone(contact.phone);
     const addressValid = !!activeAddress;
     const allGroupsSelected =
         !!plan && plan.groups.length > 0 &&
@@ -392,7 +396,7 @@ export default function CheckoutClient({
                                 onChange={v => setContact(c => ({ ...c, phone: v }))}
                                 type="tel"
                                 required
-                                hint={contact.phone && !isValidPhone(contact.phone) ? 'At least 10 digits' : undefined}
+                                hint={contact.phone && !isValidUSPhone(contact.phone) ? 'Valid US phone, e.g. (614) 377-6128' : undefined}
                             />
                         </div>
                         <div style={{ marginTop: 14 }}>
@@ -430,12 +434,17 @@ export default function CheckoutClient({
                                 Set a delivery address above to see your options.
                             </div>
                         )}
-                        {activeAddress && planning && (
+                        {activeAddress && planning && !plan && (
                             <div style={{ padding: '20px 0', fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.24em', color: '#7A8278', textTransform: 'uppercase' }}>
                                 ● Checking delivery options…
                             </div>
                         )}
-                        {activeAddress && !planning && plan && plan.hasUndeliverable && (
+                        {activeAddress && planning && plan && (
+                            <div style={{ padding: '0 0 12px', fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.24em', color: '#B96A3D', textTransform: 'uppercase' }}>
+                                ● Updating live prices…
+                            </div>
+                        )}
+                        {activeAddress && plan && plan.hasUndeliverable && (
                             <div style={{ padding: 14, background: '#FBEAE9', border: '1px solid #A8312C44', marginBottom: 14 }}>
                                 <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.28em', color: '#A8312C', textTransform: 'uppercase' }}>
                                     ⚠ Some items can&apos;t ship to this address
@@ -450,7 +459,7 @@ export default function CheckoutClient({
                                 </div>
                             </div>
                         )}
-                        {activeAddress && !planning && plan && plan.groups.length > 0 && (
+                        {activeAddress && plan && plan.groups.length > 0 && (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                                 {plan.groups.map((g, idx) => {
                                     const location = locationById.get(g.locationId);

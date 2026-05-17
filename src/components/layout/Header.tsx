@@ -5,6 +5,7 @@ import { useTranslations, useLocale } from "next-intl";
 import { LocaleSwitcher } from "./LocaleSwitcher";
 import { useCart } from "@/providers/CartProvider";
 import { useAuth } from "@/providers/AuthProvider";
+import CartDropdown from "@/components/cart/CartDropdown";
 import { useState, useEffect, useRef } from "react";
 
 function initials(name = "") {
@@ -18,7 +19,9 @@ export function Header() {
   const { user, isLoggedIn, isLoading, logout } = useAuth();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [cartOpen, setCartOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const cartRef = useRef<HTMLDivElement>(null);
   const prefix = locale === "en" ? "" : `/${locale}`;
 
   const links = [
@@ -57,6 +60,13 @@ export function Header() {
     return () => document.removeEventListener("mousedown", onDoc);
   }, [menuOpen]);
 
+  useEffect(() => {
+    if (!cartOpen) return;
+    const onDoc = (e: MouseEvent) => { if (cartRef.current && !cartRef.current.contains(e.target as Node)) setCartOpen(false); };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [cartOpen]);
+
   const handleLogout = async () => { setMenuOpen(false); setDrawerOpen(false); await logout(); };
 
   const menuItemStyle: React.CSSProperties = {
@@ -84,20 +94,14 @@ export function Header() {
             ))}
           </nav>
 
+          {/* Right cluster — wrapping CTA + Cart + Burger in one tight flex
+              group keeps the cart visually adjacent to the rest instead of
+              floating off to the viewport edge under justify-content: space-between. */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+
           {/* Desktop CTA + auth */}
           <div className="ch-header-cta" style={{ display: "flex", gap: 14, alignItems: "center", fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", flexShrink: 0 }}>
             <LocaleSwitcher />
-
-            {/* Cart */}
-            <Link href={`${prefix}/cart`} aria-label={t("cart")} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 38, height: 38, color: "#1F3026", textDecoration: "none", position: "relative" }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.4}>
-                <path d="M5 7h14l-1.5 11a2 2 0 0 1-2 1.75H8.5A2 2 0 0 1 6.5 18L5 7z" />
-                <path d="M9 7V5a3 3 0 0 1 6 0v2" />
-              </svg>
-              {itemCount > 0 && (
-                <span style={{ position: "absolute", top: -2, right: -2, background: "#B96A3D", color: "#F5F0E6", fontSize: 10, fontWeight: 700, width: 18, height: 18, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center" }}>{itemCount}</span>
-              )}
-            </Link>
 
             {/* Auth */}
             {!isLoading && (
@@ -127,12 +131,36 @@ export function Header() {
             <Link href={`${prefix}/shop`} style={{ background: "#1F3026", color: "#F5F0E6", border: "none", padding: "11px 20px", fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.24em", textTransform: "uppercase", textDecoration: "none", whiteSpace: "nowrap" }}>Order →</Link>
           </div>
 
+          {/* Cart — opens mini-cart dropdown anchored below. Lives OUTSIDE
+              .ch-header-cta so it stays visible on mobile (that container is
+              display:none below the desktop breakpoint). */}
+          <div ref={cartRef} style={{ position: "relative", flexShrink: 0 }}>
+            <button
+              onClick={() => setCartOpen(o => !o)}
+              aria-label={t("cart")}
+              aria-expanded={cartOpen}
+              aria-haspopup="dialog"
+              style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 38, height: 38, color: "#1F3026", background: "transparent", border: "none", cursor: "pointer", padding: 0, position: "relative" }}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.4}>
+                <path d="M5 7h14l-1.5 11a2 2 0 0 1-2 1.75H8.5A2 2 0 0 1 6.5 18L5 7z" />
+                <path d="M9 7V5a3 3 0 0 1 6 0v2" />
+              </svg>
+              {itemCount > 0 && (
+                <span style={{ position: "absolute", top: -2, right: -2, background: "#B96A3D", color: "#F5F0E6", fontSize: 10, fontWeight: 700, width: 18, height: 18, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center" }}>{itemCount}</span>
+              )}
+            </button>
+            <CartDropdown open={cartOpen} onClose={() => setCartOpen(false)} locale={locale} />
+          </div>
+
           {/* Burger button (mobile) */}
           <button className="ch-burger" onClick={() => setDrawerOpen(true)} aria-label="Open menu" style={{ display: "none", flexDirection: "column", justifyContent: "center", alignItems: "center", gap: 5, width: 42, height: 42, background: "transparent", border: "1px solid #1F302633", cursor: "pointer", padding: 0 }}>
             <span style={{ display: "block", width: 18, height: 1.5, background: "#1F3026" }} />
             <span style={{ display: "block", width: 18, height: 1.5, background: "#1F3026" }} />
             <span style={{ display: "block", width: 18, height: 1.5, background: "#1F3026" }} />
           </button>
+
+          </div>{/* /right cluster */}
         </div>
       </header>
 

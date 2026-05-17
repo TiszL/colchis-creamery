@@ -21,7 +21,7 @@ model User {
   email             String     @unique
   passwordHash      String?
   name              String?
-  phone             String?
+  phone             String?    @unique
   avatarUrl         String?
   role              String     @default("B2C_CUSTOMER")
   companyName       String?
@@ -60,7 +60,7 @@ model UserAddress {
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   label         String?              // "Home" | "Work" | "Mom's" — free text
   addressLine1  String
-  addressLine2  String?
+  addressLine2  String?              // apartment / suite / unit
   city          String
   state         String
   postalCode    String
@@ -69,6 +69,11 @@ model UserAddress {
   longitude     Float?
   googlePlaceId String?
   isDefault     Boolean  @default(false)
+  // Phase B: extended delivery details, all optional. Carriers (DD/Uber) use
+  // these as dropoff_instructions / dropoff_notes so drivers can find the door.
+  accessCode      String?              // gate / buzzer / lockbox code
+  buildingName    String?              // "The Wexley", "Tower B", etc.
+  deliveryNotes   String?              // free-text — "leave at door", "side entrance"
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -263,6 +268,13 @@ model Order {
   shippingAddress        String?
   shippingLat            Float?
   shippingLng            Float?
+  // Phase B: address-detail snapshot at order time (so future UserAddress
+  // edits/deletes don't mutate historical orders). All optional; carriers use
+  // these to populate dropoff_instructions / dropoff_notes for the driver.
+  shippingAddressLine2   String?
+  shippingAccessCode     String?
+  shippingBuildingName   String?
+  shippingDeliveryNotes  String?
   notes                  String?
   createdAt              DateTime    @default(now())
 

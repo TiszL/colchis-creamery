@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, useCallback } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import type { Product, CartItem } from "@/types";
 
 interface CartContextType {
@@ -16,6 +16,9 @@ interface CartContextType {
 const CartContext = createContext<CartContextType | null>(null);
 
 const CART_STORAGE_KEY = "colchis-cart";
+// Cross-tab cart sync. Mirrors AddressManager's pattern (handoff §3.4) so a
+// clear-on-success in one tab also drops the cart counter in any other open tab.
+const CART_BROADCAST_NAME = "colchis-cart-sync";
 
 function loadCart(): CartItem[] {
   if (typeof window === "undefined") return [];
@@ -40,15 +43,54 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
 
+  // Refs for the cross-tab sync. The listener is created once on mount; without
+  // these refs it would close over stale items and re-broadcast in a ping-pong
+  // loop with the sender tab.
+  const channelRef = useRef<BroadcastChannel | null>(null);
+  const itemsRef = useRef<CartItem[]>([]);
+  const skipBroadcastRef = useRef(false);
+
+  useEffect(() => { itemsRef.current = items; }, [items]);
+
   useEffect(() => {
     setItems(loadCart());
     setIsLoaded(true);
   }, []);
 
+  // Set up the broadcast listener once. Compares incoming items to current —
+  // identical messages are ignored (avoids redundant re-renders and the
+  // ping-pong scenario where two tabs trade the same items forever). When a
+  // genuinely-new state arrives, we set a one-shot flag so the items-effect
+  // below knows NOT to re-broadcast what it just received.
   useEffect(() => {
-    if (isLoaded) {
-      saveCart(items);
+    if (typeof window === "undefined" || typeof BroadcastChannel === "undefined") return;
+    const ch = new BroadcastChannel(CART_BROADCAST_NAME);
+    channelRef.current = ch;
+    ch.onmessage = (e) => {
+      if (e.data?.type !== "cart-sync" || !Array.isArray(e.data.items)) return;
+      const next: CartItem[] = e.data.items;
+      if (JSON.stringify(next) === JSON.stringify(itemsRef.current)) return;
+      skipBroadcastRef.current = true;
+      setItems(next);
+    };
+    return () => {
+      ch.close();
+      channelRef.current = null;
+    };
+  }, []);
+
+  // Persist locally on every change. Broadcast to other tabs UNLESS this
+  // change was itself the result of a sync (in which case re-broadcasting
+  // would loop). Skip both until the initial localStorage load completes so
+  // we don't blow away saved items with an empty initial state.
+  useEffect(() => {
+    if (!isLoaded) return;
+    saveCart(items);
+    if (skipBroadcastRef.current) {
+      skipBroadcastRef.current = false;
+      return;
     }
+    channelRef.current?.postMessage({ type: "cart-sync", items });
   }, [items, isLoaded]);
 
   const addItem = useCallback((product: Product, quantity = 1) => {

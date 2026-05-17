@@ -646,6 +646,23 @@ img, svg, video { max-width: 100%; height: auto; }
 @media (max-width: 480px) {
   .ch-hero-grid { padding-left: 20px !important; padding-right: 20px !important; }
   .ch-hero-h1 { font-size: 44px !important; }
+  /* Stack hero CTAs vertically — side-by-side at this width forces button text
+     to overflow its container ("SHOP THE CREAMERY →" needs ~200px but each
+     button only gets ~170px in a 2-column flex). Stacking gives full width to
+     each label and avoids text bleeding past the right edge. */
+  .ch-hero-ctas { flex-direction: column !important; gap: 10px !important; }
+  .ch-hero-ctas a {
+    flex: 0 0 auto !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+  }
+  /* Photo column safety — ensure media + selectors honour the grid's
+     20px right padding instead of bleeding to the viewport edge.
+     iOS Safari sometimes lets <img> inside position:relative escape. */
+  .ch-hero-grid > div { max-width: 100% !important; }
+  .ch-hero-grid img,
+  .ch-hero-grid video { width: 100% !important; max-width: 100% !important; display: block; }
 }
 @media (max-width: 380px) {
   .ch-hero-grid { padding-left: 16px !important; padding-right: 16px !important; }

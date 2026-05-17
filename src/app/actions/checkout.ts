@@ -86,12 +86,20 @@ export async function createCheckoutSession(input: CheckoutInput): Promise<Check
 
     const products = await prisma.product.findMany({
         where: { id: { in: input.items.map(i => i.productId) } },
-        select: { id: true, name: true, priceB2c: true },
+        select: { id: true, name: true, priceB2c: true, isCartOrderable: true },
     });
     const productMap = new Map(products.map(p => [p.id, p]));
     for (const item of input.items) {
-        if (!productMap.has(item.productId)) {
+        const p = productMap.get(item.productId);
+        if (!p) {
             return { ok: false, error: 'A product in your cart is no longer available.', failingItem: { productId: item.productId } };
+        }
+        // Phase 10: wholesale-only products are listed publicly but not cart-orderable.
+        // This is the server-side enforcement; the PDP / card already hides the
+        // Add-to-cart UI when isCartOrderable=false, so reaching here means someone
+        // bypassed the UI (stale tab, direct API hit, etc.). Reject loud.
+        if (!p.isCartOrderable) {
+            return { ok: false, error: `"${p.name}" is wholesale-only and can't be ordered through checkout. Please request a quote from /wholesale.`, failingItem: { productId: item.productId } };
         }
     }
     const subtotal = input.items.reduce((sum, item) => {

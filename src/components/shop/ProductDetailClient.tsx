@@ -150,6 +150,7 @@ interface ProductForPanel {
   stockQuantity: number;
   isActive: boolean;
   status: 'ACTIVE' | 'INACTIVE' | 'COMING_SOON';
+  isCartOrderable?: boolean;
   productLineId: string | null;
   categoryId: string | null;
   productLine: { id: string; slug: string; name: string; tagline: string | null; description: string | null; badgeColor: string | null; sortOrder: number; isActive: boolean } | null;
@@ -219,10 +220,16 @@ export function InfoPanel({ product }: { product: ProductForPanel }) {
         </div>
       )}
 
-      {/* CTA */}
+      {/* CTA — coming soon > wholesale-only > standard add-to-cart */}
       <div className="ch-pdp-cta" style={{ marginTop: 36, display: "flex", gap: 12, alignItems: "stretch", flexWrap: "wrap" }}>
         {isComingSoon ? (
           <button style={{ flex: 1, minWidth: 220, height: 56, background: "#B96A3D22", border: "1px solid #B96A3D", color: "#B96A3D", fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.28em", textTransform: "uppercase", cursor: "pointer" }}>Notify Me When Available</button>
+        ) : product.isCartOrderable === false ? (
+          <div style={{ flex: 1, minWidth: 280, display: "flex", flexDirection: "column", gap: 10, padding: 18, background: "#2C3D33", color: "#F5F0E6" }}>
+            <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.28em", textTransform: "uppercase" }}>Wholesale only</div>
+            <div style={{ fontFamily: "var(--font-sans)", fontSize: 13.5, opacity: 0.85, lineHeight: 1.55 }}>This product isn&apos;t available for retail orders. Restaurants and shops — request a quote and we&apos;ll get back to you within one business day.</div>
+            <a href="/wholesale" style={{ alignSelf: "flex-start", marginTop: 4, background: "#B96A3D", color: "#F5F0E6", padding: "12px 22px", fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.28em", textTransform: "uppercase", textDecoration: "none" }}>Request a quote →</a>
+          </div>
         ) : (
           <AddToCartButton product={product} />
         )}

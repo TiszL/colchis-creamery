@@ -16,6 +16,17 @@ export function AddToCartButton({ product }: AddToCartButtonProps) {
   const { addItem } = useCart();
   const [added, setAdded] = useState(false);
 
+  // Defense-in-depth: callers should branch on isCartOrderable before mounting
+  // this button, but if they don't, surface the wholesale CTA instead of letting
+  // a B2B-only product slip into the cart.
+  if (product.isCartOrderable === false) {
+    return (
+      <a href="/wholesale" className="w-full sm:w-auto inline-flex items-center justify-center px-6 py-3 bg-[#2C3D33] text-[#F5F0E6] font-mono text-xs tracking-[0.28em] uppercase no-underline">
+        Request wholesale quote →
+      </a>
+    );
+  }
+
   function handleAdd() {
     addItem(product);
     setAdded(true);

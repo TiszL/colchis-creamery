@@ -104,12 +104,12 @@ export default function HomepageEditor({ initialData }: HomepageEditorProps) {
 
     // ─── Visit State ─────────────────────────────────────────────────────────────
     const [visit, setVisit] = useState(initialData.visit || {
-        address: '5340 Tuller Rd',
+        address: '84 N High St',
         city: 'Dublin, OH',
         description: 'The bakery is open Wednesday through Sunday, 8 AM to 9 PM. The creamery is by appointment — we\'d love to show you the cheese cellar.',
         bakery_hours: 'Wed–Sun · 8a–9p',
         phone: '(614) 555-0142',
-        map_url: 'https://maps.google.com/?q=5340+Tuller+Rd+Dublin+OH',
+        map_url: 'https://maps.google.com/?q=84+N+High+St+Dublin+OH',
         image: '',
     });
 

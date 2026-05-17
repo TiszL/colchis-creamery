@@ -26,7 +26,7 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
   if (!product) return { title: "Product Not Found" };
 
   const slug = product.slug;
-  const canonicalPath = locale === 'en' ? `/shop/${slug}` : `/${locale}/shop/${slug}`;
+  const canonicalPath = locale === 'en' ? `/creamery/${slug}` : `/${locale}/creamery/${slug}`;
   const lineName = product.productLine?.name || '';
 
   return {
@@ -34,7 +34,7 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
     description: `${product.description} Crafted from 100% Grass-Fed A2 Brown Swiss Milk. Made fresh in Ohio.`,
     alternates: {
       canonical: `${SITE_URL}${canonicalPath}`,
-      languages: { 'en': `${SITE_URL}/shop/${slug}`, 'ka': `${SITE_URL}/ka/shop/${slug}` },
+      languages: { 'en': `${SITE_URL}/creamery/${slug}`, 'ka': `${SITE_URL}/ka/creamery/${slug}` },
     },
     openGraph: {
       type: 'website',
@@ -80,7 +80,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
   // 301 redirect UUID URLs to slug URLs
   const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   if (UUID_REGEX.test(productId) && product.slug && product.slug !== productId) {
-    redirect(`${prefix}/shop/${product.slug}`);
+    redirect(`${prefix}/creamery/${product.slug}`);
   }
 
   // Build gallery images and videos
@@ -95,6 +95,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
     imageUrl: product.imageUrl, priceB2c: parseFloat(product.priceB2c) || 0,
     priceB2b: parseFloat(product.priceB2b) || 0, stockQuantity: product.stockQuantity,
     isActive: product.isActive, status: product.status as 'ACTIVE' | 'INACTIVE' | 'COMING_SOON',
+    isCartOrderable: product.isCartOrderable,
     productLineId: product.productLineId, categoryId: product.categoryId,
     productLine: product.productLine, productCategory: product.productCategory,
   };
@@ -114,18 +115,18 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
   return (
     <>
-      <JsonLdProduct product={productForCart} url={`${SITE_URL}${prefix}/shop/${product.slug}`} productId={product.id} />
+      <JsonLdProduct product={productForCart} url={`${SITE_URL}${prefix}/creamery/${product.slug}`} productId={product.id} />
 
       {/* ─── Breadcrumbs ──────────────────────────────────────────────── */}
       <nav className="ch-breadcrumbs" style={{ background: "#F5F0E6", padding: "20px 56px", borderBottom: "1px solid #1F302611", fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.22em", color: "#7A8278", textTransform: "uppercase" }}>
         <div style={{ maxWidth: 1440, margin: "0 auto", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
           <Link href={`${prefix}/`} style={{ color: "#7A8278", textDecoration: "none" }}>Colchis Food</Link>
           <span style={{ color: "#2C3D33", opacity: 0.5 }}>/</span>
-          <Link href={`${prefix}/shop`} style={{ color: "#7A8278", textDecoration: "none" }}>Creamery</Link>
+          <Link href={`${prefix}/creamery`} style={{ color: "#7A8278", textDecoration: "none" }}>Creamery</Link>
           <span style={{ color: "#2C3D33", opacity: 0.5 }}>/</span>
           {product.productCategory && (
             <>
-              <Link href={`${prefix}/shop?category=${product.productCategory.slug}`} style={{ color: "#7A8278", textDecoration: "none" }}>{product.productCategory.name}</Link>
+              <Link href={`${prefix}/creamery?category=${product.productCategory.slug}`} style={{ color: "#7A8278", textDecoration: "none" }}>{product.productCategory.name}</Link>
               <span style={{ color: "#2C3D33", opacity: 0.5 }}>/</span>
             </>
           )}
@@ -202,11 +203,11 @@ export default async function ProductPage({ params }: ProductPageProps) {
                   You might <em style={{ color: "#B96A3D", fontWeight: 400 }}>also love</em>
                 </h2>
               </div>
-              <Link href={`${prefix}/shop`} style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.28em", color: "#1F3026", textTransform: "uppercase", textDecoration: "none", borderBottom: "1px solid #1F3026" }}>Browse all →</Link>
+              <Link href={`${prefix}/creamery`} style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.28em", color: "#1F3026", textTransform: "uppercase", textDecoration: "none", borderBottom: "1px solid #1F3026" }}>Browse all →</Link>
             </div>
             <div className="ch-pdp-related-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 22 }}>
               {relatedProducts.map(rp => (
-                <Link key={rp.id} href={`${prefix}/shop/${rp.slug}`} style={{ textDecoration: "none", color: "inherit", display: "block", background: "#F5F0E6", border: "1px solid #1F302622", transition: "transform 200ms, box-shadow 200ms" }}>
+                <Link key={rp.id} href={`${prefix}/creamery/${rp.slug}`} style={{ textDecoration: "none", color: "inherit", display: "block", background: "#F5F0E6", border: "1px solid #1F302622", transition: "transform 200ms, box-shadow 200ms" }}>
                   <div style={{ aspectRatio: "1", background: "#EAE2D2", position: "relative", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
                     {rp.imageUrl ? (
                       <img src={rp.imageUrl} alt={rp.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />

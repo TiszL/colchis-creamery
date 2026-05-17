@@ -29,6 +29,9 @@ export interface BakeryItem {
   tag?: string;
   imageUrl?: string;
   isMadeToOrder?: boolean;
+  /** Phase 10: when false, the item is listed but Add-to-cart is replaced with
+   *  a wholesale-quote CTA. */
+  isCartOrderable?: boolean;
   /** Stock available across reachable locations. null = made-to-order / unknown (no cap). */
   stockAvailable?: number | null;
   /** All channels configured for this product server-side (used pre-availability for dine-in check). */
@@ -84,6 +87,10 @@ interface BakeryClientProps {
   apiKey: string;               // Google Maps key for Places Autocomplete (Phase 5)
   isLoggedIn?: boolean;         // Phase 5.5 — drives guest vs logged-in address UX
   userAddresses?: UserAddressDto[]; // Phase 5.5 — saved addresses for logged-in user
+  /** Primary business address fields (street + city/state). Sourced server-side
+   *  from the primary Location row. Used for hero pickup line + page decorations. */
+  primaryAddressLine1?: string;
+  primaryCityState?: string;
 }
 
 // Channel → human label for product card meta line
@@ -98,7 +105,7 @@ function channelMeta(ch: FulfillmentChannel): string {
   }
 }
 
-export default function BakeryClient({ heroContent, menuContent, deliveryContent, hotItems: hotItemsProp, frozenItems: frozenItemsProp, apiKey, isLoggedIn = false, userAddresses = [] }: BakeryClientProps) {
+export default function BakeryClient({ heroContent, menuContent, deliveryContent, hotItems: hotItemsProp, frozenItems: frozenItemsProp, apiKey, isLoggedIn = false, userAddresses = [], primaryAddressLine1, primaryCityState }: BakeryClientProps) {
   const [tab, setTab] = useState<"hot" | "frozen">("hot");
   // Phase 5.5: address-gated availability (guest localStorage OR logged-in UserAddress)
   const [activeAddress, setActiveAddress] = useState<ActiveAddress | null>(null);
@@ -180,17 +187,19 @@ export default function BakeryClient({ heroContent, menuContent, deliveryContent
     else setAvailability(null);
   }, [activeAddress, refetchAvailability]);
 
-  // Merge DB content with defaults
+  // Merge DB content with defaults. The pickup_address default pulls from the
+  // primary business location (server-fetched), so a fresh deploy without DB
+  // overrides never shows a stale hardcoded street.
   const hero = heroContent || {
     eyebrow: 'The Bakery · საცხობი · Open until 9 PM',
     headline: 'Hot from',
     headline_accent: 'the oven',
-    headline_suffix: 'in Dublin, Ohio.',
+    headline_suffix: primaryCityState ? `in ${primaryCityState}.` : 'in Dublin, Ohio.',
     today_items: 'Adjaruli · Imeruli\nMegruli · Lobiani',
     delivery_time: 'Hot delivery · 25 min',
     pickup_time: 'Pickup · 15 min',
     delivery_platforms: 'Doordash · Uber Eats',
-    pickup_address: '5340 Tuller Rd',
+    pickup_address: primaryAddressLine1 || '84 N High St',
   };
 
   const menu = menuContent || {
@@ -317,7 +326,7 @@ export default function BakeryClient({ heroContent, menuContent, deliveryContent
               </div>
               <div style={{ fontFamily: "var(--font-sans)", fontSize: 14, color: "#2C3D33", lineHeight: 1.6 }}>
                 Our Dublin OH bakery covers ~20 mi for frozen and 12 mi for hot. For nationwide cheese delivery, browse{" "}
-                <Link href="/shop" style={{ color: "#B96A3D", textDecoration: "underline" }}>the Creamery shop</Link>.
+                <Link href="/creamery" style={{ color: "#B96A3D", textDecoration: "underline" }}>the Creamery shop</Link>.
               </div>
             </div>
           )}
@@ -355,7 +364,8 @@ export default function BakeryClient({ heroContent, menuContent, deliveryContent
                 && !outOfRange  // don't show "Sold out" when the real issue is "out of range"
                 && typeof p.stockAvailable === 'number'
                 && p.stockAvailable <= 0;
-              const cartDisabled = soldOut || dineInOnly || outOfRange;
+              const isWholesaleOnly = p.isCartOrderable === false;
+              const cartDisabled = soldOut || dineInOnly || outOfRange || isWholesaleOnly;
               const recentlyAdded = p.id && justAdded === p.id;
               const closestSource = (p.sources && p.sources.length > 0 && availability && availability.coveringLocations.length > 1)
                 ? [...p.sources].sort((a, b) => a.distanceMiles - b.distanceMiles)[0]
@@ -405,7 +415,13 @@ export default function BakeryClient({ heroContent, menuContent, deliveryContent
                   {/* Cart controls — outside the Link so clicks don't navigate to PDP */}
                   {p.id && (
                     <div style={{ padding: "0 24px 24px", display: "flex", flexDirection: "column", gap: 10, marginTop: "auto" }}>
-                      {dineInOnly ? (
+                      {isWholesaleOnly ? (
+                        // Wholesale-only: listed publicly but not retail-orderable.
+                        // Route customer to wholesale enquiry instead.
+                        <Link href="/wholesale" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, height: 44, background: "#2C3D33", color: "#F5F0E6", fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.24em", textTransform: "uppercase", textDecoration: "none" }}>
+                          Request a quote →
+                        </Link>
+                      ) : dineInOnly ? (
                         // Dine-in-only product: can't be cart-ordered. Show clear messaging instead of cart UI.
                         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", background: "#1F3026", color: "#F5F0E6", fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.22em", textTransform: "uppercase" }}>
                           <Utensils className="w-3.5 h-3.5" />
@@ -523,7 +539,7 @@ export default function BakeryClient({ heroContent, menuContent, deliveryContent
             <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: "55%", height: "55%", borderRadius: "50%", border: "2px solid rgba(185,106,61,0.4)", background: "rgba(185,106,61,0.07)" }} />
             <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: 16, height: 16, borderRadius: "50%", background: "#1F3026", boxShadow: "0 0 0 6px #F5F0E6, 0 0 0 8px #1F3026" }} />
             <div style={{ position: "absolute", top: "calc(50% - 80px)", left: "50%", transform: "translateX(-50%)", fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.24em", color: "#1F3026", textTransform: "uppercase", padding: "4px 10px", background: "#F5F0E6" }}>HOT · 25 min</div>
-            <div style={{ position: "absolute", bottom: 28, left: 28, fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.24em", color: "#7A8278", textTransform: "uppercase" }}>● Dublin OH · 5340 Tuller Rd</div>
+            <div style={{ position: "absolute", bottom: 28, left: 28, fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.24em", color: "#7A8278", textTransform: "uppercase" }}>● {primaryCityState || 'Dublin OH'} · {primaryAddressLine1 || '84 N High St'}</div>
             <div style={{ position: "absolute", top: 28, right: 28, fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.24em", color: "#7A8278", textTransform: "uppercase" }}>▸ Local frozen · 20 mi</div>
           </div>
         </div>

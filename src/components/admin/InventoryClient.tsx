@@ -47,6 +47,7 @@ interface Product {
     isActive: boolean;
     isB2cVisible: boolean;
     isB2bVisible: boolean;
+    isCartOrderable: boolean;
     channels: FulfillmentChannel[];
     stocks: StockRow[];
 }
@@ -398,6 +399,7 @@ export default function InventoryClient({ products, productLines, locations, pro
                                         <div className="flex items-center justify-center gap-1.5">
                                             {product.isB2cVisible && <span className="text-[10px] bg-blue-900/30 text-blue-400 px-1.5 py-0.5 rounded font-bold">B2C</span>}
                                             {product.isB2bVisible && <span className="text-[10px] bg-purple-900/30 text-purple-400 px-1.5 py-0.5 rounded font-bold">B2B</span>}
+                                            {!product.isCartOrderable && <span className="text-[10px] bg-amber-900/30 text-amber-400 px-1.5 py-0.5 rounded font-bold" title="Listed but not cart-orderable (wholesale-request CTA on PDP)">Q</span>}
                                         </div>
                                     </td>
                                     {/* Actions */}
@@ -830,7 +832,14 @@ export default function InventoryClient({ products, productLines, locations, pro
                                 <input type="checkbox" name="isB2bVisible" defaultChecked={editProduct?.isB2bVisible ?? true} className="accent-[#B96A3D] w-4 h-4" />
                                 B2B Portal
                             </label>
+                            <label className="flex items-center gap-2.5 text-sm text-gray-300 cursor-pointer" title="When off: product is listed publicly with a 'Wholesale only — request a quote' CTA instead of an Add-to-cart button. Use for items you make for B2B but want customers to see (e.g. frozen-only-B2B SKUs).">
+                                <input type="checkbox" name="isCartOrderable" defaultChecked={editProduct?.isCartOrderable ?? true} className="accent-[#B96A3D] w-4 h-4" />
+                                D2C cart-orderable
+                            </label>
                         </div>
+                        <p className="text-[10px] text-gray-500 mt-2.5 leading-relaxed">
+                            <span className="text-amber-400">D2C cart-orderable off</span> = product is listed on the public shop but Add-to-cart is replaced with a wholesale-quote CTA. Use this for B2B-exclusive products you still want customers to see.
+                        </p>
                     </div>
 
                     {/* Drawer Footer */}

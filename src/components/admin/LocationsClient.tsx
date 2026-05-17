@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useTransition } from 'react';
-import { MapPin, Plus, Pencil, Trash2, Save, Loader2, Search, X, Power, AlertTriangle } from 'lucide-react';
+import { MapPin, Plus, Pencil, Trash2, Save, Loader2, Search, X, Power, AlertTriangle, Star, ArrowUp, ArrowDown } from 'lucide-react';
 import { APIProvider, useMapsLibrary } from '@vis.gl/react-google-maps';
 import type { LocationType, FulfillmentChannel } from '@prisma/client';
 
@@ -32,6 +32,14 @@ type LocationRow = {
     hours: unknown;
     isActive: boolean;
     notes: string | null;
+    // Phase 10 display fields — drive every public address surface
+    isPrimary: boolean;
+    showOnContactPage: boolean;
+    displayDescription: string | null;
+    displayBakeryHours: string | null;
+    contactCardName: string | null;
+    contactCardDoorNote: string | null;
+    displayOrder: number;
     stockCount: number;
     fulfillmentCount: number;
     channels: ChannelRow[];
@@ -46,6 +54,8 @@ type Props = {
     saveAction: (fd: FormData) => Promise<void>;
     deleteAction: (fd: FormData) => Promise<void>;
     toggleActiveAction: (fd: FormData) => Promise<void>;
+    setPrimaryAction: (fd: FormData) => Promise<void>;
+    moveAction: (fd: FormData) => Promise<void>;
 };
 
 // Sensible default channel config for a freshly-created location, based on type.
@@ -169,11 +179,18 @@ export default function LocationsClient({
     saveAction,
     deleteAction,
     toggleActiveAction,
+    setPrimaryAction,
+    moveAction,
 }: Props) {
     const [editing, setEditing] = useState<LocationRow | null>(null);
     const [isCreating, setIsCreating] = useState(false);
     const [toast, setToast] = useState<string | null>(null);
     const [isPending, startTransition] = useTransition();
+
+    // Sub-cohort that the public /contact map + footer scan over. Used to figure
+    // out whether ↑/↓ are at the top/bottom of the reorderable list.
+    const displayList = locations.filter(l => l.isActive && l.showOnContactPage && !l.isPrimary);
+    const displayIndex = (id: string) => displayList.findIndex(l => l.id === id);
 
     const showToast = (msg: string) => {
         setToast(msg);
@@ -219,6 +236,25 @@ export default function LocationsClient({
         });
     };
 
+    const handleSetPrimary = (loc: LocationRow) => {
+        if (loc.isPrimary) return;
+        const fd = new FormData();
+        fd.set('id', loc.id);
+        startTransition(async () => {
+            await setPrimaryAction(fd);
+            showToast(`${loc.name} is now the primary location`);
+        });
+    };
+
+    const handleMove = (loc: LocationRow, direction: 'up' | 'down') => {
+        const fd = new FormData();
+        fd.set('id', loc.id);
+        fd.set('direction', direction);
+        startTransition(async () => {
+            await moveAction(fd);
+        });
+    };
+
     const drawerOpen = isCreating || editing !== null;
 
     return (
@@ -257,18 +293,33 @@ export default function LocationsClient({
                     </div>
                 )}
 
-                {locations.map(loc => (
+                {locations.map(loc => {
+                    const dispIdx = displayIndex(loc.id);
+                    const canMoveUp = !loc.isPrimary && dispIdx > 0;
+                    const canMoveDown = !loc.isPrimary && dispIdx >= 0 && dispIdx < displayList.length - 1;
+                    return (
                     <div
                         key={loc.id}
-                        className={`bg-[#161616] border ${loc.isActive ? 'border-[#ffffff0A]' : 'border-amber-900/40'} p-5 transition-colors`}
+                        className={`bg-[#161616] border ${loc.isPrimary ? 'border-[#B96A3D]/40' : loc.isActive ? 'border-[#ffffff0A]' : 'border-amber-900/40'} p-5 transition-colors`}
                     >
                         <div className="flex items-start justify-between gap-4">
                             <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                                    {loc.isPrimary && <Star className="w-4 h-4 text-[#B96A3D] fill-[#B96A3D] shrink-0" aria-label="Primary location" />}
                                     <h2 className="text-white text-base font-bold truncate">{loc.name}</h2>
                                     <span className="text-[9px] bg-[#B96A3D]/20 text-[#B96A3D] px-2 py-0.5 uppercase tracking-wider">
                                         {typeLabel(loc.type)}
                                     </span>
+                                    {loc.isPrimary && (
+                                        <span className="text-[9px] bg-[#B96A3D] text-black px-2 py-0.5 uppercase tracking-wider font-bold">
+                                            Primary
+                                        </span>
+                                    )}
+                                    {!loc.showOnContactPage && (
+                                        <span className="text-[9px] bg-gray-800 text-gray-400 px-2 py-0.5 uppercase tracking-wider" title="Hidden from /contact map">
+                                            Internal
+                                        </span>
+                                    )}
                                     {!loc.isActive && (
                                         <span className="text-[9px] bg-amber-900/40 text-amber-400 px-2 py-0.5 uppercase tracking-wider">
                                             Inactive
@@ -308,7 +359,40 @@ export default function LocationsClient({
                                 </div>
                             </div>
 
-                            <div className="flex items-center gap-2 shrink-0">
+                            <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+                                {/* Promote-to-primary — flips this row's isPrimary on,
+                                    flips all others off (atomic transaction on the server). */}
+                                {!loc.isPrimary && loc.isActive && (
+                                    <button
+                                        onClick={() => handleSetPrimary(loc)}
+                                        disabled={isPending}
+                                        className="flex items-center gap-1 px-2.5 py-1.5 text-[10px] uppercase tracking-wider text-[#B96A3D] border border-[#B96A3D]/40 hover:bg-[#B96A3D] hover:text-black transition-colors disabled:opacity-50"
+                                        title="Set as primary — flips this to the brand's main address (footer, contact, JSON-LD all update)"
+                                    >
+                                        <Star className="w-3 h-3" /> Set as primary
+                                    </button>
+                                )}
+                                {/* Reorder within the non-primary display cohort */}
+                                {(canMoveUp || canMoveDown) && (
+                                    <div className="flex items-center">
+                                        <button
+                                            onClick={() => handleMove(loc, 'up')}
+                                            disabled={isPending || !canMoveUp}
+                                            className="p-1.5 text-gray-500 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                                            title="Move up in display order"
+                                        >
+                                            <ArrowUp className="w-3.5 h-3.5" />
+                                        </button>
+                                        <button
+                                            onClick={() => handleMove(loc, 'down')}
+                                            disabled={isPending || !canMoveDown}
+                                            className="p-1.5 text-gray-500 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                                            title="Move down in display order"
+                                        >
+                                            <ArrowDown className="w-3.5 h-3.5" />
+                                        </button>
+                                    </div>
+                                )}
                                 <button
                                     onClick={() => handleToggle(loc)}
                                     disabled={isPending}
@@ -326,16 +410,17 @@ export default function LocationsClient({
                                 </button>
                                 <button
                                     onClick={() => handleDelete(loc)}
-                                    disabled={isPending}
-                                    className="p-2 text-gray-500 hover:text-red-400 transition-colors disabled:opacity-50"
-                                    title="Delete (only if no stock/fulfillments)"
+                                    disabled={isPending || loc.isPrimary}
+                                    className="p-2 text-gray-500 hover:text-red-400 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                                    title={loc.isPrimary ? "Can't delete the primary location — promote another first" : "Delete (only if no stock/fulfillments)"}
                                 >
                                     <Trash2 className="w-4 h-4" />
                                 </button>
                             </div>
                         </div>
                     </div>
-                ))}
+                    );
+                })}
             </div>
 
             {/* Drawer */}
@@ -400,6 +485,14 @@ function LocationDrawer({
     );
     const [isActive, setIsActive] = useState(location?.isActive ?? true);
     const [notes, setNotes] = useState(location?.notes || '');
+
+    // Phase 10 display-on-public-site fields. Read by the homepage Visit block,
+    // the public footer, the contact-page address card + map, and JSON-LD.
+    const [showOnContactPage, setShowOnContactPage] = useState(location?.showOnContactPage ?? true);
+    const [displayDescription, setDisplayDescription] = useState(location?.displayDescription || '');
+    const [displayBakeryHours, setDisplayBakeryHours] = useState(location?.displayBakeryHours || '');
+    const [contactCardName, setContactCardName] = useState(location?.contactCardName || '');
+    const [contactCardDoorNote, setContactCardDoorNote] = useState(location?.contactCardDoorNote || '');
 
     // Channel state: keyed by channel enum
     const [channelMap, setChannelMap] = useState<Record<string, ChannelRow & { enabled: boolean }>>(() => {
@@ -505,6 +598,12 @@ function LocationDrawer({
         fd.set('hoursJson', hoursJson);
         if (isActive) fd.set('isActive', 'on');
         fd.set('notes', notes);
+        // Phase 10 display fields
+        if (showOnContactPage) fd.set('showOnContactPage', 'on');
+        fd.set('displayDescription', displayDescription);
+        fd.set('displayBakeryHours', displayBakeryHours);
+        fd.set('contactCardName', contactCardName);
+        fd.set('contactCardDoorNote', contactCardDoorNote);
 
         const channelsArr = Object.values(channelMap).map(c => ({
             channel: c.channel,
@@ -665,6 +764,66 @@ function LocationDrawer({
                     <textarea value={notes} onChange={e => setNotes(e.target.value)}
                         rows={2}
                         className="w-full bg-[#161616] border border-[#B96A3D22] text-white py-2 px-3 focus:outline-none focus:border-[#B96A3D] text-sm" />
+                </div>
+
+                {/* Display on public site — Phase 10 */}
+                <div className="pt-2 border-t border-[#B96A3D22]">
+                    <div className="flex items-center gap-2 mb-1">
+                        <Star className="w-3.5 h-3.5 text-[#B96A3D]" />
+                        <h3 className="text-white text-sm font-bold">Public site display</h3>
+                    </div>
+                    <p className="text-[10px] text-gray-500 mb-4 uppercase tracking-wider leading-relaxed">
+                        How this location appears on /contact, the homepage Visit block, and the footer. The PRIMARY location additionally drives the address shown sitewide.
+                    </p>
+
+                    <div className="space-y-3 bg-[#0C0C0C] border border-[#B96A3D22] p-4">
+                        <label className="flex items-center gap-2.5 text-sm text-gray-300 cursor-pointer">
+                            <input type="checkbox" checked={showOnContactPage} onChange={e => setShowOnContactPage(e.target.checked)} className="accent-[#B96A3D] w-4 h-4" />
+                            Show on public /contact page (map pin + address card)
+                        </label>
+                        <p className="text-[9px] text-gray-600 -mt-1.5 pl-7">
+                            Uncheck for internal-only locations (e.g. fulfillment warehouses customers shouldn&apos;t see).
+                        </p>
+
+                        <div>
+                            <label className="block text-[10px] font-bold text-gray-500 mb-1 uppercase tracking-wider">Contact-card display name</label>
+                            <input value={contactCardName} onChange={e => setContactCardName(e.target.value)}
+                                placeholder='e.g. "The High St Counter"'
+                                className="w-full bg-[#161616] border border-[#B96A3D22] text-white py-2 px-3 focus:outline-none focus:border-[#B96A3D] text-sm" />
+                            <p className="text-[9px] text-gray-600 mt-1">Falls back to the location&apos;s internal name if blank. Shown big-italic above the address on /contact.</p>
+                        </div>
+
+                        <div>
+                            <label className="block text-[10px] font-bold text-gray-500 mb-1 uppercase tracking-wider">Door / arrival note</label>
+                            <input value={contactCardDoorNote} onChange={e => setContactCardDoorNote(e.target.value)}
+                                placeholder='e.g. "Door 4 · ring twice"'
+                                className="w-full bg-[#161616] border border-[#B96A3D22] text-white py-2 px-3 focus:outline-none focus:border-[#B96A3D] text-sm" />
+                        </div>
+
+                        <div>
+                            <label className="block text-[10px] font-bold text-gray-500 mb-1 uppercase tracking-wider">Visit-block description</label>
+                            <textarea value={displayDescription} onChange={e => setDisplayDescription(e.target.value)}
+                                rows={2}
+                                placeholder='e.g. "The bakery is open Wednesday through Sunday, 8 AM to 9 PM."'
+                                className="w-full bg-[#161616] border border-[#B96A3D22] text-white py-2 px-3 focus:outline-none focus:border-[#B96A3D] text-sm" />
+                            <p className="text-[9px] text-gray-600 mt-1">Shown on the homepage Visit block under the address. Falls back to a generic line if blank.</p>
+                        </div>
+
+                        <div>
+                            <label className="block text-[10px] font-bold text-gray-500 mb-1 uppercase tracking-wider">Short hours label</label>
+                            <input value={displayBakeryHours} onChange={e => setDisplayBakeryHours(e.target.value)}
+                                placeholder='e.g. "Wed–Sun · 8a–9p"'
+                                className="w-full bg-[#161616] border border-[#B96A3D22] text-white py-2 px-3 focus:outline-none focus:border-[#B96A3D] text-sm" />
+                            <p className="text-[9px] text-gray-600 mt-1">One-line summary shown on the homepage Visit block. The detailed hours table on /contact is edited at /admin/website/contact.</p>
+                        </div>
+
+                        {location?.isPrimary && (
+                            <div className="flex items-center gap-2 px-3 py-2 bg-[#B96A3D]/10 border border-[#B96A3D]/30 text-[10px] text-[#B96A3D]">
+                                <Star className="w-3 h-3 fill-[#B96A3D]" />
+                                <span className="uppercase tracking-wider">This is the primary location. Its address drives the footer, hero, and JSON-LD sitewide.</span>
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 {/* Channels */}

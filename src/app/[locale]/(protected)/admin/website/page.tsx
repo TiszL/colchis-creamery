@@ -1,17 +1,26 @@
 import { prisma } from '@/lib/db';
 import { getSession } from '@/lib/session';
 import { redirect } from 'next/navigation';
-import { Globe, FileText, ShoppingBag, BookOpen, Save, Search, Home, ChefHat, Store, Handshake } from 'lucide-react';
+import { Globe, FileText, ShoppingBag, BookOpen, Save, Search, Home, ChefHat, Store, Handshake, Mail, MapPin } from 'lucide-react';
 import Link from 'next/link';
 import { batchUpsertSiteConfigAction } from '@/app/actions/cms';
 import { revalidatePath } from 'next/cache';
-import ContactLocationsEditor from '@/components/admin/ContactLocationsEditor';
 import FooterEditor from '@/components/admin/FooterEditor';
 
 export const dynamic = 'force-dynamic';
 
 function getVal(configs: { key: string; value: string }[], key: string, fallback = ""): string {
-    return configs.find(c => c.key === key)?.value || fallback;
+    const raw = configs.find(c => c.key === key)?.value;
+    if (!raw) return fallback;
+    // Tolerate legacy saveContentBlock('key', { value: '...' }) JSON-wrap so
+    // older entries don't render as literal `{"value":"…"}` text in admin/footer.
+    try {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed) && typeof parsed.value === "string") {
+            return parsed.value;
+        }
+    } catch { /* not JSON — use raw */ }
+    return raw;
 }
 
 async function saveSectionAction(formData: FormData) {
@@ -51,6 +60,7 @@ export default async function AdminWebsitePage({ params }: { params: any }) {
         { href: `/${locale}/admin/website/recipes`, icon: BookOpen, title: 'Recipes', subtitle: `${recipeCount} recipes` },
         { href: `/${locale}/admin/website/articles`, icon: FileText, title: 'Journal', subtitle: `${articleCount} articles` },
         { href: `/${locale}/admin/website/wholesale`, icon: Handshake, title: 'Wholesale Page', subtitle: 'B2B landing, partner info' },
+        { href: `/${locale}/admin/website/contact`, icon: Mail, title: 'Contact Page', subtitle: 'Hero, desks, hours, FAQ, map' },
         { href: `/${locale}/admin/website/heritage`, icon: Globe, title: 'Heritage Page', subtitle: 'Sections, media & translations' },
         { href: `/${locale}/admin/website/legal`, icon: FileText, title: 'Legal & FAQ', subtitle: 'FAQ, Privacy, Terms, Returns' },
         { href: `/${locale}/admin/website/seo`, icon: Search, title: 'SEO & Social', subtitle: 'Google images & metadata' },
@@ -108,13 +118,24 @@ export default async function AdminWebsitePage({ params }: { params: any }) {
                 </div>
             </form>
 
-            {/* Business Locations */}
-            <ContactLocationsEditor configs={JSON.parse(JSON.stringify(configs))} apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY || ''} />
+            {/* Business Locations — signpost only. The actual editor lives at
+                /admin/locations where the Location table (operational + display
+                source of truth) is managed. */}
+            <Link href={`/${locale}/admin/locations`}
+                className="block bg-[#161616] border border-[#B96A3D22] hover:border-[#B96A3D] p-6 transition-colors">
+                <div className="flex items-center gap-3">
+                    <MapPin className="w-5 h-5 text-[#B96A3D]" />
+                    <div className="flex-1">
+                        <h2 className="text-[#F5F0E6] font-medium" style={{ fontFamily: 'var(--font-serif)' }}>Business Locations</h2>
+                        <p className="text-[#7A8278] text-[10px] mt-0.5" style={mono}>Address, hours, map, channels, primary flag → /admin/locations →</p>
+                    </div>
+                </div>
+            </Link>
 
             {/* Footer */}
             <FooterEditor initialData={{
                 tagline: getVal(configs, 'footer.tagline', 'Ancient heritage, fresh every day.'),
-                address: getVal(configs, 'footer.address', '5340 Tuller Rd\nDublin, Ohio 43017\nMade by hand, since 2026'),
+                address: getVal(configs, 'footer.address', '84 N High St\nDublin, Ohio 43017\nMade by hand, since 2026'),
                 columns: (() => { try { return JSON.parse(getVal(configs, 'footer.columns', '')); } catch { return null; } })(),
             }} />
         </div>

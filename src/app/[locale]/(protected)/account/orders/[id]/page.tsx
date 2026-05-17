@@ -50,11 +50,11 @@ export default async function CustomerOrderDetailPage({ params }: PageProps) {
 
     if (!order || order.userId !== session.userId) notFound();
 
-    // Reorder eligibility: product must still exist, be active, AND status ACTIVE.
-    // COMING_SOON products are excluded — don't let customer queue items that
-    // aren't actually orderable yet (would surprise them at checkout).
+    // Reorder eligibility: product must still exist, be active, status ACTIVE,
+    // AND be cart-orderable (excludes products flipped to wholesale-only since
+    // the original order — checkout would reject them anyway).
     const reorderItems = order.orderItems
-        .filter(oi => oi.product && oi.product.isActive && oi.product.status === 'ACTIVE')
+        .filter(oi => oi.product && oi.product.isActive && oi.product.status === 'ACTIVE' && oi.product.isCartOrderable)
         .map(oi => ({
             product: productForCart(oi.product),
             quantity: oi.quantity,

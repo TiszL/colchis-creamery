@@ -87,7 +87,7 @@ function LoginContent() {
                     <div className="ch-auth-reasons" style={{ marginTop: 80, display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 28, paddingTop: 36, borderTop: "1px solid #1F302622" }}>
                         {[
                             { n: "i.", t: "Standing orders", d: "Auto-ship sulguni and frozen khachapuri on your cadence." },
-                            { n: "ii.", t: "Local pickup", d: "Reserve hot bread before the oven cools. Tuller Rd, Dublin." },
+                            { n: "ii.", t: "Local pickup", d: "Reserve hot bread before the oven cools. 84 N High St, Dublin." },
                             { n: "iii.", t: "Cellar reserve", d: "First access to the 12-month aged wheels we only press once." },
                         ].map(r => (
                             <div key={r.n}>

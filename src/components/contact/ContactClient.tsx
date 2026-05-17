@@ -3,29 +3,131 @@
 import { useState, useTransition } from "react";
 import { submitContactFormAction } from "@/app/actions/contact";
 import Link from "next/link";
+import type { PrimaryLocation } from "@/lib/business-location";
 
-const topics = [
+/* ─── Content block types (all admin-editable) ──────────────────────────── */
+
+export type ContactHeroContent = {
+    eyebrow: string;
+    h1Pre: string;
+    h1Accent: string;
+    subheadline: string;
+    hoursLabel: string;
+};
+export type ContactDesk = {
+    id: string;
+    label: string;
+    desk: string;
+    time: string;
+};
+export type ContactHoursRow = { day: string; hours: string };
+export type ContactFaqLink = { label: string; href: string };
+export type ContactMapContent = {
+    eyebrow: string;
+    hint: string;
+};
+export type ContactAddressCardContent = {
+    eyebrow: string;
+};
+export type ContactFormIntroContent = {
+    eyebrow: string;
+    heading: string;
+    successHeading: string;
+    successBody: string;
+    trustLine: string;
+};
+export type ContactFaqCardContent = {
+    eyebrow: string;
+    heading: string;
+};
+
+const DEFAULT_HERO: ContactHeroContent = {
+    eyebrow: '№ 00 — The Switchboard',
+    h1Pre: 'Write us',
+    h1Accent: 'a postcard.',
+    subheadline: "Or an email. Or call the bakery line — Levan picks up when the oven's resting. We answer every note that lands on the counter.",
+    hoursLabel: 'Tue–Sat · 9am – 7pm EST',
+};
+
+const DEFAULT_DESKS: ContactDesk[] = [
     { id: "order", label: "An order", desk: "Customer care", time: "Replies in < 4h, M–F" },
     { id: "wholesale", label: "Wholesale", desk: "Trade desk", time: "Replies in 1 business day" },
     { id: "press", label: "Press & stories", desk: "Editorial", time: "Replies within the week" },
     { id: "kitchen", label: "The kitchen", desk: "Bake-house notes", time: "Hand-answered by Levan" },
 ];
 
-const hours = [
-    ["Mon", "Closed · cellar day"],
-    ["Tue – Thu", "9 am – 6 pm"],
-    ["Fri", "9 am – 8 pm · hot bake"],
-    ["Sat", "10 am – 7 pm"],
-    ["Sun", "11 am – 4 pm"],
+const DEFAULT_HOURS_TABLE: ContactHoursRow[] = [
+    { day: "Mon", hours: "Closed · cellar day" },
+    { day: "Tue – Thu", hours: "9 am – 6 pm" },
+    { day: "Fri", hours: "9 am – 8 pm · hot bake" },
+    { day: "Sat", hours: "10 am – 7 pm" },
+    { day: "Sun", hours: "11 am – 4 pm" },
 ];
+
+const DEFAULT_FAQ_LINKS: ContactFaqLink[] = [
+    { label: "Shipping & cold-chain", href: "/faq" },
+    { label: "Replace pledge", href: "/faq" },
+    { label: "Wholesale minimums", href: "/faq" },
+    { label: "Pickup windows", href: "/faq" },
+];
+
+const DEFAULT_MAP: ContactMapContent = {
+    eyebrow: '№ 02 — Find us',
+    hint: 'Free parking out back · 6 min from I-270 exit 17B',
+};
+
+const DEFAULT_ADDRESS_CARD: ContactAddressCardContent = {
+    eyebrow: 'The bakery',
+};
+
+const DEFAULT_FORM_INTRO: ContactFormIntroContent = {
+    eyebrow: '№ 01 — A note to the kitchen',
+    heading: 'Send a message',
+    successHeading: "Thank you — we'll write back.",
+    successBody: 'A copy is on its way to your inbox. Most replies land within a few hours during the bake.',
+    trustLine: 'Signed by 1 baker · TLS 1.3',
+};
+
+const DEFAULT_FAQ_CARD: ContactFaqCardContent = {
+    eyebrow: 'Try the FAQ first',
+    heading: 'Most answers live here.',
+};
 
 interface Props {
     email: string;
     phone: string;
+    primary: PrimaryLocation;
+    /** All content overrides come from SiteConfig `contact.*` keys. Null → use defaults. */
+    hero?: ContactHeroContent | null;
+    desks?: ContactDesk[] | null;
+    hoursTable?: ContactHoursRow[] | null;
+    faqLinks?: ContactFaqLink[] | null;
+    map?: ContactMapContent | null;
+    addressCard?: ContactAddressCardContent | null;
+    formIntro?: ContactFormIntroContent | null;
+    faqCard?: ContactFaqCardContent | null;
 }
 
-export default function ContactClient({ email, phone }: Props) {
-    const [topic, setTopic] = useState("order");
+export default function ContactClient({ email, phone, primary, hero: heroProp, desks: desksProp, hoursTable: hoursProp, faqLinks: faqProp, map: mapProp, addressCard: cardProp, formIntro: formProp, faqCard: faqCardProp }: Props) {
+    // Merge admin-provided content with hardcoded defaults so a missing key
+    // never crashes the page or leaves a UI blank.
+    const hero = heroProp || DEFAULT_HERO;
+    const topics: ContactDesk[] = (desksProp && desksProp.length > 0) ? desksProp : DEFAULT_DESKS;
+    const hours: ContactHoursRow[] = (hoursProp && hoursProp.length > 0) ? hoursProp : DEFAULT_HOURS_TABLE;
+    const faqLinks: ContactFaqLink[] = (faqProp && faqProp.length > 0) ? faqProp : DEFAULT_FAQ_LINKS;
+    const map = mapProp || DEFAULT_MAP;
+    const addressCard = cardProp || DEFAULT_ADDRESS_CARD;
+    const formIntro = formProp || DEFAULT_FORM_INTRO;
+    const faqCard = faqCardProp || DEFAULT_FAQ_CARD;
+
+    const heroAddressLabel = `${primary.formattedAddress}`;
+    const cardName = primary.contactCardName || primary.name;
+    const cardAddressLines = primary.formattedAddressLines;
+    const doorNote = primary.contactCardDoorNote;
+    const mapTitle = `Colchis Food — ${primary.formattedAddress}`;
+    const mapHeadingStreet = primary.addressLine1;
+    const mapHeadingCity = `${primary.city}, ${primary.state}.`;
+    const [topic, setTopic] = useState(topics[0]?.id || "order");
     const [sent, setSent] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [isPending, startTransition] = useTransition();
@@ -63,20 +165,20 @@ export default function ContactClient({ email, phone }: Props) {
                 <div style={{ position: "absolute", inset: 0, backgroundImage: "linear-gradient(#F5F0E606 1px, transparent 1px), linear-gradient(90deg, #F5F0E606 1px, transparent 1px)", backgroundSize: "80px 80px", pointerEvents: "none" }} />
                 <div className="ch-contact-hero" style={{ maxWidth: 1440, margin: "0 auto", padding: "80px 56px 56px", display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 48, alignItems: "end", position: "relative" }}>
                     <div>
-                        <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.32em", color: "#D9A876", textTransform: "uppercase" }}>№ 00 — The Switchboard</div>
+                        <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.32em", color: "#D9A876", textTransform: "uppercase" }}>{hero.eyebrow}</div>
                         <h1 className="ch-contact-h1" style={{ fontFamily: "var(--font-serif)", fontWeight: 300, fontSize: 104, lineHeight: 0.92, letterSpacing: "-0.03em", margin: "18px 0 0" }}>
-                            Write us<br /><em style={{ color: "#D9A876", fontWeight: 300 }}>a postcard.</em>
+                            {hero.h1Pre}<br /><em style={{ color: "#D9A876", fontWeight: 300 }}>{hero.h1Accent}</em>
                         </h1>
                         <p style={{ fontFamily: "var(--font-serif)", fontStyle: "italic", fontSize: 20, marginTop: 22, maxWidth: 560, opacity: 0.82, lineHeight: 1.55 }}>
-                            Or an email. Or call the bakery line — Levan picks up when the oven&apos;s resting. We answer every note that lands on the counter.
+                            {hero.subheadline}
                         </p>
                     </div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 12, fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.28em", textTransform: "uppercase", opacity: 0.85 }}>
                         {[
                             ["Email", email],
                             ["Phone", phone],
-                            ["Hours", "Tue–Sat · 9am – 7pm EST"],
-                            ["Address", "5340 Tuller Rd, Dublin OH"],
+                            ["Hours", hero.hoursLabel],
+                            ["Address", heroAddressLabel],
                         ].map(([k, v]) => (
                             <div key={k} style={{ display: "grid", gridTemplateColumns: "90px 1fr", gap: 16, paddingBottom: 12, borderBottom: "1px solid #F5F0E61A" }}>
                                 <span style={{ color: "#F5F0E6", opacity: 0.5 }}>{k}</span>
@@ -113,16 +215,16 @@ export default function ContactClient({ email, phone }: Props) {
                 {/* FORM */}
                 <div style={{ background: "#fff", border: "1px solid #1F302622" }}>
                     <div style={{ padding: "22px 32px", borderBottom: "1px solid #1F302614" }}>
-                        <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.32em", color: "#B96A3D", textTransform: "uppercase" }}>№ 01 — A note to the kitchen</div>
-                        <h2 style={{ fontFamily: "var(--font-serif)", fontWeight: 400, fontStyle: "italic", fontSize: 30, color: "#1F3026", margin: "6px 0 0" }}>Send a message</h2>
+                        <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.32em", color: "#B96A3D", textTransform: "uppercase" }}>{formIntro.eyebrow}</div>
+                        <h2 style={{ fontFamily: "var(--font-serif)", fontWeight: 400, fontStyle: "italic", fontSize: 30, color: "#1F3026", margin: "6px 0 0" }}>{formIntro.heading}</h2>
                     </div>
 
                     {sent ? (
                         <div style={{ padding: "56px 32px", textAlign: "center" }}>
                             <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.32em", color: "#B96A3D", textTransform: "uppercase" }}>Received ✓</div>
-                            <div style={{ fontFamily: "var(--font-serif)", fontSize: 38, color: "#1F3026", marginTop: 10, fontWeight: 300, letterSpacing: "-0.02em" }}>Thank you — we&apos;ll write back.</div>
+                            <div style={{ fontFamily: "var(--font-serif)", fontSize: 38, color: "#1F3026", marginTop: 10, fontWeight: 300, letterSpacing: "-0.02em" }}>{formIntro.successHeading}</div>
                             <div style={{ fontFamily: "var(--font-serif)", fontStyle: "italic", fontSize: 17, color: "#2C3D33", opacity: 0.8, marginTop: 10, maxWidth: 420, margin: "10px auto 0", lineHeight: 1.5 }}>
-                                A copy is on its way to your inbox. Most replies land within a few hours during the bake.
+                                {formIntro.successBody}
                             </div>
                             <button onClick={() => setSent(false)} style={{ marginTop: 22, background: "transparent", color: "#1F3026", border: "1px solid #1F3026", padding: "12px 20px", fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.28em", textTransform: "uppercase", cursor: "pointer" }}>Send another</button>
                         </div>
@@ -191,7 +293,7 @@ export default function ContactClient({ email, phone }: Props) {
                             </div>
 
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8, flexWrap: "wrap", gap: 12 }}>
-                                <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.28em", color: "#7A8278", textTransform: "uppercase" }}>Signed by 1 baker · TLS 1.3</div>
+                                <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.28em", color: "#7A8278", textTransform: "uppercase" }}>{formIntro.trustLine}</div>
                                 <button type="submit" disabled={isPending} style={{ background: "#1F3026", color: "#F5F0E6", border: "none", padding: "16px 28px", fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.32em", textTransform: "uppercase", cursor: "pointer", opacity: isPending ? 0.7 : 1 }}>
                                     {isPending ? "Sending..." : "Send the note →"}
                                 </button>
@@ -204,10 +306,11 @@ export default function ContactClient({ email, phone }: Props) {
                 <aside style={{ display: "flex", flexDirection: "column", gap: 24 }}>
                     {/* Address card */}
                     <div style={{ background: "#fff", border: "1px solid #1F302622", padding: 28 }}>
-                        <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.32em", color: "#B96A3D", textTransform: "uppercase" }}>The bakery</div>
-                        <div style={{ fontFamily: "var(--font-serif)", fontStyle: "italic", fontSize: 28, color: "#1F3026", marginTop: 8, lineHeight: 1.15 }}>The Tuller Rd Counter</div>
-                        <div style={{ fontFamily: "var(--font-sans)", fontSize: 14, color: "#2C3D33", marginTop: 10, lineHeight: 1.65 }}>
-                            5340 Tuller Road, Suite 200<br />Dublin, OH 43017<br /><span style={{ color: "#7A8278" }}>Door 4 · ring twice</span>
+                        <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.32em", color: "#B96A3D", textTransform: "uppercase" }}>{addressCard.eyebrow}</div>
+                        <div style={{ fontFamily: "var(--font-serif)", fontStyle: "italic", fontSize: 28, color: "#1F3026", marginTop: 8, lineHeight: 1.15 }}>{cardName}</div>
+                        <div style={{ fontFamily: "var(--font-sans)", fontSize: 14, color: "#2C3D33", marginTop: 10, lineHeight: 1.65, whiteSpace: "pre-line" }}>
+                            {cardAddressLines}
+                            {doorNote ? <><br /><span style={{ color: "#7A8278" }}>{doorNote}</span></> : null}
                         </div>
                         <div style={{ display: "flex", gap: 10, marginTop: 18, flexWrap: "wrap" }}>
                             <a href="#map" style={{ background: "transparent", color: "#1F3026", border: "1px solid #1F3026", padding: "10px 14px", fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.28em", textTransform: "uppercase", textDecoration: "none" }}>Directions →</a>
@@ -219,10 +322,10 @@ export default function ContactClient({ email, phone }: Props) {
                     <div style={{ background: "#EAE2D2", border: "1px solid #1F302614", padding: 28 }}>
                         <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.32em", color: "#B96A3D", textTransform: "uppercase" }}>Counter hours</div>
                         <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 8 }}>
-                            {hours.map(([d, h]) => (
-                                <div key={d} style={{ display: "flex", justifyContent: "space-between", fontFamily: "var(--font-serif)", fontSize: 17, color: "#1F3026", paddingBottom: 8, borderBottom: "1px solid #1F302614" }}>
-                                    <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.28em", color: "#7A8278", textTransform: "uppercase" }}>{d}</span>
-                                    <span style={{ fontStyle: "italic" }}>{h}</span>
+                            {hours.map(row => (
+                                <div key={row.day} style={{ display: "flex", justifyContent: "space-between", fontFamily: "var(--font-serif)", fontSize: 17, color: "#1F3026", paddingBottom: 8, borderBottom: "1px solid #1F302614" }}>
+                                    <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.28em", color: "#7A8278", textTransform: "uppercase" }}>{row.day}</span>
+                                    <span style={{ fontStyle: "italic" }}>{row.hours}</span>
                                 </div>
                             ))}
                         </div>
@@ -230,12 +333,12 @@ export default function ContactClient({ email, phone }: Props) {
 
                     {/* FAQ */}
                     <div style={{ background: "#1F3026", color: "#F5F0E6", padding: 28 }}>
-                        <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.32em", color: "#D9A876", textTransform: "uppercase" }}>Try the FAQ first</div>
-                        <div style={{ fontFamily: "var(--font-serif)", fontStyle: "italic", fontSize: 26, marginTop: 8, lineHeight: 1.2 }}>Most answers live here.</div>
+                        <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.32em", color: "#D9A876", textTransform: "uppercase" }}>{faqCard.eyebrow}</div>
+                        <div style={{ fontFamily: "var(--font-serif)", fontStyle: "italic", fontSize: 26, marginTop: 8, lineHeight: 1.2 }}>{faqCard.heading}</div>
                         <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 10 }}>
-                            {["Shipping & cold-chain", "Replace pledge", "Wholesale minimums", "Pickup windows"].map(q => (
-                                <Link key={q} href="/shop" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: "1px solid #F5F0E61A", fontFamily: "var(--font-serif)", fontStyle: "italic", fontSize: 17, color: "#F5F0E6", textDecoration: "none" }}>
-                                    <span>{q}</span><span style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.24em", color: "#D9A876" }}>→</span>
+                            {faqLinks.map(q => (
+                                <Link key={q.label} href={q.href} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: "1px solid #F5F0E61A", fontFamily: "var(--font-serif)", fontStyle: "italic", fontSize: 17, color: "#F5F0E6", textDecoration: "none" }}>
+                                    <span>{q.label}</span><span style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.24em", color: "#D9A876" }}>→</span>
                                 </Link>
                             ))}
                         </div>
@@ -248,23 +351,23 @@ export default function ContactClient({ email, phone }: Props) {
                 <div className="ch-contact-map-wrap" style={{ maxWidth: 1440, margin: "0 auto", padding: "56px 56px 0" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 20, gap: 18, flexWrap: "wrap" }}>
                         <div>
-                            <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.32em", color: "#B96A3D", textTransform: "uppercase" }}>№ 02 — Find us</div>
-                            <h2 style={{ fontFamily: "var(--font-serif)", fontWeight: 300, fontSize: 56, color: "#1F3026", margin: "10px 0 0", letterSpacing: "-0.02em" }}>Tuller Road, <em style={{ color: "#B96A3D" }}>Dublin OH.</em></h2>
+                            <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.32em", color: "#B96A3D", textTransform: "uppercase" }}>{map.eyebrow}</div>
+                            <h2 style={{ fontFamily: "var(--font-serif)", fontWeight: 300, fontSize: 56, color: "#1F3026", margin: "10px 0 0", letterSpacing: "-0.02em" }}>{mapHeadingStreet}, <em style={{ color: "#B96A3D" }}>{mapHeadingCity}</em></h2>
                         </div>
                         <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.28em", color: "#7A8278", textTransform: "uppercase", maxWidth: 320 }}>
-                            Free parking out back · 6 min from I-270 exit 17B
+                            {map.hint}
                         </div>
                     </div>
                 </div>
                 <div className="ch-contact-map" style={{ maxWidth: 1440, margin: "0 auto", padding: "0 56px 80px" }}>
                     <div style={{ width: "100%", height: 460, border: "1px solid #1F302622", overflow: "hidden", background: "#fff" }}>
                         <iframe
-                            src="https://maps.google.com/maps?q=5340+Tuller+Rd+Dublin+OH&z=13&output=embed"
+                            src={primary.mapEmbedUrl}
                             width="100%"
                             height="100%"
                             style={{ border: 0, filter: "grayscale(0.4) sepia(0.1)" }}
                             loading="lazy"
-                            title="Colchis Food — 5340 Tuller Rd, Dublin OH"
+                            title={mapTitle}
                         />
                     </div>
                 </div>

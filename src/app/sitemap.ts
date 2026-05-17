@@ -21,46 +21,48 @@ function localizedUrls(path: string, priority: number, changeFrequency: Metadata
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // --- Static pages ---
     const staticPages = [
-        ...localizedUrls('', 1.0, 'daily'),           // Homepage
-        ...localizedUrls('/shop', 0.9, 'daily'),       // Shop / Creamery
-        ...localizedUrls('/bakery', 0.9, 'daily'),     // Bakery
-        ...localizedUrls('/heritage', 0.8, 'monthly'),  // Heritage
-        ...localizedUrls('/recipes', 0.8, 'weekly'),    // Recipes listing
-        ...localizedUrls('/journal', 0.8, 'weekly'),    // Journal listing
-        ...localizedUrls('/wholesale', 0.7, 'monthly'), // Wholesale
-        ...localizedUrls('/contact', 0.7, 'monthly'),   // Contact
-        ...localizedUrls('/faq', 0.6, 'monthly'),       // FAQ
-        ...localizedUrls('/legal/privacy', 0.3, 'yearly'),  // Privacy
-        ...localizedUrls('/legal/terms', 0.3, 'yearly'),    // Terms
-        ...localizedUrls('/legal/returns', 0.3, 'yearly'),  // Returns
+        ...localizedUrls('', 1.0, 'daily'),             // Homepage
+        ...localizedUrls('/shop', 0.9, 'daily'),         // Unified shop (Phase 10)
+        ...localizedUrls('/creamery', 0.9, 'daily'),     // Creamery landing (Phase 10)
+        ...localizedUrls('/bakery', 0.9, 'daily'),       // Bakery landing
+        ...localizedUrls('/heritage', 0.8, 'monthly'),    // Heritage
+        ...localizedUrls('/recipes', 0.8, 'weekly'),      // Recipes listing
+        ...localizedUrls('/journal', 0.8, 'weekly'),      // Journal listing
+        ...localizedUrls('/wholesale', 0.7, 'monthly'),   // Wholesale
+        ...localizedUrls('/contact', 0.7, 'monthly'),     // Contact
+        ...localizedUrls('/faq', 0.6, 'monthly'),         // FAQ
+        ...localizedUrls('/legal/privacy', 0.3, 'yearly'),
+        ...localizedUrls('/legal/terms', 0.3, 'yearly'),
+        ...localizedUrls('/legal/returns', 0.3, 'yearly'),
     ];
 
-    // --- Dynamic: Product Line filtered shop pages ---
+    // --- Dynamic: Product Line filtered creamery pages (creamery lines today) ---
     const productLines = await prisma.productLine.findMany({
         where: { isActive: true },
         select: { slug: true, updatedAt: true },
     });
     const linePages = productLines.flatMap(l =>
-        localizedUrls(`/shop?line=${l.slug}`, 0.85, 'daily')
+        localizedUrls(`/creamery?line=${l.slug}`, 0.85, 'daily')
     );
 
-    // --- Dynamic: Products ---
+    // --- Dynamic: Products — kind-routed (creamery → /creamery/<slug>, bakery → /bakery/<slug>) ---
     const products = await prisma.product.findMany({
-        select: { slug: true, updatedAt: true },
+        select: { slug: true, kind: true, updatedAt: true },
     });
-    const productPages = products.flatMap(p =>
-        LOCALES.map(locale => ({
-            url: locale === 'en' ? `${SITE_URL}/shop/${p.slug}` : `${SITE_URL}/${locale}/shop/${p.slug}`,
+    const productPages = products.flatMap(p => {
+        const route = p.kind.toString().startsWith('BAKERY') ? 'bakery' : 'creamery';
+        return LOCALES.map(locale => ({
+            url: locale === 'en' ? `${SITE_URL}/${route}/${p.slug}` : `${SITE_URL}/${locale}/${route}/${p.slug}`,
             lastModified: p.updatedAt,
             changeFrequency: 'weekly' as const,
             priority: 0.8,
             alternates: {
                 languages: Object.fromEntries(
-                    LOCALES.map(l => [l, l === 'en' ? `${SITE_URL}/shop/${p.slug}` : `${SITE_URL}/${l}/shop/${p.slug}`])
+                    LOCALES.map(l => [l, l === 'en' ? `${SITE_URL}/${route}/${p.slug}` : `${SITE_URL}/${l}/${route}/${p.slug}`])
                 ),
             },
-        }))
-    );
+        }));
+    });
 
     // --- Dynamic: Recipes ---
     const recipes = await prisma.recipe.findMany({

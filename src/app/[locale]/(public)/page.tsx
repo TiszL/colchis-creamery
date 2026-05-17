@@ -10,6 +10,7 @@ import { prisma } from "@/lib/db";
 import type { Product } from "@/types";
 import { getTranslations } from "next-intl/server";
 import { getOgImage, buildOgImages } from "@/lib/seo";
+import { getPrimaryLocation } from "@/lib/business-location";
 
 interface HomePageProps {
   params: Promise<{ locale: string }>;
@@ -63,8 +64,8 @@ function parseJSON(value: string | undefined | null) {
 export default async function HomePage({ params }: HomePageProps) {
   const { locale } = await params;
 
-  // Fetch all homepage content blocks + hero media config + products in parallel
-  const [dbProducts, homeConfigs, heroMediaConfigs] = await Promise.all([
+  // Fetch all homepage content blocks + hero media config + products + primary location in parallel
+  const [dbProducts, homeConfigs, heroMediaConfigs, primary] = await Promise.all([
     prisma.product.findMany({
       where: { status: { in: ['ACTIVE', 'COMING_SOON'] }, isB2cVisible: true },
       orderBy: { name: 'asc' },
@@ -76,6 +77,7 @@ export default async function HomePage({ params }: HomePageProps) {
     prisma.siteConfig.findMany({
       where: { key: { startsWith: 'hero.' } },
     }).catch(() => []),
+    getPrimaryLocation(),
   ]);
 
   // Build content map
@@ -140,7 +142,7 @@ export default async function HomePage({ params }: HomePageProps) {
       <Process content={processContent} />
       <EditorialStrip locale={locale} />
       <Press content={pressContent} />
-      <Visit content={visitContent} />
+      <Visit primary={primary} content={visitContent} />
     </>
   );
 }

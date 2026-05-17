@@ -37,7 +37,7 @@ const header = `<tr><td style="background:${B.forest};padding:44px 48px 40px;tex
 const footer = `<tr><td style="background:${B.forest};padding:32px 48px;text-align:center;">
 <table width="100%" cellpadding="0" cellspacing="0"><tr><td style="border-top:1px solid rgba(245,240,230,0.1);padding-top:20px;text-align:center;">
 <p style="margin:0 0 4px;font-family:'Courier New',monospace;font-size:10px;letter-spacing:3px;color:rgba(245,240,230,0.3);text-transform:uppercase;">© 2026 Colchis Food</p>
-<p style="margin:0;font-family:'Georgia',serif;font-size:11px;color:rgba(245,240,230,0.25);font-style:italic;">5340 Tuller Rd · Dublin, Ohio</p>
+<p style="margin:0;font-family:'Georgia',serif;font-size:11px;color:rgba(245,240,230,0.25);font-style:italic;">84 N High St · Dublin, Ohio</p>
 </td></tr></table></td></tr>`;
 
 const html = wrap(`${header}

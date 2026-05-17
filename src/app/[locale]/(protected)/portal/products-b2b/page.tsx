@@ -61,7 +61,7 @@ export default async function StaffProductsB2BPage({ params }: { params: Promise
         category: p.category, kind: p.kind, isMadeToOrder: p.isMadeToOrder, tag: p.tag,
         productLineId: p.productLineId, categoryId: p.categoryId,
         status: p.status, isActive: p.isActive,
-        isB2cVisible: p.isB2cVisible, isB2bVisible: p.isB2bVisible,
+        isB2cVisible: p.isB2cVisible, isB2bVisible: p.isB2bVisible, isCartOrderable: p.isCartOrderable,
         channels: p.channels.map(c => c.channel),
         stocks: p.stocks.map(s => ({
             locationId: s.locationId,

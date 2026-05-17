@@ -135,6 +135,7 @@ export default async function BakeryPdp({ params }: BakeryPdpProps) {
                 imageUrl: product.imageUrl,
                 status: product.status,
                 isMadeToOrder: product.isMadeToOrder,
+                isCartOrderable: product.isCartOrderable,
                 kind: product.kind,
                 stockQuantity: product.stockQuantity,
               }}

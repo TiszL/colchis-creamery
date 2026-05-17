@@ -11,7 +11,7 @@ const timelineEvents = [
   { year: "500 BC", t: "Qvevri wine begins", d: "Georgians ferment grapes in beeswax-lined clay vessels buried underground. The method is now UNESCO-protected." },
   { year: "1100 AD", t: "Khachapuri, written down", d: "The bread-with-cheese appears in monastery cookbooks. Each region develops its own shape." },
   { year: "1990s", t: "Family recipes leave Georgia", d: "Our grandmothers carry sulguni technique to the diaspora. The pots, the brine, the patience." },
-  { year: "2026", t: "Dublin, Ohio", d: "We open the creamery and bakery on Tuller Road. Cow-milk sulguni, Adjaruli khachapuri, Ohio dairies." },
+  { year: "2026", t: "Dublin, Ohio", d: "We open the creamery and bakery on 84 N High St. Cow-milk sulguni, Adjaruli khachapuri, Ohio dairies." },
 ];
 
 const glossary = [

@@ -24,7 +24,7 @@ const ARTICLES = [
     title: "The milk of three rivers",
     excerpt: "We drive to three Ohio dairies every morning before sunrise. Here is why none of them are bigger than 80 cows.",
     tags: "Sourcing",
-    content: "Every morning before sunrise, our truck pulls out of Tuller Road and drives to three small dairies in central Ohio. None of them milk more than 80 cows. We know each farmer by name, and we know their herds. The milk we use for sulguni and imeruli arrives at our creamery within four hours of milking — warm, whole, and un-homogenized.",
+    content: "Every morning before sunrise, our truck pulls out of N High Street and drives to three small dairies in central Ohio. None of them milk more than 80 cows. We know each farmer by name, and we know their herds. The milk we use for sulguni and imeruli arrives at our creamery within four hours of milking — warm, whole, and un-homogenized.",
     publishedAt: new Date("2026-04-28"),
   },
   {
@@ -38,7 +38,7 @@ const ARTICLES = [
   {
     slug: "eater-midwest-feature",
     title: "Eater Midwest names us a 'best new bakery'",
-    excerpt: "We are stunned and grateful. Read Brett Anderson's piece on what is happening on Tuller Road this spring.",
+    excerpt: "We are stunned and grateful. Read Brett Anderson's piece on what is happening on N High Street this spring.",
     tags: "Press",
     content: "Eater Midwest has named Colchis Food one of the best new bakeries in the Midwest for spring 2026. Brett Anderson visited us on a Tuesday, ate three khachapuri, and watched us make sulguni from scratch. We are deeply grateful for the attention and the kind words.",
     publishedAt: new Date("2026-04-18"),

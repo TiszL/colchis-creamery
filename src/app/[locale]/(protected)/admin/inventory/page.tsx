@@ -77,6 +77,7 @@ export default async function AdminInventoryPage({ params }: { params: Promise<{
         isActive: p.isActive,
         isB2cVisible: p.isB2cVisible,
         isB2bVisible: p.isB2bVisible,
+        isCartOrderable: p.isCartOrderable,
         channels: p.channels.map(c => c.channel),
         stocks: p.stocks.map(s => ({
             locationId: s.locationId,

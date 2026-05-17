@@ -40,6 +40,14 @@ async function saveLocationAction(formData: FormData) {
         hours,
         isActive: formData.get('isActive') === 'on',
         notes: (formData.get('notes') as string) || null,
+        // Phase 10: display-layer fields. Drives every public address surface
+        // (footer, homepage Visit, contact page) via getPrimaryLocation().
+        // isPrimary is NOT set here — use setPrimaryLocationAction for atomic flip.
+        showOnContactPage: formData.get('showOnContactPage') === 'on',
+        displayDescription: (formData.get('displayDescription') as string) || null,
+        displayBakeryHours: (formData.get('displayBakeryHours') as string) || null,
+        contactCardName: (formData.get('contactCardName') as string) || null,
+        contactCardDoorNote: (formData.get('contactCardDoorNote') as string) || null,
     };
 
     let locationId: string;
@@ -127,13 +135,63 @@ async function toggleActiveAction(formData: FormData) {
     revalidatePath('/admin/locations');
 }
 
+async function setPrimaryLocationAction(formData: FormData) {
+    'use server';
+    const id = formData.get('id') as string;
+    if (!id) return;
+
+    // Atomic flip — invariant is exactly ONE row with isPrimary=true at a time.
+    // Without the transaction a parallel save could leave us with 0 or 2 primaries.
+    await prisma.$transaction(async tx => {
+        await tx.location.updateMany({ where: { isPrimary: true }, data: { isPrimary: false } });
+        await tx.location.update({ where: { id }, data: { isPrimary: true, isActive: true, showOnContactPage: true } });
+    });
+
+    // Public surfaces all read primary via getPrimaryLocation() — revalidate the
+    // routes that depend on it so the address flips immediately, not on next nav.
+    revalidatePath('/admin/locations');
+    revalidatePath('/', 'layout');
+}
+
+async function moveLocationAction(formData: FormData) {
+    'use server';
+    const id = formData.get('id') as string;
+    const direction = formData.get('direction') as 'up' | 'down';
+    if (!id) return;
+
+    // Sort by current displayOrder + createdAt, find the target row's neighbor,
+    // and swap their displayOrder values. Atomic so concurrent reorders don't
+    // collide. Operates within the showOnContactPage cohort — that's what
+    // /contact and the public surfaces use.
+    await prisma.$transaction(async tx => {
+        const all = await tx.location.findMany({
+            where: { isActive: true, showOnContactPage: true },
+            orderBy: [{ isPrimary: 'desc' }, { displayOrder: 'asc' }, { createdAt: 'asc' }],
+        });
+        const idx = all.findIndex(l => l.id === id);
+        if (idx === -1) return;
+        const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
+        if (targetIdx < 0 || targetIdx >= all.length) return;
+        const a = all[idx];
+        const b = all[targetIdx];
+        // Don't reorder across the primary boundary — primary is always first.
+        if (a.isPrimary || b.isPrimary) return;
+        await tx.location.update({ where: { id: a.id }, data: { displayOrder: b.displayOrder } });
+        await tx.location.update({ where: { id: b.id }, data: { displayOrder: a.displayOrder } });
+    });
+
+    revalidatePath('/admin/locations');
+    revalidatePath('/contact');
+}
+
 export default async function AdminLocationsPage({ params }: { params: Promise<{ locale: string }> }) {
     const { locale } = await params;
     const session = await getSession();
     if (!session || session.role !== 'MASTER_ADMIN') redirect(`/${locale}/portal-login`);
 
     const locations = await prisma.location.findMany({
-        orderBy: [{ type: 'asc' }, { name: 'asc' }],
+        // Primary first, then by admin-chosen displayOrder, then by type+name
+        orderBy: [{ isPrimary: 'desc' }, { displayOrder: 'asc' }, { type: 'asc' }, { name: 'asc' }],
         include: {
             channels: { orderBy: { channel: 'asc' } },
             _count: { select: { stocks: true, fulfillments: true } },
@@ -157,6 +215,14 @@ export default async function AdminLocationsPage({ params }: { params: Promise<{
         hours: l.hours,
         isActive: l.isActive,
         notes: l.notes,
+        // Phase 10 display fields
+        isPrimary: l.isPrimary,
+        showOnContactPage: l.showOnContactPage,
+        displayDescription: l.displayDescription,
+        displayBakeryHours: l.displayBakeryHours,
+        contactCardName: l.contactCardName,
+        contactCardDoorNote: l.contactCardDoorNote,
+        displayOrder: l.displayOrder,
         stockCount: l._count.stocks,
         fulfillmentCount: l._count.fulfillments,
         channels: l.channels.map(c => ({
@@ -180,6 +246,8 @@ export default async function AdminLocationsPage({ params }: { params: Promise<{
             saveAction={saveLocationAction}
             deleteAction={deleteLocationAction}
             toggleActiveAction={toggleActiveAction}
+            setPrimaryAction={setPrimaryLocationAction}
+            moveAction={moveLocationAction}
         />
     );
 }

@@ -12,7 +12,14 @@ function initials(name = "") {
   return name.trim().split(/\s+/).map(p => p[0]).slice(0, 2).join("").toUpperCase() || "·";
 }
 
-export function Header() {
+interface HeaderProps {
+  /** Primary business street line shown in the mobile drawer footer. Server-fetched
+   *  by the layout (public + protected) and passed in so the client component
+   *  doesn't have to call the DB. */
+  primaryAddressShort?: string;
+}
+
+export function Header({ primaryAddressShort }: HeaderProps = {}) {
   const t = useTranslations("nav");
   const locale = useLocale();
   const { itemCount } = useCart();
@@ -197,7 +204,7 @@ export function Header() {
           <Link href={`${prefix}/shop`} onClick={() => setDrawerOpen(false)} style={{ display: "block", textAlign: "center", background: "#1F3026", color: "#F5F0E6", border: "none", padding: "16px 0", fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.28em", textTransform: "uppercase", textDecoration: "none" }}>Order →</Link>
           <div style={{ display: "flex", justifyContent: "space-between", fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.24em", textTransform: "uppercase", color: "#7A8278" }}>
             <span>EN / ქართული</span>
-            <span>5340 Tuller Rd</span>
+            <span>{primaryAddressShort || ''}</span>
           </div>
         </div>
       </aside>

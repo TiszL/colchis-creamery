@@ -1,44 +1,50 @@
 import Link from "next/link";
 import { ColchisSeal } from "@/components/brand/ColchisSeal";
 import { prisma } from "@/lib/db";
+import { getPrimaryLocation } from "@/lib/business-location";
 
 const DEFAULT_COLUMNS = [
-  { t: "The Creamery", l: [{ label: "Sulguni Fresh", href: "/shop" }, { label: "Sulguni Aged", href: "/shop" }, { label: "Imeruli", href: "/shop" }, { label: "Cheese boards", href: "/shop" }, { label: "Subscriptions", href: "/shop" }] },
+  { t: "The Creamery", l: [{ label: "Sulguni Fresh", href: "/creamery" }, { label: "Sulguni Aged", href: "/creamery" }, { label: "Imeruli", href: "/creamery" }, { label: "Cheese boards", href: "/creamery" }, { label: "Subscriptions", href: "/creamery" }] },
   { t: "The Bakery", l: [{ label: "Hot delivery", href: "/bakery" }, { label: "Pickup", href: "/bakery" }, { label: "Frozen ship", href: "/bakery" }, { label: "Catering", href: "/contact" }, { label: "Today's menu", href: "/bakery" }] },
   { t: "Company", l: [{ label: "Heritage", href: "/heritage" }, { label: "Wholesale", href: "/wholesale" }, { label: "Press", href: "/contact" }, { label: "Contact", href: "/contact" }, { label: "Careers", href: "/contact" }] },
 ];
 
-const DEFAULT_FOOTER = {
-  tagline: 'Ancient heritage, fresh every day.',
-  address: '5340 Tuller Rd\nDublin, Ohio 43017\nMade by hand, since 2026',
-  columns: DEFAULT_COLUMNS,
-};
+const DEFAULT_TAGLINE = 'Ancient heritage, fresh every day.';
 
 function parseJSON(value: string | null | undefined) {
   if (!value) return null;
   try { return JSON.parse(value); } catch { return null; }
 }
 
-export async function Footer() {
-  // Fetch footer content from DB
-  let footerData = DEFAULT_FOOTER;
+// Tolerate legacy `{ "value": "..." }` JSON-wrapped strings stored by older
+// saveContentBlock calls; new writes go in flat. Returns raw on any other shape.
+function unwrapStringValue(raw: string): string {
+  if (!raw) return raw;
   try {
-    const configs = await prisma.siteConfig.findMany({
-      where: { key: { startsWith: 'footer.' } },
-    });
-    const map: Record<string, string> = {};
-    for (const c of configs) map[c.key] = c.value;
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && typeof parsed.value === 'string') {
+      return parsed.value;
+    }
+  } catch { /* not JSON — use raw */ }
+  return raw;
+}
 
-    if (map['footer.tagline']) footerData = { ...footerData, tagline: map['footer.tagline'] };
-    if (map['footer.address']) footerData = { ...footerData, address: map['footer.address'] };
+export async function Footer() {
+  const [primary, footerConfigs] = await Promise.all([
+    getPrimaryLocation(),
+    prisma.siteConfig.findMany({ where: { key: { startsWith: 'footer.' } } }).catch(() => []),
+  ]);
 
-    const columnsData = parseJSON(map['footer.columns']);
-    if (columnsData) footerData = { ...footerData, columns: columnsData };
-  } catch {
-    // Use defaults silently
-  }
+  const map: Record<string, string> = {};
+  for (const c of footerConfigs) map[c.key] = c.value;
 
-  const columns = footerData.columns || DEFAULT_COLUMNS;
+  // Tagline + columns still come from SiteConfig (admin-editable copy). The
+  // address is sourced from the primary Location row — single source of truth.
+  const tagline = map['footer.tagline'] ? unwrapStringValue(map['footer.tagline']) : DEFAULT_TAGLINE;
+  const address = primary.formattedAddressLines;
+  const columns = parseJSON(map['footer.columns']) || DEFAULT_COLUMNS;
+
+  const footerData = { tagline, address, columns };
 
   return (
     <footer className="ch-footer" style={{ background: "#1F3026", color: "#F5F0E6", padding: "80px 56px 40px" }}>

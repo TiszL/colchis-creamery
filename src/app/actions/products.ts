@@ -51,6 +51,9 @@ export async function saveProductAction(formData: FormData) {
         isActive: (formData.get('status') as string) !== 'INACTIVE',
         isB2cVisible: formData.get('isB2cVisible') === 'on',
         isB2bVisible: formData.get('isB2bVisible') === 'on',
+        // Phase 10: gates the public Add-to-cart button. When false, the product
+        // is still listed but the PDP/card shows a wholesale-request CTA instead.
+        isCartOrderable: formData.get('isCartOrderable') === 'on',
     };
 
     let productId: string;

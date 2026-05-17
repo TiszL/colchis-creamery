@@ -4,6 +4,7 @@ import { getSession } from "@/lib/session";
 import { getMyAddresses } from "@/app/actions/addresses";
 import { ProductKind } from "@prisma/client";
 import type { Metadata } from "next";
+import { getPrimaryLocation } from "@/lib/business-location";
 
 export const metadata: Metadata = {
   title: "The Bakery | Colchis Food",
@@ -70,6 +71,7 @@ export default async function BakeryPage() {
       ka: p.nameKa || '',
       imageUrl: p.imageUrl,
       isMadeToOrder: p.isMadeToOrder,
+      isCartOrderable: p.isCartOrderable,
       // Server-known channels for the product (used to render dine-in-only state
       // before address-driven availability resolves — kills the flicker).
       offeredChannels: p.channels.map(c => c.channel),
@@ -86,7 +88,10 @@ export default async function BakeryPage() {
 
   const session = await getSession();
   const isLoggedIn = !!session?.userId;
-  const userAddresses = isLoggedIn ? await getMyAddresses() : [];
+  const [userAddresses, primary] = await Promise.all([
+    isLoggedIn ? getMyAddresses() : Promise.resolve([]),
+    getPrimaryLocation(),
+  ]);
 
   return (
     <BakeryClient
@@ -94,6 +99,8 @@ export default async function BakeryPage() {
       apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY || ''}
       isLoggedIn={isLoggedIn}
       userAddresses={userAddresses}
+      primaryAddressLine1={primary.addressLine1}
+      primaryCityState={`${primary.city} ${primary.state}`}
     />
   );
 }

@@ -25,6 +25,7 @@ export function productForCart(p: PrismaProduct): CartProduct {
         stockQuantity: p.stockQuantity ?? 0,
         isActive: p.isActive,
         status: p.status as CartProduct['status'],
+        isCartOrderable: p.isCartOrderable,
         productLineId: p.productLineId,
         categoryId: p.categoryId,
     };

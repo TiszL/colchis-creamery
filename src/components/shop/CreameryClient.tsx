@@ -136,6 +136,7 @@ interface CreameryProduct {
   imageUrl: string;
   stockQuantity: number;
   status: string;
+  isCartOrderable?: boolean;
   productLine?: { name: string; badgeColor: string | null } | null;
   /** All channels configured for this product server-side. */
   offeredChannels?: FulfillmentChannel[];
@@ -367,15 +368,19 @@ export default function CreameryClient({ products, locale, apiKey, isLoggedIn, u
                 && Array.isArray(p.eligibleChannels)
                 && p.eligibleChannels.length === 0;
               const isOutOfStock = !outOfRange && effectiveStock <= 0;
-              const cartDisabled = isComingSoon || isOutOfStock || dineInOnly || outOfRange;
+              const isWholesaleOnly = p.isCartOrderable === false;
+              const cartDisabled = isComingSoon || isOutOfStock || dineInOnly || outOfRange || isWholesaleOnly;
               const qty = getQty(p.id);
               const cap = (isOutOfStock || outOfRange) ? 0 : effectiveStock;
               const atMax = qty >= cap;
               const recentlyAdded = justAdded === p.id;
               const isBulk = tab === "bulk";
+              // Bulk SKUs and wholesale-only products both route to the wholesale enquiry
+              // flow instead of the cart. Bulk is per-tab; wholesale-only is per-product.
+              const quoteOnly = isBulk || isWholesaleOnly;
               return (
                 <div key={p.id} style={{ background: "#EAE2D2", border: "1px solid #1F302614", display: "flex", flexDirection: "column" }}>
-                  <Link href={`${prefix}/shop/${p.slug}`} style={{ textDecoration: "none", color: "inherit", display: "flex", flexDirection: "column" }}>
+                  <Link href={`${prefix}/creamery/${p.slug}`} style={{ textDecoration: "none", color: "inherit", display: "flex", flexDirection: "column" }}>
                     <div style={{ aspectRatio: "4/3", position: "relative", borderBottom: "1px solid #1F302614" }}>
                       {p.imageUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
@@ -415,11 +420,12 @@ export default function CreameryClient({ products, locale, apiKey, isLoggedIn, u
 
                   {/* Cart controls — outside Link so clicks don't navigate */}
                   <div style={{ padding: "0 24px 24px", display: "flex", flexDirection: "column", gap: 10, marginTop: "auto" }}>
-                    {isBulk ? (
-                      // Bulk products use the wholesale enquiry flow, not the cart.
+                    {quoteOnly ? (
+                      // Wholesale-only products + bulk SKUs both route through the
+                      // wholesale enquiry flow instead of the retail cart.
                       <Link href={`${prefix}/wholesale`} style={{
                         textDecoration: "none",
-                        background: "#1F3026",
+                        background: isWholesaleOnly ? "#2C3D33" : "#1F3026",
                         color: "#F5F0E6",
                         padding: "12px 0",
                         fontFamily: "var(--font-mono)",

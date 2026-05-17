@@ -202,7 +202,7 @@ export async function EditorialStrip({ locale }: { locale: string }) {
         {/* Newsletter strip */}
         <div className="ch-newsletter" style={{ marginTop: 64, padding: "32px 40px", background: "#F5F0E6", border: "1px solid #1F302622", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 24, flexWrap: "wrap" }}>
           <div>
-            <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.28em", color: "#B96A3D", textTransform: "uppercase" }}>The Tuller Road Letter</div>
+            <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.28em", color: "#B96A3D", textTransform: "uppercase" }}>The High Street Letter</div>
             <div style={{ fontFamily: "var(--font-serif)", fontStyle: "italic", fontSize: 22, color: "#1F3026", marginTop: 6 }}>One essay & one recipe. Twice a month.</div>
           </div>
           <NewsletterForm />

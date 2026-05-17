@@ -205,6 +205,10 @@ model Product {
   isActive       Boolean       @default(true)
   isB2cVisible   Boolean       @default(true)
   isB2bVisible   Boolean       @default(true)
+  // Phase 10: surfaces an "Add to cart" vs "Wholesale request" gate without
+  // hiding the product. B2B-only items keep isB2cVisible=true + isCartOrderable=false
+  // so they appear in /shop with a "Wholesale only" CTA instead of disappearing.
+  isCartOrderable Boolean      @default(true)
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
@@ -602,6 +606,20 @@ model Location {
   hours         Json?                                 // { mon: "07:00-21:00", tue: "07:00-21:00", ... }
   isActive      Boolean      @default(true)
   notes         String?
+
+  // Phase 10: display-layer fields. The Location table is the single source of
+  // truth for both operational routing AND the brand-address shown across the
+  // site (footer, homepage Visit, contact page, JSON-LD). Exactly one row is
+  // isPrimary=true at a time; that row drives every "where do we read the brand
+  // address" call via getPrimaryLocation().
+  isPrimary             Boolean @default(false)
+  showOnContactPage     Boolean @default(true)
+  displayDescription    String?  // homepage Visit copy + contact card body
+  displayBakeryHours    String?  // "Wed–Sun · 8a–9p" style short form
+  contactCardName       String?  // vanity name shown on /contact, e.g. "The High St Counter"
+  contactCardDoorNote   String?  // e.g. "Door 4 · ring twice"
+  displayOrder          Int      @default(0)  // sort order for multi-location display on /contact
+
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 

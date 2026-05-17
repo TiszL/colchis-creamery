@@ -1,7 +1,16 @@
 import { Metadata } from 'next';
 import { prisma } from '@/lib/db';
-import ContactClient from '@/components/contact/ContactClient';
+import ContactClient, {
+    type ContactHeroContent, type ContactDesk, type ContactHoursRow, type ContactFaqLink,
+    type ContactMapContent, type ContactAddressCardContent, type ContactFormIntroContent, type ContactFaqCardContent,
+} from '@/components/contact/ContactClient';
 import { getOgImage, buildOgImages } from '@/lib/seo';
+import { getPrimaryLocation } from '@/lib/business-location';
+
+function parseJSON<T>(value: string | undefined | null): T | null {
+    if (!value) return null;
+    try { return JSON.parse(value) as T; } catch { return null; }
+}
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://colchisfood.com';
 
@@ -32,18 +41,23 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
 export const dynamic = 'force-dynamic';
 
 export default async function ContactPage() {
-    const configs = await prisma.siteConfig.findMany({
-        where: { key: { startsWith: 'contact.' } }
-    });
+    const [configs, primary] = await Promise.all([
+        prisma.siteConfig.findMany({ where: { key: { startsWith: 'contact.' } } }),
+        getPrimaryLocation(),
+    ]);
 
     function g(key: string, fallback: string) {
         return configs.find(c => c.key === key)?.value || fallback;
     }
 
     const email = g('contact.email', 'hello@colchisfood.com');
-    const phone = g('contact.phone', '+1 (614) 555 0142');
+    const phone = g('contact.phone', primary.phone || '+1 (614) 555 0142');
 
-    // JSON-LD
+    // JSON-LD — every address field comes from the primary Location row so the
+    // structured data matches what customers actually see on the page.
+    const streetAddress = primary.addressLine2
+        ? `${primary.addressLine1}, ${primary.addressLine2}`
+        : primary.addressLine1;
     const jsonLd = {
         '@context': 'https://schema.org',
         '@type': 'FoodEstablishment',
@@ -54,22 +68,53 @@ export default async function ContactPage() {
         email: email,
         address: {
             '@type': 'PostalAddress',
-            streetAddress: '5340 Tuller Road, Suite 200',
-            addressLocality: 'Dublin',
-            addressRegion: 'OH',
-            postalCode: '43017',
-            addressCountry: 'US',
+            streetAddress,
+            addressLocality: primary.city,
+            addressRegion: primary.state,
+            postalCode: primary.postalCode,
+            addressCountry: primary.country,
         },
-        geo: { '@type': 'GeoCoordinates', latitude: 40.0992, longitude: -83.1141 },
+        ...(primary.latitude !== null && primary.longitude !== null
+            ? { geo: { '@type': 'GeoCoordinates', latitude: primary.latitude, longitude: primary.longitude } }
+            : {}),
         openingHours: ['Tu-Th 09:00-18:00', 'Fr 09:00-20:00', 'Sa 10:00-19:00', 'Su 11:00-16:00'],
         priceRange: '$$',
         servesCuisine: 'Georgian',
     };
 
+    // Parse admin-editable content blocks (Phase 10 Phase 4). Null → ContactClient
+    // falls back to its hardcoded DEFAULT_* tables.
+    const blocks = (() => {
+        const m: Record<string, string> = {};
+        for (const c of configs) m[c.key] = c.value;
+        return {
+            hero: parseJSON<ContactHeroContent>(m['contact.hero']),
+            desks: parseJSON<ContactDesk[]>(m['contact.desks']),
+            hoursTable: parseJSON<ContactHoursRow[]>(m['contact.hours_table']),
+            faqLinks: parseJSON<ContactFaqLink[]>(m['contact.faq_links']),
+            map: parseJSON<ContactMapContent>(m['contact.map']),
+            addressCard: parseJSON<ContactAddressCardContent>(m['contact.address_card']),
+            formIntro: parseJSON<ContactFormIntroContent>(m['contact.form_intro']),
+            faqCard: parseJSON<ContactFaqCardContent>(m['contact.faq_card']),
+        };
+    })();
+
     return (
         <>
             <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
-            <ContactClient email={email} phone={phone} />
+            <ContactClient
+                email={email}
+                phone={phone}
+                primary={primary}
+                hero={blocks.hero}
+                desks={blocks.desks}
+                hoursTable={blocks.hoursTable}
+                faqLinks={blocks.faqLinks}
+                map={blocks.map}
+                addressCard={blocks.addressCard}
+                formIntro={blocks.formIntro}
+                faqCard={blocks.faqCard}
+            />
         </>
     );
 }

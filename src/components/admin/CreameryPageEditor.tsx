@@ -73,7 +73,7 @@ export default function CreameryPageEditor({ initialData }: CreameryPageEditorPr
         cards: [
             { tag: 'Dublin OH', title: 'Same-day · Doordash', body: 'Order before 3 PM. A driver picks it up from the creamery cooler within the hour. $7 flat, free over $40.', price: '$7 flat' },
             { tag: 'Continental US', title: 'UPS · Cold ship · 1–2 days', body: 'Vacuum-packed, ice gel, insulated liner. We only ship Mon–Wed so nothing sleeps in a warehouse over a weekend.', price: '$12 → $18' },
-            { tag: 'Pickup', title: 'Walk in · 9 AM–6 PM', body: "5340 Tuller Rd, Dublin. Tasting plate on the counter every morning. Park out front; we'll carry it to the car.", price: 'Free' },
+            { tag: 'Pickup', title: 'Walk in · 9 AM–6 PM', body: "84 N High St, Dublin. Tasting plate on the counter every morning. Park out front; we'll carry it to the car.", price: 'Free' },
         ],
     });
 

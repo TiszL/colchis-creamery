@@ -88,6 +88,7 @@ export async function updateProductAction(formData: FormData) {
                 isActive: formData.get("isActive") === "on",
                 isB2cVisible: formData.get("isB2cVisible") === "on",
                 isB2bVisible: formData.get("isB2bVisible") === "on",
+                isCartOrderable: formData.get("isCartOrderable") !== "off",
             },
         });
         revalidatePath("/admin/website/products");
@@ -119,6 +120,7 @@ export async function createProductAction(formData: FormData) {
                 isActive: formData.get("isActive") === "on",
                 isB2cVisible: formData.get("isB2cVisible") === "on",
                 isB2bVisible: formData.get("isB2bVisible") === "on",
+                isCartOrderable: formData.get("isCartOrderable") !== "off",
             },
         });
         revalidatePath("/admin/website/products");

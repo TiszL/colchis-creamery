@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { Save, CheckCircle, Plus, Trash2 } from 'lucide-react';
-import { saveContentBlock } from '@/app/actions/content';
+import { batchUpsertSiteConfigAction } from '@/app/actions/cms';
 
 const mono = { fontFamily: 'var(--font-mono)', letterSpacing: '0.24em', textTransform: 'uppercase' as const };
 const inputCls = 'w-full bg-[#0C0C0C] border border-[#B96A3D22] text-[#F5F0E6] py-3 px-4 focus:outline-none focus:border-[#B96A3D] transition-colors text-sm';
@@ -18,9 +18,9 @@ interface FooterEditorProps {
 
 const DEFAULTS = {
     tagline: 'Ancient heritage, fresh every day.',
-    address: '5340 Tuller Rd\nDublin, Ohio 43017\nMade by hand, since 2026',
+    address: '84 N High St\nDublin, Ohio 43017\nMade by hand, since 2026',
     columns: [
-        { t: "The Creamery", l: [{ label: "Sulguni Fresh", href: "/shop" }, { label: "Sulguni Aged", href: "/shop" }, { label: "Imeruli", href: "/shop" }] },
+        { t: "The Creamery", l: [{ label: "Sulguni Fresh", href: "/creamery" }, { label: "Sulguni Aged", href: "/creamery" }, { label: "Imeruli", href: "/creamery" }] },
         { t: "The Bakery", l: [{ label: "Hot delivery", href: "/bakery" }, { label: "Pickup", href: "/bakery" }, { label: "Frozen ship", href: "/bakery" }] },
         { t: "Company", l: [{ label: "Heritage", href: "/heritage" }, { label: "Contact", href: "/contact" }, { label: "Careers", href: "/contact" }] },
     ],
@@ -37,11 +37,18 @@ export default function FooterEditor({ initialData }: FooterEditorProps) {
 
     const handleSave = () => {
         startTransition(async () => {
-            // Save tagline and address as simple siteConfig entries
-            await saveContentBlock('footer.tagline', { value: data.tagline });
-            await saveContentBlock('footer.address', { value: data.address });
-            // Save columns as structured JSON
-            await saveContentBlock('footer.columns', data.columns as any);
+            // Flat-string upserts so the read path (which uses raw c.value) sees the same
+            // shape we wrote. Older code wrapped these as `{value:"..."}` via
+            // saveContentBlock — that mismatch caused JSON-wrapped strings to render in the
+            // address textarea and on the public footer.
+            const entries = [
+                { key: 'footer.tagline', value: data.tagline },
+                { key: 'footer.address', value: data.address },
+                { key: 'footer.columns', value: JSON.stringify(data.columns) },
+            ];
+            const fd = new FormData();
+            fd.set('entries', JSON.stringify(entries));
+            await batchUpsertSiteConfigAction(fd);
             setSaved(true);
             setTimeout(() => setSaved(false), 2500);
         });
@@ -90,8 +97,9 @@ export default function FooterEditor({ initialData }: FooterEditorProps) {
                     <input value={data.tagline} onChange={e => setData({ ...data, tagline: e.target.value })} className={inputCls} />
                 </div>
                 <div>
-                    <label className={labelCls} style={mono}>Address Block</label>
-                    <textarea value={data.address} onChange={e => setData({ ...data, address: e.target.value })} rows={3} className={inputCls + ' resize-none'} />
+                    <label className={labelCls} style={mono}>Address Block (deprecated)</label>
+                    <textarea value={data.address} onChange={e => setData({ ...data, address: e.target.value })} rows={3} className={inputCls + ' resize-none opacity-60'} />
+                    <p className="text-[9px] text-[#D9A876] mt-1.5" style={mono}>The public footer now reads from your primary business location. Edit your address at <span className="underline">/admin/locations</span>. This field is kept for legacy data only and no longer affects the site.</p>
                 </div>
 
                 {/* Columns */}

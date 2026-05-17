@@ -46,7 +46,7 @@ export default function BakeryPageEditor({ initialData }: BakeryPageEditorProps)
         delivery_time: 'Hot delivery · 25 min',
         pickup_time: 'Pickup · 15 min',
         delivery_platforms: 'Doordash · Uber Eats',
-        pickup_address: '5340 Tuller Rd',
+        pickup_address: '84 N High St',
     });
 
     // ─── Menu State ──────────────────────────────────────────────────

@@ -67,10 +67,10 @@ export default async function GuestOrderLookupPage({ params }: PageProps) {
         return <InvalidLinkView prefix={prefix} />;
     }
 
-    // Same reorder-eligibility rules as the logged-in customer path: must be
-    // active AND status ACTIVE (COMING_SOON excluded).
+    // Same reorder-eligibility rules as the logged-in customer path: active +
+    // status ACTIVE + cart-orderable (excludes COMING_SOON and wholesale-only).
     const reorderItems = order.orderItems
-        .filter(oi => oi.product && oi.product.isActive && oi.product.status === 'ACTIVE')
+        .filter(oi => oi.product && oi.product.isActive && oi.product.status === 'ACTIVE' && oi.product.isCartOrderable)
         .map(oi => ({
             product: productForCart(oi.product),
             quantity: oi.quantity,

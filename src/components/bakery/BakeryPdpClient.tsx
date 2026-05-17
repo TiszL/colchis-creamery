@@ -39,6 +39,7 @@ export type BakeryPdpProduct = {
     imageUrl: string;
     status: 'ACTIVE' | 'INACTIVE' | 'COMING_SOON';
     isMadeToOrder: boolean;
+    isCartOrderable: boolean;
     kind: ProductKind;
     /** Legacy denormalized stock total. Real per-location stock is summed in availability. */
     stockQuantity: number;
@@ -274,8 +275,16 @@ export default function BakeryPdpClient({
                 )}
             </div>
 
-            {/* Add to cart row — quantity + button, OR dine-in-only banner */}
-            {dineInOnly ? (
+            {/* Cart-eligibility branches. Order: wholesale-only > dine-in > standard */}
+            {!product.isCartOrderable ? (
+                <div style={{ marginTop: 28, padding: "20px 22px", background: "#2C3D33", color: "#F5F0E6", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, flexWrap: "wrap" }}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
+                        <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.28em", textTransform: "uppercase" }}>Wholesale only</div>
+                        <div style={{ fontFamily: "var(--font-sans)", fontSize: 14, opacity: 0.85 }}>This product isn&apos;t available for retail orders. Restaurants and shops — get in touch.</div>
+                    </div>
+                    <Link href={`${prefix}/wholesale`} style={{ background: "#B96A3D", color: "#F5F0E6", padding: "12px 22px", fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.28em", textTransform: "uppercase", textDecoration: "none", whiteSpace: "nowrap" }}>Request a quote →</Link>
+                </div>
+            ) : dineInOnly ? (
                 <div style={{ marginTop: 28, padding: "20px 22px", background: "#1F3026", color: "#F5F0E6", display: "flex", alignItems: "center", gap: 14 }}>
                     <Utensils className="w-5 h-5 shrink-0" />
                     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>

@@ -89,6 +89,8 @@ export function DeliverySelector() {
             border: "none",
             padding: "0 22px",
             cursor: "pointer",
+            whiteSpace: "nowrap",
+            flexShrink: 0,
           }}
         >
           Use location

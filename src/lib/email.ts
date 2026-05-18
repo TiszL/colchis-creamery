@@ -29,15 +29,34 @@ const SEAL_URL = 'https://colchisfood.com/brand/seal-primary.png';
 
 function wrap(inner: string): string {
   return `<!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- color-scheme + supported-color-schemes tell iOS Mail / Outlook / Gmail
+       Web that we own our colors. Without these, iOS Mail in dark mode
+       AGGRESSIVELY auto-inverts cream + forest backgrounds into muddy
+       mint/brown shades that look terrible. With them, the client respects
+       the hex values we set. We're a brand-heavy design — preserve the
+       palette over honoring client preference. -->
+  <meta name="color-scheme" content="only light">
+  <meta name="supported-color-schemes" content="only light">
+  <style>
+    :root { color-scheme: only light; supported-color-schemes: only light; }
+    /* Belt-and-suspenders: Gmail honors [data-ogsc] in dark mode. */
+    @media (prefers-color-scheme: dark) {
+      .ch-card, .ch-body { background-color: ${C.cream2} !important; }
+      .ch-cream-bg     { background-color: ${C.cream} !important; }
+    }
+    [data-ogsc] .ch-card,
+    [data-ogsc] .ch-body    { background-color: ${C.cream2} !important; }
+    [data-ogsc] .ch-cream-bg { background-color: ${C.cream} !important; }
+  </style>
 </head>
-<body style="margin:0;padding:0;background-color:${C.cream};font-family:'Georgia','Times New Roman',serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:${C.cream};padding:40px 16px;">
+<body class="ch-body" style="margin:0;padding:0;background-color:${C.cream};font-family:'Georgia','Times New Roman',serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" class="ch-cream-bg" style="background-color:${C.cream};padding:40px 16px;">
     <tr><td align="center">
-      <table width="520" cellpadding="0" cellspacing="0" style="max-width:100%;">
+      <table width="520" cellpadding="0" cellspacing="0" class="ch-card" style="max-width:100%;background-color:${C.cream2};">
         ${inner}
       </table>
       <table width="520" cellpadding="0" cellspacing="0" style="max-width:100%;">
@@ -52,15 +71,20 @@ function wrap(inner: string): string {
 }
 
 function sealHead(subtitle: string): string {
+  // Cream-on-cream brand header. The previous design used a dark forest slab
+  // which iOS Mail dark-mode auto-inverted into a jarring muddy mint. The
+  // cream-cream2 treatment matches the body palette (cohesive look) AND
+  // survives any client's dark-mode tinting because cream is neutral enough.
+  // Copper accent line at bottom provides the brand stripe.
   return `
         <tr>
-          <td style="background:${C.forest};padding:48px 48px 44px;text-align:center;background-image:linear-gradient(rgba(245,240,230,0.03) 1px, transparent 1px),linear-gradient(90deg,rgba(245,240,230,0.03) 1px, transparent 1px);background-size:40px 40px;">
-            <img src="${SEAL_URL}" alt="Colchis Food" width="64" height="64" style="display:block;margin:0 auto 20px;" />
-            <p style="margin:0 0 6px;font-family:'Courier New',monospace;font-size:10px;letter-spacing:5px;color:rgba(245,240,230,0.45);text-transform:uppercase;">Colchis Food</p>
-            <p style="margin:0;font-family:'Courier New',monospace;font-size:10px;letter-spacing:3px;color:${C.accent2};text-transform:uppercase;">${subtitle}</p>
+          <td class="ch-cream-bg" style="background-color:${C.cream};padding:44px 48px 36px;text-align:center;border-bottom:1px solid ${C.forest}14;">
+            <img src="${SEAL_URL}" alt="Colchis Food" width="68" height="68" style="display:block;margin:0 auto 22px;" />
+            <p style="margin:0 0 10px;font-family:'Georgia','Times New Roman',serif;font-size:13px;letter-spacing:6px;color:${C.forest};text-transform:uppercase;font-weight:500;">Colchis Food</p>
+            <p style="margin:0;font-family:'Courier New',monospace;font-size:10px;letter-spacing:3.5px;color:${C.accent};text-transform:uppercase;">${subtitle}</p>
           </td>
         </tr>
-        <tr><td style="height:2px;background:${C.accent};font-size:0;line-height:0;">&nbsp;</td></tr>`;
+        <tr><td style="height:3px;background:${C.accent};font-size:0;line-height:0;">&nbsp;</td></tr>`;
 }
 
 function darkFoot(): string {
@@ -274,8 +298,8 @@ export async function sendContactFormEmail(data: {
             <td style="background:${C.cream2};padding:0 48px 40px;">
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
-                  <td style="background:${C.forest};padding:18px 28px;text-align:center;">
-                    <a href="mailto:${data.email}?subject=Re: Your message to Colchis Food" style="font-family:'Courier New',monospace;font-size:11px;letter-spacing:3px;color:${C.cream};text-decoration:none;text-transform:uppercase;">Reply to ${data.name} →</a>
+                  <td style="background:${C.accent};padding:0;text-align:center;border-radius:2px;">
+                    <a href="mailto:${data.email}?subject=Re: Your message to Colchis Food" style="display:block;padding:18px 28px;font-family:'Courier New',monospace;font-size:11px;letter-spacing:3.5px;color:${C.cream};text-decoration:none;text-transform:uppercase;font-weight:bold;">Reply to ${data.name} →</a>
                   </td>
                 </tr>
               </table>
@@ -540,9 +564,18 @@ export async function sendOrderConfirmation(order: OrderForEmail) {
   // Phase 7b.3: signed lookup link. Default 30-day expiry — long enough that
   // even slow buyers can click through, short enough that a leaked email's
   // link is bounded.
+  //
+  // The `/en/` locale prefix is mandatory: the route lives under
+  // `app/[locale]/(public)/orders/[token]/page.tsx`, and the next-intl
+  // middleware that auto-injects the default locale is configured to skip
+  // paths containing a dot (matcher excludes `.*\..*` for static-file handling).
+  // JWT tokens have two dots (header.payload.signature), so an unprefixed
+  // `/orders/<jwt>` URL would skip middleware and 404. Hard-coding the locale
+  // here side-steps the matcher entirely. The email body is English-only, so
+  // the customer landing on /en/ is also semantically correct.
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
   const token = await signOrderToken(order.id);
-  const lookupUrl = `${siteUrl}/orders/${token}`;
+  const lookupUrl = `${siteUrl}/en/orders/${token}`;
 
   // Phase 7b.7: aggregate stats for the hero strip
   const totalItemCount = order.fulfillments.reduce(
@@ -637,17 +670,19 @@ export async function sendOrderConfirmation(order: OrderForEmail) {
             </td>
           </tr>
 
-          <!-- CTA -->
+          <!-- CTA — copper-on-white pill keeps the "View order" button visually
+               dominant AND survives email-client dark-mode tinting (the warm
+               copper is mid-tone enough that auto-inversion can't ruin it). -->
           <tr>
-            <td style="background:${C.cream2};padding:0 48px 32px;">
+            <td style="background:${C.cream2};padding:0 48px 28px;">
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
-                  <td style="background:${C.forest};padding:18px 28px;text-align:center;">
-                    <a href="${lookupUrl}" style="font-family:'Courier New',monospace;font-size:11px;letter-spacing:3px;color:${C.cream};text-decoration:none;text-transform:uppercase;">View your order →</a>
+                  <td style="background:${C.accent};padding:0;text-align:center;border-radius:2px;">
+                    <a href="${lookupUrl}" style="display:block;padding:18px 28px;font-family:'Courier New',monospace;font-size:11px;letter-spacing:3.5px;color:${C.cream};text-decoration:none;text-transform:uppercase;font-weight:bold;">View your order →</a>
                   </td>
                 </tr>
               </table>
-              <p style="margin:8px 0 0;font-family:'Courier New',monospace;font-size:9px;letter-spacing:2px;color:${C.muted};text-transform:uppercase;text-align:center;">
+              <p style="margin:10px 0 0;font-family:'Courier New',monospace;font-size:9px;letter-spacing:2px;color:${C.muted};text-transform:uppercase;text-align:center;">
                 Link valid for 30 days · no login required
               </p>
             </td>

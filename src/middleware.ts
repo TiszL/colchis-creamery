@@ -119,7 +119,13 @@ export default async function middleware(req: NextRequest) {
 }
 
 export const config = {
+  // Tightened matcher: previous `.*\..*` excluded ANY path containing a dot,
+  // which broke `/orders/<jwt>` URLs (JWTs are `header.payload.signature`).
+  // We now only exclude paths that END with a typical file-extension pattern
+  // (2-5 alphanumeric chars after a dot), so dynamic segments containing
+  // dots — JWTs, UUIDs that happen to embed dots, version strings, etc. —
+  // still flow through next-intl locale handling.
   matcher: [
-    "/((?!api|_next|_vercel|.*\\..*).*)",
+    "/((?!api|_next|_vercel|.*\\.[a-zA-Z0-9]{2,5}$).*)",
   ],
 };

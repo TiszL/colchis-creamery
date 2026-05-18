@@ -31,8 +31,11 @@ export function Header({ primaryAddressShort }: HeaderProps = {}) {
   const cartRef = useRef<HTMLDivElement>(null);
   const prefix = locale === "en" ? "" : `/${locale}`;
 
+  // Nav label "Creamery" (per messages/en.json "shop": "Creamery") routes to
+  // /creamery — the dedicated creamery section page. The Order CTA below
+  // separately points to /shop (the unified all-products index).
   const links = [
-    { href: `${prefix}/shop`, label: t("shop") },
+    { href: `${prefix}/creamery`, label: t("shop") },
     { href: `${prefix}/bakery`, label: "Bakery" },
     { href: `${prefix}/journal`, label: "Journal" },
     { href: `${prefix}/recipes`, label: "Recipes" },

@@ -125,6 +125,18 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const clearCart = useCallback(() => {
     setItems([]);
+    // Wipe localStorage synchronously. The persist effect below is gated on
+    // `isLoaded`, so a clearCart() that fires BEFORE the initial loadCart()
+    // effect (e.g. SuccessClient's useEffect after Stripe redirect — child
+    // effects run before parent effects in React) would otherwise see the
+    // subsequent loadCart() repopulate from localStorage. Clearing storage
+    // here ensures loadCart() reads empty.
+    if (typeof window !== "undefined") {
+      try { localStorage.removeItem(CART_STORAGE_KEY); } catch { /* quota etc */ }
+    }
+    // Cross-tab broadcast (mirrors the persist effect). channelRef may not
+    // be wired yet on first paint — optional-chain skips silently in that case.
+    channelRef.current?.postMessage({ type: "cart-sync", items: [] });
   }, []);
 
   const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);

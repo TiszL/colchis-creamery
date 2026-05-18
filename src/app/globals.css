@@ -728,3 +728,34 @@ body { max-width: 100vw; position: relative; }
   .ch-zip-row > button { width: 100% !important; text-align: center; }
 }
 
+/* /account/orders/[id] + /orders/[token] — OrderDetailView. The inline-styled
+   2-column grid (left: fulfillments + items, right: reorder + totals + ship-to)
+   was never collapsing for mobile, leaving every card squeezed into ~150px
+   columns on a 390px iPhone viewport. These rules:
+     - stack to single column ≤900px (tablet portrait + phones)
+     - kill the sticky aside on mobile (no scroll viewport benefit anyway)
+     - reduce banner padding + h1 size on phones so the hero fits the screen
+     - tighten card paddings on ≤640px so list rows don't hug tiny edges
+     - scale the location-name h2 down so "Bakery — Dublin OH" stops wrapping
+       to 3 lines inside a narrow card */
+@media (max-width: 900px) {
+  .ch-od-grid {
+    grid-template-columns: 1fr !important;
+    gap: 28px !important;
+    padding-left: 32px !important;
+    padding-right: 32px !important;
+  }
+  .ch-od-aside { position: static !important; top: auto !important; }
+}
+@media (max-width: 640px) {
+  .ch-od-banner { padding: 36px 24px 28px !important; }
+  .ch-od-h1 { font-size: 40px !important; line-height: 0.98 !important; }
+  .ch-od-grid { padding: 28px 16px 64px !important; gap: 22px !important; }
+  .ch-od-card-header { padding: 16px 18px !important; gap: 10px !important; }
+  .ch-od-loc-h2 { font-size: 22px !important; }
+}
+@media (max-width: 380px) {
+  .ch-od-h1 { font-size: 34px !important; }
+  .ch-od-loc-h2 { font-size: 20px !important; }
+}
+

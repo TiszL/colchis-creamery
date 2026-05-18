@@ -124,7 +124,7 @@ export default function OrderDetailView({
             {/* Banner */}
             <section style={{ background: '#1F3026', color: '#F5F0E6', position: 'relative', overflow: 'hidden' }}>
                 <div style={{ position: 'absolute', inset: 0, backgroundImage: 'linear-gradient(#F5F0E606 1px, transparent 1px), linear-gradient(90deg, #F5F0E606 1px, transparent 1px)', backgroundSize: '80px 80px', pointerEvents: 'none' }} />
-                <div style={{ maxWidth: 1200, margin: '0 auto', padding: '56px 56px 36px', position: 'relative' }}>
+                <div className="ch-od-banner" style={{ maxWidth: 1200, margin: '0 auto', padding: '56px 56px 36px', position: 'relative' }}>
                     {backLink && (
                         <Link href={backLink.href} style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.28em', color: '#D9A876', textTransform: 'uppercase', textDecoration: 'none', opacity: 0.85 }}>
                             ← {backLink.label}
@@ -135,7 +135,7 @@ export default function OrderDetailView({
                             <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.32em', color: '#D9A876', textTransform: 'uppercase' }}>
                                 Order #{shortId}
                             </div>
-                            <h1 style={{ fontFamily: 'var(--font-serif)', fontWeight: 300, fontSize: 64, lineHeight: 0.95, letterSpacing: '-0.03em', margin: '12px 0 0' }}>
+                            <h1 className="ch-od-h1" style={{ fontFamily: 'var(--font-serif)', fontWeight: 300, fontSize: 64, lineHeight: 0.95, letterSpacing: '-0.03em', margin: '12px 0 0' }}>
                                 Your order, <em style={{ color: '#D9A876', fontWeight: 300 }}>tracked.</em>
                             </h1>
                             <p style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: 16, opacity: 0.78, marginTop: 14 }}>
@@ -159,19 +159,19 @@ export default function OrderDetailView({
                 </div>
             </section>
 
-            <div style={{ maxWidth: 1200, margin: '0 auto', padding: '40px 56px 96px', display: 'grid', gridTemplateColumns: 'minmax(0, 1.6fr) minmax(0, 1fr)', gap: 48, alignItems: 'flex-start' }}>
+            <div className="ch-od-grid" style={{ maxWidth: 1200, margin: '0 auto', padding: '40px 56px 96px', display: 'grid', gridTemplateColumns: 'minmax(0, 1.6fr) minmax(0, 1fr)', gap: 48, alignItems: 'flex-start' }}>
                 {/* Left column: fulfillments + items */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
                     {order.fulfillments.length > 0 ? order.fulfillments.map((f, idx) => {
                         const colors = statusColors(f.status);
                         return (
                             <section key={f.id} style={{ background: '#fff', border: '1px solid #1F302622' }}>
-                                <header style={{ padding: '20px 28px', borderBottom: '1px solid #1F302614', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
+                                <header className="ch-od-card-header" style={{ padding: '20px 28px', borderBottom: '1px solid #1F302614', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
                                     <div>
                                         <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.32em', color: '#B96A3D', textTransform: 'uppercase' }}>
                                             № {String(idx + 1).padStart(2, '0')} — Fulfillment {idx + 1} of {order.fulfillments.length}
                                         </div>
-                                        <h2 style={{ fontFamily: 'var(--font-serif)', fontWeight: 400, fontStyle: 'italic', fontSize: 24, color: '#1F3026', margin: '4px 0 0' }}>
+                                        <h2 className="ch-od-loc-h2" style={{ fontFamily: 'var(--font-serif)', fontWeight: 400, fontStyle: 'italic', fontSize: 24, color: '#1F3026', margin: '4px 0 0' }}>
                                             {f.location.name}
                                         </h2>
                                         <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.24em', color: '#7A8278', textTransform: 'uppercase', marginTop: 6 }}>
@@ -272,7 +272,7 @@ export default function OrderDetailView({
                 </div>
 
                 {/* Right column: reorder + totals + shipping address */}
-                <aside style={{ display: 'flex', flexDirection: 'column', gap: 24, position: 'sticky', top: 100 }}>
+                <aside className="ch-od-aside" style={{ display: 'flex', flexDirection: 'column', gap: 24, position: 'sticky', top: 100 }}>
                     {/* Cancel CTA — only when server says the order is still in the
                         cancel window. Above Reorder because cancel is more time-sensitive. */}
                     {cancelInfo && (

@@ -145,8 +145,16 @@ export async function saveMyAddress(formData: FormData): Promise<SaveAddressResu
         });
     }
 
+    // Revalidate every public surface that reads the user's saved addresses
+    // server-side. /shop is the unified all-products index, /creamery is the
+    // dedicated section page (Phase 2 rename), /cart + /checkout pick up
+    // userAddresses for the address picker, /account renders the manager.
     revalidatePath('/bakery');
     revalidatePath('/shop');
+    revalidatePath('/creamery');
+    revalidatePath('/cart');
+    revalidatePath('/checkout');
+    revalidatePath('/account');
 
     return {
         ok: true,
@@ -190,8 +198,16 @@ export async function deleteMyAddress(addressId: string): Promise<boolean> {
         }
     }
 
+    // Revalidate every public surface that reads the user's saved addresses
+    // server-side. /shop is the unified all-products index, /creamery is the
+    // dedicated section page (Phase 2 rename), /cart + /checkout pick up
+    // userAddresses for the address picker, /account renders the manager.
     revalidatePath('/bakery');
     revalidatePath('/shop');
+    revalidatePath('/creamery');
+    revalidatePath('/cart');
+    revalidatePath('/checkout');
+    revalidatePath('/account');
     return true;
 }
 
@@ -208,7 +224,15 @@ export async function setDefaultAddress(addressId: string): Promise<boolean> {
     });
     await prisma.userAddress.update({ where: { id: addressId }, data: { isDefault: true } });
 
+    // Revalidate every public surface that reads the user's saved addresses
+    // server-side. /shop is the unified all-products index, /creamery is the
+    // dedicated section page (Phase 2 rename), /cart + /checkout pick up
+    // userAddresses for the address picker, /account renders the manager.
     revalidatePath('/bakery');
     revalidatePath('/shop');
+    revalidatePath('/creamery');
+    revalidatePath('/cart');
+    revalidatePath('/checkout');
+    revalidatePath('/account');
     return true;
 }

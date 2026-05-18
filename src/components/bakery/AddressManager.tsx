@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition, useCallback, useMemo } from 'react';
 import { APIProvider, useMapsLibrary, Map, AdvancedMarker, Pin, type MapMouseEvent } from '@vis.gl/react-google-maps';
-import { ChevronDown, MapPin, Plus, Pencil, Trash2, Check, Map as MapIcon, X } from 'lucide-react';
+import { MapPin, Plus, Pencil, Trash2, Check, Map as MapIcon, X, Star } from 'lucide-react';
 import { saveMyAddress, deleteMyAddress, setDefaultAddress, type UserAddressDto } from '@/app/actions/addresses';
 
 /**
@@ -402,7 +402,19 @@ export default function AddressManager({
     const [addresses, setAddresses] = useState<UserAddressDto[]>(initialAddresses);
     const [showPicker, setShowPicker] = useState(false);
     const [isAdding, setIsAdding] = useState(false);
+    // Phase 10: edit flow — when set, the add-form renders pre-filled with this
+    // address's data; save passes the id to saveMyAddress for an update instead
+    // of a create.
+    const [editingId, setEditingId] = useState<string | null>(null);
     const [, startTransition] = useTransition();
+
+    // Keep local list in sync with fresh server props (e.g. after revalidate /
+    // login / navigation between AddressManager mount points). Without this the
+    // useState initializer above runs only once per mount and the picker shows
+    // stale data even after the server has new rows.
+    useEffect(() => {
+        setAddresses(initialAddresses);
+    }, [initialAddresses]);
 
     // Pending "new address" buffer (filled from Places autocomplete OR map pin)
     const [pendingPlace, setPendingPlace] = useState<ParsedPlace | null>(null);
@@ -420,6 +432,48 @@ export default function AddressManager({
         setPendingAccessCode('');
         setPendingBuildingName('');
         setPendingDeliveryNotes('');
+    };
+
+    // Begin editing an existing saved address. Pre-fills the same form the
+    // add-new flow uses: the form is presented in "edit" mode and a Save call
+    // passes the id through to saveMyAddress (which updates instead of creates).
+    const startEdit = (a: UserAddressDto) => {
+        setEditingId(a.id);
+        setIsAdding(true);
+        setShowPicker(true);
+        setShowMapPicker(false);
+        setSaveError(null);
+        setSaveSuccess(null);
+        // Seed pendingPlace from the existing row so the user can save without
+        // having to re-pick the street. If they want to MOVE the pin, the
+        // PlacesAutocomplete / map-picker buttons still work and will overwrite.
+        setPendingPlace(a.latitude !== null && a.longitude !== null ? {
+            formatted: dtoToFormatted(a),
+            addressLine1: a.addressLine1,
+            city: a.city,
+            state: a.state,
+            postalCode: a.postalCode,
+            country: a.country,
+            lat: a.latitude,
+            lng: a.longitude,
+            googlePlaceId: a.googlePlaceId || '',
+        } : null);
+        setPendingLabel(a.label || '');
+        setPendingAddressLine2(a.addressLine2 || '');
+        setPendingAccessCode(a.accessCode || '');
+        setPendingBuildingName(a.buildingName || '');
+        setPendingDeliveryNotes(a.deliveryNotes || '');
+    };
+
+    // Universal "exit the form" cleanup. Used by Cancel buttons in both add
+    // and edit flows so we don't leak partial state into the next entry.
+    const exitAddOrEdit = () => {
+        setIsAdding(false);
+        setEditingId(null);
+        setPendingPlace(null);
+        resetPendingDetails();
+        setShowMapPicker(false);
+        setSaveError(null);
     };
     // Map-fallback toggle — shared across both entry points (guest + logged-in add-new)
     const [showMapPicker, setShowMapPicker] = useState(false);
@@ -665,7 +719,16 @@ export default function AddressManager({
         setSaveError(null);
         setSaveSuccess(null);
 
+        const wasEditing = editingId;
+        const editingExisting = wasEditing ? addresses.find(a => a.id === wasEditing) : null;
+        // Preserve isDefault on edit; otherwise auto-default the first address
+        // ever saved. Server-side handler enforces single-default invariant.
+        const shouldFlagDefault =
+            (wasEditing && editingExisting?.isDefault === true) ||
+            (!wasEditing && addresses.length === 0);
+
         const fd = new FormData();
+        if (wasEditing) fd.set('id', wasEditing);
         fd.set('addressLine1', pendingPlace.addressLine1);
         fd.set('city', pendingPlace.city);
         fd.set('state', pendingPlace.state);
@@ -679,7 +742,7 @@ export default function AddressManager({
         if (pendingAccessCode.trim()) fd.set('accessCode', pendingAccessCode.trim());
         if (pendingBuildingName.trim()) fd.set('buildingName', pendingBuildingName.trim());
         if (pendingDeliveryNotes.trim()) fd.set('deliveryNotes', pendingDeliveryNotes.trim());
-        if (addresses.length === 0) fd.set('isDefault', 'on');
+        if (shouldFlagDefault) fd.set('isDefault', 'on');
 
         startTransition(async () => {
             const result = await saveMyAddress(fd);
@@ -694,21 +757,27 @@ export default function AddressManager({
             setAddresses(next);
             broadcastRef.current?.postMessage({ type: 'upsert', dto: saved } satisfies AddressBroadcastMessage);
 
-            // If this is the user's FIRST address, auto-select it (no point not to).
-            // For subsequent adds, leave their current active selection alone so they
-            // can save many addresses in a row without each one hijacking the active.
+            // Auto-select rule:
+            //  - First-ever address: select it (nothing else to pick).
+            //  - Edit of the currently-active address: re-emit so consumers
+            //    pick up the new lat/lng / formatted string immediately.
+            //  - Subsequent ADD-NEW: leave current active alone so the user
+            //    can add many addresses without each hijacking the selection.
             const isFirst = addresses.length === 0;
-            if (isFirst) {
+            const editingActive = wasEditing && activeAddress?.id === wasEditing;
+            if (isFirst || editingActive) {
                 const active = dtoToActive(saved);
                 if (active) onActiveAddressChange(active);
-                setShowPicker(false);
+                if (isFirst) setShowPicker(false);
             }
 
             setIsAdding(false);
+            setEditingId(null);
             setPendingPlace(null);
             resetPendingDetails();
             setShowMapPicker(false);
-            setSaveSuccess(saved.label ? `"${saved.label}" saved` : 'Address saved');
+            const verb = wasEditing ? 'updated' : 'saved';
+            setSaveSuccess(saved.label ? `"${saved.label}" ${verb}` : `Address ${verb}`);
             setTimeout(() => setSaveSuccess(null), 2500);
         });
     };
@@ -765,22 +834,18 @@ export default function AddressManager({
                         </span>
                     </div>
                 </div>
-                <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                    {isLoggedIn && (
-                        <button
-                            onClick={() => setShowPicker(true)}
-                            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'transparent', border: '1px solid #1F302633', fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.24em', color: '#1F3026', textTransform: 'uppercase', cursor: 'pointer', padding: '8px 12px' }}
-                        >
-                            <ChevronDown className="w-3 h-3" /> Switch
-                        </button>
-                    )}
-                    <button
-                        onClick={clearActive}
-                        style={{ background: 'transparent', border: 'none', fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.24em', color: '#1F3026', textTransform: 'uppercase', cursor: 'pointer', padding: '8px 10px', borderBottom: '1px solid #1F302633' }}
-                    >
-                        Change
-                    </button>
-                </div>
+                {/* Banner action: one universal "Change" button.
+                    - Logged-in: opens the picker (switch / edit / add / delete saved addresses).
+                    - Guest:     clears the localStorage entry + re-shows the search form.
+                    This replaces the old Switch+Change duo where "Change" on a
+                    logged-in account would just silently re-select the default
+                    (auto-select effect fires on activeAddress=null) — looked broken. */}
+                <button
+                    onClick={() => { if (isLoggedIn) { setShowPicker(true); } else { clearActive(); } }}
+                    style={{ background: 'transparent', border: '1px solid #1F302633', fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.24em', color: '#1F3026', textTransform: 'uppercase', cursor: 'pointer', padding: '8px 14px', flexShrink: 0 }}
+                >
+                    Change
+                </button>
             </div>
         );
     }
@@ -842,10 +907,14 @@ export default function AddressManager({
                                         </div>
                                     </button>
                                     <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                                        <button onClick={() => startEdit(a)} title="Edit address"
+                                            style={{ background: 'transparent', border: 'none', color: '#7A8278', cursor: 'pointer', padding: 6 }}>
+                                            <Pencil className="w-3.5 h-3.5" />
+                                        </button>
                                         {!a.isDefault && (
                                             <button onClick={() => handleSetDefault(a.id)} title="Set as default"
                                                 style={{ background: 'transparent', border: 'none', color: '#7A8278', cursor: 'pointer', padding: 6 }}>
-                                                <Pencil className="w-3.5 h-3.5" />
+                                                <Star className="w-3.5 h-3.5" />
                                             </button>
                                         )}
                                         <button onClick={() => handleDelete(a.id)} title="Delete"
@@ -861,7 +930,7 @@ export default function AddressManager({
 
                 {!isAdding && (
                     <button
-                        onClick={() => setIsAdding(true)}
+                        onClick={() => { setEditingId(null); setPendingPlace(null); resetPendingDetails(); setIsAdding(true); setShowMapPicker(false); setSaveError(null); }}
                         style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#1F3026', border: 'none', color: '#F5F0E6', fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.24em', textTransform: 'uppercase', cursor: 'pointer', padding: '12px 18px', alignSelf: 'flex-start' }}
                     >
                         <Plus className="w-3.5 h-3.5" /> Add new address
@@ -876,7 +945,21 @@ export default function AddressManager({
                 {isAdding && (
                     <APIProvider apiKey={apiKey}>
                         <div style={{ background: '#F5F0E6', border: '1px solid #1F302633', padding: 18, display: 'flex', flexDirection: 'column', gap: 12 }}>
-                            <PlacesAutocomplete onPlace={p => { setPendingPlace(p); setShowMapPicker(false); setSaveError(null); }} autoFocus />
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.28em', color: '#B96A3D', textTransform: 'uppercase' }}>
+                                    {editingId ? 'Edit address' : 'New address'}
+                                </span>
+                                {editingId && (
+                                    <span style={{ fontFamily: 'var(--font-sans)', fontSize: 11, fontStyle: 'italic', color: '#7A8278' }}>
+                                        Change the street below to move the pin, or just update label / apt / notes.
+                                    </span>
+                                )}
+                            </div>
+                            <PlacesAutocomplete
+                                onPlace={p => { setPendingPlace(p); setShowMapPicker(false); setSaveError(null); }}
+                                placeholder={editingId ? 'Type a new street to move this address…' : 'Start typing your address…'}
+                                autoFocus={!editingId}
+                            />
                             <button
                                 type="button"
                                 onClick={() => setShowMapPicker(s => !s)}
@@ -888,6 +971,7 @@ export default function AddressManager({
                                 <MapPinPicker
                                     onPlace={p => { setPendingPlace(p); setSaveError(null); }}
                                     initialCenter={(() => {
+                                        if (pendingPlace) return { lat: pendingPlace.lat, lng: pendingPlace.lng };
                                         const seed = addresses.find(a => a.latitude !== null && a.longitude !== null);
                                         return seed && seed.latitude !== null && seed.longitude !== null
                                             ? { lat: seed.latitude, lng: seed.longitude }
@@ -898,7 +982,7 @@ export default function AddressManager({
                             {pendingPlace && (
                                 <>
                                     <div style={{ fontFamily: 'var(--font-sans)', fontSize: 13, color: '#2C3D33', padding: '8px 0' }}>
-                                        Selected: <strong>{pendingPlace.formatted}</strong>
+                                        {editingId ? 'Address: ' : 'Selected: '}<strong>{pendingPlace.formatted}</strong>
                                     </div>
                                     <input
                                         value={pendingLabel}
@@ -915,9 +999,9 @@ export default function AddressManager({
                                     <div style={{ display: 'flex', gap: 8 }}>
                                         <button onClick={handleSaveLoggedIn}
                                             style={{ background: '#B96A3D', border: 'none', color: '#F5F0E6', fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.24em', textTransform: 'uppercase', cursor: 'pointer', padding: '12px 22px' }}>
-                                            Save address
+                                            {editingId ? 'Save changes' : 'Save address'}
                                         </button>
-                                        <button onClick={() => { setIsAdding(false); setPendingPlace(null); resetPendingDetails(); setShowMapPicker(false); setSaveError(null); }}
+                                        <button onClick={exitAddOrEdit}
                                             style={{ background: 'transparent', border: '1px solid #1F302633', fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.24em', color: '#1F3026', textTransform: 'uppercase', cursor: 'pointer', padding: '12px 18px' }}>
                                             Cancel
                                         </button>

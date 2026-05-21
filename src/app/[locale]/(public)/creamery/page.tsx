@@ -8,6 +8,7 @@ import { ProductKind } from "@prisma/client";
 import { getSession } from "@/lib/session";
 import { getMyAddresses } from "@/app/actions/addresses";
 import { getPrimaryLocation } from "@/lib/business-location";
+import { getSelectedLocation, productCatalogWhereForLocation } from "@/lib/customer-location";
 
 const CREAMERY_KINDS = Object.values(ProductKind).filter(k => k.startsWith('CREAMERY')) as ProductKind[];
 
@@ -65,12 +66,17 @@ export default async function ShopPage({ params }: ShopPageProps) {
   const { locale } = await params;
   const prefix = locale === "en" ? "" : `/${locale}`;
 
+  // Phase 1 (1f) — scope catalog to the customer's selected location.
+  const selectedLocation = await getSelectedLocation();
+  const locationFilter = productCatalogWhereForLocation(selectedLocation);
+
   const [dbProducts, creameryConfigs, primary] = await Promise.all([
     prisma.product.findMany({
       where: {
         status: { in: ['ACTIVE', 'COMING_SOON'] },
         isB2cVisible: true,
         kind: { in: CREAMERY_KINDS }, // shop = creamery only; bakery has its own /bakery page
+        ...locationFilter,
       },
       orderBy: { name: 'asc' },
       include: {

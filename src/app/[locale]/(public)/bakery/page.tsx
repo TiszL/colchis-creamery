@@ -5,6 +5,7 @@ import { getMyAddresses } from "@/app/actions/addresses";
 import { ProductKind } from "@prisma/client";
 import type { Metadata } from "next";
 import { getPrimaryLocation } from "@/lib/business-location";
+import { getSelectedLocation, productCatalogWhereForLocation } from "@/lib/customer-location";
 
 export const metadata: Metadata = {
   title: "The Bakery | Colchis Food",
@@ -48,12 +49,19 @@ export default async function BakeryPage() {
     // page-copy fall back to BakeryClient defaults
   }
 
+  // Phase 1 (1f) — scope catalog to the customer's selected location.
+  // If the selected location is a cold warehouse (NATIONAL_SHIP only) the
+  // bakery page returns an empty catalog — switch to a bakery to see hot food.
+  const selectedLocation = await getSelectedLocation();
+  const locationFilter = productCatalogWhereForLocation(selectedLocation);
+
   try {
     const bakeryProducts = await prisma.product.findMany({
       where: {
         kind: { in: [ProductKind.BAKERY_HOT, ProductKind.BAKERY_FROZEN] },
         isB2cVisible: true,
         isActive: true,
+        ...locationFilter,
       },
       orderBy: [{ kind: 'asc' }, { name: 'asc' }],
       include: { channels: true },

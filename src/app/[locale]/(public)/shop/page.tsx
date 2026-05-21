@@ -18,6 +18,7 @@ import { prisma } from "@/lib/db";
 import { ProductKind } from "@prisma/client";
 import { getTranslations } from "next-intl/server";
 import { getOgImage, buildOgImages } from "@/lib/seo";
+import { getSelectedLocation, productCatalogWhereForLocation } from "@/lib/customer-location";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://colchisfood.com';
 
@@ -76,11 +77,18 @@ export default async function ShopPage({ params }: ShopPageProps) {
     const prefix = locale === 'en' ? '' : `/${locale}`;
     const tabs = buildTabs(prefix);
 
+    // Phase 1 (1f) — scope catalog to the customer's selected location.
+    // When no location is picked, the picker auto-defaults to the primary
+    // bakery on first paint, so this branch is rare in practice.
+    const selectedLocation = await getSelectedLocation();
+    const locationFilter = productCatalogWhereForLocation(selectedLocation);
+
     const products = await prisma.product.findMany({
         where: {
             status: { in: ['ACTIVE', 'COMING_SOON'] },
             isActive: true,
             isB2cVisible: true,
+            ...locationFilter,
         },
         orderBy: [{ kind: 'asc' }, { name: 'asc' }],
         select: {

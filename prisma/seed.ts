@@ -118,10 +118,23 @@ async function main() {
   ];
 
   for (const product of products) {
+    // Ensure a 1:1 ProductFamily exists for the seed SKU. salesChannel defaults
+    // to LOCAL_COLD via @default; admin can edit later.
+    const family = await prisma.productFamily.upsert({
+      where: { slug: product.slug },
+      update: {},
+      create: {
+        slug: product.slug,
+        name: product.name,
+        description: product.description.slice(0, 500),
+        imageUrl: product.imageUrl,
+      },
+    });
+
     const created = await prisma.product.upsert({
       where: { sku: product.sku },
       update: {},
-      create: product,
+      create: { ...product, productFamilyId: family.id },
     });
     console.log(`Created product: ${created.name} (${created.sku})`);
   }

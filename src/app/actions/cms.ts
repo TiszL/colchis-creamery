@@ -102,17 +102,30 @@ export async function updateProductAction(formData: FormData) {
 
 export async function createProductAction(formData: FormData) {
     try {
+        const slug = formData.get("slug") as string;
+        const name = formData.get("name") as string;
+        const description = formData.get("description") as string;
+        const imageUrl = formData.get("imageUrl") as string;
+
+        // Default 1:1 ProductFamily creation. Admin can later merge SKUs into
+        // shared families via the families UI (Phase 1d).
+        const family = await prisma.productFamily.upsert({
+            where: { slug },
+            update: {},
+            create: { slug, name, description: description.slice(0, 500), imageUrl },
+        });
+
         await prisma.product.create({
             data: {
                 sku: formData.get("sku") as string,
-                name: formData.get("name") as string,
-                slug: formData.get("slug") as string,
-                description: formData.get("description") as string,
+                name,
+                slug,
+                description,
                 flavorProfile: (formData.get("flavorProfile") as string) || null,
                 pairsWith: (formData.get("pairsWith") as string) || null,
                 weight: (formData.get("weight") as string) || null,
                 ingredients: (formData.get("ingredients") as string) || null,
-                imageUrl: formData.get("imageUrl") as string,
+                imageUrl,
                 priceB2c: formData.get("priceB2c") as string,
                 priceB2b: formData.get("priceB2b") as string,
                 stockQuantity: parseInt(formData.get("stockQuantity") as string, 10) || 0,
@@ -121,6 +134,7 @@ export async function createProductAction(formData: FormData) {
                 isB2cVisible: formData.get("isB2cVisible") === "on",
                 isB2bVisible: formData.get("isB2bVisible") === "on",
                 isCartOrderable: formData.get("isCartOrderable") !== "off",
+                productFamilyId: family.id,
             },
         });
         revalidatePath("/admin/website/products");

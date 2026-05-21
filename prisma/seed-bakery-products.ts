@@ -219,6 +219,22 @@ const FROZEN_ITEMS: BakeryItem[] = [
 ];
 
 async function upsertBakeryProduct(item: BakeryItem, bakeryLocationId: string) {
+    // 0. Ensure ProductFamily exists (1:1 by slug for seeded items; admin can
+    //    merge later via families UI). salesChannel defaults to LOCAL_COLD via
+    //    schema @default; bakery items get LOCAL_HOT below.
+    const family = await prisma.productFamily.upsert({
+        where: { slug: item.slug },
+        update: {},
+        create: {
+            slug: item.slug,
+            name: item.name,
+            description: item.description.slice(0, 500),
+            imageUrl: item.imageUrl,
+        },
+    });
+    const isBakeryHotKind = item.kind === "BAKERY_HOT" || item.kind === "BAKERY_PASTRY" || item.kind === "BAKERY_BREAD";
+    const seedSalesChannel = item.kind === "BAKERY_FROZEN" ? "B2B_FROZEN" : (isBakeryHotKind ? "LOCAL_HOT" : "LOCAL_COLD");
+
     // 1. Upsert Product by sku
     const product = await prisma.product.upsert({
         where: { sku: item.sku },
@@ -250,6 +266,7 @@ async function upsertBakeryProduct(item: BakeryItem, bakeryLocationId: string) {
             priceB2c: item.priceB2c,
             priceB2b: item.priceB2b,
             kind: item.kind,
+            salesChannel: seedSalesChannel,
             isMadeToOrder: item.isMadeToOrder,
             tag: item.tag,
             imageUrl: item.imageUrl,
@@ -260,6 +277,7 @@ async function upsertBakeryProduct(item: BakeryItem, bakeryLocationId: string) {
             isB2bVisible: false,
             status: "ACTIVE",
             isActive: true,
+            productFamilyId: family.id,
         },
     });
 

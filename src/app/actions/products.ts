@@ -2,7 +2,21 @@
 
 import { prisma } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
-import { ProductKind, FulfillmentChannel } from '@prisma/client';
+import { ProductKind, FulfillmentChannel, SalesChannel } from '@prisma/client';
+
+// Derive a default SalesChannel from ProductKind for create/update calls
+// that haven't yet been migrated to send salesChannel explicitly. Admin form
+// gains explicit control in 1d.
+const KIND_TO_CHANNEL: Record<ProductKind, SalesChannel> = {
+    CREAMERY_CHEESE: SalesChannel.LOCAL_COLD,
+    CREAMERY_BUTTER: SalesChannel.LOCAL_COLD,
+    CREAMERY_SPREAD: SalesChannel.LOCAL_COLD,
+    CREAMERY_OTHER:  SalesChannel.LOCAL_COLD,
+    BAKERY_HOT:      SalesChannel.LOCAL_HOT,
+    BAKERY_PASTRY:   SalesChannel.LOCAL_HOT,
+    BAKERY_BREAD:    SalesChannel.LOCAL_HOT,
+    BAKERY_FROZEN:   SalesChannel.B2B_FROZEN,
+};
 
 export async function saveProductAction(formData: FormData) {
     const id = formData.get('id') as string;
@@ -18,6 +32,8 @@ export async function saveProductAction(formData: FormData) {
 
     const isMadeToOrder = formData.get('isMadeToOrder') === 'on';
     const kind = (formData.get('kind') as ProductKind) || ProductKind.CREAMERY_CHEESE;
+    const salesChannel = (formData.get('salesChannel') as SalesChannel) || KIND_TO_CHANNEL[kind];
+    const slug = formData.get('slug') as string;
 
     const legacyStockInput = formData.get('stockQuantity');
     const computedTotal = stocks.reduce((sum, s) => sum + (typeof s.quantity === 'number' ? s.quantity : 0), 0);
@@ -25,17 +41,21 @@ export async function saveProductAction(formData: FormData) {
         ? (parseInt(legacyStockInput as string, 10) || 0)
         : computedTotal;
 
+    const name = formData.get('name') as string;
+    const description = formData.get('description') as string;
+    const imageUrl = formData.get('imageUrl') as string;
+
     const data = {
-        name: formData.get('name') as string,
+        name,
         nameKa: (formData.get('nameKa') as string) || null,
-        slug: formData.get('slug') as string,
+        slug,
         sku: formData.get('sku') as string,
-        description: formData.get('description') as string,
+        description,
         flavorProfile: (formData.get('flavorProfile') as string) || null,
         pairsWith: (formData.get('pairsWith') as string) || null,
         weight: (formData.get('weight') as string) || null,
         ingredients: (formData.get('ingredients') as string) || null,
-        imageUrl: formData.get('imageUrl') as string,
+        imageUrl,
         images,
         videoUrls,
         priceB2c: formData.get('priceB2c') as string,
@@ -43,6 +63,9 @@ export async function saveProductAction(formData: FormData) {
         stockQuantity,
         category: (formData.get('category') as string) || 'cheese',
         kind,
+        salesChannel,
+        packagingType: (formData.get('packagingType') as string) || null,
+        unitCost: (formData.get('unitCost') as string) || null,
         isMadeToOrder,
         tag: (formData.get('tag') as string) || null,
         productLineId: (formData.get('productLineId') as string) || null,
@@ -58,10 +81,24 @@ export async function saveProductAction(formData: FormData) {
 
     let productId: string;
     if (id) {
+        // Update — productFamilyId stays whatever it already was; admin UI in
+        // 1d will expose explicit family re-assignment.
         const updated = await prisma.product.update({ where: { id }, data });
         productId = updated.id;
     } else {
-        const created = await prisma.product.create({ data });
+        // Create — ensure a ProductFamily exists. Default behaviour is 1:1
+        // (one family per product, using the product slug). Admin can merge
+        // families later via the families UI in 1d.
+        const formFamilyId = (formData.get('productFamilyId') as string) || null;
+        const familyId = formFamilyId ?? (await prisma.productFamily.upsert({
+            where: { slug },
+            update: {},
+            create: { slug, name, description: description.slice(0, 500), imageUrl },
+        })).id;
+
+        const created = await prisma.product.create({
+            data: { ...data, productFamilyId: familyId },
+        });
         productId = created.id;
     }
 

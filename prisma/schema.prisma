@@ -241,10 +241,12 @@ model Product {
   // hiding the product. B2B-only items keep isB2cVisible=true + isCartOrderable=false
   // so they appear in /shop with a "Wholesale only" CTA instead of disappearing.
   isCartOrderable Boolean      @default(true)
-  // Phase 1 (channel model). Nullable during 1b; populated by 1c backfill;
-  // tightened to NOT NULL in a follow-up migration.
-  productFamilyId String?
-  salesChannel    SalesChannel?
+  // Phase 1 (channel model). Populated by 1c backfill; tightened to NOT NULL.
+  // salesChannel default lets seed/CMS callers omit it; admin UI in 1d makes
+  // it an explicit choice. Pick LOCAL_COLD because the historical kind=
+  // CREAMERY_CHEESE default already mapped to LOCAL_COLD.
+  productFamilyId String
+  salesChannel    SalesChannel  @default(LOCAL_COLD)
   // Packaging required for this SKU. Free text so admin can introduce
   // new packaging types without a schema change. Example values:
   // 'retail-pouch' | 'cold-pack-2day' | 'wholesale-case' | 'frozen-bulk' | 'hot-bag'
@@ -257,7 +259,7 @@ model Product {
 
   productLine    ProductLine?    @relation(fields: [productLineId], references: [id])
   productCategory Category?      @relation(fields: [categoryId], references: [id])
-  productFamily  ProductFamily?  @relation(fields: [productFamilyId], references: [id])
+  productFamily  ProductFamily   @relation(fields: [productFamilyId], references: [id])
   orderItems     OrderItem[]
   reviews        ProductReview[]
   channels       ProductChannel[]

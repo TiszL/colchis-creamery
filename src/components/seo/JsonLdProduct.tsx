@@ -45,6 +45,38 @@ export async function JsonLdProduct({ product, url, productId }: JsonLdProductPr
     }
   }
 
+  // Emit an Offer only when we have an accurate price. Coming-soon products
+  // intentionally omit offers (no price to publish → schema.org Product without
+  // an Offer is valid and avoids Google's "missing price" critical error).
+  const hasPublishablePrice = !isComingSoon && product.priceB2c > 0;
+
+  const offers = hasPublishablePrice
+    ? {
+        "@type": "Offer",
+        url,
+        priceCurrency: "USD",
+        price: product.priceB2c,
+        availability:
+          product.stockQuantity > 0
+            ? "https://schema.org/InStock"
+            : "https://schema.org/OutOfStock",
+        itemCondition: "https://schema.org/NewCondition",
+        seller: {
+          "@type": "Organization",
+          name: "Colchis Food",
+          url: "https://colchisfood.com",
+        },
+        // Perishable artisanal goods — sale is final per /legal/returns.
+        hasMerchantReturnPolicy: {
+          "@type": "MerchantReturnPolicy",
+          applicableCountry: "US",
+          returnPolicyCategory: "https://schema.org/MerchantReturnNotPermitted",
+        },
+        // shippingDetails intentionally omitted — fed via Google Merchant Center
+        // to avoid publishing inaccurate rates/delivery times in structured data.
+      }
+    : null;
+
   const jsonLd: Record<string, any> = {
     "@context": "https://schema.org",
     "@type": "Product",
@@ -74,23 +106,7 @@ export async function JsonLdProduct({ product, url, productId }: JsonLdProductPr
         value: "Authentic Georgian dairy traditions — heritage recipes, made fresh in Ohio",
       },
     ],
-    offers: {
-      "@type": "Offer",
-      url,
-      priceCurrency: "USD",
-      price: isComingSoon ? undefined : product.priceB2c,
-      availability: isComingSoon
-        ? "https://schema.org/PreOrder"
-        : product.stockQuantity > 0
-          ? "https://schema.org/InStock"
-          : "https://schema.org/OutOfStock",
-      itemCondition: "https://schema.org/NewCondition",
-      seller: {
-        "@type": "Organization",
-        name: "Colchis Food",
-        url: "https://colchisfood.com",
-      },
-    },
+    ...(offers ? { offers } : {}),
     // Additional structured data for richer search results
     manufacturer: {
       "@type": "Organization",

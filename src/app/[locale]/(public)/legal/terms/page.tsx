@@ -12,7 +12,7 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
         keywords: ['Colchis Food terms', 'terms of service', 'wholesale terms', 'cheese shop terms'],
         alternates: {
             canonical: `${SITE_URL}${canonicalPath}`,
-            languages: { 'en': `${SITE_URL}/legal/terms`, 'ka': `${SITE_URL}/ka/legal/terms`, 'ru': `${SITE_URL}/ru/legal/terms`, 'es': `${SITE_URL}/es/legal/terms` },
+            languages: { 'en': `${SITE_URL}/legal/terms`, 'ka': `${SITE_URL}/ka/legal/terms`, 'ru': `${SITE_URL}/ru/legal/terms`, 'es': `${SITE_URL}/es/legal/terms`, 'x-default': `${SITE_URL}/legal/terms` },
         },
         openGraph: {
             type: 'website', title: 'Terms of Service | Colchis Food',

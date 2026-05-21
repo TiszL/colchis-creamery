@@ -12,7 +12,7 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
         keywords: ['Colchis Food privacy policy', 'data protection', 'personal information', 'cheese shop privacy'],
         alternates: {
             canonical: `${SITE_URL}${canonicalPath}`,
-            languages: { 'en': `${SITE_URL}/legal/privacy`, 'ka': `${SITE_URL}/ka/legal/privacy`, 'ru': `${SITE_URL}/ru/legal/privacy`, 'es': `${SITE_URL}/es/legal/privacy` },
+            languages: { 'en': `${SITE_URL}/legal/privacy`, 'ka': `${SITE_URL}/ka/legal/privacy`, 'ru': `${SITE_URL}/ru/legal/privacy`, 'es': `${SITE_URL}/es/legal/privacy`, 'x-default': `${SITE_URL}/legal/privacy` },
         },
         openGraph: {
             type: 'website', title: 'Privacy Policy | Colchis Food',

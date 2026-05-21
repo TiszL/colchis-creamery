@@ -35,6 +35,7 @@ export async function generateMetadata({ params }: HomePageProps) {
         'ka': `${SITE_URL}/ka`,
         'ru': `${SITE_URL}/ru`,
         'es': `${SITE_URL}/es`,
+        'x-default': SITE_URL,
       },
     },
     openGraph: {

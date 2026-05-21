@@ -50,7 +50,7 @@ export async function generateMetadata({ params }: ShopPageProps): Promise<Metad
         description,
         alternates: {
             canonical: `${SITE_URL}${canonicalPath}`,
-            languages: { 'en': `${SITE_URL}/shop`, 'ka': `${SITE_URL}/ka/shop`, 'ru': `${SITE_URL}/ru/shop`, 'es': `${SITE_URL}/es/shop` },
+            languages: { 'en': `${SITE_URL}/shop`, 'ka': `${SITE_URL}/ka/shop`, 'ru': `${SITE_URL}/ru/shop`, 'es': `${SITE_URL}/es/shop`, 'x-default': `${SITE_URL}/shop` },
         },
         openGraph: {
             type: 'website', siteName: 'Colchis Food', title, description,

@@ -15,9 +15,17 @@ const ALL_ADMIN_ROLES = ["MASTER_ADMIN"];
 const ALL_STAFF_ROLES = [...STAFF_ROLES];
 const B2B_ROLES = ["B2B_PARTNER", "MASTER_ADMIN"];
 const ANALYTICS_ROLES = ["ANALYTICS_VIEWER", ...STAFF_ROLES];
+// Phase 2 (2c): /location-portal admits any signed-in user at the
+// middleware layer; the layout enforces the real per-location role check
+// via requireLocationAccess() against the UserLocation table. This
+// decouples middleware (edge, no DB) from row-level access (server, DB).
+const ANY_SIGNED_IN_ROLES = [
+  "MASTER_ADMIN", "PRODUCT_MANAGER", "CONTENT_MANAGER", "SALES",
+  "ANALYTICS_VIEWER", "B2B_PARTNER", "B2C_CUSTOMER",
+];
 
 // ── Protected Path Definitions ────────────────────────────────────────────────
-type ProtectedArea = "admin" | "portal" | "b2b-portal" | "account" | "analytics";
+type ProtectedArea = "admin" | "portal" | "b2b-portal" | "account" | "analytics" | "location-portal";
 
 const PROTECTED_AREAS: { segment: string; area: ProtectedArea; allowedRoles: string[] }[] = [
   { segment: "admin", area: "admin", allowedRoles: ALL_ADMIN_ROLES },
@@ -25,6 +33,7 @@ const PROTECTED_AREAS: { segment: string; area: ProtectedArea; allowedRoles: str
   { segment: "b2b-portal", area: "b2b-portal", allowedRoles: B2B_ROLES },
   { segment: "account", area: "account", allowedRoles: ["B2C_CUSTOMER", ...STAFF_ROLES] },
   { segment: "analytics", area: "analytics", allowedRoles: ANALYTICS_ROLES },
+  { segment: "location-portal", area: "location-portal", allowedRoles: ANY_SIGNED_IN_ROLES },
 ];
 
 function getProtectedArea(pathname: string): typeof PROTECTED_AREAS[number] | null {
@@ -37,7 +46,7 @@ function isProtectedPath(pathname: string): boolean {
 }
 
 function getLoginUrl(area: ProtectedArea | null, locale: string): string {
-  if (area === "admin" || area === "portal" || area === "analytics") {
+  if (area === "admin" || area === "portal" || area === "analytics" || area === "location-portal") {
     return `/${locale}/portal-login`;
   }
   if (area === "b2b-portal") {

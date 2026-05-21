@@ -272,7 +272,6 @@ async function upsertBakeryProduct(item: BakeryItem, bakeryLocationId: string) {
             imageUrl: item.imageUrl,
             stockQuantity: item.initialStock ?? 0,
             category: "bakery",
-            house: "BAKERY",
             isB2cVisible: true,
             isB2bVisible: false,
             status: "ACTIVE",

@@ -187,17 +187,11 @@ async function main() {
   // ONLY runs for products that still have the default kind (CREAMERY_CHEESE) — we
   // never overwrite a more specific kind that's already been set by a later seed.
   console.log("\nBackfilling Product.kind from legacy 'house' (default-only):");
+  // Phase 1 (1i): Product.house was dropped. The legacy backfill from `house`
+  // → `kind` is no-op now; kind is set explicitly on every product going
+  // forward (admin form + seeds).
   const allProducts = await prisma.product.findMany();
-  let kindUpdated = 0;
-  for (const p of allProducts) {
-    if (p.kind !== ProductKind.CREAMERY_CHEESE) continue; // respect explicit kinds set elsewhere
-    const house = (p.house || "CREAMERY").toUpperCase();
-    if (house === "BAKERY") {
-      await prisma.product.update({ where: { id: p.id }, data: { kind: ProductKind.BAKERY_PASTRY } });
-      kindUpdated++;
-    }
-  }
-  console.log(`  ${kindUpdated} product(s) updated.`);
+  console.log(`  ${allProducts.length} product(s) scanned (no legacy house→kind migration needed).`);
 
   // ─── 4) Backfill Stock rows + ProductChannel for existing creamery products ──
   console.log("\nBackfilling Stock rows at Cold Warehouse + UPS_2DAY channel:");

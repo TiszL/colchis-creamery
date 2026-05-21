@@ -227,7 +227,6 @@ model Product {
   priceB2b       String
   stockQuantity  Int           // legacy: cached total. Stock per location is in Stock[].
   category       String?       @default("cheese")
-  house          String?       @default("CREAMERY") // legacy: superseded by `kind`. Will be dropped after migration.
   kind           ProductKind   @default(CREAMERY_CHEESE)
   isMadeToOrder  Boolean       @default(false) // true => no stock tracking at location (e.g. hot khachapuri)
   tag            String?       // Optional UI badge: "Bestseller" | "Vegan" | "Limited" | "Ships" | etc.
@@ -262,6 +261,10 @@ model Product {
   productFamily  ProductFamily   @relation(fields: [productFamilyId], references: [id])
   orderItems     OrderItem[]
   reviews        ProductReview[]
+  // Phase 1: ProductChannel is superseded by Product.salesChannel +
+  // Location.allowsChannels for routing; relation kept for now because the
+  // catalog UI still surfaces per-product channel chips (e.g. dine-in only).
+  // Targeted removal lands in a Phase 1 cleanup follow-up after UI refactor.
   channels       ProductChannel[]
   stocks         Stock[]
 }
@@ -728,8 +731,9 @@ model Stock {
 }
 
 // Phase 1: superseded by Product.salesChannel + Location.allowsChannels.
-// Dropped entirely in 1i. Field type updated so TS compiles in the
-// intervening commit — no DB change here.
+// Still read by the catalog UI's "offered channels" chips — full removal
+// blocked on a UI refactor that derives chips from the location's
+// LocationDeliveryMethod set instead. Tracked for Phase 1 cleanup.
 model ProductChannel {
   productId String
   product   Product        @relation(fields: [productId], references: [id], onDelete: Cascade)

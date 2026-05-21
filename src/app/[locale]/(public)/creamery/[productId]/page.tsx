@@ -34,7 +34,13 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
     description: `${product.description} Crafted from 100% Grass-Fed A2 Brown Swiss Milk. Made fresh in Ohio.`,
     alternates: {
       canonical: `${SITE_URL}${canonicalPath}`,
-      languages: { 'en': `${SITE_URL}/creamery/${slug}`, 'ka': `${SITE_URL}/ka/creamery/${slug}` },
+      languages: {
+        'en': `${SITE_URL}/creamery/${slug}`,
+        'ka': `${SITE_URL}/ka/creamery/${slug}`,
+        'ru': `${SITE_URL}/ru/creamery/${slug}`,
+        'es': `${SITE_URL}/es/creamery/${slug}`,
+        'x-default': `${SITE_URL}/creamery/${slug}`,
+      },
     },
     openGraph: {
       type: 'website',

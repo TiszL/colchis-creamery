@@ -36,14 +36,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         ...localizedUrls('/legal/returns', 0.3, 'yearly'),
     ];
 
-    // --- Dynamic: Product Line filtered creamery pages (creamery lines today) ---
-    const productLines = await prisma.productLine.findMany({
-        where: { isActive: true },
-        select: { slug: true, updatedAt: true },
-    });
-    const linePages = productLines.flatMap(l =>
-        localizedUrls(`/creamery?line=${l.slug}`, 0.85, 'daily')
-    );
+    // Product-line filtered creamery URLs (/creamery?line=...) intentionally NOT
+    // in the sitemap. Query-string filters without distinct canonical content
+    // trigger Google's "Duplicate, Google chose different canonical than user"
+    // flag. To index these as separate pages, restructure to real paths.
 
     // --- Dynamic: Products — kind-routed (creamery → /creamery/<slug>, bakery → /bakery/<slug>) ---
     const products = await prisma.product.findMany({
@@ -102,5 +98,5 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         }))
     );
 
-    return [...staticPages, ...linePages, ...productPages, ...recipePages, ...articlePages];
+    return [...staticPages, ...productPages, ...recipePages, ...articlePages];
 }

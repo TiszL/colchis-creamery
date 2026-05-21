@@ -43,7 +43,13 @@ export async function generateMetadata({ params, searchParams }: ShopPageProps):
     ],
     alternates: {
       canonical: `${SITE_URL}${canonicalPath}`,
-      languages: { 'en': `${SITE_URL}/creamery`, 'ka': `${SITE_URL}/ka/creamery` },
+      languages: {
+        'en': `${SITE_URL}/creamery`,
+        'ka': `${SITE_URL}/ka/creamery`,
+        'ru': `${SITE_URL}/ru/creamery`,
+        'es': `${SITE_URL}/es/creamery`,
+        'x-default': `${SITE_URL}/creamery`,
+      },
     },
     openGraph: {
       type: 'website',

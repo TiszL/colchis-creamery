@@ -12,7 +12,7 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
         keywords: ['Colchis Food returns', 'return policy', 'cheese refund', 'quality guarantee', 'wholesale returns'],
         alternates: {
             canonical: `${SITE_URL}${canonicalPath}`,
-            languages: { 'en': `${SITE_URL}/legal/returns`, 'ka': `${SITE_URL}/ka/legal/returns`, 'ru': `${SITE_URL}/ru/legal/returns`, 'es': `${SITE_URL}/es/legal/returns` },
+            languages: { 'en': `${SITE_URL}/legal/returns`, 'ka': `${SITE_URL}/ka/legal/returns`, 'ru': `${SITE_URL}/ru/legal/returns`, 'es': `${SITE_URL}/es/legal/returns`, 'x-default': `${SITE_URL}/legal/returns` },
         },
         openGraph: {
             type: 'website', title: 'Return Policy | Colchis Food',

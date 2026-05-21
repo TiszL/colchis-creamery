@@ -28,7 +28,16 @@ export async function generateMetadata({ params }: RecipePageProps): Promise<Met
             siteName: 'Colchis Food',
             url: `${SITE_URL}${canonicalPath}`,
         },
-        alternates: { canonical: `${SITE_URL}${canonicalPath}` },
+        alternates: {
+            canonical: `${SITE_URL}${canonicalPath}`,
+            languages: {
+                'en': `${SITE_URL}/recipes/${slug}`,
+                'ka': `${SITE_URL}/ka/recipes/${slug}`,
+                'ru': `${SITE_URL}/ru/recipes/${slug}`,
+                'es': `${SITE_URL}/es/recipes/${slug}`,
+                'x-default': `${SITE_URL}/recipes/${slug}`,
+            },
+        },
     };
 }
 

@@ -14,7 +14,7 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
         keywords: ['Colchis Food FAQ', 'Georgian cheese questions', 'cheese shipping', 'wholesale cheese', 'Sulguni storage'],
         alternates: {
             canonical: `${SITE_URL}${canonicalPath}`,
-            languages: { 'en': `${SITE_URL}/faq`, 'ka': `${SITE_URL}/ka/faq`, 'ru': `${SITE_URL}/ru/faq`, 'es': `${SITE_URL}/es/faq` },
+            languages: { 'en': `${SITE_URL}/faq`, 'ka': `${SITE_URL}/ka/faq`, 'ru': `${SITE_URL}/ru/faq`, 'es': `${SITE_URL}/es/faq`, 'x-default': `${SITE_URL}/faq` },
         },
         openGraph: {
             type: 'website', title: 'FAQ | Colchis Food',

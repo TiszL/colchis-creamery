@@ -30,7 +30,16 @@ export async function generateMetadata({ params }: ArticlePageProps): Promise<Me
             url: `${SITE_URL}${canonicalPath}`,
             publishedTime: article.publishedAt?.toISOString(),
         },
-        alternates: { canonical: `${SITE_URL}${canonicalPath}` },
+        alternates: {
+            canonical: `${SITE_URL}${canonicalPath}`,
+            languages: {
+                'en': `${SITE_URL}/journal/${slug}`,
+                'ka': `${SITE_URL}/ka/journal/${slug}`,
+                'ru': `${SITE_URL}/ru/journal/${slug}`,
+                'es': `${SITE_URL}/es/journal/${slug}`,
+                'x-default': `${SITE_URL}/journal/${slug}`,
+            },
+        },
     };
 }
 

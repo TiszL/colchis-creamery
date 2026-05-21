@@ -16,7 +16,13 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
         keywords: ['Georgian cheese recipes', 'sulguni recipes', 'khachapuri', 'cheese pairings', 'Georgian cooking'],
         alternates: {
             canonical: `${SITE_URL}${canonicalPath}`,
-            languages: { 'en': `${SITE_URL}/recipes`, 'ka': `${SITE_URL}/ka/recipes` },
+            languages: {
+                'en': `${SITE_URL}/recipes`,
+                'ka': `${SITE_URL}/ka/recipes`,
+                'ru': `${SITE_URL}/ru/recipes`,
+                'es': `${SITE_URL}/es/recipes`,
+                'x-default': `${SITE_URL}/recipes`,
+            },
         },
         openGraph: {
             type: 'website',

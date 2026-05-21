@@ -177,6 +177,38 @@ enum ProductKind {
   BAKERY_BREAD
 }
 
+// SalesChannel is the catalog/business-line axis. Every Product (SKU) belongs
+// to exactly one. Combined with Location.allowsChannels, it gates which
+// products a location can offer. Orthogonal to FulfillmentChannel (which
+// describes HOW the order moves — DoorDash, UPS, pickup, etc.).
+enum SalesChannel {
+  LOCAL_HOT      // hot bakery food, made-to-order, same-day
+  LOCAL_COLD     // cheese/cold items sold via local delivery or pickup
+  NATIONAL_SHIP  // cold-pack 2-day shipping from cold warehouse
+  B2B_WHOLESALE  // bulk cheese/butter for wholesale partners
+  B2B_FROZEN     // frozen ready-to-bake products for B2B
+}
+
+// ─── ProductFamily ───────────────────────────────────────────────────────────
+// Customer-facing grouping. One physical product ("Sulguni") can have
+// multiple Product SKUs across SalesChannels with different packaging, price,
+// and stock pools. The Family is the shared display name + hero copy.
+
+model ProductFamily {
+  id          String    @id @default(uuid())
+  slug        String    @unique
+  name        String                  // "Sulguni"
+  displayName String?                 // optional storefront override
+  description String?
+  imageUrl    String?
+  isActive    Boolean   @default(true)
+  sortOrder   Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  products    Product[]
+}
+
 model Product {
   id             String        @id @default(uuid())
   sku            String        @unique
@@ -209,15 +241,27 @@ model Product {
   // hiding the product. B2B-only items keep isB2cVisible=true + isCartOrderable=false
   // so they appear in /shop with a "Wholesale only" CTA instead of disappearing.
   isCartOrderable Boolean      @default(true)
+  // Phase 1 (channel model). Nullable during 1b; populated by 1c backfill;
+  // tightened to NOT NULL in a follow-up migration.
+  productFamilyId String?
+  salesChannel    SalesChannel?
+  // Packaging required for this SKU. Free text so admin can introduce
+  // new packaging types without a schema change. Example values:
+  // 'retail-pouch' | 'cold-pack-2day' | 'wholesale-case' | 'frozen-bulk' | 'hot-bag'
+  packagingType   String?
+  // COGS per unit (same string-money convention as priceB2c). Used by
+  // reporting/margin dashboards (Phase 7). Null = not yet recorded.
+  unitCost        String?
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
-  productLine ProductLine?    @relation(fields: [productLineId], references: [id])
-  productCategory Category?   @relation(fields: [categoryId], references: [id])
-  orderItems  OrderItem[]
-  reviews     ProductReview[]
-  channels    ProductChannel[]
-  stocks      Stock[]
+  productLine    ProductLine?    @relation(fields: [productLineId], references: [id])
+  productCategory Category?      @relation(fields: [categoryId], references: [id])
+  productFamily  ProductFamily?  @relation(fields: [productFamilyId], references: [id])
+  orderItems     OrderItem[]
+  reviews        ProductReview[]
+  channels       ProductChannel[]
+  stocks         Stock[]
 }
 
 // ─── Contract ────────────────────────────────────────────────────────────────
@@ -619,6 +663,13 @@ model Location {
   contactCardName       String?  // vanity name shown on /contact, e.g. "The High St Counter"
   contactCardDoorNote   String?  // e.g. "Door 4 · ring twice"
   displayOrder          Int      @default(0)  // sort order for multi-location display on /contact
+
+  // Phase 1: catalog channel allowlist. Which SalesChannels this location
+  // handles. A bakery typically allows [LOCAL_HOT, LOCAL_COLD]; the cold
+  // warehouse allows [NATIONAL_SHIP]; a B2B 3PL allows [B2B_WHOLESALE,
+  // B2B_FROZEN]. Empty array by default; populated by 1c backfill from
+  // LocationType, then admin-editable.
+  allowsChannels        SalesChannel[]  @default([])
 
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt

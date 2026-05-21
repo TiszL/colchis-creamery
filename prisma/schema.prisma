@@ -49,6 +49,34 @@ model User {
   chatSessionsAsVisitor ChatSession[] @relation("ChatVisitor")
   chatSessionsAsAgent   ChatSession[] @relation("ChatAgent")
   refundsInitiated      Refund[]
+  // Phase 2: per-location operator roles. Additive to User.role (global
+  // role like MASTER_ADMIN / B2C_CUSTOMER is unchanged). A user can have
+  // multiple roles at the same location and roles across locations.
+  locationRoles         UserLocation[]
+}
+
+// Phase 2 — Per-location operator roles. A user can hold multiple roles at
+// one location (e.g. both LOCATION_MANAGER and LOCATION_FULFILLMENT) and
+// roles across multiple locations (e.g. roving regional manager). MASTER_ADMIN
+// bypasses this table entirely (sees + does everything via global role).
+enum LocationRole {
+  LOCATION_MANAGER       // edit location's menu, set stock, all order fulfillment
+  LOCATION_FULFILLMENT   // order queue access: mark prepping / ready / out / delivered
+  B2B_SALES_MANAGER      // B2B order pipeline + partner ops for this warehouse
+}
+
+model UserLocation {
+  id          String       @id @default(uuid())
+  userId      String
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  locationId  String
+  location    Location     @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  role        LocationRole
+  createdAt   DateTime     @default(now())
+
+  @@unique([userId, locationId, role])
+  @@index([userId])
+  @@index([locationId])
 }
 
 // ─── UserAddress ─────────────────────────────────────────────────────────────
@@ -689,6 +717,7 @@ model Location {
   channels     LocationDeliveryMethod[]
   stocks       Stock[]
   fulfillments OrderFulfillment[]
+  userRoles    UserLocation[]
 }
 
 // Renamed from LocationChannel for clarity (the relation is one delivery

@@ -6,6 +6,7 @@ import { LocaleSwitcher } from "./LocaleSwitcher";
 import { useCart } from "@/providers/CartProvider";
 import { useAuth } from "@/providers/AuthProvider";
 import CartDropdown from "@/components/cart/CartDropdown";
+import { LocationPicker } from "@/components/location/LocationPicker";
 import { useState, useEffect, useRef } from "react";
 
 function initials(name = "") {
@@ -108,6 +109,10 @@ export function Header({ primaryAddressShort }: HeaderProps = {}) {
               group keeps the cart visually adjacent to the rest instead of
               floating off to the viewport edge under justify-content: space-between. */}
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+
+          {/* Phase 1 — sticky location picker. Outside ch-header-cta so it
+              shows on mobile too (the catalog filter scopes to this choice). */}
+          <LocationPicker />
 
           {/* Desktop CTA + auth */}
           <div className="ch-header-cta" style={{ display: "flex", gap: 14, alignItems: "center", fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", flexShrink: 0 }}>

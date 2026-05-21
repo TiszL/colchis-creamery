@@ -1,0 +1,129 @@
+"use client";
+
+import { useState, useRef, useEffect } from "react";
+import { MapPin, ChevronDown, Check, Truck } from "lucide-react";
+import { useLocation, type LocationOption } from "@/providers/LocationProvider";
+
+/**
+ * Phase 1 (1e) — Sticky location picker rendered in the site header.
+ *
+ * Shows the currently-selected location ("Ordering from Dublin Bakery") with
+ * a dropdown to switch. Bakeries first, then ship-to-home option (cold
+ * warehouse) at the bottom — matching the rule that NATIONAL_SHIP is a
+ * fallback when no local bakery serves the address.
+ *
+ * Distance-sorted hint comes in 1f when we wire the address context in.
+ */
+export function LocationPicker() {
+    const { locations, selectedLocation, setSelectedLocationId } = useLocation();
+    const [open, setOpen] = useState(false);
+    const ref = useRef<HTMLDivElement>(null);
+
+    // Close on outside click
+    useEffect(() => {
+        if (!open) return;
+        const handler = (e: MouseEvent) => {
+            if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+        };
+        document.addEventListener("mousedown", handler);
+        return () => document.removeEventListener("mousedown", handler);
+    }, [open]);
+
+    const bakeries = locations.filter(l => l.type === "BAKERY");
+    const warehouses = locations.filter(l => l.type === "D2C_COLD_WAREHOUSE");
+
+    const pick = (loc: LocationOption) => {
+        setSelectedLocationId(loc.id);
+        setOpen(false);
+    };
+
+    const label = selectedLocation
+        ? selectedLocation.name
+        : "Choose a location";
+
+    return (
+        <div ref={ref} className="relative">
+            <button
+                type="button"
+                onClick={() => setOpen(o => !o)}
+                className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-ink bg-cream border border-ink/10 rounded-full hover:border-ink/30 transition-colors"
+                aria-haspopup="listbox"
+                aria-expanded={open}
+            >
+                <MapPin className="w-3.5 h-3.5 text-[#B96A3D]" />
+                <span className="hidden sm:inline">Ordering from</span>
+                <span className="font-semibold max-w-[140px] truncate">{label}</span>
+                <ChevronDown className={`w-3.5 h-3.5 transition-transform ${open ? "rotate-180" : ""}`} />
+            </button>
+
+            {open && (
+                <div className="absolute right-0 mt-2 w-[320px] bg-cream border border-ink/15 rounded-lg shadow-xl z-50 overflow-hidden">
+                    <div className="px-4 py-3 border-b border-ink/10">
+                        <p className="text-[11px] font-bold text-ink/60 uppercase tracking-wider">Pick a bakery</p>
+                        <p className="text-[10px] text-ink/40 mt-0.5">Catalog + delivery options scope to your choice.</p>
+                    </div>
+
+                    <ul role="listbox" className="max-h-[300px] overflow-y-auto">
+                        {bakeries.length === 0 && (
+                            <li className="px-4 py-3 text-xs text-ink/40 italic">No bakeries available</li>
+                        )}
+                        {bakeries.map(loc => {
+                            const active = selectedLocation?.id === loc.id;
+                            return (
+                                <li key={loc.id}>
+                                    <button
+                                        type="button"
+                                        onClick={() => pick(loc)}
+                                        className={`w-full text-left px-4 py-2.5 hover:bg-ink/5 transition-colors ${active ? "bg-ink/5" : ""}`}
+                                    >
+                                        <div className="flex items-start gap-2">
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-semibold text-ink truncate">{loc.name}</p>
+                                                <p className="text-[11px] text-ink/50 truncate">{loc.city}, {loc.state}</p>
+                                                {loc.displayDescription && (
+                                                    <p className="text-[10px] text-ink/40 mt-1 line-clamp-1">{loc.displayDescription}</p>
+                                                )}
+                                            </div>
+                                            {active && <Check className="w-4 h-4 text-[#B96A3D] mt-0.5 shrink-0" />}
+                                        </div>
+                                    </button>
+                                </li>
+                            );
+                        })}
+                    </ul>
+
+                    {warehouses.length > 0 && (
+                        <div className="border-t border-ink/10 bg-ink/[0.02]">
+                            <div className="px-4 py-2">
+                                <p className="text-[10px] font-bold text-ink/50 uppercase tracking-wider">Shop nationwide</p>
+                            </div>
+                            <ul role="listbox">
+                                {warehouses.map(loc => {
+                                    const active = selectedLocation?.id === loc.id;
+                                    return (
+                                        <li key={loc.id}>
+                                            <button
+                                                type="button"
+                                                onClick={() => pick(loc)}
+                                                className={`w-full text-left px-4 py-2.5 hover:bg-ink/5 transition-colors ${active ? "bg-ink/5" : ""}`}
+                                            >
+                                                <div className="flex items-start gap-2">
+                                                    <Truck className="w-3.5 h-3.5 text-ink/60 mt-1 shrink-0" />
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-sm font-semibold text-ink">Ship to home</p>
+                                                        <p className="text-[11px] text-ink/50">2-day cold-chain · nationwide</p>
+                                                    </div>
+                                                    {active && <Check className="w-4 h-4 text-[#B96A3D] mt-0.5 shrink-0" />}
+                                                </div>
+                                            </button>
+                                        </li>
+                                    );
+                                })}
+                            </ul>
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+}

@@ -24,7 +24,7 @@ import { getSession } from '@/lib/session';
 import { reserveStock, releaseStock } from '@/lib/stock-reservation';
 import { applyFreeShippingRule, planFulfillment } from '@/lib/shipping';
 import { normalizeUSPhone } from '@/lib/phone';
-import type { FulfillmentChannel } from '@prisma/client';
+import type { DeliveryMethod } from '@prisma/client';
 import type Stripe from 'stripe';
 
 export type CheckoutInput = {
@@ -47,7 +47,7 @@ export type CheckoutInput = {
         buildingName?: string;
         deliveryNotes?: string;
     };
-    selectedChannels: { locationId: string; channel: FulfillmentChannel }[];
+    selectedChannels: { locationId: string; deliveryMethod: DeliveryMethod }[];
     contact: { name: string; email: string; phone: string };
 };
 
@@ -148,11 +148,11 @@ export async function createCheckoutSession(input: CheckoutInput): Promise<Check
         if (!group) {
             return { ok: false, error: 'Delivery options changed. Please re-select on the previous page.' };
         }
-        const quote = group.availableChannels.find(c => c.channel === sel.channel);
+        const quote = group.availableChannels.find(c => c.deliveryMethod === sel.deliveryMethod);
         if (!quote) {
             return {
                 ok: false,
-                error: `"${sel.channel.replace(/_/g, ' ')}" is no longer available for ${group.locationName}. Please pick another method.`,
+                error: `"${sel.deliveryMethod.replace(/_/g, ' ')}" is no longer available for ${group.locationName}. Please pick another method.`,
             };
         }
         chosenQuotes.push(quote);
@@ -310,7 +310,7 @@ export async function createCheckoutSession(input: CheckoutInput): Promise<Check
                     data: {
                         orderId: newOrder.id,
                         locationId: group.locationId,
-                        channel: quote.channel,
+                        deliveryMethod: quote.deliveryMethod,
                         status: 'PENDING',
                         shippingCost: quote.shippingCost.toFixed(2),
                         packagingType: quote.packagingType,

@@ -9,12 +9,12 @@ import AddressManager, { type ActiveAddress } from "@/components/bakery/AddressM
 import type { UserAddressDto } from "@/app/actions/addresses";
 import { getAvailableCreameryProducts, type CreameryAvailabilityResult } from "@/app/actions/creamery-availability";
 import { cartEligibleChannels } from "@/lib/fulfillment";
-import type { FulfillmentChannel } from "@prisma/client";
+import type { DeliveryMethod } from "@prisma/client";
 
-function channelLabel(c: FulfillmentChannel): string {
+function channelLabel(c: DeliveryMethod): string {
   switch (c) {
-    case 'UPS_GROUND_2DAY': return 'UPS 2-day';
-    case 'HOT_DELIVERY_OWN': return 'Hot delivery';
+    case 'UPS_2DAY': return 'UPS 2-day';
+    case 'OWN_DELIVERY': return 'Hot delivery';
     case 'DOORDASH_DRIVE': return 'DoorDash';
     case 'UBER_DIRECT': return 'Uber Eats';
     case 'IN_STORE_PICKUP': return 'Pickup';
@@ -139,9 +139,9 @@ interface CreameryProduct {
   isCartOrderable?: boolean;
   productLine?: { name: string; badgeColor: string | null } | null;
   /** All channels configured for this product server-side. */
-  offeredChannels?: FulfillmentChannel[];
+  offeredChannels?: DeliveryMethod[];
   /** Address-filtered channels for the current customer (set after availability fetch). */
-  eligibleChannels?: FulfillmentChannel[];
+  eligibleChannels?: DeliveryMethod[];
   /** Available stock summed across reachable locations (null = unknown / made-to-order). */
   stockAvailable?: number | null;
   /** Locations stocking this product that reach the customer (multi-location attribution). */

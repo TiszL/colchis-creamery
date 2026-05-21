@@ -3,14 +3,14 @@
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { MapPin, Loader2 } from 'lucide-react';
-import type { FulfillmentChannel } from '@prisma/client';
+import type { DeliveryMethod } from '@prisma/client';
 import { readGuestAddress, type ActiveAddress } from '@/components/bakery/AddressManager';
 import { getAvailableCreameryProducts, type CreameryAvailabilityResult } from '@/app/actions/creamery-availability';
 
-function channelMeta(c: FulfillmentChannel): { label: string; eta: string } {
+function channelMeta(c: DeliveryMethod): { label: string; eta: string } {
     switch (c) {
-        case 'UPS_GROUND_2DAY':   return { label: 'UPS Ground 2-day shipping', eta: '1–2 days · cold pack' };
-        case 'HOT_DELIVERY_OWN':  return { label: 'Hot delivery (own driver)',  eta: '~25 min · 12 mi radius' };
+        case 'UPS_2DAY':   return { label: 'UPS Ground 2-day shipping', eta: '1–2 days · cold pack' };
+        case 'OWN_DELIVERY':  return { label: 'Hot delivery (own driver)',  eta: '~25 min · 12 mi radius' };
         case 'DOORDASH_DRIVE':    return { label: 'DoorDash',                   eta: '~30–45 min · local' };
         case 'UBER_DIRECT':       return { label: 'Uber Eats',                  eta: '~30–45 min · local' };
         case 'IN_STORE_PICKUP':   return { label: 'In-store pickup',            eta: '~15 min ready' };
@@ -36,7 +36,7 @@ export default function CreameryDeliveryOptions({
     isLoggedIn,
 }: {
     productId: string;
-    offeredChannels: FulfillmentChannel[];
+    offeredChannels: DeliveryMethod[];
     locale: string;
     initialAddress: ActiveAddress | null;
     isLoggedIn: boolean;

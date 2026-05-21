@@ -281,7 +281,7 @@ export default function CartClient({ locale, apiKey, isLoggedIn, userAddresses }
                                             </span>
                                             {cheapest && (
                                                 <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.22em", color: "#7A8278", textTransform: "uppercase" }}>
-                                                    {cheapest.channel.replace(/_/g, ' ')} · {cheapest.shippingCost === 0 ? 'Free' : `$${cheapest.shippingCost.toFixed(2)}`}
+                                                    {cheapest.deliveryMethod.replace(/_/g, ' ')} · {cheapest.shippingCost === 0 ? 'Free' : `$${cheapest.shippingCost.toFixed(2)}`}
                                                 </span>
                                             )}
                                         </li>

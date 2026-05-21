@@ -3,11 +3,11 @@
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { MapPin, Plus, Pencil, Trash2, Save, Loader2, Search, X, Power, AlertTriangle, Star, ArrowUp, ArrowDown } from 'lucide-react';
 import { APIProvider, useMapsLibrary } from '@vis.gl/react-google-maps';
-import type { LocationType, FulfillmentChannel, SalesChannel } from '@prisma/client';
+import type { LocationType, DeliveryMethod, SalesChannel } from '@prisma/client';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 
 type ChannelRow = {
-    channel: FulfillmentChannel;
+    deliveryMethod: DeliveryMethod;
     radiusMiles: number | null;
     maxDriveHours: number | null;
     flatFee: string | null;
@@ -53,7 +53,7 @@ type LocationRow = {
 type Props = {
     locations: LocationRow[];
     locationTypes: LocationType[];
-    fulfillmentChannels: FulfillmentChannel[];
+    fulfillmentChannels: DeliveryMethod[];
     salesChannels: SalesChannel[];
     apiKey: string;
     locale: string;
@@ -78,10 +78,10 @@ function defaultAllowsForType(type: LocationType): SalesChannel[] {
 
 // Sensible default channel config for a freshly-created location, based on type.
 // Empty array if the user explicitly picks no defaults.
-function defaultChannelsForType(type: LocationType): Partial<Record<FulfillmentChannel, Partial<ChannelRow>>> {
+function defaultChannelsForType(type: LocationType): Partial<Record<DeliveryMethod, Partial<ChannelRow>>> {
     if (type === 'BAKERY') {
         return {
-            HOT_DELIVERY_OWN: { radiusMiles: 12, priceMultiplier: 1.0 },
+            OWN_DELIVERY: { radiusMiles: 12, priceMultiplier: 1.0 },
             DOORDASH_DRIVE: { radiusMiles: 20, priceMultiplier: 1.0 },
             UBER_DIRECT: { radiusMiles: 20, priceMultiplier: 1.0 },
             IN_STORE_PICKUP: { radiusMiles: null, priceMultiplier: 1.0 },
@@ -90,7 +90,7 @@ function defaultChannelsForType(type: LocationType): Partial<Record<FulfillmentC
     }
     if (type === 'D2C_COLD_WAREHOUSE') {
         return {
-            UPS_GROUND_2DAY: { radiusMiles: null, maxDriveHours: 20, priceMultiplier: 1.0 },
+            UPS_2DAY: { radiusMiles: null, maxDriveHours: 20, priceMultiplier: 1.0 },
         };
     }
     if (type === 'B2B_3PL_WAREHOUSE') {
@@ -99,7 +99,7 @@ function defaultChannelsForType(type: LocationType): Partial<Record<FulfillmentC
     return {};
 }
 
-function channelLabel(c: FulfillmentChannel): string {
+function channelLabel(c: DeliveryMethod): string {
     return c.replace(/_/g, ' ');
 }
 
@@ -375,11 +375,11 @@ export default function LocationsClient({
                                     )}
                                     {loc.channels.map(c => (
                                         <span
-                                            key={c.channel}
+                                            key={c.deliveryMethod}
                                             className="text-[10px] bg-[#0C0C0C] border border-[#ffffff0A] text-gray-400 px-2 py-1 font-mono"
                                             title={`mult ${c.priceMultiplier}× · ${c.radiusMiles !== null ? `${c.radiusMiles}mi` : c.maxDriveHours !== null ? `${c.maxDriveHours}h drive` : 'no radius'}`}
                                         >
-                                            {channelLabel(c.channel)}
+                                            {channelLabel(c.deliveryMethod)}
                                             {c.radiusMiles !== null && <span className="text-[#B96A3D] ml-1">{c.radiusMiles}mi</span>}
                                             {c.maxDriveHours !== null && <span className="text-[#B96A3D] ml-1">{c.maxDriveHours}h</span>}
                                         </span>
@@ -522,7 +522,7 @@ function LocationDrawer({
     location: LocationRow | null;
     isCreating: boolean;
     locationTypes: LocationType[];
-    fulfillmentChannels: FulfillmentChannel[];
+    fulfillmentChannels: DeliveryMethod[];
     salesChannels: SalesChannel[];
     apiKey: string;
     saveAction: (fd: FormData) => Promise<void>;
@@ -571,10 +571,10 @@ function LocationDrawer({
     const [channelMap, setChannelMap] = useState<Record<string, ChannelRow & { enabled: boolean }>>(() => {
         const initial: Record<string, ChannelRow & { enabled: boolean }> = {};
         for (const ch of fulfillmentChannels) {
-            const existing = location?.channels.find(c => c.channel === ch);
+            const existing = location?.channels.find(c => c.deliveryMethod === ch);
             const defaults = defaultChannelsForType(type)[ch as keyof ReturnType<typeof defaultChannelsForType>];
             initial[ch] = {
-                channel: ch,
+                deliveryMethod: ch,
                 enabled: !!existing || (isCreating && !!defaults),
                 radiusMiles: existing?.radiusMiles ?? defaults?.radiusMiles ?? null,
                 maxDriveHours: existing?.maxDriveHours ?? defaults?.maxDriveHours ?? null,
@@ -590,7 +590,7 @@ function LocationDrawer({
     const [isPending, startTransition] = useTransition();
     const [error, setError] = useState<string | null>(null);
 
-    const updateChannel = (ch: FulfillmentChannel, patch: Partial<ChannelRow & { enabled: boolean }>) => {
+    const updateChannel = (ch: DeliveryMethod, patch: Partial<ChannelRow & { enabled: boolean }>) => {
         setChannelMap(prev => ({ ...prev, [ch]: { ...prev[ch], ...patch } }));
     };
 
@@ -683,7 +683,7 @@ function LocationDrawer({
         for (const c of allowsChannels) fd.append('allowsChannels[]', c);
 
         const channelsArr = Object.values(channelMap).map(c => ({
-            channel: c.channel,
+            deliveryMethod: c.deliveryMethod,
             enabled: c.enabled,
             radiusMiles: c.radiusMiles,
             maxDriveHours: c.maxDriveHours,

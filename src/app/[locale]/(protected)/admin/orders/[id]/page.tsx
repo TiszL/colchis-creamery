@@ -51,8 +51,8 @@ function fmtMoney(s: string | null | undefined): string {
     return isNaN(n) ? '$0.00' : `$${n.toFixed(2)}`;
 }
 
-function fmtChannel(channel: string): string {
-    return channel.replace(/_/g, ' ');
+function fmtChannel(deliveryMethod: string): string {
+    return deliveryMethod.replace(/_/g, ' ');
 }
 
 function statusBadgeClasses(status: string): string {
@@ -209,7 +209,7 @@ export default async function AdminOrderDetailPage({ params }: PageProps) {
                                                 Fulfillment {idx + 1} of {order.fulfillments.length}
                                             </div>
                                             <div className="text-base text-[#2C2A29] mt-0.5 font-medium">
-                                                {f.location.name} · <span className="text-gray-600">{fmtChannel(f.channel)}</span>
+                                                {f.location.name} · <span className="text-gray-600">{fmtChannel(f.deliveryMethod)}</span>
                                             </div>
                                         </div>
                                         <span className={`px-3 py-1 text-xs font-bold uppercase tracking-wider rounded-full border ${statusBadgeClasses(f.status)}`}>

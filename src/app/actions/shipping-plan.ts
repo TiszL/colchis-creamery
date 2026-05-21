@@ -8,11 +8,11 @@ import { getShippingQuote as _getShippingQuote, planFulfillment as _planFulfillm
 import type { ChannelQuote, FulfillmentPlan, CartItemForShipping, CustomerAddressInfo } from '@/lib/shipping';
 import { getSession } from '@/lib/session';
 import { prisma } from '@/lib/db';
-import type { FulfillmentChannel, ProductKind } from '@prisma/client';
+import type { DeliveryMethod, ProductKind } from '@prisma/client';
 
 export async function getShippingQuote(opts: {
     locationId: string;
-    channel: FulfillmentChannel;
+    deliveryMethod: DeliveryMethod;
     customerLat: number;
     customerLng: number;
     productKind: ProductKind;

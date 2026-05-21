@@ -517,7 +517,7 @@ export type OrderForEmail = {
   createdAt: Date;
   user: { email: string; name: string | null };
   fulfillments: {
-    channel: string;
+    deliveryMethod: string;
     shippingCost: string | null;
     location: { name: string };
     items: {
@@ -542,8 +542,8 @@ function fmtMoney(s: string | null | undefined): string {
   return `$${n.toFixed(2)}`;
 }
 
-function fmtChannel(channel: string): string {
-  return channel.replace(/_/g, ' ');
+function fmtChannel(deliveryMethod: string): string {
+  return deliveryMethod.replace(/_/g, ' ');
 }
 
 export async function sendOrderConfirmation(order: OrderForEmail) {
@@ -610,7 +610,7 @@ export async function sendOrderConfirmation(order: OrderForEmail) {
                   ${escHtml(f.location.name)}
                 </p>
                 <p style="margin:6px 0 0;font-family:'Courier New',monospace;font-size:10px;letter-spacing:2.5px;color:${C.muted};text-transform:uppercase;">
-                  ${escHtml(fmtChannel(f.channel))}${f.shippingCost && parseFloat(f.shippingCost) > 0 ? ` · ${fmtMoney(f.shippingCost)} shipping` : f.shippingCost === '0.00' ? ' · free' : ''}
+                  ${escHtml(fmtChannel(f.deliveryMethod))}${f.shippingCost && parseFloat(f.shippingCost) > 0 ? ` · ${fmtMoney(f.shippingCost)} shipping` : f.shippingCost === '0.00' ? ' · free' : ''}
                 </p>
               </td>
             </tr>

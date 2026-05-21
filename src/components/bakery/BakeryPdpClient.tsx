@@ -4,20 +4,20 @@ import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Minus, Plus, ShoppingBag, Check, MapPin, Loader2, Utensils } from 'lucide-react';
-import type { FulfillmentChannel, ProductKind } from '@prisma/client';
+import type { DeliveryMethod, ProductKind } from '@prisma/client';
 import { useCart } from '@/providers/CartProvider';
 import { readGuestAddress, type ActiveAddress } from './AddressManager';
 import { getAvailableBakeryProducts, type AvailabilityResult } from '@/app/actions/bakery-availability';
 import { cartEligibleChannels } from '@/lib/fulfillment';
 
-function channelMeta(c: FulfillmentChannel): { label: string; eta: string } {
+function channelMeta(c: DeliveryMethod): { label: string; eta: string } {
     switch (c) {
-        case 'HOT_DELIVERY_OWN':       return { label: 'Hot delivery (own driver)', eta: '~25 min · 12 mi radius' };
+        case 'OWN_DELIVERY':       return { label: 'Hot delivery (own driver)', eta: '~25 min · 12 mi radius' };
         case 'DOORDASH_DRIVE':         return { label: 'DoorDash',                  eta: '~30–45 min · 20 mi radius' };
         case 'UBER_DIRECT':            return { label: 'Uber Eats',                 eta: '~30–45 min · 20 mi radius' };
         case 'IN_STORE_PICKUP':        return { label: 'In-store pickup',           eta: '~15 min ready' };
         case 'IN_STORE_DINE_IN':       return { label: 'Dine-in at the bakery',    eta: 'Fresh from the oven' };
-        case 'UPS_GROUND_2DAY':        return { label: 'UPS Ground 2-day',          eta: 'Not offered for bakery' };
+        case 'UPS_2DAY':        return { label: 'UPS Ground 2-day',          eta: 'Not offered for bakery' };
         case 'DOORDASH_MARKETPLACE':   return { label: 'DoorDash Marketplace',      eta: '' };
         case 'UBER_EATS_MARKETPLACE':  return { label: 'Uber Eats Marketplace',     eta: '' };
         default:                       return { label: c, eta: '' };
@@ -53,7 +53,7 @@ export default function BakeryPdpClient({
     isLoggedIn,
 }: {
     product: BakeryPdpProduct;
-    offeredChannels: FulfillmentChannel[];
+    offeredChannels: DeliveryMethod[];
     locale: string;
     initialAddress: ActiveAddress | null;
     isLoggedIn: boolean;

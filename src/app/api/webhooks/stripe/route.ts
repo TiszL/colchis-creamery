@@ -305,7 +305,7 @@ async function dispatchDoorDashDeliveries(orderId: string) {
     const lastName = fullName.split(/\s+/).slice(1).join(' ') || undefined;
 
     for (const f of order.fulfillments) {
-        if (f.channel !== 'DOORDASH_DRIVE') continue;
+        if (f.deliveryMethod !== 'DOORDASH_DRIVE') continue;
         if (f.externalOrderId) continue; // idempotency — already dispatched
 
         const loc = f.location;
@@ -417,7 +417,7 @@ async function dispatchUberDirectDeliveries(orderId: string) {
     }
 
     for (const f of order.fulfillments) {
-        if (f.channel !== 'UBER_DIRECT') continue;
+        if (f.deliveryMethod !== 'UBER_DIRECT') continue;
         if (f.externalOrderId) continue; // idempotency
 
         const loc = f.location;

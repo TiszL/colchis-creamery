@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useTransition, useCallback, useMemo } from
 import { APIProvider, useMapsLibrary, Map, AdvancedMarker, Pin, type MapMouseEvent } from '@vis.gl/react-google-maps';
 import { MapPin, Plus, Pencil, Trash2, Check, Map as MapIcon, X, Star } from 'lucide-react';
 import { saveMyAddress, deleteMyAddress, setDefaultAddress, type UserAddressDto } from '@/app/actions/addresses';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 
 /**
  * Address used to drive bakery availability.
@@ -639,6 +640,10 @@ export default function AddressManager({
         setShowMapPicker(false);
     };
 
+    // Address pending deletion. The shared ConfirmDialog component handles the
+    // modal UX (ESC / backdrop / focus / styling); we just track which row.
+    const [deleteConfirm, setDeleteConfirm] = useState<UserAddressDto | null>(null);
+
     // Phase B: guests now also use the pendingPlace buffer so they can fill in
     // optional delivery details (apt/access/notes) before committing. The
     // explicit "Use this address" button below replaces what used to be an
@@ -782,15 +787,24 @@ export default function AddressManager({
         });
     };
 
-    const handleDelete = (id: string) => {
-        if (!confirm('Delete this address?')) return;
+    // Two-step delete: request opens the in-app confirm; commit performs
+    // the actual deletion. Splitting them lets us style the prompt to match
+    // the site instead of using `window.confirm` (native OS dialog).
+    const requestDelete = (a: UserAddressDto) => {
+        setDeleteConfirm(a);
+    };
+
+    const commitDelete = () => {
+        const target = deleteConfirm;
+        if (!target) return;
+        setDeleteConfirm(null);
         startTransition(async () => {
-            const ok = await deleteMyAddress(id);
+            const ok = await deleteMyAddress(target.id);
             if (ok) {
-                const next = addresses.filter(a => a.id !== id);
+                const next = addresses.filter(a => a.id !== target.id);
                 setAddresses(next);
-                broadcastRef.current?.postMessage({ type: 'deleted', id } satisfies AddressBroadcastMessage);
-                if (activeAddress?.id === id) {
+                broadcastRef.current?.postMessage({ type: 'deleted', id: target.id } satisfies AddressBroadcastMessage);
+                if (activeAddress?.id === target.id) {
                     const fallback = next.find(a => a.isDefault) || next[0];
                     onActiveAddressChange(fallback ? dtoToActive(fallback) : null);
                 }
@@ -834,17 +848,18 @@ export default function AddressManager({
                         </span>
                     </div>
                 </div>
-                {/* Banner action: one universal "Change" button.
-                    - Logged-in: opens the picker (switch / edit / add / delete saved addresses).
-                    - Guest:     clears the localStorage entry + re-shows the search form.
-                    This replaces the old Switch+Change duo where "Change" on a
-                    logged-in account would just silently re-select the default
-                    (auto-select effect fires on activeAddress=null) — looked broken. */}
+                {/* Banner action: single button per context.
+                    - Logged-in: "Switch / Add" — opens the picker where the user
+                      can select another saved address OR click "Add new address".
+                      Both flows live behind one affordance so we don't show two
+                      buttons that ultimately go to the same panel.
+                    - Guest:     "Change" — clears the localStorage entry +
+                      re-shows the search form (their only entry mechanism). */}
                 <button
                     onClick={() => { if (isLoggedIn) { setShowPicker(true); } else { clearActive(); } }}
                     style={{ background: 'transparent', border: '1px solid #1F302633', fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.24em', color: '#1F3026', textTransform: 'uppercase', cursor: 'pointer', padding: '8px 14px', flexShrink: 0 }}
                 >
-                    Change
+                    {isLoggedIn ? 'Switch / Add' : 'Change'}
                 </button>
             </div>
         );
@@ -906,20 +921,33 @@ export default function AddressManager({
                                             {dtoToFormatted(a)}
                                         </div>
                                     </button>
-                                    <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-                                        <button onClick={() => startEdit(a)} title="Edit address"
-                                            style={{ background: 'transparent', border: 'none', color: '#7A8278', cursor: 'pointer', padding: 6 }}>
-                                            <Pencil className="w-3.5 h-3.5" />
+                                    {/* Per-row actions. Each has an icon AND a text label so
+                                        a user can't mistake Edit for Set-default at a glance.
+                                        Colors are distinct: Edit = neutral, Default = copper
+                                        (brand accent / favorite), Delete = red. */}
+                                    <div style={{ display: 'flex', gap: 6, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                                        <button
+                                            onClick={() => startEdit(a)}
+                                            title="Edit this address (label, apt, street, notes)"
+                                            style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'transparent', border: '1px solid #1F302633', color: '#1F3026', cursor: 'pointer', padding: '6px 10px', fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.22em', textTransform: 'uppercase' }}
+                                        >
+                                            <Pencil className="w-3 h-3" /> Edit
                                         </button>
                                         {!a.isDefault && (
-                                            <button onClick={() => handleSetDefault(a.id)} title="Set as default"
-                                                style={{ background: 'transparent', border: 'none', color: '#7A8278', cursor: 'pointer', padding: 6 }}>
-                                                <Star className="w-3.5 h-3.5" />
+                                            <button
+                                                onClick={() => handleSetDefault(a.id)}
+                                                title="Mark as your default address (auto-selected on next visit)"
+                                                style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'transparent', border: '1px solid #B96A3D55', color: '#B96A3D', cursor: 'pointer', padding: '6px 10px', fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.22em', textTransform: 'uppercase' }}
+                                            >
+                                                <Star className="w-3 h-3" /> Default
                                             </button>
                                         )}
-                                        <button onClick={() => handleDelete(a.id)} title="Delete"
-                                            style={{ background: 'transparent', border: 'none', color: '#A8312C', cursor: 'pointer', padding: 6 }}>
-                                            <Trash2 className="w-3.5 h-3.5" />
+                                        <button
+                                            onClick={() => requestDelete(a)}
+                                            title="Delete this saved address"
+                                            style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'transparent', border: '1px solid #A8312C55', color: '#A8312C', cursor: 'pointer', padding: '6px 10px', fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.22em', textTransform: 'uppercase' }}
+                                        >
+                                            <Trash2 className="w-3 h-3" /> Delete
                                         </button>
                                     </div>
                                 </div>
@@ -1011,6 +1039,32 @@ export default function AddressManager({
                         </div>
                     </APIProvider>
                 )}
+
+                <ConfirmDialog
+                    open={deleteConfirm !== null}
+                    variant="light"
+                    tone="danger"
+                    eyebrow="Confirm removal"
+                    title="Delete this address?"
+                    body={deleteConfirm && (
+                        <>
+                            <div style={{ background: '#FFFFFF', border: '1px solid #1F302622', padding: '14px 16px', marginBottom: 12 }}>
+                                {deleteConfirm.label && (
+                                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.24em', color: '#B96A3D', textTransform: 'uppercase', marginBottom: 4 }}>
+                                        {deleteConfirm.label}
+                                    </div>
+                                )}
+                                <div style={{ fontFamily: 'var(--font-sans)', fontSize: 14, color: '#1F3026', lineHeight: 1.45 }}>
+                                    {dtoToFormatted(deleteConfirm)}
+                                </div>
+                            </div>
+                            <span>It will be removed from your saved addresses. Active orders that already shipped to this address are unaffected.</span>
+                        </>
+                    )}
+                    confirmLabel="Delete address"
+                    onConfirm={commitDelete}
+                    onCancel={() => setDeleteConfirm(null)}
+                />
             </div>
         );
     }

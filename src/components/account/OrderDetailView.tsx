@@ -31,7 +31,7 @@ export type OrderDetailViewData = {
     }[];
     fulfillments: {
         id: string;
-        channel: string;
+        deliveryMethod: string;
         status: string;
         shippingCost: string | null;
         trackingNumber: string | null;
@@ -66,16 +66,16 @@ function fmtMoney(s: string | null | undefined): string {
     return isNaN(n) ? '$0.00' : `$${n.toFixed(2)}`;
 }
 
-function fmtChannel(channel: string): string {
-    return channel.replace(/_/g, ' ');
+function fmtChannel(deliveryMethod: string): string {
+    return deliveryMethod.replace(/_/g, ' ');
 }
 
-function trackingButtonLabel(channel: string): string {
-    switch (channel) {
+function trackingButtonLabel(deliveryMethod: string): string {
+    switch (deliveryMethod) {
         case 'DOORDASH_DRIVE':   return 'Track on DoorDash';
         case 'UBER_DIRECT':      return 'Track on Uber';
-        case 'UPS_GROUND_2DAY':  return 'Track on UPS';
-        case 'HOT_DELIVERY_OWN': return 'Track with our driver';
+        case 'UPS_2DAY':  return 'Track on UPS';
+        case 'OWN_DELIVERY': return 'Track with our driver';
         default:                 return 'Track delivery';
     }
 }
@@ -175,7 +175,7 @@ export default function OrderDetailView({
                                             {f.location.name}
                                         </h2>
                                         <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.24em', color: '#7A8278', textTransform: 'uppercase', marginTop: 6 }}>
-                                            {fmtChannel(f.channel)}{f.shippingCost ? ` · ${fmtMoney(f.shippingCost)}` : ''}
+                                            {fmtChannel(f.deliveryMethod)}{f.shippingCost ? ` · ${fmtMoney(f.shippingCost)}` : ''}
                                         </div>
                                     </div>
                                     <span style={{
@@ -231,7 +231,7 @@ export default function OrderDetailView({
                                                 textDecoration: 'none',
                                             }}
                                         >
-                                            {trackingButtonLabel(f.channel)} →
+                                            {trackingButtonLabel(f.deliveryMethod)} →
                                         </a>
                                         <div style={{ marginTop: 12, fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.22em', color: '#7A8278', textTransform: 'uppercase' }}>
                                             Opens in new tab · Live updates from your driver

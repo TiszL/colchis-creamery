@@ -3,12 +3,12 @@ import { getSession } from '@/lib/session';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import LocationsClient from '@/components/admin/LocationsClient';
-import { LocationType, FulfillmentChannel, SalesChannel } from '@prisma/client';
+import { LocationType, DeliveryMethod, SalesChannel } from '@prisma/client';
 
 export const dynamic = 'force-dynamic';
 
 const LOCATION_TYPES = Object.values(LocationType);
-const FULFILLMENT_CHANNELS = Object.values(FulfillmentChannel);
+const FULFILLMENT_CHANNELS = Object.values(DeliveryMethod);
 const SALES_CHANNELS = Object.values(SalesChannel);
 
 async function saveLocationAction(formData: FormData) {
@@ -68,7 +68,7 @@ async function saveLocationAction(formData: FormData) {
     if (channelsRaw) {
         try {
             const channels: Array<{
-                channel: FulfillmentChannel;
+                deliveryMethod: DeliveryMethod;
                 enabled: boolean;
                 radiusMiles: number | null;
                 maxDriveHours: number | null;
@@ -79,8 +79,8 @@ async function saveLocationAction(formData: FormData) {
 
             for (const c of channels) {
                 if (c.enabled) {
-                    await prisma.locationChannel.upsert({
-                        where: { locationId_channel: { locationId, channel: c.channel } },
+                    await prisma.locationDeliveryMethod.upsert({
+                        where: { locationId_deliveryMethod: { locationId, deliveryMethod: c.deliveryMethod } },
                         update: {
                             radiusMiles: c.radiusMiles,
                             maxDriveHours: c.maxDriveHours,
@@ -91,7 +91,7 @@ async function saveLocationAction(formData: FormData) {
                         },
                         create: {
                             locationId,
-                            channel: c.channel,
+                            deliveryMethod: c.deliveryMethod,
                             radiusMiles: c.radiusMiles,
                             maxDriveHours: c.maxDriveHours,
                             flatFee: c.flatFee,
@@ -102,8 +102,8 @@ async function saveLocationAction(formData: FormData) {
                     });
                 } else {
                     // Disabled = delete the row so eligibility queries treat it as not offered
-                    await prisma.locationChannel.deleteMany({
-                        where: { locationId, channel: c.channel },
+                    await prisma.locationDeliveryMethod.deleteMany({
+                        where: { locationId, deliveryMethod: c.deliveryMethod },
                     });
                 }
             }
@@ -198,7 +198,7 @@ export default async function AdminLocationsPage({ params }: { params: Promise<{
         // Primary first, then by admin-chosen displayOrder, then by type+name
         orderBy: [{ isPrimary: 'desc' }, { displayOrder: 'asc' }, { type: 'asc' }, { name: 'asc' }],
         include: {
-            channels: { orderBy: { channel: 'asc' } },
+            channels: { orderBy: { deliveryMethod: 'asc' } },
             _count: { select: { stocks: true, fulfillments: true } },
         },
     });
@@ -232,7 +232,7 @@ export default async function AdminLocationsPage({ params }: { params: Promise<{
         stockCount: l._count.stocks,
         fulfillmentCount: l._count.fulfillments,
         channels: l.channels.map(c => ({
-            channel: c.channel,
+            deliveryMethod: c.deliveryMethod,
             radiusMiles: c.radiusMiles,
             maxDriveHours: c.maxDriveHours,
             flatFee: c.flatFee,

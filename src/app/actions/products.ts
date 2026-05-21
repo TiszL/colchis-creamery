@@ -2,7 +2,7 @@
 
 import { prisma } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
-import { ProductKind, FulfillmentChannel, SalesChannel } from '@prisma/client';
+import { ProductKind, DeliveryMethod, SalesChannel } from '@prisma/client';
 
 // Derive a default SalesChannel from ProductKind for create/update calls
 // that haven't yet been migrated to send salesChannel explicitly. Admin form
@@ -23,7 +23,7 @@ export async function saveProductAction(formData: FormData) {
 
     const images = formData.getAll('images[]').filter(v => (v as string).trim() !== '') as string[];
     const videoUrls = formData.getAll('videoUrls[]').filter(v => (v as string).trim() !== '') as string[];
-    const channels = formData.getAll('channels[]').filter(v => !!v) as FulfillmentChannel[];
+    const channels = formData.getAll('channels[]').filter(v => !!v) as DeliveryMethod[];
 
     const stocksRaw = (formData.get('stocksJson') as string) || '[]';
     let stocks: Array<{ locationId: string; quantity: number | null }> = [];

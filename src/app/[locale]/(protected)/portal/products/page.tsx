@@ -3,13 +3,13 @@ import { getSession } from '@/lib/session';
 import { redirect } from 'next/navigation';
 import InventoryClient from '@/components/admin/InventoryClient';
 import { saveProductAction, deleteProductAction, quickStockAction } from '@/app/actions/products';
-import { ProductKind, FulfillmentChannel, SalesChannel } from '@prisma/client';
+import { ProductKind, DeliveryMethod, SalesChannel } from '@prisma/client';
 
 export const dynamic = 'force-dynamic';
 
 const ALLOWED = ['MASTER_ADMIN', 'PRODUCT_MANAGER'];
 const PRODUCT_KINDS = Object.values(ProductKind);
-const FULFILLMENT_CHANNELS = Object.values(FulfillmentChannel);
+const FULFILLMENT_CHANNELS = Object.values(DeliveryMethod);
 const SALES_CHANNELS = Object.values(SalesChannel);
 
 export default async function StaffProductsPage({ params }: { params: Promise<{ locale: string }> }) {
@@ -49,14 +49,14 @@ export default async function StaffProductsPage({ params }: { params: Promise<{ 
             id: true,
             name: true,
             type: true,
-            channels: { where: { isActive: true }, select: { channel: true } },
+            channels: { where: { isActive: true }, select: { deliveryMethod: true } },
         },
     });
     const locations = locationRows.map(l => ({
         id: l.id,
         name: l.name,
         type: l.type,
-        channels: l.channels.map(c => c.channel),
+        channels: l.channels.map(c => c.deliveryMethod),
     }));
 
     const serialized = products.map(p => ({

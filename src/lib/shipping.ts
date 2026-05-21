@@ -8,16 +8,16 @@
 //
 // Channel × product-kind business rules (encoded in ProductChannel rows + LocationChannel rows,
 // NOT here — this file just respects what the DB has wired):
-//   - UPS_GROUND_2DAY:       cold-chain cheese ONLY (creamery products with insulated packaging).
+//   - UPS_2DAY:       cold-chain cheese ONLY (creamery products with insulated packaging).
 //                            Never hot food, never frozen bakery. Served from Cold Warehouse only.
-//   - HOT_DELIVERY_OWN:      hot food only, served from Bakery via the bakery's own driver fleet.
+//   - OWN_DELIVERY:      hot food only, served from Bakery via the bakery's own driver fleet.
 //   - DOORDASH_DRIVE / UBER_DIRECT: hot food, frozen bakery, and local creamery (when stocked at
 //                            the bakery). Each item carries packaging metadata for the driver.
 //   - IN_STORE_PICKUP:       any product stocked at the bakery; customer collects.
 //   - IN_STORE_DINE_IN:      NOT cart-orderable — see `cartEligibleChannels` filter.
 //
 // Free-shipping rule (your Q8 answer):
-//   ONLY when ALL fulfillments in the plan use UPS_GROUND_2DAY AND
+//   ONLY when ALL fulfillments in the plan use UPS_2DAY AND
 //   the cart subtotal >= $100, UPS shipping costs become $0.
 
 import { prisma } from './db';
@@ -25,7 +25,7 @@ import { distanceMiles, channelMaxRadius } from './distance';
 import { cartEligibleChannels } from './fulfillment';
 import { doordashCreateQuote, isDoorDashConfigured, UNDELIVERABLE as DD_UNDELIVERABLE } from './doordash';
 import { uberCreateQuote, isUberDirectConfigured, UNDELIVERABLE as UBER_UNDELIVERABLE } from './uber-direct';
-import { FulfillmentChannel, ProductKind } from '@prisma/client';
+import { DeliveryMethod, ProductKind } from '@prisma/client';
 
 /** Phase 8.2: customer address bundle passed into planFulfillment. All fields
  *  optional so callers can pass partial info — carrier branches that need
@@ -60,7 +60,7 @@ export type CartItemForShipping = {
 export type ChannelQuote = {
     locationId: string;
     locationName: string;
-    channel: FulfillmentChannel;
+    deliveryMethod: DeliveryMethod;
     /** Final shipping cost in dollars (free-shipping rule already applied if applicable). */
     shippingCost: number;
     /** Pre-rule cost (before free-shipping discount). Kept for transparent line-item display. */
@@ -99,26 +99,29 @@ function parseDollars(s: string | null): number {
 }
 
 /** Channel → friendly carrier classification (used in UI + email + admin). */
-function carrierFor(channel: FulfillmentChannel): Carrier {
-    switch (channel) {
-        case 'UPS_GROUND_2DAY':       return 'UPS';
-        case 'HOT_DELIVERY_OWN':      return 'OWN_DRIVER';
+function carrierFor(deliveryMethod: DeliveryMethod): Carrier {
+    switch (deliveryMethod) {
+        case 'UPS_2DAY':       return 'UPS';
+        case 'OWN_DELIVERY':      return 'OWN_DRIVER';
         case 'DOORDASH_DRIVE':
         case 'DOORDASH_MARKETPLACE':  return 'DOORDASH';
         case 'UBER_DIRECT':
         case 'UBER_EATS_MARKETPLACE': return 'UBER';
         case 'IN_STORE_PICKUP':
         case 'IN_STORE_DINE_IN':      return 'PICKUP';
+        // Phase 1 (1h) — MANUAL_DISPATCH is for B2B 3PL freight (Phase 6);
+        // treated as PICKUP for the D2C path since cart never picks it.
+        case 'MANUAL_DISPATCH':       return 'PICKUP';
     }
 }
 
-function packagingFor(channel: FulfillmentChannel, productKind: ProductKind): PackagingType {
+function packagingFor(deliveryMethod: DeliveryMethod, productKind: ProductKind): PackagingType {
     // UPS = cold-chain cheese ONLY (per business rules). The DB constraints ensure UPS
     // is never paired with hot/frozen, so this branch only fires for CREAMERY_*.
-    if (channel === 'UPS_GROUND_2DAY') return 'INSULATED_COLD_CHAIN';
+    if (deliveryMethod === 'UPS_2DAY') return 'INSULATED_COLD_CHAIN';
     // Bakery's own driver = hot food only.
-    if (channel === 'HOT_DELIVERY_OWN') return 'HOT_INSULATED';
-    if (channel === 'IN_STORE_PICKUP' || channel === 'IN_STORE_DINE_IN') return 'AMBIENT';
+    if (deliveryMethod === 'OWN_DELIVERY') return 'HOT_INSULATED';
+    if (deliveryMethod === 'IN_STORE_PICKUP' || deliveryMethod === 'IN_STORE_DINE_IN') return 'AMBIENT';
     // DoorDash / Uber: packaging depends on product kind, since these channels carry both
     // hot food (HOT_INSULATED thermal bag) and frozen/creamery (INSULATED_COLD_CHAIN).
     if (productKind === 'BAKERY_HOT') return 'HOT_INSULATED';
@@ -126,16 +129,17 @@ function packagingFor(channel: FulfillmentChannel, productKind: ProductKind): Pa
     return 'AMBIENT';
 }
 
-function etaMinutesFor(channel: FulfillmentChannel, distanceMi: number): number | null {
-    switch (channel) {
-        case 'UPS_GROUND_2DAY':       return null; // 1-2 days, shown as a date elsewhere
-        case 'HOT_DELIVERY_OWN':      return Math.max(20, Math.round(15 + distanceMi * 2.5));   // ~2.5 min/mi + 15 prep
+function etaMinutesFor(deliveryMethod: DeliveryMethod, distanceMi: number): number | null {
+    switch (deliveryMethod) {
+        case 'UPS_2DAY':       return null; // 1-2 days, shown as a date elsewhere
+        case 'OWN_DELIVERY':      return Math.max(20, Math.round(15 + distanceMi * 2.5));   // ~2.5 min/mi + 15 prep
         case 'DOORDASH_DRIVE':
         case 'UBER_DIRECT':           return Math.max(25, Math.round(20 + distanceMi * 2.5));  // ~2.5 min/mi + 20 prep
         case 'DOORDASH_MARKETPLACE':
         case 'UBER_EATS_MARKETPLACE': return Math.max(30, Math.round(25 + distanceMi * 2.5));
         case 'IN_STORE_PICKUP':       return 15;
         case 'IN_STORE_DINE_IN':      return 0;
+        case 'MANUAL_DISPATCH':       return null; // ops-booked freight; ETA tracked manually
     }
 }
 
@@ -154,7 +158,7 @@ const quoteCache = new Map<string, { quote: ChannelQuote | null; expiresAt: numb
 
 function quoteCacheKey(opts: {
     locationId: string;
-    channel: FulfillmentChannel;
+    deliveryMethod: DeliveryMethod;
     customerLat: number;
     customerLng: number;
     orderValueCents?: number;
@@ -167,7 +171,7 @@ function quoteCacheKey(opts: {
     // we have a real phone for the carrier; we don't want a no-phone null
     // cached against a future with-phone request, or vice versa.
     const phoneFlag = opts.customerPhone ? 'p1' : 'p0';
-    return `${opts.locationId}|${opts.channel}|${lat},${lng}|${opts.orderValueCents ?? 0}|${phoneFlag}`;
+    return `${opts.locationId}|${opts.deliveryMethod}|${lat},${lng}|${opts.orderValueCents ?? 0}|${phoneFlag}`;
 }
 
 function cacheAndReturn(key: string, quote: ChannelQuote | null): ChannelQuote | null {
@@ -189,7 +193,7 @@ function cacheAndReturn(key: string, quote: ChannelQuote | null): ChannelQuote |
  */
 export async function getShippingQuote(opts: {
     locationId: string;
-    channel: FulfillmentChannel;
+    deliveryMethod: DeliveryMethod;
     customerLat: number;
     customerLng: number;
     productKind: ProductKind;       // used for packaging choice (and Phase 8 carrier item details)
@@ -217,7 +221,7 @@ export async function getShippingQuote(opts: {
 
     const loc = await prisma.location.findUnique({
         where: { id: opts.locationId },
-        include: { channels: { where: { channel: opts.channel, isActive: true } } },
+        include: { channels: { where: { deliveryMethod: opts.deliveryMethod, isActive: true } } },
     });
     if (!loc || loc.latitude === null || loc.longitude === null) {
         quoteCache.set(cacheKey, { quote: null, expiresAt: Date.now() + QUOTE_CACHE_TTL_MS });
@@ -232,25 +236,25 @@ export async function getShippingQuote(opts: {
     const distance = distanceMiles(opts.customerLat, opts.customerLng, loc.latitude, loc.longitude);
 
     // In-store channels are zero-cost regardless of LocationChannel.flatFee config
-    const isInStore = opts.channel === 'IN_STORE_PICKUP' || opts.channel === 'IN_STORE_DINE_IN';
+    const isInStore = opts.deliveryMethod === 'IN_STORE_PICKUP' || opts.deliveryMethod === 'IN_STORE_DINE_IN';
     if (isInStore) {
         // Phase 7b fix: pickup respects radiusMiles (with 100mi default).
         const PICKUP_DEFAULT_RADIUS_MILES = 100;
-        if (opts.channel === 'IN_STORE_PICKUP') {
+        if (opts.deliveryMethod === 'IN_STORE_PICKUP') {
             const maxReach = channelMaxRadius(lc.radiusMiles, lc.maxDriveHours) ?? PICKUP_DEFAULT_RADIUS_MILES;
             if (distance > maxReach) return cacheAndReturn(cacheKey, null);
         }
         return cacheAndReturn(cacheKey, {
             locationId: loc.id,
             locationName: loc.name,
-            channel: opts.channel,
+            deliveryMethod: opts.deliveryMethod,
             shippingCost: 0,
             baseShippingCost: 0,
             isFreeShipping: false,
-            etaMinutes: etaMinutesFor(opts.channel, distance),
+            etaMinutes: etaMinutesFor(opts.deliveryMethod, distance),
             distanceMiles: distance,
-            carrier: carrierFor(opts.channel),
-            packagingType: packagingFor(opts.channel, opts.productKind),
+            carrier: carrierFor(opts.deliveryMethod),
+            packagingType: packagingFor(opts.deliveryMethod, opts.productKind),
         });
     }
 
@@ -264,7 +268,7 @@ export async function getShippingQuote(opts: {
     // limited, etc.) we fall back to the flat-fee path so checkout stays
     // unblocked — UX wording in cart already calls the shipping "estimate".
     if (
-        opts.channel === 'DOORDASH_DRIVE'
+        opts.deliveryMethod === 'DOORDASH_DRIVE'
         && isDoorDashConfigured()
         && opts.orderValueCents !== undefined && opts.orderValueCents > 0
         && opts.customerAddress
@@ -297,14 +301,14 @@ export async function getShippingQuote(opts: {
             return cacheAndReturn(cacheKey, {
                 locationId: loc.id,
                 locationName: loc.name,
-                channel: opts.channel,
+                deliveryMethod: opts.deliveryMethod,
                 shippingCost: withMarkup,
                 baseShippingCost: withMarkup,
                 isFreeShipping: false,
-                etaMinutes: quote.etaMinutes ?? etaMinutesFor(opts.channel, distance),
+                etaMinutes: quote.etaMinutes ?? etaMinutesFor(opts.deliveryMethod, distance),
                 distanceMiles: distance,
-                carrier: carrierFor(opts.channel),
-                packagingType: packagingFor(opts.channel, opts.productKind),
+                carrier: carrierFor(opts.deliveryMethod),
+                packagingType: packagingFor(opts.deliveryMethod, opts.productKind),
             });
         }
         // quote === null (generic outage / misconfig) → fall through to flat-fee
@@ -314,7 +318,7 @@ export async function getShippingQuote(opts: {
     // (Uber's API takes structured JSON, not free-text). Falls back to flat-fee
     // if components are missing or the call fails.
     if (
-        opts.channel === 'UBER_DIRECT'
+        opts.deliveryMethod === 'UBER_DIRECT'
         && isUberDirectConfigured()
         && opts.orderValueCents !== undefined && opts.orderValueCents > 0
         && opts.customerAddressInfo?.line1
@@ -362,14 +366,14 @@ export async function getShippingQuote(opts: {
             return cacheAndReturn(cacheKey, {
                 locationId: loc.id,
                 locationName: loc.name,
-                channel: opts.channel,
+                deliveryMethod: opts.deliveryMethod,
                 shippingCost: withMarkup,
                 baseShippingCost: withMarkup,
                 isFreeShipping: false,
-                etaMinutes: quote.durationMinutes ?? etaMinutesFor(opts.channel, distance),
+                etaMinutes: quote.durationMinutes ?? etaMinutesFor(opts.deliveryMethod, distance),
                 distanceMiles: distance,
-                carrier: carrierFor(opts.channel),
-                packagingType: packagingFor(opts.channel, opts.productKind),
+                carrier: carrierFor(opts.deliveryMethod),
+                packagingType: packagingFor(opts.deliveryMethod, opts.productKind),
             });
         }
     }
@@ -384,14 +388,14 @@ export async function getShippingQuote(opts: {
     return cacheAndReturn(cacheKey, {
         locationId: loc.id,
         locationName: loc.name,
-        channel: opts.channel,
+        deliveryMethod: opts.deliveryMethod,
         shippingCost: cost,
         baseShippingCost: cost,
         isFreeShipping: false,
-        etaMinutes: etaMinutesFor(opts.channel, distance),
+        etaMinutes: etaMinutesFor(opts.deliveryMethod, distance),
         distanceMiles: distance,
-        carrier: carrierFor(opts.channel),
-        packagingType: packagingFor(opts.channel, opts.productKind),
+        carrier: carrierFor(opts.deliveryMethod),
+        packagingType: packagingFor(opts.deliveryMethod, opts.productKind),
     });
 }
 
@@ -438,7 +442,7 @@ export async function planFulfillment(
         locationName: string;
         items: FulfillmentGroup['items'];
         // Channels eligible for ALL items in this group + customer reachability
-        candidateChannels: Set<FulfillmentChannel>;
+        candidateChannels: Set<DeliveryMethod>;
     };
     const groups = new Map<string, GroupAccumulator>();
     const undeliverable: FulfillmentPlan['undeliverableItems'] = [];
@@ -478,20 +482,20 @@ export async function planFulfillment(
             // up at a Dublin OH bakery. Admin can override per-location via
             // LocationChannel.radiusMiles.
             const PICKUP_DEFAULT_RADIUS_MILES = 100;
-            const reachableHere: FulfillmentChannel[] = [];
+            const reachableHere: DeliveryMethod[] = [];
             for (const lc of loc.channels) {
-                if (lc.channel === FulfillmentChannel.IN_STORE_DINE_IN) continue;
-                const isPickup = lc.channel === FulfillmentChannel.IN_STORE_PICKUP;
+                if (lc.deliveryMethod === DeliveryMethod.IN_STORE_DINE_IN) continue;
+                const isPickup = lc.deliveryMethod === DeliveryMethod.IN_STORE_PICKUP;
                 const maxReach = channelMaxRadius(lc.radiusMiles, lc.maxDriveHours);
                 const effectiveMaxReach = isPickup ? (maxReach ?? PICKUP_DEFAULT_RADIUS_MILES) : maxReach;
                 if (effectiveMaxReach !== null && distance <= effectiveMaxReach) {
-                    if (productCartChannels.includes(lc.channel)) reachableHere.push(lc.channel);
+                    if (productCartChannels.includes(lc.deliveryMethod)) reachableHere.push(lc.deliveryMethod);
                 }
             }
 
             if (reachableHere.length === 0) {
                 // Track what kind of "no" this is for the final reason message
-                const anyChannelMatchAtAll = loc.channels.some(lc => productCartChannels.includes(lc.channel) && lc.channel !== FulfillmentChannel.IN_STORE_DINE_IN);
+                const anyChannelMatchAtAll = loc.channels.some(lc => productCartChannels.includes(lc.deliveryMethod) && lc.deliveryMethod !== DeliveryMethod.IN_STORE_DINE_IN);
                 if (anyChannelMatchAtAll) sawNoReach = true; else sawNoChannelMatch = true;
                 continue;
             }
@@ -513,7 +517,7 @@ export async function planFulfillment(
                 groups.set(groupKey, acc);
             } else {
                 // Intersect — channels must work for EVERY item in the group
-                const next = new Set<FulfillmentChannel>();
+                const next = new Set<DeliveryMethod>();
                 for (const c of acc.candidateChannels) if (reachableHere.includes(c)) next.add(c);
                 acc.candidateChannels = next;
             }
@@ -569,9 +573,9 @@ export async function planFulfillment(
         // cold) the total stacked to 10+ seconds per group. Promise.allSettled
         // runs them concurrently and ignores failures.
         const settled = await Promise.allSettled(
-            Array.from(acc.candidateChannels).map(channel => getShippingQuote({
+            Array.from(acc.candidateChannels).map(deliveryMethod => getShippingQuote({
                 locationId: acc.locationId,
-                channel,
+                deliveryMethod,
                 customerLat,
                 customerLng,
                 productKind: representativeKind,
@@ -607,7 +611,7 @@ export async function planFulfillment(
 /**
  * Apply the free-shipping rule to a selected fulfillment plan + selected channels.
  *
- * Rule: ALL selected fulfillments use UPS_GROUND_2DAY AND cart subtotal >= $100
+ * Rule: ALL selected fulfillments use UPS_2DAY AND cart subtotal >= $100
  *       → UPS shipping costs become $0.
  *
  * Returns a NEW array of selected quotes (originals unchanged). `isFreeShipping`
@@ -618,7 +622,7 @@ export function applyFreeShippingRule(
     cartSubtotal: number,
 ): ChannelQuote[] {
     if (cartSubtotal < 100) return selectedQuotes;
-    const allUps = selectedQuotes.every(q => q.channel === 'UPS_GROUND_2DAY');
+    const allUps = selectedQuotes.every(q => q.deliveryMethod === 'UPS_2DAY');
     if (!allUps) return selectedQuotes;
     return selectedQuotes.map(q => ({
         ...q,
@@ -637,7 +641,7 @@ export function freeShippingProgress(
 ): { eligible: boolean; thresholdMet: boolean; remaining: number } | null {
     // Determine if a UPS-only plan is achievable (every group has UPS as an option)
     const upsOnlyPossible = plan.groups.length > 0
-        && plan.groups.every(g => g.availableChannels.some(c => c.channel === 'UPS_GROUND_2DAY'));
+        && plan.groups.every(g => g.availableChannels.some(c => c.deliveryMethod === 'UPS_2DAY'));
     if (!upsOnlyPossible) return null;
     return {
         eligible: true,

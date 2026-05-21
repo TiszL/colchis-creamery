@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import { moderateReview, deleteReview, submitReply } from '@/app/actions/reviews';
 import { Star, ShieldCheck, MessageCircle, Check, X, Trash2, Eye, ChevronDown, ChevronUp, Image as ImageIcon, Send, AlertTriangle, Shield } from 'lucide-react';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 
 interface ReviewPhoto {
     id: string;
@@ -43,6 +44,8 @@ export default function ReviewModerationClient({ reviews: initialReviews, pendin
     const [expandedId, setExpandedId] = useState<string | null>(null);
     const [replyingTo, setReplyingTo] = useState<string | null>(null);
     const [replyText, setReplyText] = useState('');
+    // Pending-deletion review id (in-app ConfirmDialog replaces native confirm).
+    const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
     const [isPending, startTransition] = useTransition();
 
     const filtered = filter === 'ALL' ? reviews : reviews.filter(r => r.status === filter);
@@ -65,11 +68,17 @@ export default function ReviewModerationClient({ reviews: initialReviews, pendin
     };
 
     const handleDelete = (reviewId: string) => {
-        if (!confirm('Delete this review permanently?')) return;
+        setPendingDeleteId(reviewId);
+    };
+
+    const commitDelete = () => {
+        const id = pendingDeleteId;
+        if (!id) return;
+        setPendingDeleteId(null);
         startTransition(async () => {
-            const result = await deleteReview(reviewId);
+            const result = await deleteReview(id);
             if (result.success) {
-                setReviews(prev => prev.filter(r => r.id !== reviewId));
+                setReviews(prev => prev.filter(r => r.id !== id));
             }
         });
     };
@@ -355,6 +364,17 @@ export default function ReviewModerationClient({ reviews: initialReviews, pendin
                     })}
                 </div>
             )}
+
+            <ConfirmDialog
+                open={pendingDeleteId !== null}
+                variant="dark"
+                tone="danger"
+                title="Delete this review?"
+                body="The review, replies, and any attached photos will be removed permanently. Customers will not see it again."
+                confirmLabel="Delete review"
+                onConfirm={commitDelete}
+                onCancel={() => setPendingDeleteId(null)}
+            />
         </div>
     );
 }

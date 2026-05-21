@@ -34,7 +34,7 @@ import { revalidatePath } from 'next/cache';
 async function cancelActiveCarrierDeliveries(
     fulfillments: ReadonlyArray<{
         id: string;
-        channel: string;
+        deliveryMethod: string;
         externalOrderId: string | null;
         status: string;
     }>,
@@ -44,17 +44,17 @@ async function cancelActiveCarrierDeliveries(
         if (!f.externalOrderId) continue;
         if (f.status === 'DELIVERED' || f.status === 'CANCELLED') continue;
         let cancelled = false;
-        if (f.channel === 'DOORDASH_DRIVE') {
+        if (f.deliveryMethod === 'DOORDASH_DRIVE') {
             cancelled = await doordashCancelDelivery(f.externalOrderId);
-        } else if (f.channel === 'UBER_DIRECT') {
+        } else if (f.deliveryMethod === 'UBER_DIRECT') {
             cancelled = await uberCancelDelivery(f.externalOrderId);
         } else {
             continue; // non-carrier channels (pickup/dine-in/own-driver) have nothing to cancel
         }
         if (cancelled) {
-            console.log(`${logPrefix} Cancelled carrier delivery`, f.externalOrderId, '(', f.channel, ')');
+            console.log(`${logPrefix} Cancelled carrier delivery`, f.externalOrderId, '(', f.deliveryMethod, ')');
         } else {
-            console.warn(`${logPrefix} Could not cancel carrier delivery`, f.externalOrderId, '(', f.channel, ') — may have been picked up; reconcile in carrier dashboard');
+            console.warn(`${logPrefix} Could not cancel carrier delivery`, f.externalOrderId, '(', f.deliveryMethod, ') — may have been picked up; reconcile in carrier dashboard');
         }
     }
 }

@@ -2,7 +2,7 @@
 
 import { prisma } from '@/lib/db';
 import { distanceMiles, channelMaxRadius } from '@/lib/distance';
-import { FulfillmentChannel, LocationType, ProductKind } from '@prisma/client';
+import { DeliveryMethod, LocationType, ProductKind } from '@prisma/client';
 
 export type DeliverableProduct = {
     id: string;
@@ -20,7 +20,7 @@ export type DeliverableProduct = {
     /** Sum of `Stock.quantity` across reachable locations. null = made-to-order (unlimited). */
     stockAvailable: number | null;
     /** Channels this product can be delivered to the customer via, from any reachable location. */
-    eligibleChannels: FulfillmentChannel[];
+    eligibleChannels: DeliveryMethod[];
     /** Locations stocking this product that can reach the customer (id, name, distance miles). */
     sources: Array<{ locationId: string; locationName: string; distanceMiles: number }>;
 };
@@ -45,7 +45,7 @@ export type AvailabilityResult = {
  *      are stocked at the location AND eligible for that channel AND visible on B2C.
  *   3. Group/dedupe by product so each product lists the union of reachable channels.
  *
- * UPS_GROUND_2DAY is intentionally excluded — bakery products are never nationwide per business rules.
+ * UPS_2DAY is intentionally excluded — bakery products are never nationwide per business rules.
  */
 export async function getAvailableBakeryProducts(
     customerLat: number,
@@ -87,14 +87,14 @@ export async function getAvailableBakeryProducts(
         const distance = distanceMiles(customerLat, customerLng, loc.latitude, loc.longitude);
 
         // Which channels at this location reach the customer?
-        const reachableChannels: FulfillmentChannel[] = [];
+        const reachableChannels: DeliveryMethod[] = [];
         for (const ch of loc.channels) {
-            if (ch.channel === FulfillmentChannel.UPS_GROUND_2DAY) continue; // bakery never ships nationwide
+            if (ch.deliveryMethod === DeliveryMethod.UPS_2DAY) continue; // bakery never ships nationwide
             const maxRadius = channelMaxRadius(ch.radiusMiles, ch.maxDriveHours);
             // In-store channels have no radius — customer drives to us, always "reachable" if active
-            const inStore = ch.channel === FulfillmentChannel.IN_STORE_PICKUP || ch.channel === FulfillmentChannel.IN_STORE_DINE_IN;
+            const inStore = ch.deliveryMethod === DeliveryMethod.IN_STORE_PICKUP || ch.deliveryMethod === DeliveryMethod.IN_STORE_DINE_IN;
             if (inStore || (maxRadius !== null && distance <= maxRadius)) {
-                reachableChannels.push(ch.channel);
+                reachableChannels.push(ch.deliveryMethod);
             }
         }
         if (reachableChannels.length === 0) continue;

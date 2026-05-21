@@ -4,7 +4,7 @@
 //
 // Channel rules (from business model):
 //   - Hot Adjaruli: IN_STORE only (no delivery — too fragile / signature dine-in dish)
-//   - Other hot items: HOT_DELIVERY_OWN + DOORDASH_DRIVE + UBER_DIRECT + IN_STORE_*
+//   - Other hot items: OWN_DELIVERY + DOORDASH_DRIVE + UBER_DIRECT + IN_STORE_*
 //   - Frozen items: DOORDASH_DRIVE + UBER_DIRECT + IN_STORE_PICKUP (NO nationwide UPS)
 //
 // Idempotent: upserts by Product.sku.
@@ -12,27 +12,27 @@
 // fields. Product schema has no equivalents, so these are dropped here. A future i18n / tags
 // phase can restore them.
 
-import { PrismaClient, ProductKind, FulfillmentChannel, LocationType } from "@prisma/client";
+import { PrismaClient, ProductKind, DeliveryMethod, LocationType } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-const HOT_DELIVERABLE_CHANNELS: FulfillmentChannel[] = [
-    FulfillmentChannel.HOT_DELIVERY_OWN,
-    FulfillmentChannel.DOORDASH_DRIVE,
-    FulfillmentChannel.UBER_DIRECT,
-    FulfillmentChannel.IN_STORE_PICKUP,
-    FulfillmentChannel.IN_STORE_DINE_IN,
+const HOT_DELIVERABLE_CHANNELS: DeliveryMethod[] = [
+    DeliveryMethod.OWN_DELIVERY,
+    DeliveryMethod.DOORDASH_DRIVE,
+    DeliveryMethod.UBER_DIRECT,
+    DeliveryMethod.IN_STORE_PICKUP,
+    DeliveryMethod.IN_STORE_DINE_IN,
 ];
 
-const HOT_IN_STORE_ONLY_CHANNELS: FulfillmentChannel[] = [
-    FulfillmentChannel.IN_STORE_DINE_IN,
-    FulfillmentChannel.IN_STORE_PICKUP,
+const HOT_IN_STORE_ONLY_CHANNELS: DeliveryMethod[] = [
+    DeliveryMethod.IN_STORE_DINE_IN,
+    DeliveryMethod.IN_STORE_PICKUP,
 ];
 
-const FROZEN_CHANNELS: FulfillmentChannel[] = [
-    FulfillmentChannel.DOORDASH_DRIVE,
-    FulfillmentChannel.UBER_DIRECT,
-    FulfillmentChannel.IN_STORE_PICKUP,
+const FROZEN_CHANNELS: DeliveryMethod[] = [
+    DeliveryMethod.DOORDASH_DRIVE,
+    DeliveryMethod.UBER_DIRECT,
+    DeliveryMethod.IN_STORE_PICKUP,
 ];
 
 type BakeryItem = {
@@ -47,7 +47,7 @@ type BakeryItem = {
     kind: ProductKind;
     isMadeToOrder: boolean;
     tag: string | null;
-    channels: FulfillmentChannel[];
+    channels: DeliveryMethod[];
     initialStock: number | null; // null = made-to-order (no stock tracked)
     imageUrl: string;
 };

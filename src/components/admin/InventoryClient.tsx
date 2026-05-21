@@ -3,7 +3,7 @@
 import { useState, useTransition, useRef, useEffect } from 'react';
 import { Search, Plus, Save, Trash2, X, Eye, EyeOff, Package, AlertTriangle, Image as ImageIcon, Film, ChevronDown, MapPin, Boxes, Zap } from 'lucide-react';
 import MediaUploadZone from './MediaUploadZone';
-import type { ProductKind, FulfillmentChannel, LocationType, SalesChannel } from '@prisma/client';
+import type { ProductKind, DeliveryMethod, LocationType, SalesChannel } from '@prisma/client';
 
 interface ProductFamilyOption {
     id: string;
@@ -58,7 +58,7 @@ interface Product {
     salesChannel: SalesChannel;
     packagingType: string | null;
     unitCost: string | null;
-    channels: FulfillmentChannel[];
+    channels: DeliveryMethod[];
     stocks: StockRow[];
 }
 
@@ -67,7 +67,7 @@ interface LocationOption {
     name: string;
     type: LocationType;
     /** Active channels this location offers. Used to surface "offered by" hints + flag misconfig. */
-    channels: FulfillmentChannel[];
+    channels: DeliveryMethod[];
 }
 
 interface InventoryClientProps {
@@ -76,7 +76,7 @@ interface InventoryClientProps {
     productFamilies: ProductFamilyOption[];
     locations: LocationOption[];
     productKinds: ProductKind[];
-    fulfillmentChannels: FulfillmentChannel[];
+    fulfillmentChannels: DeliveryMethod[];
     salesChannels: SalesChannel[];
     locale: string;
     saveAction: (formData: FormData) => Promise<void>;
@@ -94,7 +94,7 @@ function kindLabel(k: ProductKind): string {
     return k.replace(/_/g, ' ');
 }
 
-function channelLabel(c: FulfillmentChannel): string {
+function channelLabel(c: DeliveryMethod): string {
     return c.replace(/_/g, ' ');
 }
 
@@ -138,7 +138,7 @@ export default function InventoryClient({ products, productLines, productFamilie
     // Phase 3 state — kind, made-to-order, channels eligibility, per-location stock
     const [kind, setKind] = useState<ProductKind>('CREAMERY_CHEESE');
     const [isMadeToOrder, setIsMadeToOrder] = useState(false);
-    const [channelsSet, setChannelsSet] = useState<Set<FulfillmentChannel>>(new Set());
+    const [channelsSet, setChannelsSet] = useState<Set<DeliveryMethod>>(new Set());
     // Keyed by locationId. null = "made-to-order at this location" / "untracked"
     const [stockMap, setStockMap] = useState<Record<string, number | null>>({});
 
@@ -194,7 +194,7 @@ export default function InventoryClient({ products, productLines, productFamilie
         setDeleteConfirm(null);
     };
 
-    const toggleChannel = (ch: FulfillmentChannel) => {
+    const toggleChannel = (ch: DeliveryMethod) => {
         setChannelsSet(prev => {
             const next = new Set(prev);
             if (next.has(ch)) next.delete(ch); else next.add(ch);
@@ -749,7 +749,7 @@ export default function InventoryClient({ products, productLines, productFamilie
                             {fulfillmentChannels.map(ch => {
                                 const checked = channelsSet.has(ch);
                                 // Which active locations offer this channel? Surfaces the channel↔location mapping
-                                // so the admin sees "UPS_GROUND_2DAY is offered by Cold Warehouse — stock it there"
+                                // so the admin sees "UPS_2DAY is offered by Cold Warehouse — stock it there"
                                 const offeredBy = locations.filter(l => l.channels.includes(ch));
                                 return (
                                     <label key={ch} className={`flex flex-col gap-1 px-3 py-2 border cursor-pointer transition-colors text-xs ${checked ? 'bg-[#B96A3D]/10 border-[#B96A3D]/40 text-white' : 'bg-[#0C0C0C] border-[#ffffff0A] text-gray-400 hover:border-[#B96A3D]/30'}`}>
@@ -779,14 +779,14 @@ export default function InventoryClient({ products, productLines, productFamilie
                             // For each unactionable channel, suggest a location that offers it
                             const suggestions = unactionable.map(ch => {
                                 const candidates = locations.filter(l => l.channels.includes(ch));
-                                return { channel: ch, candidates };
+                                return { deliveryMethod: ch, candidates };
                             });
                             return (
                                 <div className="bg-amber-900/15 border border-amber-700/30 text-amber-300 text-[11px] px-3 py-2.5 leading-relaxed">
                                     <div className="font-bold uppercase tracking-wider mb-1.5">⚠ Configured but not actionable</div>
                                     {suggestions.map(s => (
-                                        <div key={s.channel} className="mb-1">
-                                            <span className="font-mono">{channelLabel(s.channel)}</span>
+                                        <div key={s.deliveryMethod} className="mb-1">
+                                            <span className="font-mono">{channelLabel(s.deliveryMethod)}</span>
                                             {' is checked, but this product isn’t stocked at any location offering it. '}
                                             {s.candidates.length === 0
                                                 ? <span className="text-amber-200">No active location offers this channel yet — set it up in /admin/locations.</span>

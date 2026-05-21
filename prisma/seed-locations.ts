@@ -1,14 +1,14 @@
 // Phase 1 seed — multi-location fulfillment foundation.
 // - Creates 2 starter locations: Bakery (Dublin OH) + Cold Warehouse (Columbus OH placeholder).
-// - Configures each location's supported FulfillmentChannels with radii / drive-hour caps.
+// - Configures each location's supported DeliveryMethods with radii / drive-hour caps.
 // - Backfills: copies Product.house -> Product.kind for existing rows.
 // - Backfills: creates a Stock row per existing creamery product at the Cold Warehouse,
 //   using the legacy Product.stockQuantity as the per-location quantity.
-// - Backfills: registers UPS_GROUND_2DAY as the eligible channel for each existing creamery product.
+// - Backfills: registers UPS_2DAY as the eligible channel for each existing creamery product.
 //
 // Idempotent: safe to re-run. Find-or-create on locations by (type + addressLine1).
 
-import { PrismaClient, LocationType, FulfillmentChannel, ProductKind } from "@prisma/client";
+import { PrismaClient, LocationType, DeliveryMethod, ProductKind } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
@@ -81,11 +81,11 @@ async function upsertLocationByType(opts: {
 
 async function setChannel(
   locationId: string,
-  channel: FulfillmentChannel,
+  deliveryMethod: DeliveryMethod,
   cfg: { radiusMiles?: number | null; maxDriveHours?: number | null; priceMultiplier?: number; flatFee?: string | null }
 ) {
-  await prisma.locationChannel.upsert({
-    where: { locationId_channel: { locationId, channel } },
+  await prisma.locationDeliveryMethod.upsert({
+    where: { locationId_deliveryMethod: { locationId, deliveryMethod } },
     update: {
       radiusMiles: cfg.radiusMiles ?? null,
       maxDriveHours: cfg.maxDriveHours ?? null,
@@ -94,14 +94,14 @@ async function setChannel(
     },
     create: {
       locationId,
-      channel,
+      deliveryMethod,
       radiusMiles: cfg.radiusMiles ?? null,
       maxDriveHours: cfg.maxDriveHours ?? null,
       priceMultiplier: cfg.priceMultiplier ?? 1.0,
       flatFee: cfg.flatFee ?? null,
     },
   });
-  console.log(`    • channel: ${channel}  radius=${cfg.radiusMiles ?? "∅"}  drive=${cfg.maxDriveHours ?? "∅"}h`);
+  console.log(`    • deliveryMethod: ${deliveryMethod}  radius=${cfg.radiusMiles ?? "∅"}  drive=${cfg.maxDriveHours ?? "∅"}h`);
 }
 
 async function main() {
@@ -122,7 +122,7 @@ async function main() {
     longitude: -83.1311,
     notes: "Fake testing address near the bakery. Replace with real cold-storage address via /admin/locations.",
   });
-  await setChannel(coldWh.id, FulfillmentChannel.UPS_GROUND_2DAY, {
+  await setChannel(coldWh.id, DeliveryMethod.UPS_2DAY, {
     radiusMiles: null,
     maxDriveHours: 20.0, // user-specified ~20h drive radius from Columbus
     priceMultiplier: 1.0,
@@ -162,23 +162,23 @@ async function main() {
     notes: "First bakery. Refine lat/lng via /admin/locations + Places autocomplete.",
   });
 
-  await setChannel(bakery.id, FulfillmentChannel.HOT_DELIVERY_OWN, {
+  await setChannel(bakery.id, DeliveryMethod.OWN_DELIVERY, {
     radiusMiles: 12.0, // ~40 min delivery window for hot food in suburban traffic
     priceMultiplier: 1.0,
   });
-  await setChannel(bakery.id, FulfillmentChannel.DOORDASH_DRIVE, {
+  await setChannel(bakery.id, DeliveryMethod.DOORDASH_DRIVE, {
     radiusMiles: 20.0, // covers hot + cold; hot will be gated per-product later
     priceMultiplier: 1.0, // own-platform pricing (API-only, lower fee)
   });
-  await setChannel(bakery.id, FulfillmentChannel.UBER_DIRECT, {
+  await setChannel(bakery.id, DeliveryMethod.UBER_DIRECT, {
     radiusMiles: 20.0,
     priceMultiplier: 1.0,
   });
-  await setChannel(bakery.id, FulfillmentChannel.IN_STORE_PICKUP, {
+  await setChannel(bakery.id, DeliveryMethod.IN_STORE_PICKUP, {
     radiusMiles: null,
     priceMultiplier: 1.0,
   });
-  await setChannel(bakery.id, FulfillmentChannel.IN_STORE_DINE_IN, {
+  await setChannel(bakery.id, DeliveryMethod.IN_STORE_DINE_IN, {
     radiusMiles: null,
     priceMultiplier: 1.0,
   });
@@ -200,7 +200,7 @@ async function main() {
   console.log(`  ${kindUpdated} product(s) updated.`);
 
   // ─── 4) Backfill Stock rows + ProductChannel for existing creamery products ──
-  console.log("\nBackfilling Stock rows at Cold Warehouse + UPS_GROUND_2DAY channel:");
+  console.log("\nBackfilling Stock rows at Cold Warehouse + UPS_2DAY channel:");
   let stockCreated = 0;
   let channelCreated = 0;
   for (const p of allProducts) {
@@ -222,13 +222,14 @@ async function main() {
       stockCreated++;
     }
 
-    // UPS_GROUND_2DAY channel for creamery products (D2C nationwide)
+    // UPS_2DAY channel for creamery products (D2C nationwide).
+    // ProductChannel keeps its `channel` column (dropped entirely in 1i).
     const existingChan = await prisma.productChannel.findUnique({
-      where: { productId_channel: { productId: p.id, channel: FulfillmentChannel.UPS_GROUND_2DAY } },
+      where: { productId_channel: { productId: p.id, channel: DeliveryMethod.UPS_2DAY } },
     });
     if (!existingChan) {
       await prisma.productChannel.create({
-        data: { productId: p.id, channel: FulfillmentChannel.UPS_GROUND_2DAY },
+        data: { productId: p.id, channel: DeliveryMethod.UPS_2DAY },
       });
       channelCreated++;
     }
@@ -237,7 +238,7 @@ async function main() {
 
   // ─── Summary ──────────────────────────────────────────────────────────────
   const locCount = await prisma.location.count();
-  const chanCount = await prisma.locationChannel.count();
+  const chanCount = await prisma.locationDeliveryMethod.count();
   const stockCount = await prisma.stock.count();
   const pcCount = await prisma.productChannel.count();
   console.log("\n=== Phase 1 seed summary ===");

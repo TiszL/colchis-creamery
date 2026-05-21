@@ -2,7 +2,7 @@
 
 import { prisma } from '@/lib/db';
 import { distanceMiles, channelMaxRadius } from '@/lib/distance';
-import { FulfillmentChannel, ProductKind } from '@prisma/client';
+import { DeliveryMethod, ProductKind } from '@prisma/client';
 
 const CREAMERY_KINDS = Object.values(ProductKind).filter(k => k.startsWith('CREAMERY')) as ProductKind[];
 
@@ -19,7 +19,7 @@ export type DeliverableCreameryProduct = {
     status: string;
     stockAvailable: number | null;
     /** Channels deliverable to the customer (union across reachable locations stocking this product). */
-    eligibleChannels: FulfillmentChannel[];
+    eligibleChannels: DeliveryMethod[];
     sources: Array<{ locationId: string; locationName: string; distanceMiles: number }>;
     productLine: { name: string; badgeColor: string | null } | null;
 };
@@ -79,13 +79,13 @@ export async function getAvailableCreameryProducts(
         if (loc.latitude === null || loc.longitude === null) continue;
         const distance = distanceMiles(customerLat, customerLng, loc.latitude, loc.longitude);
 
-        const reachableChannels: FulfillmentChannel[] = [];
+        const reachableChannels: DeliveryMethod[] = [];
         for (const ch of loc.channels) {
-            if (ch.channel === FulfillmentChannel.IN_STORE_DINE_IN) continue; // creamery isn't dine-in
+            if (ch.deliveryMethod === DeliveryMethod.IN_STORE_DINE_IN) continue; // creamery isn't dine-in
             const maxRadius = channelMaxRadius(ch.radiusMiles, ch.maxDriveHours);
-            const inStorePickup = ch.channel === FulfillmentChannel.IN_STORE_PICKUP;
+            const inStorePickup = ch.deliveryMethod === DeliveryMethod.IN_STORE_PICKUP;
             if (inStorePickup || (maxRadius !== null && distance <= maxRadius)) {
-                reachableChannels.push(ch.channel);
+                reachableChannels.push(ch.deliveryMethod);
             }
         }
         if (reachableChannels.length === 0) continue;

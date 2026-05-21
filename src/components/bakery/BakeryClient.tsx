@@ -6,7 +6,7 @@ import { ColchisSeal } from "@/components/brand/ColchisSeal";
 import AddressManager, { type ActiveAddress } from "./AddressManager";
 import type { UserAddressDto } from "@/app/actions/addresses";
 import { getAvailableBakeryProducts, type AvailabilityResult } from "@/app/actions/bakery-availability";
-import type { FulfillmentChannel } from "@prisma/client";
+import type { DeliveryMethod } from "@prisma/client";
 import { useCart } from "@/providers/CartProvider";
 import { Minus, Plus, ShoppingBag, Check, Utensils } from "lucide-react";
 import { cartEligibleChannels } from "@/lib/fulfillment";
@@ -35,9 +35,9 @@ export interface BakeryItem {
   /** Stock available across reachable locations. null = made-to-order / unknown (no cap). */
   stockAvailable?: number | null;
   /** All channels configured for this product server-side (used pre-availability for dine-in check). */
-  offeredChannels?: FulfillmentChannel[];
+  offeredChannels?: DeliveryMethod[];
   /** Channels deliverable to the current customer (only set when availability is loaded). */
-  eligibleChannels?: FulfillmentChannel[];
+  eligibleChannels?: DeliveryMethod[];
   /** Locations stocking this product that reach the customer (multi-bakery attribution). */
   sources?: Array<{ locationId: string; locationName: string; distanceMiles: number }>;
 }
@@ -94,9 +94,9 @@ interface BakeryClientProps {
 }
 
 // Channel → human label for product card meta line
-function channelMeta(ch: FulfillmentChannel): string {
+function channelMeta(ch: DeliveryMethod): string {
   switch (ch) {
-    case 'HOT_DELIVERY_OWN': return 'Hot delivery';
+    case 'OWN_DELIVERY': return 'Hot delivery';
     case 'DOORDASH_DRIVE': return 'DoorDash';
     case 'UBER_DIRECT': return 'Uber Eats';
     case 'IN_STORE_PICKUP': return 'Pickup';

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Plus, Save, Trash2, Eye, EyeOff, FileText, ChevronRight, ArrowLeft, Loader2, Tag } from 'lucide-react';
 import ContentBlockEditor, { ContentBlock } from './ContentBlockEditor';
 import MediaUploadZone from './MediaUploadZone';
@@ -51,6 +52,8 @@ export default function JournalEditorClient({ articles: initialArticles, locale 
     const [editingId, setEditingId] = useState<string | null>(null);
     const [isCreating, setIsCreating] = useState(false);
     const [saving, setSaving] = useState(false);
+    // Pending-deletion article (in-app ConfirmDialog replaces native confirm).
+    const [pendingDelete, setPendingDelete] = useState<{ id: string; title: string } | null>(null);
 
     // Form state
     const [title, setTitle] = useState('');
@@ -142,16 +145,24 @@ export default function JournalEditorClient({ articles: initialArticles, locale 
         }
     }, [editingId, title, slug, excerpt, blocks, coverImage, tags, isPublished]);
 
-    const handleDelete = useCallback(async (id: string) => {
-        if (!confirm('Delete this article permanently?')) return;
+    const handleDelete = useCallback((id: string) => {
+        const article = articles.find(a => a.id === id);
+        if (!article) return;
+        setPendingDelete({ id, title: article.title });
+    }, [articles]);
+
+    const commitDelete = useCallback(async () => {
+        const target = pendingDelete;
+        if (!target) return;
+        setPendingDelete(null);
         try {
             await fetch('/api/admin/articles', {
                 method: 'DELETE',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id }),
+                body: JSON.stringify({ id: target.id }),
             });
-            setArticles(prev => prev.filter(a => a.id !== id));
-            if (editingId === id) {
+            setArticles(prev => prev.filter(a => a.id !== target.id));
+            if (editingId === target.id) {
                 setEditingId(null);
                 setIsCreating(false);
                 resetForm();
@@ -159,7 +170,7 @@ export default function JournalEditorClient({ articles: initialArticles, locale 
         } catch (err) {
             console.error('Delete error:', err);
         }
-    }, [editingId, resetForm]);
+    }, [pendingDelete, editingId, resetForm]);
 
     const isEditing = editingId || isCreating;
 
@@ -240,6 +251,17 @@ export default function JournalEditorClient({ articles: initialArticles, locale 
                         ))}
                     </div>
                 )}
+
+                <ConfirmDialog
+                    open={pendingDelete !== null}
+                    variant="dark"
+                    tone="danger"
+                    title="Delete this article?"
+                    body={pendingDelete ? <>&ldquo;{pendingDelete.title}&rdquo; will be removed permanently along with all its content blocks. This cannot be undone.</> : null}
+                    confirmLabel="Delete article"
+                    onConfirm={commitDelete}
+                    onCancel={() => setPendingDelete(null)}
+                />
             </div>
         );
     }
@@ -340,6 +362,17 @@ export default function JournalEditorClient({ articles: initialArticles, locale 
                     onChange={setBlocks}
                 />
             </div>
+
+            <ConfirmDialog
+                open={pendingDelete !== null}
+                variant="dark"
+                tone="danger"
+                title="Delete this article?"
+                body={pendingDelete ? <>&ldquo;{pendingDelete.title}&rdquo; will be removed permanently along with all its content blocks. This cannot be undone.</> : null}
+                confirmLabel="Delete article"
+                onConfirm={commitDelete}
+                onCancel={() => setPendingDelete(null)}
+            />
         </div>
     );
 }

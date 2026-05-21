@@ -12,7 +12,7 @@ import { applyFreeShippingRule, type FulfillmentPlan, type ChannelQuote } from '
 import { planFulfillment } from '@/app/actions/shipping-plan';
 import { createCheckoutSession, type CheckoutInput } from '@/app/actions/checkout';
 import { isValidUSPhone } from '@/lib/phone';
-import type { FulfillmentChannel } from '@prisma/client';
+import type { DeliveryMethod } from '@prisma/client';
 
 /* ─── Types ────────────────────────────────────────────────────────────── */
 
@@ -175,7 +175,7 @@ export default function CheckoutClient({
     const [activeAddress, setActiveAddress] = useState<ActiveAddress | null>(null);
     const [plan, setPlan] = useState<FulfillmentPlan | null>(null);
     const [planning, setPlanning] = useState(false);
-    const [selectedChannels, setSelectedChannels] = useState<Record<string, FulfillmentChannel>>({});
+    const [selectedChannels, setSelectedChannels] = useState<Record<string, DeliveryMethod>>({});
     // Tracks which groups the user has explicitly touched, so the auto-default
     // doesn't overwrite their pick when the plan refetches.
     const touchedChannels = useRef<Set<string>>(new Set());
@@ -224,10 +224,10 @@ export default function CheckoutClient({
     useEffect(() => {
         if (!plan) return;
         setSelectedChannels(prev => {
-            const next: Record<string, FulfillmentChannel> = { ...prev };
+            const next: Record<string, DeliveryMethod> = { ...prev };
             for (const g of plan.groups) {
                 if (!touchedChannels.current.has(g.locationId) && g.availableChannels.length > 0) {
-                    next[g.locationId] = g.availableChannels[0].channel;
+                    next[g.locationId] = g.availableChannels[0].deliveryMethod;
                 }
             }
             for (const k of Object.keys(next)) {
@@ -237,9 +237,9 @@ export default function CheckoutClient({
         });
     }, [plan]);
 
-    const handleChannelChange = (locationId: string, channel: FulfillmentChannel) => {
+    const handleChannelChange = (locationId: string, deliveryMethod: DeliveryMethod) => {
         touchedChannels.current.add(locationId);
-        setSelectedChannels(prev => ({ ...prev, [locationId]: channel }));
+        setSelectedChannels(prev => ({ ...prev, [locationId]: deliveryMethod }));
     };
 
     const selectedQuotes = useMemo<ChannelQuote[]>(() => {
@@ -247,7 +247,7 @@ export default function CheckoutClient({
         const out: ChannelQuote[] = [];
         for (const g of plan.groups) {
             const channel = selectedChannels[g.locationId];
-            const q = g.availableChannels.find(c => c.channel === channel);
+            const q = g.availableChannels.find(c => c.deliveryMethod === channel);
             if (q) out.push(q);
         }
         return out;
@@ -312,9 +312,9 @@ export default function CheckoutClient({
             const result = await createCheckoutSession({
                 items: items.map(i => ({ productId: i.product.id, quantity: i.quantity })),
                 address: addressComponents,
-                selectedChannels: Object.entries(selectedChannels).map(([locationId, channel]) => ({
+                selectedChannels: Object.entries(selectedChannels).map(([locationId, deliveryMethod]) => ({
                     locationId,
-                    channel,
+                    deliveryMethod,
                 })),
                 contact,
             });
@@ -486,15 +486,15 @@ export default function CheckoutClient({
                                             )}
                                             <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
                                                 {g.availableChannels.map(quote => {
-                                                    const selected = selectedChannels[g.locationId] === quote.channel;
+                                                    const selected = selectedChannels[g.locationId] === quote.deliveryMethod;
                                                     const eta =
                                                         quote.etaMinutes !== null ? `~${quote.etaMinutes} min`
-                                                        : quote.channel === 'UPS_GROUND_2DAY' ? '1–2 days'
+                                                        : quote.deliveryMethod === 'UPS_2DAY' ? '1–2 days'
                                                         : '';
                                                     const priceLabel = quote.shippingCost === 0 ? 'Free' : `$${quote.shippingCost.toFixed(2)}`;
                                                     return (
                                                         <label
-                                                            key={quote.channel}
+                                                            key={quote.deliveryMethod}
                                                             style={{
                                                                 display: 'grid',
                                                                 gridTemplateColumns: '20px 1fr auto',
@@ -511,12 +511,12 @@ export default function CheckoutClient({
                                                                 type="radio"
                                                                 name={`channel-${g.locationId}`}
                                                                 checked={selected}
-                                                                onChange={() => handleChannelChange(g.locationId, quote.channel)}
+                                                                onChange={() => handleChannelChange(g.locationId, quote.deliveryMethod)}
                                                                 style={{ accentColor: '#B96A3D', cursor: 'pointer' }}
                                                             />
                                                             <div>
                                                                 <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.28em', textTransform: 'uppercase' }}>
-                                                                    {quote.channel.replace(/_/g, ' ')}
+                                                                    {quote.deliveryMethod.replace(/_/g, ' ')}
                                                                 </div>
                                                                 <div style={{ fontFamily: 'var(--font-sans)', fontSize: 12, marginTop: 2, opacity: 0.85 }}>
                                                                     {quote.carrier}{eta ? ` · ${eta}` : ''} · {quote.distanceMiles.toFixed(1)} mi

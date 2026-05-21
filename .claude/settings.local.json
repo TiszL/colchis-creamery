@@ -3,7 +3,25 @@
     "allow": [
       "Bash(test:*)",
       "Bash(npx create-next-app@latest:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(sqlite3 /Users/Tornike/Desktop/Cheese/1/website/prisma/dev.db \"SELECT COUNT\\(*\\) as product_count FROM Product;\")",
+      "Bash(awk '{print $NF, $5}')",
+      "Bash(npx prisma *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(npx tsc *)",
+      "Bash(grep -v \"\\\\.sql$\")",
+      "Bash(xargs -I {} sed -i '' -e 's/FulfillmentChannel/DeliveryMethod/g' -e 's/prisma\\\\.locationChannel/prisma.locationDeliveryMethod/g' {})",
+      "Bash(xargs -I {} sed -i '' -e 's/UPS_GROUND_2DAY/UPS_2DAY/g' -e 's/HOT_DELIVERY_OWN/OWN_DELIVERY/g' -e 's/locationId_channel/locationId_deliveryMethod/g' {})",
+      "Bash(perl -i -pe ' *)",
+      "Bash(sed -n '570,580p' src/lib/shipping.ts)",
+      "Bash(sed -n '315,320p' src/components/checkout/CheckoutClient.tsx)",
+      "Bash(sed -n '240,245p' src/components/checkout/CheckoutClient.tsx)",
+      "Bash(perl -i -pe 's/\\\\.map\\\\\\(channel => /\\\\.map\\(deliveryMethod => /g' src/lib/shipping.ts)",
+      "Bash(sed -n '52,60p' \"src/app/[locale]/\\(protected\\)/admin/orders/[id]/page.tsx\")",
+      "Bash(sed -n '50,60p' \"src/app/[locale]/\\(protected\\)/admin/orders/[id]/page.tsx\")",
+      "Bash(sed -n '98,140p' src/lib/shipping.ts)",
+      "Bash(sed -n '635,645p' src/lib/shipping.ts)"
     ]
   }
 }

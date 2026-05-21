@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react';
 import { Plus, Save, Trash2, Eye, EyeOff, BookOpen, ChevronRight, ArrowLeft, Loader2 } from 'lucide-react';
 import ContentBlockEditor, { ContentBlock } from './ContentBlockEditor';
 import MediaUploadZone from './MediaUploadZone';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 
 interface Recipe {
     id: string;
@@ -55,6 +56,8 @@ export default function RecipeEditorClient({ recipes: initialRecipes, locale }: 
     const [editingId, setEditingId] = useState<string | null>(null);
     const [isCreating, setIsCreating] = useState(false);
     const [saving, setSaving] = useState(false);
+    // Pending-deletion recipe (in-app ConfirmDialog replaces native confirm).
+    const [pendingDelete, setPendingDelete] = useState<{ id: string; title: string } | null>(null);
 
     // Form state
     const [title, setTitle] = useState('');
@@ -160,16 +163,24 @@ export default function RecipeEditorClient({ recipes: initialRecipes, locale }: 
         }
     }, [editingId, title, slug, description, blocks, prepTime, cookTime, servings, difficulty, imageUrl, isPublished]);
 
-    const handleDelete = useCallback(async (id: string) => {
-        if (!confirm('Delete this recipe permanently?')) return;
+    const handleDelete = useCallback((id: string) => {
+        const recipe = recipes.find(r => r.id === id);
+        if (!recipe) return;
+        setPendingDelete({ id, title: recipe.title });
+    }, [recipes]);
+
+    const commitDelete = useCallback(async () => {
+        const target = pendingDelete;
+        if (!target) return;
+        setPendingDelete(null);
         try {
             await fetch('/api/admin/recipes', {
                 method: 'DELETE',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id }),
+                body: JSON.stringify({ id: target.id }),
             });
-            setRecipes(prev => prev.filter(r => r.id !== id));
-            if (editingId === id) {
+            setRecipes(prev => prev.filter(r => r.id !== target.id));
+            if (editingId === target.id) {
                 setEditingId(null);
                 setIsCreating(false);
                 resetForm();
@@ -177,7 +188,7 @@ export default function RecipeEditorClient({ recipes: initialRecipes, locale }: 
         } catch (err) {
             console.error('Delete error:', err);
         }
-    }, [editingId, resetForm]);
+    }, [pendingDelete, editingId, resetForm]);
 
     const isEditing = editingId || isCreating;
 
@@ -255,6 +266,17 @@ export default function RecipeEditorClient({ recipes: initialRecipes, locale }: 
                         ))}
                     </div>
                 )}
+
+                <ConfirmDialog
+                    open={pendingDelete !== null}
+                    variant="dark"
+                    tone="danger"
+                    title="Delete this recipe?"
+                    body={pendingDelete ? <>&ldquo;{pendingDelete.title}&rdquo; will be removed permanently along with all its content blocks. This cannot be undone.</> : null}
+                    confirmLabel="Delete recipe"
+                    onConfirm={commitDelete}
+                    onCancel={() => setPendingDelete(null)}
+                />
             </div>
         );
     }
@@ -374,6 +396,17 @@ export default function RecipeEditorClient({ recipes: initialRecipes, locale }: 
                     onChange={setBlocks}
                 />
             </div>
+
+            <ConfirmDialog
+                open={pendingDelete !== null}
+                variant="dark"
+                tone="danger"
+                title="Delete this recipe?"
+                body={pendingDelete ? <>&ldquo;{pendingDelete.title}&rdquo; will be removed permanently along with all its content blocks. This cannot be undone.</> : null}
+                confirmLabel="Delete recipe"
+                onConfirm={commitDelete}
+                onCancel={() => setPendingDelete(null)}
+            />
         </div>
     );
 }

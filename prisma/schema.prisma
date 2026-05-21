@@ -179,7 +179,7 @@ enum ProductKind {
 
 // SalesChannel is the catalog/business-line axis. Every Product (SKU) belongs
 // to exactly one. Combined with Location.allowsChannels, it gates which
-// products a location can offer. Orthogonal to FulfillmentChannel (which
+// products a location can offer. Orthogonal to DeliveryMethod (which
 // describes HOW the order moves — DoorDash, UPS, pickup, etc.).
 enum SalesChannel {
   LOCAL_HOT      // hot bakery food, made-to-order, same-day
@@ -624,15 +624,22 @@ enum LocationType {
   B2B_3PL_WAREHOUSE   // third-party logistics for B2B cold chain (future)
 }
 
-enum FulfillmentChannel {
-  UPS_GROUND_2DAY        // nationwide-ish, capped by drive-hours from warehouse
-  HOT_DELIVERY_OWN       // bakery's own drivers, short radius
-  DOORDASH_DRIVE         // DoorDash Drive API (your platform, lower fee)
-  UBER_DIRECT            // Uber Direct API (your platform, lower fee)
+// DeliveryMethod describes HOW an order moves (carrier, channel pricing,
+// driver type). Orthogonal to SalesChannel (which describes WHAT business
+// line the SKU belongs to). @@map keeps the underlying Postgres enum name
+// as the legacy "DeliveryMethod" so this is a zero-data-migration rename.
+enum DeliveryMethod {
+  UPS_2DAY               @map("UPS_GROUND_2DAY")    // nationwide cold-chain via UPS 2nd Day Air (or FedEx 2Day fallback)
+  OWN_DELIVERY           @map("HOT_DELIVERY_OWN")   // location's own drivers, short radius — used for hot food + local cheese
+  DOORDASH_DRIVE         // DoorDash Drive API (our platform, lower fee)
+  UBER_DIRECT            // Uber Direct API (our platform, lower fee)
   DOORDASH_MARKETPLACE   // listed on DoorDash app (higher fee, future)
   UBER_EATS_MARKETPLACE  // listed on Uber Eats app (higher fee, future)
   IN_STORE_PICKUP        // customer picks up at the bakery
   IN_STORE_DINE_IN       // customer eats at the bakery (e.g. hot khachapuri)
+  MANUAL_DISPATCH        // B2B 3PL/freight booked manually by ops (Phase 6)
+
+  @@map("DeliveryMethod")
 }
 
 model Location {
@@ -676,26 +683,32 @@ model Location {
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 
-  channels     LocationChannel[]
+  channels     LocationDeliveryMethod[]
   stocks       Stock[]
   fulfillments OrderFulfillment[]
 }
 
-model LocationChannel {
-  id              String             @id @default(uuid())
+// Renamed from LocationChannel for clarity (the relation is one delivery
+// method per location, with its own fee/radius config). @@map keeps the
+// underlying Postgres table name as the legacy "LocationChannel" so the
+// rename costs no data migration. Field `deliveryMethod` is @map'd to the
+// legacy "channel" column for the same reason.
+model LocationDeliveryMethod {
+  id              String         @id @default(uuid())
   locationId      String
-  location        Location           @relation(fields: [locationId], references: [id], onDelete: Cascade)
-  channel         FulfillmentChannel
-  radiusMiles     Float?                            // 25 for HOT_DELIVERY_OWN, ~1200 for UPS (20h drive); null = no radius gate
+  location        Location       @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  deliveryMethod  DeliveryMethod @map("channel")
+  radiusMiles     Float?                            // 25 for OWN_DELIVERY, ~1200 for UPS (20h drive); null = no radius gate
   maxDriveHours   Float?                            // alt to radiusMiles, used for UPS cold-chain
   flatFee         String?                           // dollars, stringly-typed to match Product.priceB2c convention
   perMileFee      String?                           // dollars per mile
-  priceMultiplier Float              @default(1.0)  // 1.0 own platform, 1.3 marketplace markup
-  isActive        Boolean            @default(true)
-  createdAt       DateTime           @default(now())
-  updatedAt       DateTime           @updatedAt
+  priceMultiplier Float          @default(1.0)      // 1.0 own platform, 1.3 marketplace markup
+  isActive        Boolean        @default(true)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
 
-  @@unique([locationId, channel])
+  @@unique([locationId, deliveryMethod], map: "LocationChannel_locationId_channel_key")
+  @@map("LocationChannel")
 }
 
 model Stock {
@@ -714,10 +727,13 @@ model Stock {
   @@index([productId])
 }
 
+// Phase 1: superseded by Product.salesChannel + Location.allowsChannels.
+// Dropped entirely in 1i. Field type updated so TS compiles in the
+// intervening commit — no DB change here.
 model ProductChannel {
   productId String
-  product   Product            @relation(fields: [productId], references: [id], onDelete: Cascade)
-  channel   FulfillmentChannel
+  product   Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  channel   DeliveryMethod
 
   @@id([productId, channel])
   @@index([channel])
@@ -732,7 +748,7 @@ model OrderFulfillment {
   order             Order              @relation(fields: [orderId], references: [id], onDelete: Cascade)
   locationId        String
   location          Location           @relation(fields: [locationId], references: [id])
-  channel           FulfillmentChannel
+  deliveryMethod    DeliveryMethod     @map("channel")
   status            String             @default("PENDING") // PENDING|CONFIRMED|PREPARING|OUT_FOR_DELIVERY|DELIVERED|CANCELLED
   trackingNumber    String?
   externalOrderId   String?                              // DoorDash/Uber Direct order id

@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { MapPin, Plus, Pencil, Trash2, Save, Loader2, Search, X, Power, AlertTriangle, Star, ArrowUp, ArrowDown } from 'lucide-react';
 import { APIProvider, useMapsLibrary } from '@vis.gl/react-google-maps';
-import type { LocationType, FulfillmentChannel } from '@prisma/client';
+import type { LocationType, FulfillmentChannel, SalesChannel } from '@prisma/client';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 
 type ChannelRow = {
     channel: FulfillmentChannel;
@@ -40,6 +41,10 @@ type LocationRow = {
     contactCardName: string | null;
     contactCardDoorNote: string | null;
     displayOrder: number;
+    // Phase 1 — SalesChannels this location is allowed to handle. Bakery
+    // defaults to [LOCAL_HOT, LOCAL_COLD]; cold warehouse to [NATIONAL_SHIP];
+    // 3PL to [B2B_WHOLESALE, B2B_FROZEN]. Drives catalog visibility.
+    allowsChannels: SalesChannel[];
     stockCount: number;
     fulfillmentCount: number;
     channels: ChannelRow[];
@@ -49,6 +54,7 @@ type Props = {
     locations: LocationRow[];
     locationTypes: LocationType[];
     fulfillmentChannels: FulfillmentChannel[];
+    salesChannels: SalesChannel[];
     apiKey: string;
     locale: string;
     saveAction: (fd: FormData) => Promise<void>;
@@ -57,6 +63,18 @@ type Props = {
     setPrimaryAction: (fd: FormData) => Promise<void>;
     moveAction: (fd: FormData) => Promise<void>;
 };
+
+function salesChannelLabel(c: SalesChannel): string {
+    return c.replace(/_/g, ' ');
+}
+
+// Defaults for a freshly-created location's allowsChannels, based on type.
+function defaultAllowsForType(type: LocationType): SalesChannel[] {
+    if (type === 'BAKERY') return ['LOCAL_HOT', 'LOCAL_COLD'];
+    if (type === 'D2C_COLD_WAREHOUSE') return ['NATIONAL_SHIP'];
+    if (type === 'B2B_3PL_WAREHOUSE') return ['B2B_WHOLESALE', 'B2B_FROZEN'];
+    return [];
+}
 
 // Sensible default channel config for a freshly-created location, based on type.
 // Empty array if the user explicitly picks no defaults.
@@ -175,6 +193,7 @@ export default function LocationsClient({
     locations,
     locationTypes,
     fulfillmentChannels,
+    salesChannels,
     apiKey,
     saveAction,
     deleteAction,
@@ -213,13 +232,21 @@ export default function LocationsClient({
     };
 
     const handleDelete = (loc: LocationRow) => {
+        // Block + explain via info dialog when the location has dependents.
         if (loc.stockCount > 0 || loc.fulfillmentCount > 0) {
-            alert(`Cannot delete — this location has ${loc.stockCount} stock rows and ${loc.fulfillmentCount} order fulfillments. Deactivate it instead.`);
+            setCannotDeleteNotice(loc);
             return;
         }
-        if (!confirm(`Delete "${loc.name}"? This cannot be undone.`)) return;
+        // Otherwise stage for confirmation.
+        setPendingDelete(loc);
+    };
+
+    const commitDelete = () => {
+        const target = pendingDelete;
+        if (!target) return;
+        setPendingDelete(null);
         const fd = new FormData();
-        fd.set('id', loc.id);
+        fd.set('id', target.id);
         startTransition(async () => {
             await deleteAction(fd);
             showToast('Location deleted');
@@ -235,6 +262,11 @@ export default function LocationsClient({
             showToast(loc.isActive ? 'Deactivated' : 'Activated');
         });
     };
+
+    // Pending-deletion location (in-app ConfirmDialog replaces native confirm).
+    const [pendingDelete, setPendingDelete] = useState<LocationRow | null>(null);
+    // Non-deletable notice (replaces window.alert).
+    const [cannotDeleteNotice, setCannotDeleteNotice] = useState<LocationRow | null>(null);
 
     const handleSetPrimary = (loc: LocationRow) => {
         if (loc.isPrimary) return;
@@ -432,6 +464,7 @@ export default function LocationsClient({
                         isCreating={isCreating}
                         locationTypes={locationTypes}
                         fulfillmentChannels={fulfillmentChannels}
+                        salesChannels={salesChannels}
                         apiKey={apiKey}
                         saveAction={saveAction}
                         onClose={closeDrawer}
@@ -442,6 +475,33 @@ export default function LocationsClient({
                     />
                 </>
             )}
+
+            {/* Delete confirmation (replaces native window.confirm). */}
+            <ConfirmDialog
+                open={pendingDelete !== null}
+                variant="dark"
+                tone="danger"
+                title="Delete this location?"
+                body={pendingDelete ? <>&ldquo;{pendingDelete.name}&rdquo; will be removed permanently. This cannot be undone — channel config + display fields go with it.</> : null}
+                confirmLabel="Delete location"
+                onConfirm={commitDelete}
+                onCancel={() => setPendingDelete(null)}
+            />
+
+            {/* Non-deletable notice (replaces native window.alert). */}
+            <ConfirmDialog
+                open={cannotDeleteNotice !== null}
+                variant="dark"
+                infoOnly
+                eyebrow="Cannot delete"
+                title="This location has linked data"
+                body={cannotDeleteNotice
+                    ? <>&ldquo;{cannotDeleteNotice.name}&rdquo; has {cannotDeleteNotice.stockCount} stock rows and {cannotDeleteNotice.fulfillmentCount} order fulfillments referencing it. Deactivate it instead (Power icon) so the historical data stays intact.</>
+                    : null}
+                confirmLabel="Got it"
+                onConfirm={() => setCannotDeleteNotice(null)}
+                onCancel={() => setCannotDeleteNotice(null)}
+            />
         </div>
     );
 }
@@ -453,6 +513,7 @@ function LocationDrawer({
     isCreating,
     locationTypes,
     fulfillmentChannels,
+    salesChannels,
     apiKey,
     saveAction,
     onClose,
@@ -462,6 +523,7 @@ function LocationDrawer({
     isCreating: boolean;
     locationTypes: LocationType[];
     fulfillmentChannels: FulfillmentChannel[];
+    salesChannels: SalesChannel[];
     apiKey: string;
     saveAction: (fd: FormData) => Promise<void>;
     onClose: () => void;
@@ -494,6 +556,17 @@ function LocationDrawer({
     const [contactCardName, setContactCardName] = useState(location?.contactCardName || '');
     const [contactCardDoorNote, setContactCardDoorNote] = useState(location?.contactCardDoorNote || '');
 
+    // Phase 1 — SalesChannel allowlist. Defaults from type on create; existing
+    // value preserved on edit.
+    const [allowsChannels, setAllowsChannels] = useState<SalesChannel[]>(
+        location?.allowsChannels && location.allowsChannels.length > 0
+            ? location.allowsChannels
+            : defaultAllowsForType(location?.type || 'BAKERY')
+    );
+    const toggleAllowedChannel = (c: SalesChannel) => {
+        setAllowsChannels(prev => prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c]);
+    };
+
     // Channel state: keyed by channel enum
     const [channelMap, setChannelMap] = useState<Record<string, ChannelRow & { enabled: boolean }>>(() => {
         const initial: Record<string, ChannelRow & { enabled: boolean }> = {};
@@ -525,6 +598,8 @@ function LocationDrawer({
     const handleTypeChange = (newType: LocationType) => {
         setType(newType);
         if (!isCreating) return; // don't auto-shuffle on existing locations
+        // Reset allowsChannels to type defaults too
+        setAllowsChannels(defaultAllowsForType(newType));
         const defaults = defaultChannelsForType(newType);
         setChannelMap(prev => {
             const next = { ...prev };
@@ -604,6 +679,8 @@ function LocationDrawer({
         fd.set('displayBakeryHours', displayBakeryHours);
         fd.set('contactCardName', contactCardName);
         fd.set('contactCardDoorNote', contactCardDoorNote);
+        // Phase 1 — SalesChannel allowlist as multi-value field
+        for (const c of allowsChannels) fd.append('allowsChannels[]', c);
 
         const channelsArr = Object.values(channelMap).map(c => ({
             channel: c.channel,
@@ -677,6 +754,27 @@ function LocationDrawer({
                             placeholder="Bakery — Dublin OH"
                             className="w-full bg-[#161616] border border-[#B96A3D22] text-white py-2 px-3 focus:outline-none focus:border-[#B96A3D] text-sm" />
                     </div>
+                </div>
+
+                {/* Sales Channels this location handles (Phase 1) */}
+                <div>
+                    <label className="block text-[10px] font-bold text-gray-500 mb-1 uppercase tracking-wider">Sales Channels Handled *</label>
+                    <div className="flex flex-wrap gap-2">
+                        {salesChannels.map(c => {
+                            const active = allowsChannels.includes(c);
+                            return (
+                                <button key={c} type="button"
+                                    onClick={() => toggleAllowedChannel(c)}
+                                    className={`px-3 py-1.5 text-xs font-mono uppercase tracking-wider border transition-colors ${active
+                                        ? 'bg-[#B96A3D] text-black border-[#B96A3D]'
+                                        : 'bg-[#161616] text-gray-400 border-[#B96A3D22] hover:border-[#B96A3D]/50'
+                                        }`}>
+                                    {salesChannelLabel(c)}
+                                </button>
+                            );
+                        })}
+                    </div>
+                    <p className="text-[9px] text-gray-500 mt-1.5 uppercase tracking-wider">Drives which SKUs this location can carry. A bakery typically handles LOCAL_HOT + LOCAL_COLD; a cold warehouse handles NATIONAL_SHIP; a 3PL handles B2B_WHOLESALE + B2B_FROZEN.</p>
                 </div>
 
                 {/* Address */}

@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/db';
 import { getSession } from '@/lib/session';
 import { redirect } from 'next/navigation';
-import { ProductKind, FulfillmentChannel } from '@prisma/client';
+import { ProductKind, FulfillmentChannel, SalesChannel } from '@prisma/client';
 import InventoryClient from '@/components/admin/InventoryClient';
 import { saveProductAction, deleteProductAction, quickStockAction } from '@/app/actions/products';
 
@@ -9,6 +9,7 @@ export const dynamic = 'force-dynamic';
 
 const PRODUCT_KINDS = Object.values(ProductKind);
 const FULFILLMENT_CHANNELS = Object.values(FulfillmentChannel);
+const SALES_CHANNELS = Object.values(SalesChannel);
 
 export default async function AdminInventoryPage({ params }: { params: Promise<{ locale: string }> }) {
     const { locale } = await params;
@@ -21,6 +22,12 @@ export default async function AdminInventoryPage({ params }: { params: Promise<{
             channels: true,
             stocks: { include: { location: { select: { id: true, name: true, type: true } } } },
         },
+    });
+
+    const productFamilies = await prisma.productFamily.findMany({
+        where: { isActive: true },
+        orderBy: { name: 'asc' },
+        select: { id: true, slug: true, name: true },
     });
 
     const productLines = await prisma.productLine.findMany({
@@ -78,6 +85,10 @@ export default async function AdminInventoryPage({ params }: { params: Promise<{
         isB2cVisible: p.isB2cVisible,
         isB2bVisible: p.isB2bVisible,
         isCartOrderable: p.isCartOrderable,
+        productFamilyId: p.productFamilyId,
+        salesChannel: p.salesChannel,
+        packagingType: p.packagingType,
+        unitCost: p.unitCost,
         channels: p.channels.map(c => c.channel),
         stocks: p.stocks.map(s => ({
             locationId: s.locationId,
@@ -99,9 +110,11 @@ export default async function AdminInventoryPage({ params }: { params: Promise<{
         <InventoryClient
             products={serialized}
             productLines={serializedLines}
+            productFamilies={productFamilies}
             locations={locations}
             productKinds={PRODUCT_KINDS}
             fulfillmentChannels={FULFILLMENT_CHANNELS}
+            salesChannels={SALES_CHANNELS}
             locale={locale}
             saveAction={saveProductAction}
             deleteAction={deleteProductAction}

@@ -3,12 +3,13 @@ import { getSession } from '@/lib/session';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import LocationsClient from '@/components/admin/LocationsClient';
-import { LocationType, FulfillmentChannel } from '@prisma/client';
+import { LocationType, FulfillmentChannel, SalesChannel } from '@prisma/client';
 
 export const dynamic = 'force-dynamic';
 
 const LOCATION_TYPES = Object.values(LocationType);
 const FULFILLMENT_CHANNELS = Object.values(FulfillmentChannel);
+const SALES_CHANNELS = Object.values(SalesChannel);
 
 async function saveLocationAction(formData: FormData) {
     'use server';
@@ -16,6 +17,7 @@ async function saveLocationAction(formData: FormData) {
     const id = (formData.get('id') as string) || '';
     const type = formData.get('type') as LocationType;
     const channelsRaw = formData.get('channelsJson') as string;
+    const allowsChannels = formData.getAll('allowsChannels[]').filter(v => !!v) as SalesChannel[];
     const hoursRaw = ((formData.get('hoursJson') as string) || '').trim();
 
     let hours: Record<string, string> | undefined = undefined;
@@ -48,6 +50,9 @@ async function saveLocationAction(formData: FormData) {
         displayBakeryHours: (formData.get('displayBakeryHours') as string) || null,
         contactCardName: (formData.get('contactCardName') as string) || null,
         contactCardDoorNote: (formData.get('contactCardDoorNote') as string) || null,
+        // Phase 1 — SalesChannel allowlist. Empty array is a valid choice
+        // (location intentionally inactive for catalog purposes).
+        allowsChannels,
     };
 
     let locationId: string;
@@ -223,6 +228,7 @@ export default async function AdminLocationsPage({ params }: { params: Promise<{
         contactCardName: l.contactCardName,
         contactCardDoorNote: l.contactCardDoorNote,
         displayOrder: l.displayOrder,
+        allowsChannels: l.allowsChannels,
         stockCount: l._count.stocks,
         fulfillmentCount: l._count.fulfillments,
         channels: l.channels.map(c => ({
@@ -241,6 +247,7 @@ export default async function AdminLocationsPage({ params }: { params: Promise<{
             locations={serialized}
             locationTypes={LOCATION_TYPES}
             fulfillmentChannels={FULFILLMENT_CHANNELS}
+            salesChannels={SALES_CHANNELS}
             apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY || ''}
             locale={locale}
             saveAction={saveLocationAction}

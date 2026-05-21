@@ -3,7 +3,13 @@
 import { useState, useTransition, useRef, useEffect } from 'react';
 import { Search, Plus, Save, Trash2, X, Eye, EyeOff, Package, AlertTriangle, Image as ImageIcon, Film, ChevronDown, MapPin, Boxes, Zap } from 'lucide-react';
 import MediaUploadZone from './MediaUploadZone';
-import type { ProductKind, FulfillmentChannel, LocationType } from '@prisma/client';
+import type { ProductKind, FulfillmentChannel, LocationType, SalesChannel } from '@prisma/client';
+
+interface ProductFamilyOption {
+    id: string;
+    slug: string;
+    name: string;
+}
 
 interface ProductLineOption {
     id: string;
@@ -48,6 +54,10 @@ interface Product {
     isB2cVisible: boolean;
     isB2bVisible: boolean;
     isCartOrderable: boolean;
+    productFamilyId: string;
+    salesChannel: SalesChannel;
+    packagingType: string | null;
+    unitCost: string | null;
     channels: FulfillmentChannel[];
     stocks: StockRow[];
 }
@@ -63,13 +73,19 @@ interface LocationOption {
 interface InventoryClientProps {
     products: Product[];
     productLines: ProductLineOption[];
+    productFamilies: ProductFamilyOption[];
     locations: LocationOption[];
     productKinds: ProductKind[];
     fulfillmentChannels: FulfillmentChannel[];
+    salesChannels: SalesChannel[];
     locale: string;
     saveAction: (formData: FormData) => Promise<void>;
     deleteAction: (formData: FormData) => Promise<void>;
     quickStockAction: (formData: FormData) => Promise<void>;
+}
+
+function salesChannelLabel(c: SalesChannel): string {
+    return c.replace(/_/g, ' ');
 }
 
 type KindFilter = 'ALL' | 'CREAMERY' | 'BAKERY';
@@ -102,7 +118,7 @@ function getThumbUrl(url: string): string {
     return url; // External URLs: use as-is
 }
 
-export default function InventoryClient({ products, productLines, locations, productKinds, fulfillmentChannels, locale, saveAction, deleteAction, quickStockAction }: InventoryClientProps) {
+export default function InventoryClient({ products, productLines, productFamilies, locations, productKinds, fulfillmentChannels, salesChannels, locale, saveAction, deleteAction, quickStockAction }: InventoryClientProps) {
     const [selectedLineId, setSelectedLineId] = useState<string>('');
     const [search, setSearch] = useState('');
     const [kindFilter, setKindFilter] = useState<KindFilter>('ALL');
@@ -547,6 +563,57 @@ export default function InventoryClient({ products, productLines, locations, pro
                                 <label className="block text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wider">Stock Qty</label>
                                 <input name="stockQuantity" type="number" defaultValue={editProduct?.stockQuantity ?? 0}
                                     className="w-full bg-[#0C0C0C] border border-[#B96A3D22] text-white py-2.5 px-4 focus:outline-none focus:border-[#B96A3D] text-sm" />
+                            </div>
+                        </div>
+
+                        {/* ── Channel & Packaging (Phase 1) ── */}
+                        <div className="space-y-1 pt-2">
+                            <h3 className="text-xs font-bold text-[#B96A3D] uppercase tracking-widest">Channel &amp; Packaging</h3>
+                            <div className="h-px bg-[#B96A3D]/20" />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wider">Sales Channel *</label>
+                                <select name="salesChannel" defaultValue={editProduct?.salesChannel || 'LOCAL_COLD'} required
+                                    className="w-full bg-[#0C0C0C] border border-[#B96A3D22] text-white py-2.5 px-4 focus:outline-none focus:border-[#B96A3D] text-sm">
+                                    {salesChannels.map(c => (
+                                        <option key={c} value={c}>{salesChannelLabel(c)}</option>
+                                    ))}
+                                </select>
+                                <p className="text-[10px] text-gray-500 mt-1">Drives which locations can carry this SKU + how it ships.</p>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wider">Product Family</label>
+                                <select name="productFamilyId" defaultValue={editProduct?.productFamilyId || ''}
+                                    className="w-full bg-[#0C0C0C] border border-[#B96A3D22] text-white py-2.5 px-4 focus:outline-none focus:border-[#B96A3D] text-sm">
+                                    <option value="">— Auto-create from product name —</option>
+                                    {productFamilies.map(f => (
+                                        <option key={f.id} value={f.id}>{f.name}</option>
+                                    ))}
+                                </select>
+                                <p className="text-[10px] text-gray-500 mt-1">Group SKUs that are variants of the same product (e.g. Sulguni LOCAL_COLD + Sulguni NATIONAL_SHIP).</p>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wider">Packaging Type</label>
+                                <input name="packagingType" defaultValue={editProduct?.packagingType || ''}
+                                    placeholder="retail-pouch · cold-pack-2day · wholesale-case · frozen-bulk · hot-bag"
+                                    list="packaging-types"
+                                    className="w-full bg-[#0C0C0C] border border-[#B96A3D22] text-white py-2.5 px-4 focus:outline-none focus:border-[#B96A3D] placeholder-gray-700 text-sm font-mono" />
+                                <datalist id="packaging-types">
+                                    <option value="retail-pouch" />
+                                    <option value="cold-pack-2day" />
+                                    <option value="wholesale-case" />
+                                    <option value="frozen-bulk" />
+                                    <option value="hot-bag" />
+                                </datalist>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wider">Unit Cost (COGS)</label>
+                                <input name="unitCost" defaultValue={editProduct?.unitCost || ''}
+                                    placeholder="8.50"
+                                    className="w-full bg-[#0C0C0C] border border-[#B96A3D22] text-white py-2.5 px-4 focus:outline-none focus:border-[#B96A3D] placeholder-gray-700 text-sm" />
+                                <p className="text-[10px] text-gray-500 mt-1">Used by margin reporting (Phase 7). Leave blank if unknown.</p>
                             </div>
                         </div>
 

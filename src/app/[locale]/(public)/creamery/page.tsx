@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { permanentRedirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import type { Metadata } from "next";
 import { getOgImage, buildOgImages } from "@/lib/seo";
@@ -67,9 +68,18 @@ function parseJSON(value: string | undefined | null) {
   try { return JSON.parse(value); } catch { return null; }
 }
 
-export default async function ShopPage({ params }: ShopPageProps) {
+export default async function ShopPage({ params, searchParams }: ShopPageProps) {
   const { locale } = await params;
+  const { line } = await searchParams;
   const prefix = locale === "en" ? "" : `/${locale}`;
+
+  // Legacy ?line=<slug> URLs → 301 to the dedicated line route. The old
+  // query-string filter was a near-duplicate of /creamery (only the <title>
+  // differed) and triggered Google's "Duplicate canonical" flag; the dedicated
+  // route has line-specific content and is the proper indexable target.
+  if (line) {
+    permanentRedirect(`${prefix}/creamery/line/${line}`);
+  }
 
   const [dbProducts, creameryConfigs, primary] = await Promise.all([
     prisma.product.findMany({

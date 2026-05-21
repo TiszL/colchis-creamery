@@ -3,6 +3,8 @@
 import { useState, useRef, useEffect } from "react";
 import { MapPin, ChevronDown, Check, Truck } from "lucide-react";
 import { useLocation, type LocationOption } from "@/providers/LocationProvider";
+import { useCart } from "@/providers/CartProvider";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 /**
  * Phase 1 (1e) — Sticky location picker rendered in the site header.
@@ -16,7 +18,10 @@ import { useLocation, type LocationOption } from "@/providers/LocationProvider";
  */
 export function LocationPicker() {
     const { locations, selectedLocation, setSelectedLocationId } = useLocation();
+    const { itemCount, clearCart } = useCart();
     const [open, setOpen] = useState(false);
+    // Pending switch: location waiting on confirm-clear because cart is non-empty.
+    const [pendingSwitch, setPendingSwitch] = useState<LocationOption | null>(null);
     const ref = useRef<HTMLDivElement>(null);
 
     // Close on outside click
@@ -33,8 +38,27 @@ export function LocationPicker() {
     const warehouses = locations.filter(l => l.type === "D2C_COLD_WAREHOUSE");
 
     const pick = (loc: LocationOption) => {
+        // Same location → just close.
+        if (loc.id === selectedLocation?.id) {
+            setOpen(false);
+            return;
+        }
+        // Phase 1 (1g) — single-location-per-cart invariant. Switching with a
+        // non-empty cart asks first; on confirm we clear + switch.
+        if (itemCount > 0) {
+            setPendingSwitch(loc);
+            setOpen(false);
+            return;
+        }
         setSelectedLocationId(loc.id);
         setOpen(false);
+    };
+
+    const confirmSwitch = () => {
+        if (!pendingSwitch) return;
+        clearCart();
+        setSelectedLocationId(pendingSwitch.id);
+        setPendingSwitch(null);
     };
 
     const label = selectedLocation
@@ -124,6 +148,20 @@ export function LocationPicker() {
                     )}
                 </div>
             )}
+
+            <ConfirmDialog
+                open={pendingSwitch !== null}
+                variant="light"
+                tone="normal"
+                title="Switch location?"
+                body={pendingSwitch ? (
+                    <>Your cart has items from <strong>{selectedLocation?.name ?? "your current location"}</strong>. Switching to <strong>{pendingSwitch.name}</strong> will clear those items because each order ships from one location.</>
+                ) : null}
+                confirmLabel="Clear cart and switch"
+                cancelLabel="Keep my cart"
+                onConfirm={confirmSwitch}
+                onCancel={() => setPendingSwitch(null)}
+            />
         </div>
     );
 }

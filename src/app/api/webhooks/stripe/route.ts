@@ -61,6 +61,19 @@ export async function POST(req: Request) {
             case 'payment_intent.canceled':
                 await handlePaymentFailed(event.data.object);
                 break;
+            // Phase 4 (4d) — Connect events. These fire on the same webhook
+            // endpoint when the endpoint is configured to receive Connect
+            // events in the Stripe dashboard. The connected-account ID is
+            // available on `event.account` (or on event.data.object.id for
+            // account.updated).
+            case 'account.updated':
+                await handleAccountUpdated(event.data.object as Stripe.Account);
+                break;
+            case 'payout.created':
+            case 'payout.paid':
+            case 'payout.failed':
+                await handlePayoutEvent(event);
+                break;
             default:
                 // Acknowledge unknown events so Stripe stops retrying. Useful types we
                 // might add later: charge.refunded (refund flow), payment_intent.processing.
@@ -535,3 +548,65 @@ async function loadOrderForEmail(orderId: string): Promise<OrderForEmail | null>
     });
     return order;
 }
+
+/* ─── Phase 4 (4d) — Connect event handlers ──────────────────────────────── */
+
+/**
+ * account.updated — Stripe pushes this whenever a connected account changes.
+ * We mirror the derived status into Location.stripeOnboardingStatus so the
+ * admin panel + checkout routing stay current without polling.
+ *
+ * Idempotent: re-running on the same payload is a no-op (just rewrites the
+ * same status value + bumps the timestamp).
+ */
+async function handleAccountUpdated(account: Stripe.Account): Promise<void> {
+    const accountId = account.id;
+    // Look up the Location attached to this connected account. Stripe also
+    // sends account.updated for ad-hoc dashboard edits — if we don't track
+    // this account, just ack.
+    const location = await prisma.location.findUnique({
+        where: { stripeConnectAccountId: accountId },
+        select: { id: true, name: true, stripeOnboardingStatus: true },
+    });
+    if (!location) {
+        console.log('[stripe-webhook] account.updated for untracked account:', accountId);
+        return;
+    }
+
+    const { deriveOnboardingStatus } = await import('@/lib/stripe-connect');
+    const nextStatus = deriveOnboardingStatus(account);
+
+    if (location.stripeOnboardingStatus === nextStatus) {
+        // No-op: status hasn't changed; still bump timestamp so admin sees freshness.
+        await prisma.location.update({
+            where: { id: location.id },
+            data: { stripeOnboardingUpdatedAt: new Date() },
+        });
+        return;
+    }
+
+    await prisma.location.update({
+        where: { id: location.id },
+        data: {
+            stripeOnboardingStatus: nextStatus,
+            stripeOnboardingUpdatedAt: new Date(),
+        },
+    });
+    console.log(
+        `[stripe-webhook] account.updated: location="${location.name}" ${location.stripeOnboardingStatus ?? '(none)'} → ${nextStatus}`,
+    );
+}
+
+/**
+ * payout.created / payout.paid / payout.failed — log only for now. A
+ * future iteration could surface payout history to the admin Connect
+ * panel and email-notify on failed payouts.
+ */
+async function handlePayoutEvent(event: Stripe.Event): Promise<void> {
+    const accountId = event.account;
+    const payout = event.data.object as Stripe.Payout;
+    console.log(
+        `[stripe-webhook] ${event.type}: account=${accountId ?? '(platform)'} payoutId=${payout.id} amount=${payout.amount}¢ ${payout.currency} status=${payout.status}`,
+    );
+}
+

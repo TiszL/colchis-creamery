@@ -110,28 +110,33 @@ export async function receiveStockAction(formData: FormData): Promise<{ ok: true
 
 /**
  * FIFO-consume `quantity` units of `productId` at `locationId` from the
- * earliest-expiring active batches. Used by the payment webhook (3d) to
- * decrement stock atomically when an order is paid.
+ * earliest-expiring active batches. Used by the Stripe webhook (3d) via
+ * commitStock to write SALE audit rows when an order is paid.
  *
- * Writes one StockMovement type=SALE per batch touched, decrements each
- * batch's quantity, and decrements Stock.quantity by the total taken.
+ * Writes one StockMovement type=SALE per batch touched and decrements
+ * each batch's quantity. Does NOT update Stock.quantity — the caller
+ * (commitStock) handles that on the cached aggregate, so this helper can
+ * be reused for non-sale consumption paths (waste, adjustment) without
+ * always touching Stock.
  *
- * Returns the per-batch consumption breakdown for traceability. If
- * insufficient stock, throws (caller should treat this as a payment-time
- * failure — the customer was charged but we can't fulfill).
+ * Graceful degradation: if there isn't enough batch stock to cover the
+ * request (e.g. SKU never had batches backfilled and Stock.quantity drifted
+ * from sum-of-batches), the remainder is written as a single unattributed
+ * SALE movement (batchId=null) with a WARNING reason so reconciliation can
+ * find and fix it. The webhook never fails on this — the customer's order
+ * goes through and the warning is logged for human follow-up.
  *
- * The transaction is the responsibility of the caller; this helper accepts
- * a Prisma transaction client so the webhook can include it in a larger
- * atomic block.
+ * Caller must supply the Prisma transaction client; helper does not open
+ * its own.
  */
 export async function fifoConsumeStock(
     tx: Parameters<Parameters<typeof prisma["$transaction"]>[0]>[0],
     productId: string,
     locationId: string,
     quantity: number,
-    orderId: string,
-): Promise<Array<{ batchId: string; consumed: number }>> {
-    if (quantity <= 0) return [];
+    orderId: string | null,
+): Promise<{ consumed: Array<{ batchId: string; consumed: number }>; unattributed: number }> {
+    if (quantity <= 0) return { consumed: [], unattributed: 0 };
 
     // Order by expiresAt ASC NULLS FIRST so legacy unknown-lot stock (from
     // the 3b backfill) drains before dated batches, then by createdAt to
@@ -168,17 +173,24 @@ export async function fifoConsumeStock(
     }
 
     if (remaining > 0) {
-        throw new Error(
-            `Insufficient batch stock for product ${productId} at location ${locationId}: ` +
-            `needed ${quantity}, only ${quantity - remaining} available in batches.`
+        // No batches available — write an unattributed SALE so the audit log
+        // captures the consumption anyway. Caller (commitStock) still
+        // decrements Stock.quantity from the cached aggregate.
+        await tx.stockMovement.create({
+            data: {
+                batchId: null,
+                productId,
+                locationId,
+                type: StockMovementType.SALE,
+                quantityDelta: -remaining,
+                orderId,
+                reason: `WARNING: ${remaining} unit(s) consumed without batch backing — reconcile (Stock.quantity vs sum(ProductBatch.quantity))`,
+            },
+        });
+        console.warn(
+            `[fifoConsumeStock] Unattributed consumption: product=${productId} location=${locationId} remaining=${remaining} orderId=${orderId ?? "(none)"}`,
         );
     }
 
-    // Decrement the cached Stock aggregate (kept in sync with sum of batches).
-    await tx.stock.update({
-        where: { locationId_productId: { locationId, productId } },
-        data: { quantity: { decrement: quantity } },
-    });
-
-    return consumption;
+    return { consumed: consumption, unattributed: remaining };
 }

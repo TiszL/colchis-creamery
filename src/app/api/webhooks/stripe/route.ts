@@ -105,7 +105,8 @@ async function handlePaymentSucceeded(pi: Stripe.PaymentIntent) {
 
     // Commit stock OUTSIDE the Prisma transaction below — commitStock has its own
     // internal transaction. Nesting prisma.$transaction is not supported.
-    await commitStock(reservationItems);
+    // Phase 3 (3d): pass orderId so batch SALE movements are traceable.
+    await commitStock(reservationItems, { orderId: order.id });
 
     await prisma.$transaction([
         prisma.order.update({

@@ -110,9 +110,20 @@ export async function releaseStock(items: ReservationItem[]): Promise<void> {
 /**
  * Commit a reservation — payment succeeded. Decrement BOTH on-hand quantity and reserved quantity.
  * For made-to-order products, only the reserved counter decreases (no quantity to deduct).
+ *
+ * Phase 3 (3d): also FIFO-consume the matching ProductBatch rows and write
+ * SALE entries to the StockMovement audit log inside the same transaction
+ * so the per-lot books and the cached Stock aggregate can't drift.
+ *
+ * @param items   the reservation items being committed (per-location, per-product, qty)
+ * @param opts.orderId  threaded into every SALE movement for traceability
  */
-export async function commitStock(items: ReservationItem[]): Promise<void> {
+export async function commitStock(
+    items: ReservationItem[],
+    opts: { orderId?: string | null } = {},
+): Promise<void> {
     if (items.length === 0) return;
+    const { fifoConsumeStock } = await import('@/app/actions/inventory');
     await prisma.$transaction(async (tx) => {
         for (const item of items) {
             const stock = await tx.stock.findUnique({
@@ -128,6 +139,14 @@ export async function commitStock(items: ReservationItem[]): Promise<void> {
                 data.quantity = { decrement: item.quantity };
             }
             await tx.stock.update({ where: { id: stock.id }, data });
+
+            // Phase 3: drain batches in FIFO order and write SALE audit
+            // entries. MTO products have no batches — skip them. Unattributed
+            // remainders are logged as a warning, not thrown, so a stock
+            // mismatch never fails a paid order.
+            if (!stock.product.isMadeToOrder && stock.quantity !== null) {
+                await fifoConsumeStock(tx, item.productId, item.locationId, item.quantity, opts.orderId ?? null);
+            }
         }
     }, { timeout: TX_TIMEOUT_MS });
 }

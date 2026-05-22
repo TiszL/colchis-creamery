@@ -787,6 +787,21 @@ model Location {
   // LocationType, then admin-editable.
   allowsChannels        SalesChannel[]  @default([])
 
+  // Phase 4 — Stripe Connect routing. When stripeConnectAccountId is set
+  // AND stripeOnboardingStatus is 'complete', checkout creates the
+  // PaymentIntent with transfer_data.destination so the charge settles to
+  // this location's connected account (sub-LLC bank). When null, payments
+  // stay on the platform account (current pre-Connect behavior).
+  //
+  // Status mirrors Stripe's account.requirements signal:
+  //   null         — never started onboarding
+  //   'pending'    — onboarding link issued, details_submitted=false
+  //   'restricted' — onboarded but requirements outstanding (charges may be off)
+  //   'complete'   — charges_enabled && payouts_enabled
+  stripeConnectAccountId    String?  @unique
+  stripeOnboardingStatus    String?
+  stripeOnboardingUpdatedAt DateTime?
+
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 

@@ -108,7 +108,7 @@ export default async function StaffPortalDashboard({ params }: { params: any }) 
             </div>
 
             {/* KPI Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {visibleStats.map((stat, i) => (
                     <div key={i} className="bg-[#161616] p-5 border border-[#ffffff0A] relative overflow-hidden group hover:border-[#B96A3D]/20 transition-all">
                         <div className={`absolute top-0 right-0 w-24 h-24 bg-current opacity-0 group-hover:opacity-5 blur-2xl transition-opacity ${stat.color} -translate-y-1/2 translate-x-1/2 pointer-events-none`}></div>

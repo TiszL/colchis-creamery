@@ -34,12 +34,12 @@ export default async function B2BPortalDashboardPage() {
 
     return (
         <div className="max-w-5xl mx-auto space-y-8">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
                     <h1 className="text-3xl font-serif text-[#2C2A29]">Partner Dashboard</h1>
                     <p className="text-gray-500 mt-1">Welcome back, {user?.companyName}.</p>
                 </div>
-                <Link href="./b2b-portal/order" className="bg-[#CBA153] hover:bg-[#b08d47] text-white px-6 py-2.5 rounded-lg font-medium transition shadow-sm flex items-center gap-2">
+                <Link href="./b2b-portal/order" className="bg-[#CBA153] hover:bg-[#b08d47] text-white px-6 py-2.5 rounded-lg font-medium transition shadow-sm flex items-center justify-center gap-2 self-start sm:self-auto">
                     <Package className="w-4 h-4" />
                     New Bulk Order
                 </Link>
@@ -94,9 +94,9 @@ export default async function B2BPortalDashboardPage() {
                         </div>
                     </div>
 
-                    <div className="p-0">
+                    <div className="p-0 overflow-x-auto">
                         {recentOrders.length > 0 ? (
-                            <table className="w-full text-left text-sm text-gray-700">
+                            <table className="w-full text-left text-sm text-gray-700 min-w-[560px]">
                                 <thead className="bg-[#FDFBF7] text-gray-500 font-medium border-b border-[#E8E6E1]">
                                     <tr>
                                         <th className="px-6 py-3">Order Date</th>

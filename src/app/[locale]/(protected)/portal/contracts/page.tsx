@@ -50,8 +50,8 @@ export default async function StaffContractsPage({ params }: { params: any }) {
                 <p className="text-gray-500 font-light">Manage active distributor contracts and discount tiers.</p>
             </div>
 
-            <div className="bg-[#161616] border border-[#ffffff0A] overflow-hidden">
-                <table className="w-full text-left text-sm text-gray-400">
+            <div className="bg-[#161616] border border-[#ffffff0A] overflow-hidden overflow-x-auto">
+                <table className="w-full text-left text-sm text-gray-400 min-w-[720px]">
                     <thead className="bg-[#ffffff08] text-gray-500 font-medium border-b border-[#ffffff0A]">
                         <tr>
                             <th className="px-6 py-4">Company</th>

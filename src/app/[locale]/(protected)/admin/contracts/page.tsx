@@ -87,8 +87,8 @@ export default async function AdminContractsPage() {
             <div>
                 <h2 className="text-xl font-serif text-[#2C2A29] mb-4">Registered Partners</h2>
 
-                <div className="bg-white shadow-sm border border-gray-200 overflow-hidden">
-                    <table className="w-full text-left text-sm text-gray-700">
+                <div className="bg-white shadow-sm border border-gray-200 overflow-hidden overflow-x-auto">
+                    <table className="w-full text-left text-sm text-gray-700 min-w-[720px]">
                         <thead className="bg-[#FDFBF7] text-gray-500 font-medium border-b border-gray-200">
                             <tr>
                                 <th className="px-6 py-4">Company</th>

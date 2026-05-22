@@ -109,7 +109,7 @@ export default async function AdminAnalyticsPage({
                 {/* AR aging buckets */}
                 <div className="bg-[#161616] border border-[#ffffff0A] p-5">
                     <h3 className="text-[11px] font-mono uppercase tracking-wider text-gray-500 mb-3">AR aging</h3>
-                    <div className="grid grid-cols-4 gap-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                         {arBuckets.map(b => (
                             <div key={b.bucket} className="bg-[#0F0F0F] border border-[#ffffff0A] p-3">
                                 <p className="text-[10px] font-mono uppercase tracking-wider text-gray-500 mb-1">{b.bucket}</p>

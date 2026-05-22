@@ -72,7 +72,7 @@ export default async function LocationPortalOverview({
                 <p className="text-sm text-gray-500">Live snapshot for this location. Click a tile to drill in.</p>
             </header>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
                 {tiles.map(t => (
                     <Link key={t.label} href={t.href} className="block bg-[#161616] border border-[#ffffff0A] hover:border-[#B96A3D]/40 p-5 transition-colors">
                         <div className="flex items-center justify-between mb-2">

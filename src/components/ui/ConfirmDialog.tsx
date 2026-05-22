@@ -95,7 +95,7 @@ export function ConfirmDialog({
                     background: palette.cardBg,
                     border: `1px solid ${palette.cardBorder}`,
                     maxWidth: 480, width: '100%',
-                    padding: 32,
+                    padding: 'clamp(20px, 5vw, 32px)',
                     display: 'flex', flexDirection: 'column', gap: 16,
                     boxShadow: '0 24px 60px rgba(31,48,38,0.45)',
                 }}

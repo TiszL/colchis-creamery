@@ -171,7 +171,7 @@ export default function MediaUploadZone({
         : 'Free crop · Converted to WebP';
 
     const thumbAspect = landscapeThumbs ? 'aspect-video' : 'aspect-square';
-    const gridCols = landscapeThumbs ? 'grid-cols-2 lg:grid-cols-3' : 'grid-cols-4';
+    const gridCols = landscapeThumbs ? 'grid-cols-2 lg:grid-cols-3' : 'grid-cols-2 sm:grid-cols-4';
 
     return (
         <>

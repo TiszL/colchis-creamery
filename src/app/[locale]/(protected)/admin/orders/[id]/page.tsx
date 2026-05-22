@@ -270,7 +270,8 @@ export default async function AdminOrderDetailPage({ params }: PageProps) {
                     {/* Order items (raw — useful for sanity checking against fulfillment items) */}
                     <section className="bg-white border border-gray-200 p-6 shadow-sm">
                         <h2 className="text-xs font-bold uppercase tracking-wider text-[#B96A3D] mb-3">All items</h2>
-                        <table className="w-full text-sm">
+                        <div className="overflow-x-auto">
+                        <table className="w-full text-sm min-w-[480px]">
                             <thead className="text-xs text-gray-500 uppercase tracking-wider">
                                 <tr>
                                     <th className="text-left pb-2">Product</th>
@@ -290,6 +291,7 @@ export default async function AdminOrderDetailPage({ params }: PageProps) {
                                 ))}
                             </tbody>
                         </table>
+                        </div>
                     </section>
                 </div>
 

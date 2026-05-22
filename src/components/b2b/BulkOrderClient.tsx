@@ -111,12 +111,12 @@ export default function BulkOrderClient({ products, discount }: BulkOrderClientP
                     const discountedPrice = priceNum * (1 - (discount / 100));
 
                     return (
-                        <div key={product.id} className="bg-white p-4 rounded-xl shadow-sm border border-[#E8E6E1] flex gap-6 items-center">
-                            <div className="w-24 h-24 rounded overflow-hidden flex-shrink-0 bg-gray-100">
+                        <div key={product.id} className="bg-white p-4 rounded-xl shadow-sm border border-[#E8E6E1] flex flex-col sm:flex-row gap-4 sm:gap-6 sm:items-center">
+                            <div className="w-full h-32 sm:w-24 sm:h-24 rounded overflow-hidden flex-shrink-0 bg-gray-100">
                                 <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover" />
                             </div>
 
-                            <div className="flex-1">
+                            <div className="flex-1 min-w-0">
                                 <h3 className="font-serif text-lg text-[#2C2A29]">{product.name}</h3>
                                 <p className="text-sm text-gray-500 line-clamp-1">{product.description}</p>
                                 <div className="mt-2 flex items-center gap-4 text-sm">
@@ -125,7 +125,7 @@ export default function BulkOrderClient({ products, discount }: BulkOrderClientP
                                 </div>
                             </div>
 
-                            <div className="flex flex-col items-end gap-2 border-l border-[#E8E6E1] pl-6 ml-auto">
+                            <div className="flex flex-row sm:flex-col items-start sm:items-end gap-2 sm:border-l border-t sm:border-t-0 border-[#E8E6E1] pt-3 sm:pt-0 sm:pl-6 sm:ml-auto">
                                 <label className="text-xs text-gray-500 font-medium uppercase">Order Qty</label>
                                 <div className="flex items-center gap-2">
                                     <input

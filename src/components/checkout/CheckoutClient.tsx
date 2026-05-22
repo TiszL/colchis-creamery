@@ -371,24 +371,24 @@ export default function CheckoutClient({
     const body = (
         <main style={{ background: '#F5F0E6', minHeight: '100vh' }}>
             {/* Banner */}
-            <section style={{ background: '#1F3026', color: '#F5F0E6', position: 'relative', overflow: 'hidden' }}>
+            <section className="ch-checkout-banner" style={{ background: '#1F3026', color: '#F5F0E6', position: 'relative', overflow: 'hidden' }}>
                 <div style={{ position: 'absolute', inset: 0, backgroundImage: 'linear-gradient(#F5F0E606 1px, transparent 1px), linear-gradient(90deg, #F5F0E606 1px, transparent 1px)', backgroundSize: '80px 80px', pointerEvents: 'none' }} />
-                <div style={{ maxWidth: 1440, margin: '0 auto', padding: '56px 56px 36px', position: 'relative' }}>
+                <div className="ch-checkout-banner-inner" style={{ maxWidth: 1440, margin: '0 auto', padding: '56px 56px 36px', position: 'relative' }}>
                     <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.32em', color: '#D9A876', textTransform: 'uppercase' }}>
                         № 03 — Checkout · {items.length} {items.length === 1 ? 'item' : 'items'}
                     </div>
-                    <h1 style={{ fontFamily: 'var(--font-serif)', fontWeight: 300, fontSize: 76, lineHeight: 0.95, letterSpacing: '-0.03em', margin: '18px 0 0' }}>
+                    <h1 className="ch-checkout-h1" style={{ fontFamily: 'var(--font-serif)', fontWeight: 300, fontSize: 76, lineHeight: 0.95, letterSpacing: '-0.03em', margin: '18px 0 0' }}>
                         The reckoning,<br /><em style={{ color: '#D9A876', fontWeight: 300 }}>finalized.</em>
                     </h1>
                 </div>
             </section>
 
-            <div style={{ maxWidth: 1440, margin: '0 auto', padding: '40px 56px 96px', display: 'grid', gridTemplateColumns: 'minmax(0, 1.55fr) minmax(0, 1fr)', gap: 48, alignItems: 'flex-start' }}>
+            <div className="ch-checkout-body" style={{ maxWidth: 1440, margin: '0 auto', padding: '40px 56px 96px', display: 'grid', gridTemplateColumns: 'minmax(0, 1.55fr) minmax(0, 1fr)', gap: 48, alignItems: 'flex-start' }}>
                 {/* Form column */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
                     {/* § Contact */}
                     <SectionCard num="01" eyebrow="Contact" title="Who's ordering?">
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                        <div className="ch-checkout-two-col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
                             <TextField label="Full name" value={contact.name} onChange={v => setContact(c => ({ ...c, name: v }))} required />
                             <TextField
                                 label="Phone"

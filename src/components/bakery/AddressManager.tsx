@@ -885,7 +885,7 @@ export default function AddressManager({
                             const isActive = activeAddress?.id === a.id;
                             const geoMissing = a.latitude === null || a.longitude === null;
                             return (
-                                <div key={a.id} style={{
+                                <div key={a.id} className="ch-addr-row" style={{
                                     background: '#F5F0E6',
                                     border: isActive ? '2px solid #B96A3D' : '1px solid #1F302622',
                                     padding: '14px 18px',
@@ -925,7 +925,7 @@ export default function AddressManager({
                                         a user can't mistake Edit for Set-default at a glance.
                                         Colors are distinct: Edit = neutral, Default = copper
                                         (brand accent / favorite), Delete = red. */}
-                                    <div style={{ display: 'flex', gap: 6, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                                    <div className="ch-addr-actions" style={{ display: 'flex', gap: 6, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                                         <button
                                             onClick={() => startEdit(a)}
                                             title="Edit this address (label, apt, street, notes)"

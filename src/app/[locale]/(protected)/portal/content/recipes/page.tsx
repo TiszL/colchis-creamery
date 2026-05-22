@@ -12,7 +12,7 @@ const ALLOWED = ['MASTER_ADMIN', 'CONTENT_MANAGER'];
 export default async function StaffRecipesPage({ params }: { params: any }) {
     const { locale } = await params;
     const session = await getSession();
-    if (!session || !ALLOWED.includes(session.role)) redirect(`/${locale}/staff`);
+    if (!session || !ALLOWED.includes(session.role)) redirect(`/${locale}/portal-login`);
 
     const recipes = await prisma.recipe.findMany({
         orderBy: { createdAt: 'desc' },

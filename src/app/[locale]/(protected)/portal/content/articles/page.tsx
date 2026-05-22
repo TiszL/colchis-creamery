@@ -12,7 +12,7 @@ const ALLOWED = ['MASTER_ADMIN', 'CONTENT_MANAGER'];
 export default async function StaffArticlesPage({ params }: { params: any }) {
     const { locale } = await params;
     const session = await getSession();
-    if (!session || !ALLOWED.includes(session.role)) redirect(`/${locale}/staff`);
+    if (!session || !ALLOWED.includes(session.role)) redirect(`/${locale}/portal-login`);
 
     const articles = await prisma.article.findMany({
         orderBy: { createdAt: 'desc' },

@@ -13,7 +13,7 @@ const SALES_CHANNELS = Object.values(SalesChannel);
 export default async function AdminInventoryPage({ params }: { params: Promise<{ locale: string }> }) {
     const { locale } = await params;
     const session = await getSession();
-    if (!session || session.role !== 'MASTER_ADMIN') redirect(`/${locale}/staff`);
+    if (!session || session.role !== 'MASTER_ADMIN') redirect(`/${locale}/portal-login`);
 
     const products = await prisma.product.findMany({
         orderBy: { name: 'asc' },

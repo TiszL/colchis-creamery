@@ -10,7 +10,7 @@ const ALLOWED = ['MASTER_ADMIN', 'SALES'];
 export default async function StaffLeadsPage({ params }: { params: any }) {
     const { locale } = await params;
     const session = await getSession();
-    if (!session || !ALLOWED.includes(session.role)) redirect(`/${locale}/staff`);
+    if (!session || !ALLOWED.includes(session.role)) redirect(`/${locale}/portal-login`);
 
     const leads = await prisma.b2bLead.findMany({
         orderBy: { createdAt: 'desc' },

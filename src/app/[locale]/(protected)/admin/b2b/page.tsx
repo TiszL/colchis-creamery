@@ -21,7 +21,7 @@ export default async function B2bAdminOverview({
             where: { userId: session.userId, role: "B2B_SALES_MANAGER" },
             select: { id: true },
         });
-        if (!has) redirect(`/${locale}/staff`);
+        if (!has) redirect(`/${locale}/portal-login`);
     }
 
     const prefix = locale === "en" ? "" : `/${locale}`;

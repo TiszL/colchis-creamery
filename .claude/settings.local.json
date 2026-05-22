@@ -62,7 +62,10 @@
       "Bash(git commit *)",
       "Bash(grep -oE \">[A-Z][^<>]{20,140}<\")",
       "Bash(vercel --version)",
-      "Bash(perl -i -0pe 's/\\\\n\\\\/\\\\* hide scrollbar but keep scroll \\\\*\\\\/\\\\n\\\\.no-scrollbar \\\\{[^}]*\\\\}\\\\n\\\\.no-scrollbar::-webkit-scrollbar \\\\{[^}]*\\\\}\\\\n//g' src/app/globals.css)"
+      "Bash(perl -i -0pe 's/\\\\n\\\\/\\\\* hide scrollbar but keep scroll \\\\*\\\\/\\\\n\\\\.no-scrollbar \\\\{[^}]*\\\\}\\\\n\\\\.no-scrollbar::-webkit-scrollbar \\\\{[^}]*\\\\}\\\\n//g' src/app/globals.css)",
+      "Bash(grep -rn \"redirect.*\\\\`/\\\\${locale}/staff\\\\`\\\\|redirect.*'/staff'\\\\|redirect.*\\\\\"/staff\\\\\"\" /Users/Tornike/Desktop/Cheese/1/website/src/app/ --include=\"*.tsx\" --include=\"*.ts\")",
+      "Bash(grep -rn \"/staff\\\\`\" /Users/Tornike/Desktop/Cheese/1/website/src/ --include=\"*.tsx\" --include=\"*.ts\")",
+      "Bash(grep -rn \"locale}/staff\\\\`\" /Users/Tornike/Desktop/Cheese/1/website/src/ --include=\"*.tsx\" --include=\"*.ts\")"
     ]
   }
 }

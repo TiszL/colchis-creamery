@@ -15,7 +15,7 @@ async function assertB2bDispatchAccess(locale: string): Promise<{ userId: string
             where: { userId: session.userId, role: "B2B_SALES_MANAGER" },
             select: { id: true },
         });
-        if (!has) redirect(`/${locale}/staff`);
+        if (!has) redirect(`/${locale}/portal-login`);
     }
     return { userId: session.userId };
 }

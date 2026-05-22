@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 export default async function AdminRequestsPage({ params }: { params: any }) {
     const { locale } = await params;
     const session = await getSession();
-    if (!session || session.role !== 'MASTER_ADMIN') redirect(`/${locale}/staff`);
+    if (!session || session.role !== 'MASTER_ADMIN') redirect(`/${locale}/portal-login`);
 
     const leads = await prisma.b2bLead.findMany({
         orderBy: { createdAt: 'desc' },

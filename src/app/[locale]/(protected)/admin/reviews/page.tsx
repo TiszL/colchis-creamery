@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 export default async function AdminReviewsPage({ params }: { params: Promise<{ locale: string }> }) {
     const { locale } = await params;
     const session = await getSession();
-    if (!session || session.role !== 'MASTER_ADMIN') redirect(`/${locale}/staff`);
+    if (!session || session.role !== 'MASTER_ADMIN') redirect(`/${locale}/portal-login`);
 
     const reviews = await prisma.productReview.findMany({
         orderBy: { createdAt: 'desc' },

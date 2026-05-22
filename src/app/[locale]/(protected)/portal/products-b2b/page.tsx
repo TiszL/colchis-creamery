@@ -14,7 +14,7 @@ const SALES_CHANNELS = Object.values(SalesChannel);
 export default async function StaffProductsB2BPage({ params }: { params: Promise<{ locale: string }> }) {
     const { locale } = await params;
     const session = await getSession();
-    if (!session || !ALLOWED.includes(session.role)) redirect(`/${locale}/staff`);
+    if (!session || !ALLOWED.includes(session.role)) redirect(`/${locale}/portal-login`);
 
     const products = await prisma.product.findMany({
         where: { isB2bVisible: true },

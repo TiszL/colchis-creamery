@@ -30,7 +30,7 @@ async function generateContractAction(formData: FormData) {
 export default async function StaffContractsPage({ params }: { params: any }) {
     const { locale } = await params;
     const session = await getSession();
-    if (!session || !ALLOWED.includes(session.role)) redirect(`/${locale}/staff`);
+    if (!session || !ALLOWED.includes(session.role)) redirect(`/${locale}/portal-login`);
 
     const b2bPartners = await db.user.findMany({
         where: { role: 'B2B_PARTNER' },

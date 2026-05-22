@@ -92,7 +92,7 @@ async function deletePin(formData: FormData) {
 export default async function AnalyticsControlPage({ params, searchParams }: { params: any; searchParams: any }) {
     const { locale } = await params;
     const session = await getSession();
-    if (!session || session.role !== 'MASTER_ADMIN') redirect(`/${locale}/staff`);
+    if (!session || session.role !== 'MASTER_ADMIN') redirect(`/${locale}/portal-login`);
 
     const resolvedSearchParams = await searchParams;
     const currentPage = parseInt(resolvedSearchParams?.page as string) || 1;

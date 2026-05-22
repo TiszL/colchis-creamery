@@ -41,7 +41,7 @@ const ROLE_CONFIG: Record<string, { label: string; icon: any; color: string }> =
 export default async function AccessCodesPage({ params }: { params: any }) {
     const { locale } = await params;
     const session = await getSession();
-    if (!session || session.role !== 'MASTER_ADMIN') redirect(`/${locale}/staff`);
+    if (!session || session.role !== 'MASTER_ADMIN') redirect(`/${locale}/portal-login`);
 
     const codes = await prisma.accessCode.findMany({
         orderBy: { createdAt: 'desc' },

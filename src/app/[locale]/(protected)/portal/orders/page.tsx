@@ -35,7 +35,7 @@ async function updateOrderStatus(formData: FormData) {
 export default async function StaffOrdersPage({ params }: { params: any }) {
     const { locale } = await params;
     const session = await getSession();
-    if (!session || !ALLOWED.includes(session.role)) redirect(`/${locale}/staff`);
+    if (!session || !ALLOWED.includes(session.role)) redirect(`/${locale}/portal-login`);
 
     const isSalesOnly = session.role === 'SALES';
 

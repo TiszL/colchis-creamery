@@ -56,6 +56,11 @@ function getLoginUrl(area: ProtectedArea | null, locale: string): string {
 }
 
 // ── Legacy path redirects ───────────────────────────────────────────────────
+// Pre-overhaul `/staff` was the staff-login page (now `/portal-login`) and
+// `/staff-portal` was the staff dashboard root (now `/portal`). Match ONLY
+// when the legacy slug is the top-level segment (after the optional locale
+// prefix) — otherwise we'd hijack `/admin/staff`, `/admin/location-staff`,
+// etc., rewriting them to dead URLs.
 const LEGACY_REDIRECTS: Record<string, string> = {
   "staff-portal": "portal",
   "staff": "portal-login",
@@ -64,14 +69,15 @@ const LEGACY_REDIRECTS: Record<string, string> = {
 export default async function middleware(req: NextRequest) {
   const pathname = req.nextUrl.pathname;
 
-  // ── Backward-compat: redirect old /staff and /staff-portal to new paths ───
+  // ── Backward-compat: redirect old top-level /staff and /staff-portal ──────
   const segments = pathname.split("/");
-  for (const [oldSeg, newSeg] of Object.entries(LEGACY_REDIRECTS)) {
-    const idx = segments.indexOf(oldSeg);
-    if (idx !== -1) {
-      segments[idx] = newSeg;
-      return NextResponse.redirect(new URL(segments.join("/"), req.url), 301);
-    }
+  const localePrefixed = routing.locales.includes(segments[1] as any);
+  const topIdx = localePrefixed ? 2 : 1;
+  const topSegment = segments[topIdx];
+  const replacement = topSegment ? LEGACY_REDIRECTS[topSegment] : undefined;
+  if (replacement) {
+    segments[topIdx] = replacement;
+    return NextResponse.redirect(new URL(segments.join("/"), req.url), 301);
   }
 
   // ── For non-protected paths, just run intl middleware ──────────────────────

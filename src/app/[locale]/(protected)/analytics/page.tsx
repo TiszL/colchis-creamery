@@ -15,7 +15,7 @@ export default async function AnalyticsDashboardPage({ params }: { params: any }
     const session = await getSession();
 
     if (!session || !ANALYTICS_ROLES.includes(session.role)) {
-        redirect(`/${locale}/staff`);
+        redirect(`/${locale}/portal-login`);
     }
 
     const isViewerOnly = session.role === 'ANALYTICS_VIEWER';

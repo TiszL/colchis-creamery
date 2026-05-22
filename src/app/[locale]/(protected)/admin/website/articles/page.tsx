@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
 export default async function AdminArticlesPage({ params }: { params: any }) {
     const { locale } = await params;
     const session = await getSession();
-    if (!session || session.role !== 'MASTER_ADMIN') redirect(`/${locale}/staff`);
+    if (!session || session.role !== 'MASTER_ADMIN') redirect(`/${locale}/portal-login`);
 
     const articles = await prisma.article.findMany({
         orderBy: { createdAt: 'desc' },

@@ -8,7 +8,7 @@ export default async function AdminGlobalSettingsPage({ params }: { params: any 
     const session = await getSession();
     
     if (!session || session.role !== 'MASTER_ADMIN') {
-        redirect(`/${locale}/staff`);
+        redirect(`/${locale}/portal-login`);
     }
 
     const configs = await prisma.siteConfig.findMany();

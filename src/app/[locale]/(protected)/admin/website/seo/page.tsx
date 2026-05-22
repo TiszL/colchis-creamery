@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 export default async function AdminSeoPage({ params }: { params: any }) {
     const { locale } = await params;
     const session = await getSession();
-    if (!session || session.role !== 'MASTER_ADMIN') redirect(`/${locale}/staff`);
+    if (!session || session.role !== 'MASTER_ADMIN') redirect(`/${locale}/portal-login`);
 
     const configs = await prisma.siteConfig.findMany({
         where: { key: { startsWith: 'seo.' } },

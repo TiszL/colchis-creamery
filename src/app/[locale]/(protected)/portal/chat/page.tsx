@@ -9,7 +9,7 @@ const ALLOWED = ['MASTER_ADMIN', 'PRODUCT_MANAGER'];
 export default async function StaffChatPage({ params }: { params: any }) {
     const { locale } = await params;
     const session = await getSession();
-    if (!session || !ALLOWED.includes(session.role)) redirect(`/${locale}/staff`);
+    if (!session || !ALLOWED.includes(session.role)) redirect(`/${locale}/portal-login`);
 
     return (
         <div className="space-y-6">

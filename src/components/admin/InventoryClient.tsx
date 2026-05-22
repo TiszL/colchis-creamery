@@ -3,7 +3,7 @@
 import { useState, useTransition, useRef, useEffect } from 'react';
 import { Search, Plus, Save, Trash2, X, Eye, EyeOff, Package, AlertTriangle, Image as ImageIcon, Film, ChevronDown, MapPin, Boxes, Zap } from 'lucide-react';
 import MediaUploadZone from './MediaUploadZone';
-import type { ProductKind, DeliveryMethod, LocationType, SalesChannel } from '@prisma/client';
+import type { ProductKind, LocationType, SalesChannel } from '@prisma/client';
 
 interface ProductFamilyOption {
     id: string;
@@ -58,7 +58,6 @@ interface Product {
     salesChannel: SalesChannel;
     packagingType: string | null;
     unitCost: string | null;
-    channels: DeliveryMethod[];
     stocks: StockRow[];
 }
 
@@ -66,8 +65,6 @@ interface LocationOption {
     id: string;
     name: string;
     type: LocationType;
-    /** Active channels this location offers. Used to surface "offered by" hints + flag misconfig. */
-    channels: DeliveryMethod[];
 }
 
 interface InventoryClientProps {
@@ -76,7 +73,6 @@ interface InventoryClientProps {
     productFamilies: ProductFamilyOption[];
     locations: LocationOption[];
     productKinds: ProductKind[];
-    fulfillmentChannels: DeliveryMethod[];
     salesChannels: SalesChannel[];
     locale: string;
     saveAction: (formData: FormData) => Promise<void>;
@@ -92,10 +88,6 @@ type KindFilter = 'ALL' | 'CREAMERY' | 'BAKERY';
 
 function kindLabel(k: ProductKind): string {
     return k.replace(/_/g, ' ');
-}
-
-function channelLabel(c: DeliveryMethod): string {
-    return c.replace(/_/g, ' ');
 }
 
 function kindGroupOf(k: ProductKind): 'CREAMERY' | 'BAKERY' {
@@ -118,7 +110,7 @@ function getThumbUrl(url: string): string {
     return url; // External URLs: use as-is
 }
 
-export default function InventoryClient({ products, productLines, productFamilies, locations, productKinds, fulfillmentChannels, salesChannels, locale, saveAction, deleteAction, quickStockAction }: InventoryClientProps) {
+export default function InventoryClient({ products, productLines, productFamilies, locations, productKinds, salesChannels, locale, saveAction, deleteAction, quickStockAction }: InventoryClientProps) {
     const [selectedLineId, setSelectedLineId] = useState<string>('');
     const [search, setSearch] = useState('');
     const [kindFilter, setKindFilter] = useState<KindFilter>('ALL');
@@ -135,10 +127,11 @@ export default function InventoryClient({ products, productLines, productFamilie
     const [galleryImages, setGalleryImages] = useState<string[]>([]);
     const [videoLinks, setVideoLinks] = useState<string[]>([]);
 
-    // Phase 3 state — kind, made-to-order, channels eligibility, per-location stock
+    // Phase 3 state — kind, made-to-order, per-location stock
+    // (Phase 8: channelsSet removed — per-product delivery methods deprecated;
+    // SalesChannel + Location.allowsChannels are the source of truth now.)
     const [kind, setKind] = useState<ProductKind>('CREAMERY_CHEESE');
     const [isMadeToOrder, setIsMadeToOrder] = useState(false);
-    const [channelsSet, setChannelsSet] = useState<Set<DeliveryMethod>>(new Set());
     // Keyed by locationId. null = "made-to-order at this location" / "untracked"
     const [stockMap, setStockMap] = useState<Record<string, number | null>>({});
 
@@ -165,7 +158,6 @@ export default function InventoryClient({ products, productLines, productFamilie
         setSelectedLineId(product.productLineId || '');
         setKind(product.kind);
         setIsMadeToOrder(product.isMadeToOrder);
-        setChannelsSet(new Set(product.channels));
         // Pre-fill stockMap from product.stocks; locations without a row stay absent
         const map: Record<string, number | null> = {};
         for (const s of product.stocks) {
@@ -188,21 +180,12 @@ export default function InventoryClient({ products, productLines, productFamilie
         const defaultKind: ProductKind = kindFilter === 'BAKERY' ? 'BAKERY_HOT' : 'CREAMERY_CHEESE';
         setKind(defaultKind);
         setIsMadeToOrder(false);
-        setChannelsSet(new Set());
         setStockMap({});
         setDrawerOpen(true);
         setDeleteConfirm(null);
     };
 
-    const toggleChannel = (ch: DeliveryMethod) => {
-        setChannelsSet(prev => {
-            const next = new Set(prev);
-            if (next.has(ch)) next.delete(ch); else next.add(ch);
-            return next;
-        });
-    };
-
-    // Get categories for selected line
+// Get categories for selected line
     const categoriesForLine = productLines.find(l => l.id === selectedLineId)?.categories || [];
 
     // Helper: get line name by ID
@@ -231,13 +214,11 @@ export default function InventoryClient({ products, productLines, productFamilie
         galleryImages.filter(u => u.trim()).forEach(url => formData.append('images[]', url));
         videoLinks.filter(u => u.trim()).forEach(url => formData.append('videoUrls[]', url));
 
-        // Phase 3: kind, made-to-order, channels, per-location stock
+        // Phase 3: kind, made-to-order, per-location stock
+        // (Phase 8: channels[] removed — server ignores it; per-product
+        //  delivery-method gating deprecated.)
         formData.set('kind', kind);
         if (isMadeToOrder) formData.set('isMadeToOrder', 'on');
-        // Channels: append one entry per checked channel
-        for (const ch of channelsSet) {
-            formData.append('channels[]', ch);
-        }
         // Per-location stock: only include locations the admin explicitly touched
         const stocksPayload = Object.entries(stockMap).map(([locationId, quantity]) => ({ locationId, quantity }));
         formData.set('stocksJson', JSON.stringify(stocksPayload));

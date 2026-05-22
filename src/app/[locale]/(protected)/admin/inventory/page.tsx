@@ -1,14 +1,13 @@
 import { prisma } from '@/lib/db';
 import { getSession } from '@/lib/session';
 import { redirect } from 'next/navigation';
-import { ProductKind, DeliveryMethod, SalesChannel } from '@prisma/client';
+import { ProductKind, SalesChannel } from '@prisma/client';
 import InventoryClient from '@/components/admin/InventoryClient';
 import { saveProductAction, deleteProductAction, quickStockAction } from '@/app/actions/products';
 
 export const dynamic = 'force-dynamic';
 
 const PRODUCT_KINDS = Object.values(ProductKind);
-const FULFILLMENT_CHANNELS = Object.values(DeliveryMethod);
 const SALES_CHANNELS = Object.values(SalesChannel);
 
 export default async function AdminInventoryPage({ params }: { params: Promise<{ locale: string }> }) {
@@ -54,7 +53,6 @@ export default async function AdminInventoryPage({ params }: { params: Promise<{
         id: l.id,
         name: l.name,
         type: l.type,
-        channels: l.channels.map(c => c.deliveryMethod),
     }));
 
     const serialized = products.map(p => ({
@@ -89,7 +87,6 @@ export default async function AdminInventoryPage({ params }: { params: Promise<{
         salesChannel: p.salesChannel,
         packagingType: p.packagingType,
         unitCost: p.unitCost,
-        channels: [],
         stocks: p.stocks.map(s => ({
             locationId: s.locationId,
             locationName: s.location.name,
@@ -113,7 +110,6 @@ export default async function AdminInventoryPage({ params }: { params: Promise<{
             productFamilies={productFamilies}
             locations={locations}
             productKinds={PRODUCT_KINDS}
-            fulfillmentChannels={FULFILLMENT_CHANNELS}
             salesChannels={SALES_CHANNELS}
             locale={locale}
             saveAction={saveProductAction}

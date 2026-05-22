@@ -3,13 +3,12 @@ import { getSession } from '@/lib/session';
 import { redirect } from 'next/navigation';
 import InventoryClient from '@/components/admin/InventoryClient';
 import { saveProductAction, deleteProductAction, quickStockAction } from '@/app/actions/products';
-import { ProductKind, DeliveryMethod, SalesChannel } from '@prisma/client';
+import { ProductKind, SalesChannel } from '@prisma/client';
 
 export const dynamic = 'force-dynamic';
 
 const ALLOWED = ['MASTER_ADMIN', 'PRODUCT_MANAGER'];
 const PRODUCT_KINDS = Object.values(ProductKind);
-const FULFILLMENT_CHANNELS = Object.values(DeliveryMethod);
 const SALES_CHANNELS = Object.values(SalesChannel);
 
 export default async function StaffProductsPage({ params }: { params: Promise<{ locale: string }> }) {
@@ -56,7 +55,6 @@ export default async function StaffProductsPage({ params }: { params: Promise<{ 
         id: l.id,
         name: l.name,
         type: l.type,
-        channels: l.channels.map(c => c.deliveryMethod),
     }));
 
     const serialized = products.map(p => ({
@@ -71,7 +69,6 @@ export default async function StaffProductsPage({ params }: { params: Promise<{ 
         isB2cVisible: p.isB2cVisible, isB2bVisible: p.isB2bVisible, isCartOrderable: p.isCartOrderable,
         productFamilyId: p.productFamilyId, salesChannel: p.salesChannel,
         packagingType: p.packagingType, unitCost: p.unitCost,
-        channels: [],
         stocks: p.stocks.map(s => ({
             locationId: s.locationId,
             locationName: s.location.name,
@@ -97,7 +94,6 @@ export default async function StaffProductsPage({ params }: { params: Promise<{ 
                 productFamilies={productFamilies}
                 locations={locations}
                 productKinds={PRODUCT_KINDS}
-                fulfillmentChannels={FULFILLMENT_CHANNELS}
                 salesChannels={SALES_CHANNELS}
                 locale={locale}
                 saveAction={saveProductAction}

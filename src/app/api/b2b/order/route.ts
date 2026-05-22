@@ -195,6 +195,30 @@ export async function POST(req: NextRequest) {
         //     /api/webhooks/stripe finds + commits this order on success,
         //     then return the clientSecret to the client for confirmPayment.
         if (method === "STRIPE_CARD" || method === "STRIPE_ACH") {
+            // Phase 4 (Connect) extended to B2B: settle to the connected
+            // account when all fulfillments land at a single Location with
+            // a complete Connect onboarding. Stripe's transfer_data accepts
+            // exactly one destination per PaymentIntent — mixed-location
+            // orders fall back to a platform charge (settled internally).
+            const uniqueLocationIds = Array.from(new Set(result.fulfillmentPlan.map(l => l.locationId)));
+            const connectLookup = await db.location.findMany({
+                where: { id: { in: uniqueLocationIds } },
+                select: { id: true, stripeConnectAccountId: true, stripeOnboardingStatus: true },
+            });
+            const completeAccounts = connectLookup
+                .filter(l => l.stripeConnectAccountId && l.stripeOnboardingStatus === 'complete')
+                .map(l => l.stripeConnectAccountId!);
+            const allOnSingleConnectAccount =
+                completeAccounts.length === connectLookup.length &&
+                new Set(completeAccounts).size === 1;
+            const destinationAccountId = allOnSingleConnectAccount ? completeAccounts[0] : null;
+            if (uniqueLocationIds.length > 1 && !allOnSingleConnectAccount && completeAccounts.length > 0) {
+                console.warn(
+                    '[b2b/order] Mixed-Connect order — some locations have complete Connect, others do not. Falling back to platform charge.',
+                    { orderId: order.id, locationIds: uniqueLocationIds },
+                );
+            }
+
             try {
                 await reserveStock(reservationItems);
             } catch (e) {
@@ -238,11 +262,17 @@ export async function POST(req: NextRequest) {
             // on order.id so a network retry won't create a duplicate
             // PaymentIntent for the same order. (Different orders → different
             // PaymentIntents — order.id is unique per attempt.)
-            const intent = await stripe.paymentIntents.create({
+            const intentParams: Parameters<typeof stripe.paymentIntents.create>[0] = {
                 amount: subtotalCents,
                 currency: "usd",
                 customer: stripeCustomerId,
                 automatic_payment_methods: { enabled: true },
+                // setup_future_usage='off_session' attaches the PaymentMethod to
+                // the Customer after a successful charge so RecurringOrderSchedule
+                // (Phase 6d) can bill it via cron without re-prompting the
+                // partner. Both card and us_bank_account support off_session via
+                // PaymentElement; Stripe handles ACH-mandate text automatically.
+                setup_future_usage: 'off_session',
                 metadata: {
                     orderId: order.id,
                     orderType: "B2B",
@@ -256,7 +286,12 @@ export async function POST(req: NextRequest) {
                 // paper trail.
                 receipt_email: user.email,
                 statement_descriptor_suffix: statementSuffix,
-            }, {
+            };
+            if (destinationAccountId) {
+                intentParams.transfer_data = { destination: destinationAccountId };
+                (intentParams.metadata as Record<string, string>).connect_account_id = destinationAccountId;
+            }
+            const intent = await stripe.paymentIntents.create(intentParams, {
                 idempotencyKey: `b2b-order-pi-${order.id}`,
             });
 

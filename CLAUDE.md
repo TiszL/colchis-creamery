@@ -228,12 +228,13 @@ BAKERY_NOTIFICATION_EMAIL=
 
 ## Known follow-ups (not blockers)
 
-1. **Stripe Elements in B2B portal**: `STRIPE_CARD` / `STRIPE_ACH` paths in `/api/b2b/order` return a "coming soon" note. Wire `<Elements>` in `BulkOrderClient` + a PaymentIntent server action + a webhook branch for B2B `payment_intent.succeeded`.
-2. **Resolve API spec verification**: confirm endpoint paths, auth header, field names against the merchant's live Resolve docs. TODOs inline in `src/lib/resolve.ts`. Sandbox calls currently succeed but field shapes weren't verified against the live spec.
-3. **Cart-aware UPS parcel sizing**: 5b uses a fixed `10×8×6, 64oz` parcel for the rate quote. Sum from per-product weights once `Product.weightOz` is added.
-4. **InventoryClient dead form fields**: `channels[]` form field still posted but server ignores it (Phase 8a). Remove the unused state in a focused lint pass.
-5. **i18n for new strings**: chip filter labels, unified staff page labels, Category UI are English-only. Wire next-intl translations when the user wants Russian/Spanish/Georgian on those surfaces.
-6. **No automated tests** anywhere. New surfaces shipped in Phases 9a–9c are typecheck-clean but unverified by tests.
+1. **Resolve API spec verification**: confirm endpoint paths, auth header, field names against the merchant's live Resolve docs. TODOs inline in `src/lib/resolve.ts`. Sandbox calls currently succeed but field shapes weren't verified against the live spec.
+2. **Cart-aware UPS parcel sizing**: 5b uses a fixed `10×8×6, 64oz` parcel for the rate quote. Sum from per-product weights once `Product.weightOz` is added.
+3. **InventoryClient dead form fields**: `channels[]` form field still posted but server ignores it (Phase 8a). Remove the unused state in a focused lint pass.
+4. **i18n for admin surfaces**: `/admin/staff`, `/admin/categories`, the unified staff page labels are English-only (intentional — staff don't switch locales). Storefront chip nav + Stripe Elements UI are now i18n'd across en/ka/ru/es.
+5. **Wire RecurringOrderSchedule cron to use saved Stripe PaymentMethods**: Phase 10 stored partner cards via `setup_future_usage: 'off_session'`. The Phase 6d cron at `/api/cron/recurring-orders` only generates Resolve invoices today — extend it to off-session charge a saved card for partners whose schedule has `paymentMethod = STRIPE_*`.
+6. **Webhook secret rotation** (deferred per user): currently in sandbox. Rotate `STRIPE_WEBHOOK_SECRET` + revoke any historical keys before production.
+7. **No automated tests** anywhere. New surfaces shipped in Phases 9a–9c + 10 are typecheck-clean but unverified by tests.
 
 ## Done in Phase 9 (sweep of older follow-ups)
 

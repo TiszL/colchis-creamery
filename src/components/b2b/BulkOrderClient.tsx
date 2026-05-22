@@ -371,16 +371,21 @@ function BulkOrderInner({
                             selected. It self-manages 3DS, card / ACH bank-debit toggling,
                             and inline validation messages. */}
                         {isStripePath(paymentMethod) && (
-                            <div className="bg-[#0C0C0C] border border-gray-800 rounded p-4">
+                            <div className="bg-[#0C0C0C] border border-gray-800 rounded p-4 space-y-3">
                                 <PaymentElement
                                     options={{
                                         layout: 'tabs',
-                                        // Hide Stripe's default "Save for later" toggle — B2B
-                                        // partners place orders infrequently + we don't yet
-                                        // store saved payment methods on the partner profile.
                                         wallets: { applePay: 'never', googlePay: 'never' },
                                     }}
                                 />
+                                {/* Stripe best practice: disclose the saved-payment-method
+                                    intent when using setup_future_usage. Required for SCA +
+                                    helps partners understand recurring-order billing. */}
+                                <p className="text-[10px] text-gray-500 leading-relaxed">
+                                    By submitting, you authorize Colchis Food to save this payment method
+                                    and charge it for future recurring orders you set up. You can manage
+                                    saved methods or cancel recurring schedules anytime from your B2B portal.
+                                </p>
                             </div>
                         )}
 

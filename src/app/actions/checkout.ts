@@ -394,6 +394,35 @@ export async function createCheckoutSession(input: CheckoutInput): Promise<Check
 
     /* ─── 10. Create the Stripe PaymentIntent ──────────────────────────── */
 
+    // Phase 4 (4c) — Stripe Connect routing. If the order's destination
+    // location(s) have a complete connected account on file, settle the
+    // charge to that account via destination charges (transfer_data).
+    // Per Phase 1g, carts are single-location, so this is almost always
+    // one location → one Connect account.
+    //
+    // Multi-location carts (edge case, legacy) with mixed Connect status
+    // fall back to a platform charge with a warning logged — splitting one
+    // PaymentIntent across multiple destinations isn't supported by Stripe;
+    // doing so would need separate charges + transfers (deferred).
+    const uniqueLocationIds = Array.from(new Set(plan.groups.map(g => g.locationId)));
+    const connectLookup = await prisma.location.findMany({
+        where: { id: { in: uniqueLocationIds } },
+        select: { id: true, stripeConnectAccountId: true, stripeOnboardingStatus: true },
+    });
+    const completeAccounts = connectLookup
+        .filter(l => l.stripeConnectAccountId && l.stripeOnboardingStatus === 'complete')
+        .map(l => l.stripeConnectAccountId!);
+    const allOnSingleConnectAccount =
+        completeAccounts.length === connectLookup.length &&
+        new Set(completeAccounts).size === 1;
+    const destinationAccountId = allOnSingleConnectAccount ? completeAccounts[0] : null;
+    if (uniqueLocationIds.length > 1 && !allOnSingleConnectAccount && completeAccounts.length > 0) {
+        console.warn(
+            '[checkout] Mixed-Connect cart — some locations have a complete Connect account, others do not. Falling back to platform charge.',
+            { orderId: order.id, locationIds: uniqueLocationIds },
+        );
+    }
+
     let paymentIntent: Stripe.PaymentIntent;
     try {
         const stripeAddress: Stripe.AddressParam = {
@@ -410,8 +439,9 @@ export async function createCheckoutSession(input: CheckoutInput): Promise<Check
             isGuest: isGuest ? 'true' : 'false',
         };
         if (taxCalculationId) metadata.tax_calculation_id = taxCalculationId;
+        if (destinationAccountId) metadata.connect_account_id = destinationAccountId;
 
-        paymentIntent = await stripe.paymentIntents.create({
+        const intentParams: Stripe.PaymentIntentCreateParams = {
             amount: Math.round(totalWithTax * 100),
             currency: 'usd',
             shipping: {
@@ -422,7 +452,11 @@ export async function createCheckoutSession(input: CheckoutInput): Promise<Check
             metadata,
             receipt_email: input.contact.email,
             automatic_payment_methods: { enabled: true },
-        });
+        };
+        if (destinationAccountId) {
+            intentParams.transfer_data = { destination: destinationAccountId };
+        }
+        paymentIntent = await stripe.paymentIntents.create(intentParams);
     } catch (e) {
         await releaseStock(reservationItems);
         await prisma.order.delete({ where: { id: order.id } }).catch(() => { /* best effort */ });

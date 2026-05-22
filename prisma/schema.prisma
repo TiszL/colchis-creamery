@@ -53,6 +53,8 @@ model User {
   // role like MASTER_ADMIN / B2C_CUSTOMER is unchanged). A user can have
   // multiple roles at the same location and roles across locations.
   locationRoles         UserLocation[]
+  // Phase 3: who initiated each stock movement (null = system/webhook-driven).
+  stockMovements        StockMovement[]
 }
 
 // Phase 2 — Per-location operator roles. A user can hold multiple roles at
@@ -77,6 +79,78 @@ model UserLocation {
   @@unique([userId, locationId, role])
   @@index([userId])
   @@index([locationId])
+}
+
+// ─── Phase 3 — Inventory: lot/batch tracking + movement audit log ────────────
+//
+// `Stock` (Phase 1) stays as the per-(location, product) aggregate for fast
+// catalog reads. `ProductBatch` decomposes that aggregate into individual
+// lots so we can track expiry + manufacturing dates per food safety rules.
+// FIFO sales (3d) consume the soonest-expiring active batch first.
+//
+// `StockMovement` is the append-only audit log of every change: receives,
+// transfers, sales, adjustments, waste. Always written in the same Prisma
+// transaction as the Stock + ProductBatch updates so the log can't drift.
+
+enum StockMovementType {
+  RECEIVE        // new batch received from manufacturer / supplier
+  TRANSFER_OUT   // batch (or partial) sent to another location
+  TRANSFER_IN    // batch (or partial) received from another location
+  SALE           // consumed by a paid customer order (FIFO across batches)
+  RESERVE        // held against a pending order (released or converted to SALE)
+  RELEASE        // reservation cancelled, returned to available pool
+  ADJUSTMENT     // manual correction by staff (positive or negative)
+  WASTE          // spoilage, damage, or expired stock removed
+}
+
+model ProductBatch {
+  id              String    @id @default(uuid())
+  productId       String
+  product         Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  locationId      String
+  location        Location  @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  lotNumber       String?              // optional human-readable lot ID ("SUL-2026W21-A")
+  manufacturedAt  DateTime?            // null = unknown (e.g. backfilled pre-existing stock)
+  expiresAt       DateTime?            // null = no expiry / shelf-stable
+  quantity        Int                  // current quantity in this batch (mutates)
+  initialQuantity Int                  // original quantity at receipt (immutable for traceability)
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  movements       StockMovement[]
+
+  @@index([productId, locationId])
+  @@index([locationId, expiresAt])      // expiry watchlist queries
+}
+
+model StockMovement {
+  id              String            @id @default(uuid())
+  // Batch is optional — receives + adjustments always have one; SALE/TRANSFER
+  // entries may either reference a specific batch (the one consumed) or be
+  // null when batches aren't being tracked yet for that SKU.
+  batchId         String?
+  batch           ProductBatch?     @relation(fields: [batchId], references: [id], onDelete: SetNull)
+  // Denormalized for efficient timeline queries without joining batch.
+  productId       String
+  product         Product           @relation(fields: [productId], references: [id])
+  locationId      String
+  location        Location          @relation(fields: [locationId], references: [id])
+  type            StockMovementType
+  // Signed: positive for RECEIVE / TRANSFER_IN / RELEASE / positive ADJUSTMENT;
+  // negative for SALE / TRANSFER_OUT / WASTE / RESERVE / negative ADJUSTMENT.
+  quantityDelta   Int
+  fromLocationId  String?           // populated for TRANSFER_OUT / TRANSFER_IN
+  toLocationId    String?
+  orderId         String?           // populated for SALE / RESERVE / RELEASE — no FK so Order delete doesn't break audit
+  initiatedByUserId String?         // null = system (webhook-driven SALE, expiry sweep, etc.)
+  initiatedBy     User?             @relation(fields: [initiatedByUserId], references: [id])
+  reason          String?           // optional free-text (e.g. ADJUSTMENT rationale)
+  createdAt       DateTime          @default(now())
+
+  @@index([productId, locationId, createdAt])
+  @@index([orderId])
+  @@index([type, createdAt])
 }
 
 // ─── UserAddress ─────────────────────────────────────────────────────────────
@@ -295,6 +369,8 @@ model Product {
   // Targeted removal lands in a Phase 1 cleanup follow-up after UI refactor.
   channels       ProductChannel[]
   stocks         Stock[]
+  batches        ProductBatch[]
+  stockMovements StockMovement[]
 }
 
 // ─── Contract ────────────────────────────────────────────────────────────────
@@ -718,6 +794,8 @@ model Location {
   stocks       Stock[]
   fulfillments OrderFulfillment[]
   userRoles    UserLocation[]
+  batches      ProductBatch[]
+  stockMovements StockMovement[]
 }
 
 // Renamed from LocationChannel for clarity (the relation is one delivery

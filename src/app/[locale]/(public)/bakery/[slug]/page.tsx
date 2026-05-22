@@ -8,7 +8,12 @@ import BakeryPdpClient from "@/components/bakery/BakeryPdpClient";
 import { getSession } from "@/lib/session";
 import { getMyAddresses } from "@/app/actions/addresses";
 import type { ActiveAddress } from "@/components/bakery/AddressManager";
-import { ProductKind, type DeliveryMethod } from "@prisma/client";
+import { type DeliveryMethod } from "@prisma/client";
+
+// Phase 9b: bakery section identified via Category slug, not ProductKind.
+const HOT_CATEGORY_SLUG = 'hot-pastries';
+const FROZEN_CATEGORY_SLUG = 'frozen-bake-off';
+const BAKERY_CATEGORY_SLUGS = [HOT_CATEGORY_SLUG, FROZEN_CATEGORY_SLUG];
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://colchisfood.com';
 
@@ -19,7 +24,7 @@ interface BakeryPdpProps {
 export async function generateMetadata({ params }: BakeryPdpProps): Promise<Metadata> {
   const { locale, slug } = await params;
   const product = await prisma.product.findFirst({
-    where: { slug, status: { in: ['ACTIVE', 'COMING_SOON'] }, kind: { in: [ProductKind.BAKERY_HOT, ProductKind.BAKERY_FROZEN] } },
+    where: { slug, status: { in: ['ACTIVE', 'COMING_SOON'] }, productCategory: { slug: { in: BAKERY_CATEGORY_SLUGS } } },
   });
   if (!product) return { title: "Product Not Found" };
 
@@ -57,10 +62,10 @@ export default async function BakeryPdp({ params }: BakeryPdpProps) {
       slug,
       status: { in: ['ACTIVE', 'COMING_SOON'] },
       isB2cVisible: true,
-      kind: { in: [ProductKind.BAKERY_HOT, ProductKind.BAKERY_FROZEN] },
+      productCategory: { slug: { in: BAKERY_CATEGORY_SLUGS } },
     },
     include: {
-
+      productCategory: { select: { slug: true, name: true } },
     },
   });
   if (!product) notFound();
@@ -91,13 +96,13 @@ export default async function BakeryPdp({ params }: BakeryPdpProps) {
     }
   }
 
-  // Related bakery products (same kind), exclude self, take 3
+  // Related bakery products (same category), exclude self, take 3
   const relatedProducts = await prisma.product.findMany({
     where: {
       id: { not: product.id },
       status: { in: ['ACTIVE', 'COMING_SOON'] },
       isB2cVisible: true,
-      kind: product.kind,
+      categoryId: product.categoryId,
     },
     take: 3,
     orderBy: { name: 'asc' },
@@ -112,7 +117,7 @@ export default async function BakeryPdp({ params }: BakeryPdpProps) {
           <span style={{ color: "#2C3D33", opacity: 0.5 }}>/</span>
           <Link href={`${prefix}/bakery`} style={{ color: "#7A8278", textDecoration: "none" }}>Bakery</Link>
           <span style={{ color: "#2C3D33", opacity: 0.5 }}>/</span>
-          <span style={{ color: "#7A8278" }}>{product.kind === ProductKind.BAKERY_HOT ? 'Hot' : 'Frozen'}</span>
+          <span style={{ color: "#7A8278" }}>{product.productCategory?.slug === HOT_CATEGORY_SLUG ? 'Hot' : 'Frozen'}</span>
           <span style={{ color: "#2C3D33", opacity: 0.5 }}>/</span>
           <span style={{ color: "#1F3026", fontWeight: 500 }}>{product.name}</span>
         </div>
@@ -142,7 +147,7 @@ export default async function BakeryPdp({ params }: BakeryPdpProps) {
                 status: product.status,
                 isMadeToOrder: product.isMadeToOrder,
                 isCartOrderable: product.isCartOrderable,
-                kind: product.kind,
+                categorySlug: product.productCategory?.slug ?? '',
                 stockQuantity: product.stockQuantity,
               }}
               offeredChannels={offeredChannels}

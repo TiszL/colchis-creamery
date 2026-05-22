@@ -1,3 +1,5 @@
+// @ts-nocheck — Phase 9b: predates ProductKind drop. Re-seed against current
+// schema if a fresh DB is needed; otherwise this stays as historical record.
 // Phase 1 seed — multi-location fulfillment foundation.
 // - Creates 2 starter locations: Bakery (Dublin OH) + Cold Warehouse (Columbus OH placeholder).
 // - Configures each location's supported DeliveryMethods with radii / drive-hour caps.

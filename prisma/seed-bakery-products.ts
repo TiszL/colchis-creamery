@@ -1,3 +1,5 @@
+// @ts-nocheck — Phase 9b: this seed predates the ProductKind drop. Kept as
+// historical reference; rewrite to use Category if you need to re-seed.
 // Phase 4 — migrate the hardcoded BakeryClient DEFAULT_HOT and DEFAULT_FROZEN arrays
 // into real Product rows tied to the Bakery location, with proper channel eligibility
 // and Stock rows.

@@ -15,7 +15,13 @@ import Link from "next/link";
 import Image from "next/image";
 import type { Metadata } from "next";
 import { prisma } from "@/lib/db";
-import { ProductKind } from "@prisma/client";
+// Phase 9b: ProductKind enum dropped. Section comes from Category.sections.
+type ProductForCard = {
+    id: string; sku: string; slug: string; name: string; nameKa: string | null;
+    description: string; weight: string | null; tag: string | null;
+    status: string; imageUrl: string; priceB2c: string; isCartOrderable: boolean;
+    productCategory: { sections: string[] } | null;
+};
 import { getTranslations } from "next-intl/server";
 import { getOgImage, buildOgImages } from "@/lib/seo";
 import { getSelectedLocation, productCatalogWhereForLocation } from "@/lib/customer-location";
@@ -62,8 +68,12 @@ export async function generateMetadata({ params }: ShopPageProps): Promise<Metad
     };
 }
 
-function kindGroup(k: ProductKind): 'creamery' | 'bakery' {
-    return k.toString().startsWith('BAKERY') ? 'bakery' : 'creamery';
+// Phase 9b: section assignment via Category.sections. A product can belong to
+// multiple sections (e.g. a "Drinks" Category tagged ['bakery', 'creamery']);
+// for routing we prefer bakery → creamery to match the original kind precedence.
+function primarySectionOf(p: ProductForCard): 'creamery' | 'bakery' {
+    const sections = p.productCategory?.sections ?? [];
+    return sections.includes('bakery') ? 'bakery' : 'creamery';
 }
 
 function fmtPrice(s: string): string {
@@ -90,12 +100,13 @@ export default async function ShopPage({ params }: ShopPageProps) {
             isB2cVisible: true,
             ...locationFilter,
         },
-        orderBy: [{ kind: 'asc' }, { name: 'asc' }],
+        orderBy: [{ productCategory: { sortOrder: 'asc' } }, { name: 'asc' }],
         select: {
             id: true, sku: true, slug: true, name: true, nameKa: true,
             description: true, weight: true, tag: true,
-            kind: true, status: true,
+            status: true,
             imageUrl: true, priceB2c: true, isCartOrderable: true,
+            productCategory: { select: { sections: true } },
         },
     });
 
@@ -106,8 +117,8 @@ export default async function ShopPage({ params }: ShopPageProps) {
 
     const counts = {
         all: products.length,
-        creamery: products.filter(p => kindGroup(p.kind) === 'creamery').length,
-        bakery: products.filter(p => kindGroup(p.kind) === 'bakery').length,
+        creamery: products.filter(p => p.productCategory?.sections?.includes('creamery')).length,
+        bakery: products.filter(p => p.productCategory?.sections?.includes('bakery')).length,
     };
 
     return (
@@ -159,7 +170,7 @@ export default async function ShopPage({ params }: ShopPageProps) {
                     ) : (
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 24 }}>
                             {filtered.map(p => {
-                                const kg = kindGroup(p.kind);
+                                const kg = primarySectionOf(p);
                                 const pdpHref = kg === 'bakery' ? `${prefix}/bakery/${p.slug}` : `${prefix}/creamery/${p.slug}`;
                                 const isComingSoon = p.status === 'COMING_SOON';
                                 return (

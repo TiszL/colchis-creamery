@@ -84,7 +84,8 @@ export async function updateProductAction(formData: FormData) {
                 priceB2c: formData.get("priceB2c") as string,
                 priceB2b: formData.get("priceB2b") as string,
                 stockQuantity: parseInt(formData.get("stockQuantity") as string, 10) || 0,
-                category: (formData.get("category") as string) || "cheese",
+                // Phase 9b: legacy `category` String column dropped. Category is
+                // managed via /admin/inventory (categoryId FK on Product).
                 isActive: formData.get("isActive") === "on",
                 isB2cVisible: formData.get("isB2cVisible") === "on",
                 isB2bVisible: formData.get("isB2bVisible") === "on",
@@ -115,6 +116,17 @@ export async function createProductAction(formData: FormData) {
             create: { slug, name, description: description.slice(0, 500), imageUrl },
         });
 
+        // Phase 9b: categoryId is now NOT NULL. This legacy CMS-side create
+        // path falls back to the 'cheese' category if the caller didn't pass
+        // one (the new /admin/inventory form sends it explicitly).
+        const categoryIdRaw = formData.get("categoryId") as string | null;
+        let categoryId = categoryIdRaw && categoryIdRaw !== "" ? categoryIdRaw : null;
+        if (!categoryId) {
+            const fallback = await prisma.category.findUnique({ where: { slug: "cheese" }, select: { id: true } });
+            if (!fallback) return { error: "No default category — create one first." };
+            categoryId = fallback.id;
+        }
+
         await prisma.product.create({
             data: {
                 sku: formData.get("sku") as string,
@@ -129,7 +141,7 @@ export async function createProductAction(formData: FormData) {
                 priceB2c: formData.get("priceB2c") as string,
                 priceB2b: formData.get("priceB2b") as string,
                 stockQuantity: parseInt(formData.get("stockQuantity") as string, 10) || 0,
-                category: (formData.get("category") as string) || "cheese",
+                categoryId,
                 isActive: formData.get("isActive") === "on",
                 isB2cVisible: formData.get("isB2cVisible") === "on",
                 isB2bVisible: formData.get("isB2bVisible") === "on",

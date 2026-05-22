@@ -2,9 +2,11 @@
 
 import { prisma } from '@/lib/db';
 import { distanceMiles, channelMaxRadius } from '@/lib/distance';
-import { DeliveryMethod, ProductKind } from '@prisma/client';
+import { DeliveryMethod } from '@prisma/client';
 
-const CREAMERY_KINDS = Object.values(ProductKind).filter(k => k.startsWith('CREAMERY')) as ProductKind[];
+// Phase 9b: was ProductKind.startsWith('CREAMERY'). Now: any product whose
+// Category has 'creamery' in its sections list shows up in this section.
+const CREAMERY_SECTION = 'creamery';
 
 export type DeliverableCreameryProduct = {
     id: string;
@@ -15,7 +17,8 @@ export type DeliverableCreameryProduct = {
     weight: string | null;
     priceB2c: string;
     imageUrl: string;
-    kind: ProductKind;
+    // Phase 9b: was ProductKind; now category slug (e.g. 'cheese', 'butter').
+    categorySlug: string;
     status: string;
     stockAvailable: number | null;
     /** Channels deliverable to the customer (union across reachable locations stocking this product). */
@@ -57,13 +60,15 @@ export async function getAvailableCreameryProducts(
                         isActive: true,
                         isB2cVisible: true,
                         status: { in: ['ACTIVE', 'COMING_SOON'] },
-                        kind: { in: CREAMERY_KINDS },
+                        // Phase 9b: filter by category section instead of ProductKind.
+                        productCategory: { sections: { has: CREAMERY_SECTION } },
                     },
                 },
                 include: {
                     product: {
                         include: {
                             productLine: { select: { name: true, badgeColor: true } },
+                            productCategory: { select: { slug: true } },
                         },
                     },
                 },
@@ -117,7 +122,7 @@ export async function getAvailableCreameryProducts(
                     weight: product.weight,
                     priceB2c: product.priceB2c,
                     imageUrl: product.imageUrl,
-                    kind: product.kind,
+                    categorySlug: product.productCategory?.slug ?? '',
                     status: product.status,
                     stockAvailable: product.isMadeToOrder ? null : (stock.quantity ?? 0),
                     eligibleChannels: [...matching],

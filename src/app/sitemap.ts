@@ -47,12 +47,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         localizedUrls(`/creamery/line/${l.slug}`, 0.85, 'weekly')
     );
 
-    // --- Dynamic: Products — kind-routed (creamery → /creamery/<slug>, bakery → /bakery/<slug>) ---
+    // --- Dynamic: Products — section-routed via Category.sections (Phase 9b) ---
     const products = await prisma.product.findMany({
-        select: { slug: true, kind: true, updatedAt: true },
+        select: {
+            slug: true, updatedAt: true,
+            productCategory: { select: { sections: true } },
+        },
     });
     const productPages = products.flatMap(p => {
-        const route = p.kind.toString().startsWith('BAKERY') ? 'bakery' : 'creamery';
+        const sections = p.productCategory?.sections ?? [];
+        const route = sections.includes('bakery') ? 'bakery' : 'creamery';
         return LOCALES.map(locale => ({
             url: locale === 'en' ? `${SITE_URL}/${route}/${p.slug}` : `${SITE_URL}/${locale}/${route}/${p.slug}`,
             lastModified: p.updatedAt,

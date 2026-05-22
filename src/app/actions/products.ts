@@ -2,21 +2,7 @@
 
 import { prisma } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
-import { ProductKind, SalesChannel } from '@prisma/client';
-
-// Derive a default SalesChannel from ProductKind for create/update calls
-// that haven't yet been migrated to send salesChannel explicitly. Admin form
-// gains explicit control in 1d.
-const KIND_TO_CHANNEL: Record<ProductKind, SalesChannel> = {
-    CREAMERY_CHEESE: SalesChannel.LOCAL_COLD,
-    CREAMERY_BUTTER: SalesChannel.LOCAL_COLD,
-    CREAMERY_SPREAD: SalesChannel.LOCAL_COLD,
-    CREAMERY_OTHER:  SalesChannel.LOCAL_COLD,
-    BAKERY_HOT:      SalesChannel.LOCAL_HOT,
-    BAKERY_PASTRY:   SalesChannel.LOCAL_HOT,
-    BAKERY_BREAD:    SalesChannel.LOCAL_HOT,
-    BAKERY_FROZEN:   SalesChannel.B2B_FROZEN,
-};
+import { SalesChannel } from '@prisma/client';
 
 export async function saveProductAction(formData: FormData) {
     const id = formData.get('id') as string;
@@ -33,9 +19,15 @@ export async function saveProductAction(formData: FormData) {
     catch { stocks = []; }
 
     const isMadeToOrder = formData.get('isMadeToOrder') === 'on';
-    const kind = (formData.get('kind') as ProductKind) || ProductKind.CREAMERY_CHEESE;
-    const salesChannel = (formData.get('salesChannel') as SalesChannel) || KIND_TO_CHANNEL[kind];
+    // Phase 9b: ProductKind enum dropped. salesChannel is required from the admin
+    // form; default to LOCAL_COLD only if some legacy caller forgot it.
+    const salesChannel = (formData.get('salesChannel') as SalesChannel) || SalesChannel.LOCAL_COLD;
     const slug = formData.get('slug') as string;
+    // Phase 9b: categoryId is now NOT NULL on Product. Admin form must send it.
+    const categoryId = (formData.get('categoryId') as string) || null;
+    if (!categoryId) {
+        throw new Error('categoryId is required (Phase 9b — Product.categoryId became NOT NULL).');
+    }
 
     const legacyStockInput = formData.get('stockQuantity');
     const computedTotal = stocks.reduce((sum, s) => sum + (typeof s.quantity === 'number' ? s.quantity : 0), 0);
@@ -63,15 +55,13 @@ export async function saveProductAction(formData: FormData) {
         priceB2c: formData.get('priceB2c') as string,
         priceB2b: formData.get('priceB2b') as string,
         stockQuantity,
-        category: (formData.get('category') as string) || 'cheese',
-        kind,
         salesChannel,
         packagingType: (formData.get('packagingType') as string) || null,
         unitCost: (formData.get('unitCost') as string) || null,
         isMadeToOrder,
         tag: (formData.get('tag') as string) || null,
         productLineId: (formData.get('productLineId') as string) || null,
-        categoryId: (formData.get('categoryId') as string) || null,
+        categoryId,
         status: (formData.get('status') as 'ACTIVE' | 'INACTIVE' | 'COMING_SOON') || 'ACTIVE',
         isActive: (formData.get('status') as string) !== 'INACTIVE',
         isB2cVisible: formData.get('isB2cVisible') === 'on',

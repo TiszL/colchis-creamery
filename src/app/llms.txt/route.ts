@@ -20,7 +20,10 @@ export async function GET() {
     const [products, recipes, articles] = await Promise.all([
         prisma.product.findMany({
             where: { isActive: true, status: { not: 'INACTIVE' } },
-            select: { slug: true, name: true, description: true, kind: true },
+            select: {
+                slug: true, name: true, description: true,
+                productCategory: { select: { sections: true } },
+            },
             orderBy: { name: 'asc' },
         }),
         prisma.recipe.findMany({
@@ -37,9 +40,9 @@ export async function GET() {
         }),
     ]);
 
-    // Group products by kind so AI sees creamery vs bakery sections distinctly.
-    const creamery = products.filter(p => p.kind.startsWith('CREAMERY'));
-    const bakery = products.filter(p => p.kind.startsWith('BAKERY'));
+    // Phase 9b: group by category sections (was ProductKind enum prefix).
+    const creamery = products.filter(p => p.productCategory?.sections.includes('creamery'));
+    const bakery = products.filter(p => p.productCategory?.sections.includes('bakery'));
 
     const sections: string[] = [];
 

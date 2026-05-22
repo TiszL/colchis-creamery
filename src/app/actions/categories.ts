@@ -114,20 +114,28 @@ export async function deleteCategoryAction(formData: FormData) {
 
 export async function assignProductCategoryAction(formData: FormData) {
     const productId = formData.get('productId') as string;
-    const productLineId = (formData.get('productLineId') as string) || null;
-    const categoryId = (formData.get('categoryId') as string) || null;
+    const productLineIdRaw = formData.get('productLineId') as string;
+    const categoryIdRaw = formData.get('categoryId') as string;
 
     if (!productId) return;
 
+    // Phase 9b: Product.categoryId is NOT NULL, so we only update it if the
+    // caller actually sent one. productLineId is nullable → empty value clears
+    // the relation via Prisma's { set: null } shape.
+    const data: { productLineId?: string | { set: null }; categoryId?: string } = {};
+    if (productLineIdRaw === '') data.productLineId = { set: null };
+    else if (productLineIdRaw) data.productLineId = productLineIdRaw;
+    if (categoryIdRaw) data.categoryId = categoryIdRaw;
+
+    if (Object.keys(data).length === 0) return;
+
     await prisma.product.update({
         where: { id: productId },
-        data: { productLineId, categoryId },
+        data,
     });
 
     revalidatePath('/admin/categories');
-    revalidatePath('/staff-portal/categories');
     revalidatePath('/admin/inventory');
-    revalidatePath('/staff-portal/products');
     revalidatePath('/shop');
 }
 
@@ -135,18 +143,23 @@ export async function assignProductCategoryAction(formData: FormData) {
 
 export async function bulkAssignCategoryAction(formData: FormData) {
     const productIds = JSON.parse(formData.get('productIds') as string) as string[];
-    const productLineId = (formData.get('productLineId') as string) || null;
-    const categoryId = (formData.get('categoryId') as string) || null;
+    const productLineIdRaw = formData.get('productLineId') as string;
+    const categoryIdRaw = formData.get('categoryId') as string;
 
     if (!productIds.length) return;
 
+    const data: { productLineId?: string | { set: null }; categoryId?: string } = {};
+    if (productLineIdRaw === '') data.productLineId = { set: null };
+    else if (productLineIdRaw) data.productLineId = productLineIdRaw;
+    if (categoryIdRaw) data.categoryId = categoryIdRaw;
+    if (Object.keys(data).length === 0) return;
+
     await prisma.product.updateMany({
         where: { id: { in: productIds } },
-        data: { productLineId, categoryId },
+        data,
     });
 
     revalidatePath('/admin/categories');
-    revalidatePath('/staff-portal/categories');
     revalidatePath('/admin/inventory');
     revalidatePath('/shop');
 }

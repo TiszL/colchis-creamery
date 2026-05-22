@@ -1,13 +1,12 @@
 import { prisma } from '@/lib/db';
 import { getSession } from '@/lib/session';
 import { redirect } from 'next/navigation';
-import { ProductKind, SalesChannel } from '@prisma/client';
+import { SalesChannel } from '@prisma/client';
 import InventoryClient from '@/components/admin/InventoryClient';
 import { saveProductAction, deleteProductAction, quickStockAction } from '@/app/actions/products';
 
 export const dynamic = 'force-dynamic';
 
-const PRODUCT_KINDS = Object.values(ProductKind);
 const SALES_CHANNELS = Object.values(SalesChannel);
 
 export default async function AdminInventoryPage({ params }: { params: Promise<{ locale: string }> }) {
@@ -15,45 +14,47 @@ export default async function AdminInventoryPage({ params }: { params: Promise<{
     const session = await getSession();
     if (!session || session.role !== 'MASTER_ADMIN') redirect(`/${locale}/portal-login`);
 
-    const products = await prisma.product.findMany({
-        orderBy: { name: 'asc' },
-        include: {
-
-            stocks: { include: { location: { select: { id: true, name: true, type: true } } } },
-        },
-    });
-
-    const productFamilies = await prisma.productFamily.findMany({
-        where: { isActive: true },
-        orderBy: { name: 'asc' },
-        select: { id: true, slug: true, name: true },
-    });
-
-    const productLines = await prisma.productLine.findMany({
-        orderBy: { sortOrder: 'asc' },
-        include: {
-            categories: {
-                orderBy: { sortOrder: 'asc' },
-                select: { id: true, slug: true, name: true },
+    const [products, productFamilies, productLines, allCategories, locationRows] = await Promise.all([
+        prisma.product.findMany({
+            orderBy: { name: 'asc' },
+            include: {
+                stocks: { include: { location: { select: { id: true, name: true, type: true } } } },
+                // Phase 9b: section/category badge data for the row + filter tabs.
+                productCategory: { select: { slug: true, name: true, sections: true } },
             },
-        },
-    });
+        }),
+        prisma.productFamily.findMany({
+            where: { isActive: true },
+            orderBy: { name: 'asc' },
+            select: { id: true, slug: true, name: true },
+        }),
+        prisma.productLine.findMany({
+            orderBy: { sortOrder: 'asc' },
+            include: {
+                categories: {
+                    orderBy: { sortOrder: 'asc' },
+                    select: { id: true, slug: true, name: true },
+                },
+            },
+        }),
+        // Phase 9b: replaces ProductKind enum — every product gets a Category, and
+        // admin picks from the same flat list (line-anchored or standalone).
+        prisma.category.findMany({
+            where: { isActive: true },
+            orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+            select: { id: true, slug: true, name: true, sections: true },
+        }),
+        prisma.location.findMany({
+            where: { isActive: true },
+            orderBy: [{ type: 'asc' }, { name: 'asc' }],
+            select: {
+                id: true, name: true, type: true,
+                channels: { where: { isActive: true }, select: { deliveryMethod: true } },
+            },
+        }),
+    ]);
 
-    const locationRows = await prisma.location.findMany({
-        where: { isActive: true },
-        orderBy: [{ type: 'asc' }, { name: 'asc' }],
-        select: {
-            id: true,
-            name: true,
-            type: true,
-            channels: { where: { isActive: true }, select: { deliveryMethod: true } },
-        },
-    });
-    const locations = locationRows.map(l => ({
-        id: l.id,
-        name: l.name,
-        type: l.type,
-    }));
+    const locations = locationRows.map(l => ({ id: l.id, name: l.name, type: l.type }));
 
     const serialized = products.map(p => ({
         id: p.id,
@@ -72,12 +73,13 @@ export default async function AdminInventoryPage({ params }: { params: Promise<{
         priceB2c: p.priceB2c,
         priceB2b: p.priceB2b,
         stockQuantity: p.stockQuantity,
-        category: p.category,
-        kind: p.kind,
         isMadeToOrder: p.isMadeToOrder,
         tag: p.tag,
         productLineId: p.productLineId,
         categoryId: p.categoryId,
+        productCategory: p.productCategory
+            ? { slug: p.productCategory.slug, name: p.productCategory.name, sections: p.productCategory.sections }
+            : null,
         status: p.status,
         isActive: p.isActive,
         isB2cVisible: p.isB2cVisible,
@@ -109,7 +111,7 @@ export default async function AdminInventoryPage({ params }: { params: Promise<{
             productLines={serializedLines}
             productFamilies={productFamilies}
             locations={locations}
-            productKinds={PRODUCT_KINDS}
+            categories={allCategories}
             salesChannels={SALES_CHANNELS}
             locale={locale}
             saveAction={saveProductAction}

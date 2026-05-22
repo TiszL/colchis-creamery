@@ -386,6 +386,11 @@ model Category {
   // tagged ["bakery"] (cafe drinks) or ["bakery", "creamery"] (also
   // cultured drinks like kefir).
   sections        String[]    @default([])
+  // Phase 9b: replaces the dropped ProductKind enum for shipping packaging.
+  // Values: "HOT" | "COLD" | "AMBIENT". Null = AMBIENT (no special handling).
+  // shipping.ts uses this to pick HOT_INSULATED / INSULATED_COLD_CHAIN / AMBIENT
+  // packaging for DoorDash/Uber routes. Admin sets per-category in CategoryManager.
+  packagingMode   String?
   sortOrder       Int         @default(0)
   isActive        Boolean     @default(true)
   createdAt       DateTime    @default(now())
@@ -401,19 +406,6 @@ enum ProductStatus {
   ACTIVE
   INACTIVE
   COMING_SOON
-}
-
-// Classification for admin/UI grouping. Routing/eligibility decisions are
-// driven by ProductChannel and Stock, not by this enum.
-enum ProductKind {
-  CREAMERY_CHEESE
-  CREAMERY_BUTTER
-  CREAMERY_SPREAD
-  CREAMERY_OTHER
-  BAKERY_HOT
-  BAKERY_FROZEN
-  BAKERY_PASTRY
-  BAKERY_BREAD
 }
 
 // SalesChannel is the catalog/business-line axis. Every Product (SKU) belongs
@@ -465,12 +457,15 @@ model Product {
   priceB2c       String
   priceB2b       String
   stockQuantity  Int           // legacy: cached total. Stock per location is in Stock[].
-  category       String?       @default("cheese")
-  kind           ProductKind   @default(CREAMERY_CHEESE)
+  // Phase 9b: ProductKind enum + legacy `category` String dropped.
+  // Classification is now: salesChannel (catalog axis) + categoryId (taxonomy,
+  // free-form via Category model) + productFamilyId (cross-channel SKU grouping).
   isMadeToOrder  Boolean       @default(false) // true => no stock tracking at location (e.g. hot khachapuri)
   tag            String?       // Optional UI badge: "Bestseller" | "Vegan" | "Limited" | "Ships" | etc.
   productLineId  String?
-  categoryId     String?
+  // Phase 9b: categoryId is now required. Every Product belongs to exactly
+  // one Category which drives storefront section routing + packaging mode.
+  categoryId     String
   status         ProductStatus @default(ACTIVE)
   isActive       Boolean       @default(true)
   isB2cVisible   Boolean       @default(true)
@@ -496,7 +491,7 @@ model Product {
   updatedAt      DateTime      @updatedAt
 
   productLine    ProductLine?    @relation(fields: [productLineId], references: [id])
-  productCategory Category?      @relation(fields: [categoryId], references: [id])
+  productCategory Category       @relation(fields: [categoryId], references: [id])
   productFamily  ProductFamily   @relation(fields: [productFamilyId], references: [id])
   orderItems     OrderItem[]
   reviews        ProductReview[]

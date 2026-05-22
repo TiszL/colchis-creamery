@@ -3,7 +3,7 @@
 import { useState, useTransition, useRef, useEffect } from 'react';
 import { Search, Plus, Save, Trash2, X, Eye, EyeOff, Package, AlertTriangle, Image as ImageIcon, Film, ChevronDown, MapPin, Boxes, Zap } from 'lucide-react';
 import MediaUploadZone from './MediaUploadZone';
-import type { ProductKind, LocationType, SalesChannel } from '@prisma/client';
+import type { LocationType, SalesChannel } from '@prisma/client';
 
 interface ProductFamilyOption {
     id: string;
@@ -43,12 +43,13 @@ interface Product {
     priceB2c: string;
     priceB2b: string;
     stockQuantity: number;
-    category: string | null;
-    kind: ProductKind;
+    // Phase 9b: kind enum + legacy `category` string dropped. Section grouping
+    // now comes from productCategory.sections (creamery / bakery / shop / ...).
     isMadeToOrder: boolean;
     tag: string | null;
     productLineId: string | null;
-    categoryId: string | null;
+    categoryId: string; // Phase 9b: NOT NULL
+    productCategory: { slug: string; name: string; sections: string[] } | null;
     status: string;
     isActive: boolean;
     isB2cVisible: boolean;
@@ -59,6 +60,13 @@ interface Product {
     packagingType: string | null;
     unitCost: string | null;
     stocks: StockRow[];
+}
+
+interface CategoryOption {
+    id: string;
+    slug: string;
+    name: string;
+    sections: string[];
 }
 
 interface LocationOption {
@@ -72,7 +80,8 @@ interface InventoryClientProps {
     productLines: ProductLineOption[];
     productFamilies: ProductFamilyOption[];
     locations: LocationOption[];
-    productKinds: ProductKind[];
+    /** Phase 9b: replaces productKinds. All assignable categories from DB. */
+    categories: CategoryOption[];
     salesChannels: SalesChannel[];
     locale: string;
     saveAction: (formData: FormData) => Promise<void>;
@@ -84,14 +93,14 @@ function salesChannelLabel(c: SalesChannel): string {
     return c.replace(/_/g, ' ');
 }
 
-type KindFilter = 'ALL' | 'CREAMERY' | 'BAKERY';
+// Phase 9b: filter tabs now come from Category.sections (creamery / bakery / other).
+type SectionFilter = 'ALL' | 'CREAMERY' | 'BAKERY' | 'OTHER';
 
-function kindLabel(k: ProductKind): string {
-    return k.replace(/_/g, ' ');
-}
-
-function kindGroupOf(k: ProductKind): 'CREAMERY' | 'BAKERY' {
-    return k.startsWith('BAKERY') ? 'BAKERY' : 'CREAMERY';
+function sectionGroupOf(product: Product): 'CREAMERY' | 'BAKERY' | 'OTHER' {
+    const sections = product.productCategory?.sections ?? [];
+    if (sections.includes('bakery')) return 'BAKERY';
+    if (sections.includes('creamery')) return 'CREAMERY';
+    return 'OTHER';
 }
 
 // Helper: YouTube ID extractor
@@ -110,10 +119,10 @@ function getThumbUrl(url: string): string {
     return url; // External URLs: use as-is
 }
 
-export default function InventoryClient({ products, productLines, productFamilies, locations, productKinds, salesChannels, locale, saveAction, deleteAction, quickStockAction }: InventoryClientProps) {
+export default function InventoryClient({ products, productLines, productFamilies, locations, categories, salesChannels, locale, saveAction, deleteAction, quickStockAction }: InventoryClientProps) {
     const [selectedLineId, setSelectedLineId] = useState<string>('');
     const [search, setSearch] = useState('');
-    const [kindFilter, setKindFilter] = useState<KindFilter>('ALL');
+    const [sectionFilter, setSectionFilter] = useState<SectionFilter>('ALL');
     const [drawerOpen, setDrawerOpen] = useState(false);
     const [editProduct, setEditProduct] = useState<Product | null>(null);
     const [isCreateMode, setIsCreateMode] = useState(false);
@@ -127,10 +136,10 @@ export default function InventoryClient({ products, productLines, productFamilie
     const [galleryImages, setGalleryImages] = useState<string[]>([]);
     const [videoLinks, setVideoLinks] = useState<string[]>([]);
 
-    // Phase 3 state — kind, made-to-order, per-location stock
-    // (Phase 8: channelsSet removed — per-product delivery methods deprecated;
-    // SalesChannel + Location.allowsChannels are the source of truth now.)
-    const [kind, setKind] = useState<ProductKind>('CREAMERY_CHEESE');
+    // Phase 9b: Category is now the primary classification (was Kind enum).
+    // Picking a Category implicitly sets section + packagingMode for downstream
+    // shipping/storefront logic.
+    const [categoryId, setCategoryId] = useState<string>('');
     const [isMadeToOrder, setIsMadeToOrder] = useState(false);
     // Keyed by locationId. null = "made-to-order at this location" / "untracked"
     const [stockMap, setStockMap] = useState<Record<string, number | null>>({});
@@ -138,14 +147,15 @@ export default function InventoryClient({ products, productLines, productFamilie
     // Filter products
     const filtered = products.filter(p => {
         const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase()) || p.sku.toLowerCase().includes(search.toLowerCase());
-        const matchesKind = kindFilter === 'ALL' || kindGroupOf(p.kind) === kindFilter;
-        return matchesSearch && matchesKind;
+        const matchesSection = sectionFilter === 'ALL' || sectionGroupOf(p) === sectionFilter;
+        return matchesSearch && matchesSection;
     });
 
     const counts = {
         ALL: products.length,
-        CREAMERY: products.filter(p => kindGroupOf(p.kind) === 'CREAMERY').length,
-        BAKERY: products.filter(p => kindGroupOf(p.kind) === 'BAKERY').length,
+        CREAMERY: products.filter(p => sectionGroupOf(p) === 'CREAMERY').length,
+        BAKERY: products.filter(p => sectionGroupOf(p) === 'BAKERY').length,
+        OTHER: products.filter(p => sectionGroupOf(p) === 'OTHER').length,
     };
 
     // Open drawer for editing
@@ -156,7 +166,7 @@ export default function InventoryClient({ products, productLines, productFamilie
         setGalleryImages(product.images || []);
         setVideoLinks(product.videoUrls || []);
         setSelectedLineId(product.productLineId || '');
-        setKind(product.kind);
+        setCategoryId(product.categoryId);
         setIsMadeToOrder(product.isMadeToOrder);
         // Pre-fill stockMap from product.stocks; locations without a row stay absent
         const map: Record<string, number | null> = {};
@@ -176,9 +186,13 @@ export default function InventoryClient({ products, productLines, productFamilie
         setGalleryImages([]);
         setVideoLinks([]);
         setSelectedLineId('');
-        // Sensible defaults: pick kind based on which filter is active (so "Bakery" tab → new bakery product)
-        const defaultKind: ProductKind = kindFilter === 'BAKERY' ? 'BAKERY_HOT' : 'CREAMERY_CHEESE';
-        setKind(defaultKind);
+        // Default category based on which section tab is active (so "Bakery" tab
+        // → defaults to a bakery-tagged category like hot-pastries).
+        const sectionPref = sectionFilter === 'BAKERY' ? 'bakery' : sectionFilter === 'CREAMERY' ? 'creamery' : null;
+        const defaultCategory = sectionPref
+            ? categories.find(c => c.sections.includes(sectionPref)) ?? categories[0]
+            : categories[0];
+        setCategoryId(defaultCategory?.id ?? '');
         setIsMadeToOrder(false);
         setStockMap({});
         setDrawerOpen(true);
@@ -186,8 +200,6 @@ export default function InventoryClient({ products, productLines, productFamilie
     };
 
 // Get categories for selected line
-    const categoriesForLine = productLines.find(l => l.id === selectedLineId)?.categories || [];
-
     // Helper: get line name by ID
     const getLineName = (id: string | null) => productLines.find(l => l.id === id)?.name || null;
     const getLineColor = (id: string | null) => productLines.find(l => l.id === id)?.badgeColor || '#B96A3D';
@@ -214,10 +226,11 @@ export default function InventoryClient({ products, productLines, productFamilie
         galleryImages.filter(u => u.trim()).forEach(url => formData.append('images[]', url));
         videoLinks.filter(u => u.trim()).forEach(url => formData.append('videoUrls[]', url));
 
-        // Phase 3: kind, made-to-order, per-location stock
-        // (Phase 8: channels[] removed — server ignores it; per-product
-        //  delivery-method gating deprecated.)
-        formData.set('kind', kind);
+        // Phase 9b: categoryId is the primary classification (replaces kind).
+        // Server reads it back as a required field; we always send it explicitly
+        // so the legacy <select name="categoryId"> in the Product Details block
+        // doesn't need to win the form-data tug-of-war with this controlled value.
+        formData.set('categoryId', categoryId);
         if (isMadeToOrder) formData.set('isMadeToOrder', 'on');
         // Per-location stock: only include locations the admin explicitly touched
         const stocksPayload = Object.entries(stockMap).map(([locationId, quantity]) => ({ locationId, quantity }));
@@ -279,18 +292,18 @@ export default function InventoryClient({ products, productLines, productFamilie
                 </button>
             </div>
 
-            {/* Kind Filter Tabs */}
-            <div className="flex items-center gap-1 border-b border-[#ffffff0A]">
-                {(['ALL', 'CREAMERY', 'BAKERY'] as KindFilter[]).map(f => (
+            {/* Section Filter Tabs (Phase 9b: was Kind filter) */}
+            <div className="flex items-center gap-1 border-b border-[#ffffff0A] overflow-x-auto">
+                {(['ALL', 'CREAMERY', 'BAKERY', 'OTHER'] as SectionFilter[]).map(f => (
                     <button
                         key={f}
-                        onClick={() => setKindFilter(f)}
-                        className={`px-4 py-2.5 text-xs font-bold uppercase tracking-wider transition-colors border-b-2 ${kindFilter === f
+                        onClick={() => setSectionFilter(f)}
+                        className={`px-4 py-2.5 text-xs font-bold uppercase tracking-wider transition-colors border-b-2 whitespace-nowrap ${sectionFilter === f
                             ? 'text-[#B96A3D] border-[#B96A3D]'
                             : 'text-gray-500 border-transparent hover:text-gray-300'
                         }`}
                     >
-                        {f === 'ALL' ? 'All' : f === 'CREAMERY' ? 'Creamery' : 'Bakery'}
+                        {f === 'ALL' ? 'All' : f === 'CREAMERY' ? 'Creamery' : f === 'BAKERY' ? 'Bakery' : 'Other'}
                         <span className="ml-2 text-[10px] text-gray-600">{counts[f]}</span>
                     </button>
                 ))}
@@ -337,8 +350,8 @@ export default function InventoryClient({ products, productLines, productFamilie
                                             <div className="min-w-0">
                                                 <p className="text-white font-medium truncate max-w-[200px]">{product.name}</p>
                                                 <div className="flex items-center gap-1.5 mt-0.5">
-                                                    <span className={`text-[9px] px-1.5 py-0.5 uppercase tracking-wider font-bold ${kindGroupOf(product.kind) === 'BAKERY' ? 'bg-amber-900/30 text-amber-400' : 'bg-blue-900/30 text-blue-400'}`}>
-                                                        {kindLabel(product.kind)}
+                                                    <span className={`text-[9px] px-1.5 py-0.5 uppercase tracking-wider font-bold ${sectionGroupOf(product) === 'BAKERY' ? 'bg-amber-900/30 text-amber-400' : sectionGroupOf(product) === 'CREAMERY' ? 'bg-blue-900/30 text-blue-400' : 'bg-gray-800 text-gray-400'}`}>
+                                                        {product.productCategory?.name ?? '—'}
                                                     </span>
                                                     {product.isMadeToOrder && (
                                                         <span className="text-[9px] bg-purple-900/30 text-purple-400 px-1.5 py-0.5 uppercase tracking-wider font-bold flex items-center gap-0.5">
@@ -634,14 +647,20 @@ export default function InventoryClient({ products, productLines, productFamilie
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wider">Category</label>
-                                <select name="categoryId" defaultValue={editProduct?.categoryId || ''}
+                                <label className="block text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wider">Category *</label>
+                                <select value={categoryId} onChange={e => setCategoryId(e.target.value)}
+                                    required
                                     className="w-full bg-[#0C0C0C] border border-[#B96A3D22] text-white py-2.5 px-4 focus:outline-none focus:border-[#B96A3D] text-sm">
-                                    <option value="">— None —</option>
-                                    {categoriesForLine.map(c => (
-                                        <option key={c.id} value={c.id}>{c.name}</option>
+                                    <option value="">— Pick a category —</option>
+                                    {categories.map(c => (
+                                        <option key={c.id} value={c.id}>
+                                            {c.name}{c.sections.length > 0 ? ` · ${c.sections.join(' / ')}` : ''}
+                                        </option>
                                     ))}
                                 </select>
+                                <p className="text-[10px] text-gray-600 mt-1">
+                                    Drives storefront section (creamery / bakery / shop) + DoorDash packaging. Add new ones in Categories.
+                                </p>
                             </div>
                         </div>
 
@@ -688,24 +707,14 @@ export default function InventoryClient({ products, productLines, productFamilie
                             maxFiles={5}
                         />
 
-                        {/* ── Classification & Behavior ── */}
+                        {/* ── Behavior (Phase 9b: Kind enum dropped — Category above + SalesChannel cover classification) ── */}
                         <div className="space-y-1 pt-2">
-                            <h3 className="text-xs font-bold text-[#B96A3D] uppercase tracking-widest">Classification & Behavior</h3>
+                            <h3 className="text-xs font-bold text-[#B96A3D] uppercase tracking-widest">Behavior</h3>
                             <div className="h-px bg-[#B96A3D]/20" />
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4 items-end">
-                            <div>
-                                <label className="block text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wider">Kind</label>
-                                <select value={kind} onChange={e => setKind(e.target.value as ProductKind)}
-                                    className="w-full bg-[#0C0C0C] border border-[#B96A3D22] text-white py-2.5 px-4 focus:outline-none focus:border-[#B96A3D] text-sm">
-                                    {productKinds.map(k => (
-                                        <option key={k} value={k}>{kindLabel(k)}</option>
-                                    ))}
-                                </select>
-                                <p className="text-[10px] text-gray-600 mt-1">Used for admin/UI grouping. Routing is driven by channels below.</p>
-                            </div>
-                            <label className="flex items-center gap-2.5 text-sm text-gray-300 cursor-pointer pb-3">
+                        <div>
+                            <label className="flex items-center gap-2.5 text-sm text-gray-300 cursor-pointer">
                                 <input type="checkbox" checked={isMadeToOrder} onChange={e => setIsMadeToOrder(e.target.checked)}
                                     className="accent-[#B96A3D] w-4 h-4" />
                                 <span className="flex items-center gap-1.5">

@@ -2,10 +2,9 @@ import { prisma } from "@/lib/db";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import type { Metadata } from "next";
-import { ProductKind } from "@prisma/client";
-
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://colchisfood.com';
-const CREAMERY_KINDS = Object.values(ProductKind).filter(k => k.startsWith('CREAMERY')) as ProductKind[];
+// Phase 9b: section drives placement; Category.sections has 'creamery' for cheese/butter/etc.
+const CREAMERY_SECTION = 'creamery';
 
 interface LinePageProps {
   params: Promise<{ locale: string; slug: string }>;
@@ -57,7 +56,7 @@ export default async function CreameryLinePage({ params }: LinePageProps) {
         where: {
           status: { in: ['ACTIVE', 'COMING_SOON'] },
           isB2cVisible: true,
-          kind: { in: CREAMERY_KINDS },
+          productCategory: { sections: { has: CREAMERY_SECTION } },
         },
         orderBy: { name: 'asc' },
       },

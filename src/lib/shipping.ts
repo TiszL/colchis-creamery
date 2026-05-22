@@ -26,7 +26,7 @@ import { cartEligibleChannels } from './fulfillment';
 import { doordashCreateQuote, isDoorDashConfigured, UNDELIVERABLE as DD_UNDELIVERABLE } from './doordash';
 import { uberCreateQuote, isUberDirectConfigured, UNDELIVERABLE as UBER_UNDELIVERABLE } from './uber-direct';
 import { easypostGetRate, isEasyPostConfigured } from './easypost';
-import { DeliveryMethod, ProductKind } from '@prisma/client';
+import { DeliveryMethod } from '@prisma/client';
 
 /** Phase 8.2: customer address bundle passed into planFulfillment. All fields
  *  optional so callers can pass partial info — carrier branches that need
@@ -78,7 +78,9 @@ export type FulfillmentGroup = {
     locationId: string;
     locationName: string;
     /** Items in the cart that this location can fulfill. */
-    items: Array<CartItemForShipping & { productName: string; productKind: ProductKind; isMadeToOrder: boolean }>;
+    // Phase 9b: productKind dropped — packaging is now driven by
+    // Category.packagingMode ("HOT" | "COLD" | "AMBIENT" | null).
+    items: Array<CartItemForShipping & { productName: string; packagingMode: string | null; isMadeToOrder: boolean }>;
     /** Channels reachable for the customer that can ship these items. Customer picks one at checkout. */
     availableChannels: ChannelQuote[];
 };
@@ -116,17 +118,17 @@ function carrierFor(deliveryMethod: DeliveryMethod): Carrier {
     }
 }
 
-function packagingFor(deliveryMethod: DeliveryMethod, productKind: ProductKind): PackagingType {
+function packagingFor(deliveryMethod: DeliveryMethod, packagingMode: string | null): PackagingType {
     // UPS = cold-chain cheese ONLY (per business rules). The DB constraints ensure UPS
-    // is never paired with hot/frozen, so this branch only fires for CREAMERY_*.
+    // is never paired with hot/frozen, so this branch only fires for cold-chain items.
     if (deliveryMethod === 'UPS_2DAY') return 'INSULATED_COLD_CHAIN';
     // Bakery's own driver = hot food only.
     if (deliveryMethod === 'OWN_DELIVERY') return 'HOT_INSULATED';
     if (deliveryMethod === 'IN_STORE_PICKUP' || deliveryMethod === 'IN_STORE_DINE_IN') return 'AMBIENT';
-    // DoorDash / Uber: packaging depends on product kind, since these channels carry both
-    // hot food (HOT_INSULATED thermal bag) and frozen/creamery (INSULATED_COLD_CHAIN).
-    if (productKind === 'BAKERY_HOT') return 'HOT_INSULATED';
-    if (productKind === 'BAKERY_FROZEN' || productKind.startsWith('CREAMERY')) return 'INSULATED_COLD_CHAIN';
+    // Phase 9b: DoorDash / Uber packaging comes from Category.packagingMode
+    // (was ProductKind enum). Admin sets the mode per category in CategoryManager.
+    if (packagingMode === 'HOT') return 'HOT_INSULATED';
+    if (packagingMode === 'COLD') return 'INSULATED_COLD_CHAIN';
     return 'AMBIENT';
 }
 
@@ -197,7 +199,9 @@ export async function getShippingQuote(opts: {
     deliveryMethod: DeliveryMethod;
     customerLat: number;
     customerLng: number;
-    productKind: ProductKind;       // used for packaging choice (and Phase 8 carrier item details)
+    /** Phase 9b: packaging mode from Category.packagingMode. "HOT" | "COLD" |
+        "AMBIENT" | null. Drives DoorDash/Uber packaging choice. */
+    packagingMode: string | null;
     /** Phase 8.1: order value in cents — needed for live DoorDash/Uber quotes.
         Omit and we fall back to flat fee even if credentials are present. */
     orderValueCents?: number;
@@ -255,7 +259,7 @@ export async function getShippingQuote(opts: {
             etaMinutes: etaMinutesFor(opts.deliveryMethod, distance),
             distanceMiles: distance,
             carrier: carrierFor(opts.deliveryMethod),
-            packagingType: packagingFor(opts.deliveryMethod, opts.productKind),
+            packagingType: packagingFor(opts.deliveryMethod, opts.packagingMode),
         });
     }
 
@@ -309,7 +313,7 @@ export async function getShippingQuote(opts: {
                 etaMinutes: quote.etaMinutes ?? etaMinutesFor(opts.deliveryMethod, distance),
                 distanceMiles: distance,
                 carrier: carrierFor(opts.deliveryMethod),
-                packagingType: packagingFor(opts.deliveryMethod, opts.productKind),
+                packagingType: packagingFor(opts.deliveryMethod, opts.packagingMode),
             });
         }
         // quote === null (generic outage / misconfig) → fall through to flat-fee
@@ -374,7 +378,7 @@ export async function getShippingQuote(opts: {
                 etaMinutes: quote.durationMinutes ?? etaMinutesFor(opts.deliveryMethod, distance),
                 distanceMiles: distance,
                 carrier: carrierFor(opts.deliveryMethod),
-                packagingType: packagingFor(opts.deliveryMethod, opts.productKind),
+                packagingType: packagingFor(opts.deliveryMethod, opts.packagingMode),
             });
         }
     }
@@ -427,7 +431,7 @@ export async function getShippingQuote(opts: {
                 etaMinutes: null, // shown as a delivery date in UI, not minutes
                 distanceMiles: distance,
                 carrier: carrierFor(opts.deliveryMethod),
-                packagingType: packagingFor(opts.deliveryMethod, opts.productKind),
+                packagingType: packagingFor(opts.deliveryMethod, opts.packagingMode),
             });
         }
         // EasyPost returned null → fall through to flatFee below.
@@ -450,7 +454,7 @@ export async function getShippingQuote(opts: {
         etaMinutes: etaMinutesFor(opts.deliveryMethod, distance),
         distanceMiles: distance,
         carrier: carrierFor(opts.deliveryMethod),
-        packagingType: packagingFor(opts.deliveryMethod, opts.productKind),
+        packagingType: packagingFor(opts.deliveryMethod, opts.packagingMode),
     });
 }
 
@@ -490,6 +494,9 @@ export async function planFulfillment(
             // method gating is gone — location.channels (LocationDeliveryMethod)
             // is the source of truth for what can ship from a location.
             stocks: { include: { location: { include: { channels: { where: { isActive: true } } } } } },
+            // Phase 9b: packagingMode drives DoorDash/Uber packaging selection
+            // (was on the dropped ProductKind enum). Pulled per-product via Category.
+            productCategory: { select: { packagingMode: true } },
         },
     });
 
@@ -581,7 +588,7 @@ export async function planFulfillment(
             acc.items.push({
                 productId: product.id,
                 productName: product.name,
-                productKind: product.kind,
+                packagingMode: product.productCategory?.packagingMode ?? null,
                 isMadeToOrder: product.isMadeToOrder,
                 quantity: item.quantity,
             });
@@ -610,8 +617,10 @@ export async function planFulfillment(
             }
             continue;
         }
-        // Pick representative kind for packaging (use first item; if multiple kinds, packagingFor still works per channel)
-        const representativeKind = acc.items[0].productKind;
+        // Pick representative packaging mode (use first item; mixed-mode groups
+        // are rare since cart locks to one location, but packagingFor still
+        // returns a sensible value per channel either way).
+        const representativePackagingMode = acc.items[0].packagingMode;
 
         // Phase 8.1: order value for this group, in cents. DB prices are
         // strings; coerce here. Passed to live carrier quotes (DoorDash etc.).
@@ -635,7 +644,7 @@ export async function planFulfillment(
                 deliveryMethod,
                 customerLat,
                 customerLng,
-                productKind: representativeKind,
+                packagingMode: representativePackagingMode,
                 orderValueCents,
                 customerAddress,
                 customerAddressInfo,

@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Minus, Plus, ShoppingBag, Check, MapPin, Loader2, Utensils } from 'lucide-react';
-import type { DeliveryMethod, ProductKind } from '@prisma/client';
+import type { DeliveryMethod } from '@prisma/client';
 import { useCart } from '@/providers/CartProvider';
 import { readGuestAddress, type ActiveAddress } from './AddressManager';
 import { getAvailableBakeryProducts, type AvailabilityResult } from '@/app/actions/bakery-availability';
@@ -40,7 +40,8 @@ export type BakeryPdpProduct = {
     status: 'ACTIVE' | 'INACTIVE' | 'COMING_SOON';
     isMadeToOrder: boolean;
     isCartOrderable: boolean;
-    kind: ProductKind;
+    // Phase 9b: was ProductKind enum; now category slug like 'hot-pastries' or 'frozen-bake-off'.
+    categorySlug: string;
     /** Legacy denormalized stock total. Real per-location stock is summed in availability. */
     stockQuantity: number;
 };
@@ -125,8 +126,8 @@ export default function BakeryPdpClient({
     const dineInOnly = channelsForCart.length > 0 && cartEligibleChannels(channelsForCart).length === 0;
     const cartDisabled = soldOut || dineInOnly;
 
-    const isHot = product.kind === 'BAKERY_HOT';
-    const isFrozen = product.kind === 'BAKERY_FROZEN';
+    const isHot = product.categorySlug === 'hot-pastries';
+    const isFrozen = product.categorySlug === 'frozen-bake-off';
     const priceNum = parseFloat(product.priceB2c);
     const priceFmt = isNaN(priceNum) ? `$${product.priceB2c}` : Number.isInteger(priceNum) ? `$${priceNum}` : `$${priceNum.toFixed(2)}`;
 

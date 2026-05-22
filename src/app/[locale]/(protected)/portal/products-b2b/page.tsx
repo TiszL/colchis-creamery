@@ -3,12 +3,11 @@ import { getSession } from '@/lib/session';
 import { redirect } from 'next/navigation';
 import InventoryClient from '@/components/admin/InventoryClient';
 import { saveProductAction, deleteProductAction, quickStockAction } from '@/app/actions/products';
-import { ProductKind, SalesChannel } from '@prisma/client';
+import { SalesChannel } from '@prisma/client';
 
 export const dynamic = 'force-dynamic';
 
 const ALLOWED = ['MASTER_ADMIN', 'PRODUCT_MANAGER'];
-const PRODUCT_KINDS = Object.values(ProductKind);
 const SALES_CHANNELS = Object.values(SalesChannel);
 
 export default async function StaffProductsB2BPage({ params }: { params: Promise<{ locale: string }> }) {
@@ -16,46 +15,45 @@ export default async function StaffProductsB2BPage({ params }: { params: Promise
     const session = await getSession();
     if (!session || !ALLOWED.includes(session.role)) redirect(`/${locale}/portal-login`);
 
-    const products = await prisma.product.findMany({
-        where: { isB2bVisible: true },
-        orderBy: { name: 'asc' },
-        include: {
-
-            stocks: { include: { location: { select: { id: true, name: true, type: true } } } },
-        },
-    });
-
-    const productFamilies = await prisma.productFamily.findMany({
-        where: { isActive: true },
-        orderBy: { name: 'asc' },
-        select: { id: true, slug: true, name: true },
-    });
-
-    const productLines = await prisma.productLine.findMany({
-        orderBy: { sortOrder: 'asc' },
-        include: {
-            categories: {
-                orderBy: { sortOrder: 'asc' },
-                select: { id: true, slug: true, name: true },
+    const [products, productFamilies, productLines, allCategories, locationRows] = await Promise.all([
+        prisma.product.findMany({
+            where: { isB2bVisible: true },
+            orderBy: { name: 'asc' },
+            include: {
+                stocks: { include: { location: { select: { id: true, name: true, type: true } } } },
+                productCategory: { select: { slug: true, name: true, sections: true } },
             },
-        },
-    });
+        }),
+        prisma.productFamily.findMany({
+            where: { isActive: true },
+            orderBy: { name: 'asc' },
+            select: { id: true, slug: true, name: true },
+        }),
+        prisma.productLine.findMany({
+            orderBy: { sortOrder: 'asc' },
+            include: {
+                categories: {
+                    orderBy: { sortOrder: 'asc' },
+                    select: { id: true, slug: true, name: true },
+                },
+            },
+        }),
+        prisma.category.findMany({
+            where: { isActive: true },
+            orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+            select: { id: true, slug: true, name: true, sections: true },
+        }),
+        prisma.location.findMany({
+            where: { isActive: true },
+            orderBy: [{ type: 'asc' }, { name: 'asc' }],
+            select: {
+                id: true, name: true, type: true,
+                channels: { where: { isActive: true }, select: { deliveryMethod: true } },
+            },
+        }),
+    ]);
 
-    const locationRows = await prisma.location.findMany({
-        where: { isActive: true },
-        orderBy: [{ type: 'asc' }, { name: 'asc' }],
-        select: {
-            id: true,
-            name: true,
-            type: true,
-            channels: { where: { isActive: true }, select: { deliveryMethod: true } },
-        },
-    });
-    const locations = locationRows.map(l => ({
-        id: l.id,
-        name: l.name,
-        type: l.type,
-    }));
+    const locations = locationRows.map(l => ({ id: l.id, name: l.name, type: l.type }));
 
     const serialized = products.map(p => ({
         id: p.id, sku: p.sku, name: p.name, nameKa: p.nameKa, slug: p.slug,
@@ -63,8 +61,11 @@ export default async function StaffProductsB2BPage({ params }: { params: Promise
         pairsWith: p.pairsWith, weight: p.weight, ingredients: p.ingredients,
         imageUrl: p.imageUrl, images: p.images || [], videoUrls: p.videoUrls || [],
         priceB2c: p.priceB2c, priceB2b: p.priceB2b, stockQuantity: p.stockQuantity,
-        category: p.category, kind: p.kind, isMadeToOrder: p.isMadeToOrder, tag: p.tag,
+        isMadeToOrder: p.isMadeToOrder, tag: p.tag,
         productLineId: p.productLineId, categoryId: p.categoryId,
+        productCategory: p.productCategory
+            ? { slug: p.productCategory.slug, name: p.productCategory.name, sections: p.productCategory.sections }
+            : null,
         status: p.status, isActive: p.isActive,
         isB2cVisible: p.isB2cVisible, isB2bVisible: p.isB2bVisible, isCartOrderable: p.isCartOrderable,
         productFamilyId: p.productFamilyId, salesChannel: p.salesChannel,
@@ -93,7 +94,7 @@ export default async function StaffProductsB2BPage({ params }: { params: Promise
                 productLines={serializedLines}
                 productFamilies={productFamilies}
                 locations={locations}
-                productKinds={PRODUCT_KINDS}
+                categories={allCategories}
                 salesChannels={SALES_CHANNELS}
                 locale={locale}
                 saveAction={saveProductAction}

@@ -15,7 +15,8 @@ export default async function LocationMenuPage({
             product: {
                 select: {
                     id: true, sku: true, name: true, salesChannel: true,
-                    kind: true, status: true, isB2cVisible: true,
+                    productCategory: { select: { slug: true, name: true } },
+                    status: true, isB2cVisible: true,
                 },
             },
         },

@@ -2,7 +2,10 @@ import BakeryClient, { type HeroContent, type MenuContent, type DeliveryContent,
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { getMyAddresses } from "@/app/actions/addresses";
-import { ProductKind } from "@prisma/client";
+// Phase 9b: was ProductKind.BAKERY_HOT / BAKERY_FROZEN. Now driven by Category slug.
+const HOT_CATEGORY_SLUG = 'hot-pastries';
+const FROZEN_CATEGORY_SLUG = 'frozen-bake-off';
+const BAKERY_CATEGORY_SLUGS = [HOT_CATEGORY_SLUG, FROZEN_CATEGORY_SLUG];
 import type { Metadata } from "next";
 import { getPrimaryLocation } from "@/lib/business-location";
 import { getSelectedLocation, productCatalogWhereForLocation } from "@/lib/customer-location";
@@ -58,12 +61,13 @@ export default async function BakeryPage() {
   try {
     const bakeryProducts = await prisma.product.findMany({
       where: {
-        kind: { in: [ProductKind.BAKERY_HOT, ProductKind.BAKERY_FROZEN] },
+        productCategory: { slug: { in: BAKERY_CATEGORY_SLUGS } },
         isB2cVisible: true,
         isActive: true,
         ...locationFilter,
       },
-      orderBy: [{ kind: 'asc' }, { name: 'asc' }],
+      include: { productCategory: { select: { slug: true } } },
+      orderBy: [{ productCategory: { sortOrder: 'asc' } }, { name: 'asc' }],
     });
 
     const mapped = bakeryProducts.map(p => ({
@@ -84,8 +88,8 @@ export default async function BakeryPage() {
       offeredChannels: [],
     }));
 
-    const hotItems = mapped.filter((_item, i) => bakeryProducts[i].kind === ProductKind.BAKERY_HOT);
-    const frozenItems = mapped.filter((_item, i) => bakeryProducts[i].kind === ProductKind.BAKERY_FROZEN);
+    const hotItems = mapped.filter((_item, i) => bakeryProducts[i].productCategory?.slug === HOT_CATEGORY_SLUG);
+    const frozenItems = mapped.filter((_item, i) => bakeryProducts[i].productCategory?.slug === FROZEN_CATEGORY_SLUG);
 
     if (hotItems.length > 0) contentProps.hotItems = hotItems;
     if (frozenItems.length > 0) contentProps.frozenItems = frozenItems;

@@ -2,7 +2,13 @@
 
 import { prisma } from '@/lib/db';
 import { distanceMiles, channelMaxRadius } from '@/lib/distance';
-import { DeliveryMethod, LocationType, ProductKind } from '@prisma/client';
+import { DeliveryMethod, LocationType } from '@prisma/client';
+
+// Phase 9b: bakery products were split into hot vs frozen using ProductKind
+// (BAKERY_HOT / BAKERY_FROZEN). That enum is gone; the split now comes from
+// the Category slug. Anything tagged 'bakery' in Category.sections is in scope.
+const BAKERY_HOT_CATEGORY_SLUG = 'hot-pastries';
+const BAKERY_FROZEN_CATEGORY_SLUG = 'frozen-bake-off';
 
 export type DeliverableProduct = {
     id: string;
@@ -15,7 +21,8 @@ export type DeliverableProduct = {
     priceB2c: string;
     tag: string | null;
     imageUrl: string;
-    kind: ProductKind;
+    // Phase 9b: was ProductKind; now category slug (drives hot vs frozen split).
+    categorySlug: string;
     isMadeToOrder: boolean;
     /** Sum of `Stock.quantity` across reachable locations. null = made-to-order (unlimited). */
     stockAvailable: number | null;
@@ -67,11 +74,12 @@ export async function getAvailableBakeryProducts(
                         isActive: true,
                         isB2cVisible: true,
                         status: 'ACTIVE',
-                        kind: { in: [ProductKind.BAKERY_HOT, ProductKind.BAKERY_FROZEN] },
+                        // Phase 9b: filter by category slugs instead of ProductKind enum.
+                        productCategory: { slug: { in: [BAKERY_HOT_CATEGORY_SLUG, BAKERY_FROZEN_CATEGORY_SLUG] } },
                     },
                 },
                 include: {
-                    product: true,
+                    product: { include: { productCategory: { select: { slug: true } } } },
                 },
             },
         },
@@ -133,7 +141,7 @@ export async function getAvailableBakeryProducts(
                     priceB2c: product.priceB2c,
                     tag: product.tag,
                     imageUrl: product.imageUrl,
-                    kind: product.kind,
+                    categorySlug: product.productCategory?.slug ?? '',
                     isMadeToOrder: product.isMadeToOrder,
                     // MTO products have null stock (unlimited while bakery is open). For tracked
                     // products, accumulate Stock.quantity across reachable locations.
@@ -149,8 +157,8 @@ export async function getAvailableBakeryProducts(
     return {
         customerLat,
         customerLng,
-        hotProducts: all.filter(p => p.kind === ProductKind.BAKERY_HOT).sort((a, b) => a.name.localeCompare(b.name)),
-        frozenProducts: all.filter(p => p.kind === ProductKind.BAKERY_FROZEN).sort((a, b) => a.name.localeCompare(b.name)),
+        hotProducts: all.filter(p => p.categorySlug === BAKERY_HOT_CATEGORY_SLUG).sort((a, b) => a.name.localeCompare(b.name)),
+        frozenProducts: all.filter(p => p.categorySlug === BAKERY_FROZEN_CATEGORY_SLUG).sort((a, b) => a.name.localeCompare(b.name)),
         inServiceArea: coveringLocations.size > 0,
         coveringLocations: Array.from(coveringLocations),
     };

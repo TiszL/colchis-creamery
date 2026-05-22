@@ -80,7 +80,7 @@ export default async function AdminOrderDetailPage({ params }: PageProps) {
         include: {
             user: { select: { id: true, email: true, name: true, phone: true, role: true } },
             orderItems: {
-                include: { product: { select: { id: true, name: true, kind: true } } },
+                include: { product: { select: { id: true, name: true, productCategory: { select: { slug: true, name: true } } } } },
             },
             fulfillments: {
                 orderBy: { createdAt: 'asc' },

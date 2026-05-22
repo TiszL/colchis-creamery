@@ -5,13 +5,14 @@ import type { Metadata } from "next";
 import { getOgImage, buildOgImages } from "@/lib/seo";
 import Link from "next/link";
 import CreameryClient from "@/components/shop/CreameryClient";
-import { ProductKind } from "@prisma/client";
 import { getSession } from "@/lib/session";
 import { getMyAddresses } from "@/app/actions/addresses";
 import { getPrimaryLocation } from "@/lib/business-location";
 import { getSelectedLocation, productCatalogWhereForLocation } from "@/lib/customer-location";
 
-const CREAMERY_KINDS = Object.values(ProductKind).filter(k => k.startsWith('CREAMERY')) as ProductKind[];
+// Phase 9b: was ProductKind.startsWith('CREAMERY'). Category.sections drives
+// storefront placement now — admin tags categories with 'creamery' in CategoryManager.
+const CREAMERY_SECTION = 'creamery';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://colchisfood.com';
 
@@ -91,7 +92,7 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
       where: {
         status: { in: ['ACTIVE', 'COMING_SOON'] },
         isB2cVisible: true,
-        kind: { in: CREAMERY_KINDS }, // shop = creamery only; bakery has its own /bakery page
+        productCategory: { sections: { has: CREAMERY_SECTION } }, // creamery-section products only; bakery has its own page
         ...locationFilter,
       },
       orderBy: { name: 'asc' },

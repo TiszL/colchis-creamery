@@ -69,6 +69,17 @@ export async function POST(req: NextRequest) {
                 if (!product || !product.isActive) throw new Error(`Product ${item.id} is invalid or inactive`);
                 if (product.stockQuantity < item.quantity) throw new Error(`Insufficient stock for ${product.name}`);
 
+                // TODO (B2B inventory migration): this route still decrements
+                // Product.stockQuantity directly instead of going through
+                // commitStock + fifoConsumeStock (Phase 3). That means:
+                //   - no StockMovement audit row is written for B2B sales
+                //   - no per-location FIFO batch consumption (B2B is global)
+                //   - Stock.quantity at warehouses can drift from
+                //     Product.stockQuantity over time
+                // Fix lands when B2B fulfillment moves to per-location
+                // dispatch: each B2B Order needs a target locationId, then
+                // we can call commitStock([{productId, locationId, quantity}])
+                // and get audit + batches for free. Tracked in Phase 8 summary.
                 await tx.product.update({
                     where: { id: product.id },
                     data: { stockQuantity: product.stockQuantity - item.quantity },

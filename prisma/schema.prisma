@@ -55,6 +55,10 @@ model User {
   locationRoles         UserLocation[]
   // Phase 3: who initiated each stock movement (null = system/webhook-driven).
   stockMovements        StockMovement[]
+  // Phase 6: B2B partner profile (1:1 with User when role=B2B_PARTNER) +
+  // sales-manager assignments. Both nullable — a normal user has neither.
+  b2bPartner            B2bPartner?
+  b2bPartnersOwned      B2bPartner[]    @relation("AssignedSales")
 }
 
 // Phase 2 — Per-location operator roles. A user can hold multiple roles at
@@ -79,6 +83,131 @@ model UserLocation {
   @@unique([userId, locationId, role])
   @@index([userId])
   @@index([locationId])
+}
+
+// ─── Phase 6 — B2B platform ──────────────────────────────────────────────────
+//
+// B2bPartner: operational profile attached 1:1 to a User with role=B2B_PARTNER.
+// Holds wholesale-specific data + the Resolve customer link for net-terms
+// invoicing + the assigned sales manager. Contract (Adobe Sign) and existing
+// User.role / User.companyName fields stay as-is for backwards compat; new
+// B2B work reads from B2bPartner.
+
+enum B2bPaymentMethod {
+  STRIPE_CARD       // pay-now via Stripe credit card
+  STRIPE_ACH        // pay-now via Stripe ACH (slower, lower fee)
+  RESOLVE_NET_7
+  RESOLVE_NET_15
+  RESOLVE_NET_30
+  RESOLVE_NET_45
+}
+
+enum B2bInvoiceStatus {
+  PENDING       // issued, awaiting payment / collection
+  PAID          // partner paid in full
+  OVERDUE       // past dueAt, no payment received
+  WRITTEN_OFF   // collection abandoned
+}
+
+model B2bPartner {
+  id                       String    @id @default(uuid())
+  userId                   String    @unique
+  user                     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Operational profile (extends User.companyName).
+  companyName              String
+  businessAddress          String?
+  ein                      String?   // US tax ID, optional
+
+  // Resolve net-terms integration. Customer ID is created on first net-terms
+  // attempt (just-in-time, not on partner signup). Credit limit is cached
+  // from Resolve and refreshed by the credit-check pull.
+  resolveCustomerId        String?
+  resolveCreditLimitCents  Int?
+  resolveCreditApproved    Boolean   @default(false)
+  resolveStatusUpdatedAt   DateTime?
+
+  // Sales relationship — which sales manager owns this partner.
+  assignedSalesUserId      String?
+  assignedSales            User?     @relation("AssignedSales", fields: [assignedSalesUserId], references: [id])
+
+  // Default fulfillment preference: which warehouse this partner usually
+  // pulls from. Sales/ops can override per-order. Null = ops decides.
+  defaultFulfillmentLocationId String?
+  defaultFulfillmentLocation   Location? @relation("B2bPartnerDefaultLocation", fields: [defaultFulfillmentLocationId], references: [id])
+
+  notes                    String?
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
+
+  invoices                 B2bInvoice[]
+  schedules                RecurringOrderSchedule[]
+
+  @@index([assignedSalesUserId])
+}
+
+// B2bInvoice is created when an order is placed with payment method =
+// RESOLVE_NET_*. Stripe pay-now orders (CARD/ACH) skip the invoice — they
+// go straight to PAID via the existing Stripe webhook path. paymentMethod
+// is stored so the dispatch queue + sales dashboard can filter.
+model B2bInvoice {
+  id                String           @id @default(uuid())
+  orderId           String           @unique
+  order             Order            @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  partnerId         String
+  partner           B2bPartner       @relation(fields: [partnerId], references: [id])
+
+  amountCents       Int
+  paymentMethod     B2bPaymentMethod
+
+  // Resolve linkage when paymentMethod ∈ RESOLVE_NET_*.
+  resolveInvoiceId  String?
+  resolveStatus     String?
+
+  issuedAt          DateTime         @default(now())
+  dueAt             DateTime?        // null for STRIPE_* — pay-now has no due date
+  paidAt            DateTime?
+
+  status            B2bInvoiceStatus @default(PENDING)
+  notes             String?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  @@index([partnerId, status])
+  @@index([status, dueAt])           // AR-aging queries
+}
+
+// Partner sets up "every Tuesday: 5× sulguni, 2× imeruli" and the cron
+// auto-creates draft Orders on schedule. Partner can edit before cutoff.
+model RecurringOrderSchedule {
+  id              String       @id @default(uuid())
+  partnerId       String
+  partner         B2bPartner   @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+
+  name            String       // partner-given label ("Weekly sulguni")
+  active          Boolean      @default(true)
+
+  // Cadence — interval days from last fire. 7 = weekly, 14 = biweekly, 30 = monthly.
+  // Kept simple (no cron expressions) so partner UI is trivial.
+  intervalDays    Int
+  nextFireAt      DateTime
+
+  // Cart contents stored as JSON array of { productId, quantity }.
+  // Edited inline on the partner schedule page.
+  itemsJson       String
+
+  paymentMethod   B2bPaymentMethod
+
+  // Pin to a specific warehouse, or null = use partner.defaultFulfillmentLocationId.
+  fulfillmentLocationId String?
+  fulfillmentLocation   Location? @relation("RecurringScheduleLocation", fields: [fulfillmentLocationId], references: [id])
+
+  lastFiredAt     DateTime?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@index([active, nextFireAt])
+  @@index([partnerId])
 }
 
 // ─── Phase 3 — Inventory: lot/batch tracking + movement audit log ────────────
@@ -440,6 +569,8 @@ model Order {
   shipment     Shipment?
   fulfillments OrderFulfillment[]
   refunds      Refund[]
+  // Phase 6 — B2B invoice when paymentMethod ∈ RESOLVE_NET_*.
+  b2bInvoice   B2bInvoice?
 }
 
 // ─── OrderItem ───────────────────────────────────────────────────────────────
@@ -811,6 +942,9 @@ model Location {
   userRoles    UserLocation[]
   batches      ProductBatch[]
   stockMovements StockMovement[]
+  // Phase 6 — B2B partner default warehouse + recurring schedule pinning.
+  b2bPartnerDefaults       B2bPartner[]             @relation("B2bPartnerDefaultLocation")
+  recurringSchedules       RecurringOrderSchedule[] @relation("RecurringScheduleLocation")
 }
 
 // Renamed from LocationChannel for clarity (the relation is one delivery

@@ -486,7 +486,9 @@ export async function planFulfillment(
     const products = await prisma.product.findMany({
         where: { id: { in: productIds } },
         include: {
-            channels: true,
+            // Phase 8: ProductChannel relation removed. Per-product delivery-
+            // method gating is gone — location.channels (LocationDeliveryMethod)
+            // is the source of truth for what can ship from a location.
             stocks: { include: { location: { include: { channels: { where: { isActive: true } } } } } },
         },
     });
@@ -508,12 +510,9 @@ export async function planFulfillment(
             undeliverable.push({ productId: item.productId, productName: 'Unknown product', reason: 'Product no longer available' });
             continue;
         }
-        // Channels this product CAN ship via, excluding dine-in (not cart-orderable)
-        const productCartChannels = cartEligibleChannels(product.channels.map(c => c.channel));
-        if (productCartChannels.length === 0) {
-            undeliverable.push({ productId: product.id, productName: product.name, reason: 'Dine-in only (not orderable online)' });
-            continue;
-        }
+        // Phase 8: ProductChannel removed — products no longer constrain
+        // delivery methods. The cart-eligibility filter still applies to the
+        // location's LocationDeliveryMethod rows further down.
 
         // Find locations that stock this product AND have at least one channel matching
         // both the product's allowed channels AND reachable from the customer.
@@ -539,19 +538,22 @@ export async function planFulfillment(
             const PICKUP_DEFAULT_RADIUS_MILES = 100;
             const reachableHere: DeliveryMethod[] = [];
             for (const lc of loc.channels) {
+                // Phase 8: ProductChannel gone. Only filter on cart-eligibility
+                // (drop dine-in) + customer reachability — products no longer
+                // gate which delivery methods they support.
                 if (lc.deliveryMethod === DeliveryMethod.IN_STORE_DINE_IN) continue;
                 const isPickup = lc.deliveryMethod === DeliveryMethod.IN_STORE_PICKUP;
                 const maxReach = channelMaxRadius(lc.radiusMiles, lc.maxDriveHours);
                 const effectiveMaxReach = isPickup ? (maxReach ?? PICKUP_DEFAULT_RADIUS_MILES) : maxReach;
                 if (effectiveMaxReach !== null && distance <= effectiveMaxReach) {
-                    if (productCartChannels.includes(lc.deliveryMethod)) reachableHere.push(lc.deliveryMethod);
+                    reachableHere.push(lc.deliveryMethod);
                 }
             }
 
             if (reachableHere.length === 0) {
                 // Track what kind of "no" this is for the final reason message
-                const anyChannelMatchAtAll = loc.channels.some(lc => productCartChannels.includes(lc.deliveryMethod) && lc.deliveryMethod !== DeliveryMethod.IN_STORE_DINE_IN);
-                if (anyChannelMatchAtAll) sawNoReach = true; else sawNoChannelMatch = true;
+                const anyChannelAtAll = loc.channels.some(lc => lc.deliveryMethod !== DeliveryMethod.IN_STORE_DINE_IN);
+                if (anyChannelAtAll) sawNoReach = true; else sawNoChannelMatch = true;
                 continue;
             }
             if (!stockOk) {

@@ -64,7 +64,6 @@ export default async function BakeryPage() {
         ...locationFilter,
       },
       orderBy: [{ kind: 'asc' }, { name: 'asc' }],
-      include: { channels: true },
     });
 
     const mapped = bakeryProducts.map(p => ({
@@ -82,7 +81,7 @@ export default async function BakeryPage() {
       isCartOrderable: p.isCartOrderable,
       // Server-known channels for the product (used to render dine-in-only state
       // before address-driven availability resolves — kills the flicker).
-      offeredChannels: p.channels.map(c => c.channel),
+      offeredChannels: [],
     }));
 
     const hotItems = mapped.filter((_item, i) => bakeryProducts[i].kind === ProductKind.BAKERY_HOT);

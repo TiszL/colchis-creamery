@@ -19,7 +19,7 @@ export default async function AdminInventoryPage({ params }: { params: Promise<{
     const products = await prisma.product.findMany({
         orderBy: { name: 'asc' },
         include: {
-            channels: true,
+
             stocks: { include: { location: { select: { id: true, name: true, type: true } } } },
         },
     });
@@ -89,7 +89,7 @@ export default async function AdminInventoryPage({ params }: { params: Promise<{
         salesChannel: p.salesChannel,
         packagingType: p.packagingType,
         unitCost: p.unitCost,
-        channels: p.channels.map(c => c.channel),
+        channels: [],
         stocks: p.stocks.map(s => ({
             locationId: s.locationId,
             locationName: s.location.name,

@@ -9,6 +9,7 @@ import CreameryDeliveryOptions from "@/components/shop/CreameryDeliveryOptions";
 import { getSession } from "@/lib/session";
 import { getMyAddresses } from "@/app/actions/addresses";
 import type { ActiveAddress } from "@/components/bakery/AddressManager";
+import type { DeliveryMethod } from "@prisma/client";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://colchisfood.com';
 
@@ -53,7 +54,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
   const product = await prisma.product.findFirst({
     where: { OR: [{ slug: productId }, { id: productId }], status: { in: ['ACTIVE', 'COMING_SOON'] }, isB2cVisible: true },
-    include: { productLine: true, productCategory: true, channels: true },
+    include: { productLine: true, productCategory: true },
   });
   if (!product) notFound();
 
@@ -75,7 +76,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
       };
     }
   }
-  const offeredChannels = product.channels.map(c => c.channel);
+  const offeredChannels = [] as DeliveryMethod[];
 
   // 301 redirect UUID URLs to slug URLs
   const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

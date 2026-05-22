@@ -71,7 +71,7 @@ export async function getAvailableBakeryProducts(
                     },
                 },
                 include: {
-                    product: { include: { channels: true } },
+                    product: true,
                 },
             },
         },
@@ -103,8 +103,7 @@ export async function getAvailableBakeryProducts(
         // For each stocked product, intersect product.channels with reachable channels
         for (const stock of loc.stocks) {
             const product = stock.product;
-            const productChannels = new Set(product.channels.map(c => c.channel));
-            const matching = reachableChannels.filter(c => productChannels.has(c));
+            const matching = reachableChannels;
             if (matching.length === 0) continue;
 
             // NOTE: we no longer skip 0-stock or COMING_SOON products here. Letting them

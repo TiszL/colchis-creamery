@@ -82,7 +82,7 @@ export default async function ShopPage({ params }: ShopPageProps) {
       include: {
         productLine: { select: { id: true, slug: true, name: true, tagline: true, badgeColor: true } },
         productCategory: { select: { id: true, slug: true, name: true } },
-        channels: true,
+
       },
     }),
     prisma.siteConfig.findMany({ where: { key: { startsWith: 'creamery.' } } }).catch(() => []),
@@ -113,7 +113,7 @@ export default async function ShopPage({ params }: ShopPageProps) {
     status: p.status,
     isCartOrderable: p.isCartOrderable,
     productLine: p.productLine ? { name: p.productLine.name, badgeColor: p.productLine.badgeColor } : null,
-    offeredChannels: p.channels.map(c => c.channel),
+    offeredChannels: [],
   }));
 
   // JSON-LD

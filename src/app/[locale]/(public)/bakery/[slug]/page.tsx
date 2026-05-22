@@ -8,7 +8,7 @@ import BakeryPdpClient from "@/components/bakery/BakeryPdpClient";
 import { getSession } from "@/lib/session";
 import { getMyAddresses } from "@/app/actions/addresses";
 import type { ActiveAddress } from "@/components/bakery/AddressManager";
-import { ProductKind } from "@prisma/client";
+import { ProductKind, type DeliveryMethod } from "@prisma/client";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://colchisfood.com';
 
@@ -54,7 +54,7 @@ export default async function BakeryPdp({ params }: BakeryPdpProps) {
       kind: { in: [ProductKind.BAKERY_HOT, ProductKind.BAKERY_FROZEN] },
     },
     include: {
-      channels: true,
+
     },
   });
   if (!product) notFound();
@@ -64,7 +64,7 @@ export default async function BakeryPdp({ params }: BakeryPdpProps) {
 
   // All channels this product is configured for (server-rendered). BakeryPdpClient
   // filters them against the customer's address once it loads on the client.
-  const offeredChannels = product.channels.map(c => c.channel);
+  const offeredChannels = [] as DeliveryMethod[];
 
   // Prime initial address for logged-in users so the client doesn't flicker.
   const session = await getSession();

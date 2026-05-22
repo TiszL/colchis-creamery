@@ -492,11 +492,6 @@ model Product {
   productFamily  ProductFamily   @relation(fields: [productFamilyId], references: [id])
   orderItems     OrderItem[]
   reviews        ProductReview[]
-  // Phase 1: ProductChannel is superseded by Product.salesChannel +
-  // Location.allowsChannels for routing; relation kept for now because the
-  // catalog UI still surfaces per-product channel chips (e.g. dine-in only).
-  // Targeted removal lands in a Phase 1 cleanup follow-up after UI refactor.
-  channels       ProductChannel[]
   stocks         Stock[]
   batches        ProductBatch[]
   stockMovements StockMovement[]
@@ -984,19 +979,6 @@ model Stock {
 
   @@unique([locationId, productId])
   @@index([productId])
-}
-
-// Phase 1: superseded by Product.salesChannel + Location.allowsChannels.
-// Still read by the catalog UI's "offered channels" chips — full removal
-// blocked on a UI refactor that derives chips from the location's
-// LocationDeliveryMethod set instead. Tracked for Phase 1 cleanup.
-model ProductChannel {
-  productId String
-  product   Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
-  channel   DeliveryMethod
-
-  @@id([productId, channel])
-  @@index([channel])
 }
 
 // One Order may split across multiple OrderFulfillment rows (one per location).

@@ -216,30 +216,19 @@ async function main() {
       stockCreated++;
     }
 
-    // UPS_2DAY channel for creamery products (D2C nationwide).
-    // ProductChannel keeps its `channel` column (dropped entirely in 1i).
-    const existingChan = await prisma.productChannel.findUnique({
-      where: { productId_channel: { productId: p.id, channel: DeliveryMethod.UPS_2DAY } },
-    });
-    if (!existingChan) {
-      await prisma.productChannel.create({
-        data: { productId: p.id, channel: DeliveryMethod.UPS_2DAY },
-      });
-      channelCreated++;
-    }
+    // Phase 8: ProductChannel removed. NATIONAL_SHIP routing is now via
+    // Product.salesChannel + Location.allowsChannels — no per-product table.
   }
-  console.log(`  ${stockCreated} stock row(s) created, ${channelCreated} product-channel link(s) created.`);
+  console.log(`  ${stockCreated} stock row(s) created.`);
 
   // ─── Summary ──────────────────────────────────────────────────────────────
   const locCount = await prisma.location.count();
   const chanCount = await prisma.locationDeliveryMethod.count();
   const stockCount = await prisma.stock.count();
-  const pcCount = await prisma.productChannel.count();
   console.log("\n=== Phase 1 seed summary ===");
   console.log(`  Locations:         ${locCount}`);
-  console.log(`  LocationChannels:  ${chanCount}`);
+  console.log(`  LocationDelivery:  ${chanCount}`);
   console.log(`  Stock rows:        ${stockCount}`);
-  console.log(`  ProductChannels:   ${pcCount}`);
   console.log("\nDone.\n");
 }
 

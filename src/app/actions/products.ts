@@ -2,7 +2,7 @@
 
 import { prisma } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
-import { ProductKind, DeliveryMethod, SalesChannel } from '@prisma/client';
+import { ProductKind, SalesChannel } from '@prisma/client';
 
 // Derive a default SalesChannel from ProductKind for create/update calls
 // that haven't yet been migrated to send salesChannel explicitly. Admin form
@@ -23,7 +23,9 @@ export async function saveProductAction(formData: FormData) {
 
     const images = formData.getAll('images[]').filter(v => (v as string).trim() !== '') as string[];
     const videoUrls = formData.getAll('videoUrls[]').filter(v => (v as string).trim() !== '') as string[];
-    const channels = formData.getAll('channels[]').filter(v => !!v) as DeliveryMethod[];
+    // Phase 8: ProductChannel dropped — channels[] form field still posted by
+    // legacy admin form but ignored. SalesChannel + Location.allowsChannels are
+    // the source of truth now.
 
     const stocksRaw = (formData.get('stocksJson') as string) || '[]';
     let stocks: Array<{ locationId: string; quantity: number | null }> = [];
@@ -100,14 +102,6 @@ export async function saveProductAction(formData: FormData) {
             data: { ...data, productFamilyId: familyId },
         });
         productId = created.id;
-    }
-
-    await prisma.productChannel.deleteMany({ where: { productId } });
-    if (channels.length > 0) {
-        await prisma.productChannel.createMany({
-            data: channels.map(ch => ({ productId, channel: ch })),
-            skipDuplicates: true,
-        });
     }
 
     for (const s of stocks) {

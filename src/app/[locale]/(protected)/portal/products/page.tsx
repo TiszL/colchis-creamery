@@ -21,7 +21,7 @@ export default async function StaffProductsPage({ params }: { params: Promise<{ 
         where: { isB2cVisible: true },
         orderBy: { name: 'asc' },
         include: {
-            channels: true,
+
             stocks: { include: { location: { select: { id: true, name: true, type: true } } } },
         },
     });
@@ -71,7 +71,7 @@ export default async function StaffProductsPage({ params }: { params: Promise<{ 
         isB2cVisible: p.isB2cVisible, isB2bVisible: p.isB2bVisible, isCartOrderable: p.isCartOrderable,
         productFamilyId: p.productFamilyId, salesChannel: p.salesChannel,
         packagingType: p.packagingType, unitCost: p.unitCost,
-        channels: p.channels.map(c => c.channel),
+        channels: [],
         stocks: p.stocks.map(s => ({
             locationId: s.locationId,
             locationName: s.location.name,

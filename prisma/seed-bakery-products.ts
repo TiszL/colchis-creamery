@@ -280,14 +280,7 @@ async function upsertBakeryProduct(item: BakeryItem, bakeryLocationId: string) {
         },
     });
 
-    // 2. Replace ProductChannel set
-    await prisma.productChannel.deleteMany({ where: { productId: product.id } });
-    if (item.channels.length > 0) {
-        await prisma.productChannel.createMany({
-            data: item.channels.map(ch => ({ productId: product.id, channel: ch })),
-            skipDuplicates: true,
-        });
-    }
+    // 2. (Phase 8) ProductChannel writes removed — SalesChannel + Location.allowsChannels supersede.
 
     // 3. Upsert Stock at the bakery
     await prisma.stock.upsert({

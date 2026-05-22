@@ -24,7 +24,20 @@
       "Bash(sed -n '635,645p' src/lib/shipping.ts)",
       "Bash(mkdir -p \"src/app/[locale]/\\(protected\\)/admin/sales-reports\")",
       "Bash(git mv *)",
-      "Bash(rmdir \"src/app/[locale]/\\(protected\\)/admin/analytics\")"
+      "Bash(rmdir \"src/app/[locale]/\\(protected\\)/admin/analytics\")",
+      "Bash(perl -i -pe 's/^\\\\s*channels:\\\\s*true,\\\\s*$/\\\\n/g' 'src/app/[locale]/\\(public\\)/creamery/page.tsx' 'src/app/[locale]/\\(public\\)/bakery/page.tsx' 'src/app/[locale]/\\(public\\)/bakery/[slug]/page.tsx')",
+      "Bash(perl -i -pe 's/\\\\binclude:\\\\s*\\\\{\\\\s*productLine:\\\\s*true,\\\\s*productCategory:\\\\s*true,\\\\s*channels:\\\\s*true\\\\s*\\\\}/include: { productLine: true, productCategory: true }/g' 'src/app/[locale]/\\(public\\)/creamery/[productId]/page.tsx')",
+      "Bash(perl -i -pe 's/^\\\\s*include:\\\\s*\\\\{\\\\s*channels:\\\\s*true\\\\s*\\\\},?\\\\s*$//g' 'src/app/[locale]/\\(public\\)/bakery/[slug]/page.tsx')",
+      "Bash(perl -i -pe 's/^\\\\s*include:\\\\s*\\\\{\\\\s*channels:\\\\s*true\\\\s*\\\\},?\\\\s*$//g' 'src/app/[locale]/\\(public\\)/bakery/page.tsx')",
+      "Bash(perl -i -pe 's/^\\\\s*channels:\\\\s*true,\\\\s*$/\\\\n/g' 'src/app/[locale]/\\(protected\\)/admin/inventory/page.tsx' 'src/app/[locale]/\\(protected\\)/portal/products/page.tsx' 'src/app/[locale]/\\(protected\\)/portal/products-b2b/page.tsx')",
+      "Bash(perl -i -pe 's/product\\\\.channels\\\\.map\\\\\\(c => c\\\\.channel\\\\\\)/[] as never[]/g' src/app/actions/bakery-availability.ts src/app/actions/creamery-availability.ts)",
+      "Bash(sed -n '65,80p' \"src/app/[locale]/\\(public\\)/bakery/[slug]/page.tsx\")",
+      "Bash(perl -i -pe 's/const offeredChannels = \\\\[\\\\];/const offeredChannels: import\\(\"@prisma\\\\/client\"\\).DeliveryMethod[] = [];/g' 'src/app/[locale]/\\(public\\)/bakery/[slug]/page.tsx' 'src/app/[locale]/\\(public\\)/creamery/[productId]/page.tsx')",
+      "Bash(sed -n '105,115p' src/app/actions/bakery-availability.ts)",
+      "Bash(perl -i -0pe 's/const productChannels = new Set\\\\\\(\\\\[\\\\]\\\\\\);\\\\s*\\\\n\\\\s*const matching = reachableChannels\\\\.filter\\\\\\(c => productChannels\\\\.has\\\\\\(c\\\\\\)\\\\\\);/const matching = reachableChannels;/g' src/app/actions/bakery-availability.ts src/app/actions/creamery-availability.ts)",
+      "Bash(perl -i -pe 's/import \\\\{ ProductKind \\\\} from \"\\\\@prisma\\\\/client\";/import { ProductKind, type DeliveryMethod } from \"\\\\@prisma\\\\/client\";/g' 'src/app/[locale]/\\(public\\)/bakery/[slug]/page.tsx' 'src/app/[locale]/\\(public\\)/creamery/[productId]/page.tsx')",
+      "Bash(awk '/Fulfillment Channels/,/Stock by Location/' src/components/admin/InventoryClient.tsx)",
+      "Bash(awk '/{\\\\/\\\\* ── Fulfillment Channels ── \\\\*\\\\/}/,/{\\\\/\\\\* ── Per-Location Stock ── \\\\*\\\\/}/' src/components/admin/InventoryClient.tsx)"
     ]
   }
 }

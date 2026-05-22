@@ -738,64 +738,10 @@ export default function InventoryClient({ products, productLines, productFamilie
                             </p>
                         )}
 
-                        {/* ── Fulfillment Channels ── */}
-                        <div className="space-y-1 pt-2">
-                            <h3 className="text-xs font-bold text-[#B96A3D] uppercase tracking-widest">Fulfillment Channels</h3>
-                            <div className="h-px bg-[#B96A3D]/20" />
-                        </div>
-                        <p className="text-[11px] text-gray-500 -mt-2">Which delivery methods can ship this product? Customer eligibility = product channels ∩ location channels reaching customer.</p>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                            {fulfillmentChannels.map(ch => {
-                                const checked = channelsSet.has(ch);
-                                // Which active locations offer this channel? Surfaces the channel↔location mapping
-                                // so the admin sees "UPS_2DAY is offered by Cold Warehouse — stock it there"
-                                const offeredBy = locations.filter(l => l.channels.includes(ch));
-                                return (
-                                    <label key={ch} className={`flex flex-col gap-1 px-3 py-2 border cursor-pointer transition-colors text-xs ${checked ? 'bg-[#B96A3D]/10 border-[#B96A3D]/40 text-white' : 'bg-[#0C0C0C] border-[#ffffff0A] text-gray-400 hover:border-[#B96A3D]/30'}`}>
-                                        <div className="flex items-center gap-2.5">
-                                            <input type="checkbox" checked={checked} onChange={() => toggleChannel(ch)} className="accent-[#B96A3D]" />
-                                            <span className="font-mono">{channelLabel(ch)}</span>
-                                        </div>
-                                        <div className="text-[9px] text-gray-500 pl-6 leading-tight">
-                                            {offeredBy.length === 0
-                                                ? <span className="text-amber-500">Not offered by any active location — wire it in /admin/locations first</span>
-                                                : <>Offered by: <span className="text-gray-300">{offeredBy.map(l => l.name).join(' · ')}</span></>}
-                                        </div>
-                                    </label>
-                                );
-                            })}
-                        </div>
-
-                        {/* Misconfig warning: checked channels with no stocked & channel-offering location */}
-                        {(() => {
-                            const checkedChannels = Array.from(channelsSet);
-                            const stockedLocationIds = new Set(Object.keys(stockMap));
-                            const unactionable = checkedChannels.filter(ch => {
-                                // Is there ANY location that (a) offers this channel AND (b) is in stockMap?
-                                return !locations.some(l => l.channels.includes(ch) && stockedLocationIds.has(l.id));
-                            });
-                            if (unactionable.length === 0) return null;
-                            // For each unactionable channel, suggest a location that offers it
-                            const suggestions = unactionable.map(ch => {
-                                const candidates = locations.filter(l => l.channels.includes(ch));
-                                return { deliveryMethod: ch, candidates };
-                            });
-                            return (
-                                <div className="bg-amber-900/15 border border-amber-700/30 text-amber-300 text-[11px] px-3 py-2.5 leading-relaxed">
-                                    <div className="font-bold uppercase tracking-wider mb-1.5">⚠ Configured but not actionable</div>
-                                    {suggestions.map(s => (
-                                        <div key={s.deliveryMethod} className="mb-1">
-                                            <span className="font-mono">{channelLabel(s.deliveryMethod)}</span>
-                                            {' is checked, but this product isn’t stocked at any location offering it. '}
-                                            {s.candidates.length === 0
-                                                ? <span className="text-amber-200">No active location offers this channel yet — set it up in /admin/locations.</span>
-                                                : <>Stock this product at: <span className="text-amber-200">{s.candidates.map(c => c.name).join(' or ')}</span> in the Per-Location Stock section below.</>}
-                                        </div>
-                                    ))}
-                                </div>
-                            );
-                        })()}
+                        {/* Phase 8 — Fulfillment Channels section removed.
+                            Product no longer gates delivery methods; routing is
+                            Product.salesChannel ∩ Location.allowsChannels +
+                            Location's enabled LocationDeliveryMethod rows. */}
 
                         {/* ── Per-Location Stock ── */}
                         <div className="space-y-1 pt-2">

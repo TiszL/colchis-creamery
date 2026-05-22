@@ -1,0 +1,11 @@
+-- Phase 8 (8a) — drop the ProductChannel table.
+--
+-- Superseded by Product.salesChannel (Phase 1) + Location.allowsChannels
+-- (Phase 1) for catalog routing. The "offered channels" chip UI that
+-- depended on per-product DeliveryMethod sets has been simplified: chips
+-- now come from the customer's address resolving to a Location and that
+-- Location's enabled LocationDeliveryMethod rows.
+--
+-- The Phase 1 design called this "deferred until UI refactor"; that
+-- refactor landed in 8a (catalog pages no longer fetch the relation).
+DROP TABLE "ProductChannel";

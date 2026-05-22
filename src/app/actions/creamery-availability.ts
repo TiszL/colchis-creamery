@@ -63,7 +63,6 @@ export async function getAvailableCreameryProducts(
                 include: {
                     product: {
                         include: {
-                            channels: true,
                             productLine: { select: { name: true, badgeColor: true } },
                         },
                     },
@@ -93,8 +92,7 @@ export async function getAvailableCreameryProducts(
 
         for (const stock of loc.stocks) {
             const product = stock.product;
-            const productChannels = new Set(product.channels.map(c => c.channel));
-            const matching = reachableChannels.filter(c => productChannels.has(c));
+            const matching = reachableChannels;
             if (matching.length === 0) continue;
             // NOTE: don't skip 0-stock / COMING_SOON products — let the UI mark them as
             // Sold out / Coming Soon. Hiding them here would mean an in-range customer

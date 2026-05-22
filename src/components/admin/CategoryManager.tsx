@@ -22,7 +22,8 @@ interface CategoryData {
     name: string;
     description: string | null;
     imageUrl: string | null;
-    productLineId: string;
+    productLineId: string | null; // Phase 9a: optional
+    sections: string[];           // Phase 9a: storefront-section tags
     sortOrder: number;
     isActive: boolean;
     _count?: { products: number };
@@ -38,6 +39,7 @@ interface ProductForAssign {
 
 interface CategoryManagerProps {
     productLines: ProductLineData[];
+    standaloneCategories: CategoryData[];
     allProducts: ProductForAssign[];
     saveLineAction: (formData: FormData) => Promise<void>;
     deleteLineAction: (formData: FormData) => Promise<void>;
@@ -46,12 +48,20 @@ interface CategoryManagerProps {
     assignAction: (formData: FormData) => Promise<void>;
 }
 
+const SECTION_OPTIONS: { value: string; label: string; hint: string }[] = [
+    { value: 'creamery',  label: 'Creamery',  hint: 'Shows in /creamery section' },
+    { value: 'bakery',    label: 'Bakery',    hint: 'Shows in /bakery section' },
+    { value: 'shop',      label: 'Shop',      hint: 'Surfaced on the general /shop page' },
+    { value: 'wholesale', label: 'Wholesale', hint: 'B2B partner catalog' },
+];
+
 function slugify(text: string): string {
     return text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 }
 
 export default function CategoryManager({
     productLines,
+    standaloneCategories,
     allProducts,
     saveLineAction,
     deleteLineAction,
@@ -327,6 +337,85 @@ export default function CategoryManager({
                 </div>
             )}
 
+            {/* ═══ Standalone Categories (no marketing tier) ═══════════════════ */}
+            <div className="bg-[#161616] border border-[#ffffff0A] overflow-hidden">
+                <div className="px-6 py-4 flex items-center justify-between border-b border-[#ffffff0A]">
+                    <div className="flex items-center gap-3">
+                        <Tag className="w-4 h-4 text-[#B96A3D]" />
+                        <div>
+                            <h2 className="text-white font-bold text-lg">Standalone Categories</h2>
+                            <p className="text-gray-500 text-xs mt-0.5">
+                                Categories that don&apos;t belong to a marketing tier (e.g. <em>Drinks</em>). Tag them with sections to control where they appear.
+                            </p>
+                        </div>
+                    </div>
+                    <button
+                        onClick={() => { setEditingCategory(null); setShowCategoryForm('__standalone__'); }}
+                        className="flex items-center gap-2 bg-[#B96A3D]/15 text-[#B96A3D] px-4 py-2 text-xs font-bold uppercase tracking-wider hover:bg-[#B96A3D]/25 transition-all"
+                    >
+                        <Plus className="w-3 h-3" /> Add Category
+                    </button>
+                </div>
+                {standaloneCategories.length > 0 ? (
+                    <div className="p-6 space-y-2">
+                        {standaloneCategories.map(cat => (
+                            <div
+                                key={cat.id}
+                                className="flex items-center justify-between bg-[#0C0C0C] px-4 py-3 border border-[#ffffff0A] hover:border-[#B96A3D]/20 transition-all group"
+                            >
+                                <div className="flex items-center gap-3 min-w-0">
+                                    <Tag className="w-4 h-4 text-[#B96A3D]/60 shrink-0" />
+                                    <div className="min-w-0">
+                                        <span className="text-white text-sm font-medium">{cat.name}</span>
+                                        {cat.description && (
+                                            <p className="text-gray-600 text-xs mt-0.5 truncate">{cat.description}</p>
+                                        )}
+                                    </div>
+                                    <div className="flex flex-wrap items-center gap-1">
+                                        {cat.sections.length > 0 ? cat.sections.map(s => (
+                                            <span key={s} className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 bg-[#B96A3D]/10 text-[#B96A3D] rounded">
+                                                {s}
+                                            </span>
+                                        )) : (
+                                            <span className="text-[9px] font-mono uppercase tracking-wider text-gray-700 italic">no section</span>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-3 shrink-0">
+                                    <span className="text-xs text-gray-600">
+                                        {cat._count?.products ?? 0} product{(cat._count?.products ?? 0) !== 1 ? 's' : ''}
+                                    </span>
+                                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${cat.isActive ? 'bg-emerald-900/30 text-emerald-400' : 'bg-red-900/30 text-red-400'}`}>
+                                        {cat.isActive ? 'Active' : 'Inactive'}
+                                    </span>
+                                    <button
+                                        onClick={() => { setEditingCategory(cat); setShowCategoryForm('__standalone__'); }}
+                                        className="text-xs text-[#B96A3D] hover:text-white transition-colors"
+                                    >
+                                        Edit
+                                    </button>
+                                    {deleteConfirm === cat.id ? (
+                                        <div className="flex items-center gap-1.5">
+                                            <button onClick={() => handleDeleteCategory(cat.id)} className="text-xs bg-red-600 text-white px-2 py-1 rounded hover:bg-red-500 transition-colors">Confirm</button>
+                                            <button onClick={() => setDeleteConfirm(null)} className="text-xs text-gray-500 hover:text-white">Cancel</button>
+                                        </div>
+                                    ) : (
+                                        <button onClick={() => setDeleteConfirm(cat.id)} className="text-xs text-red-400/40 hover:text-red-400 transition-colors">
+                                            <Trash2 className="w-3 h-3" />
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <div className="p-8 text-center">
+                        <p className="text-gray-600 text-sm">No standalone categories yet. Use these for cross-cutting types like Drinks, Gifts, Seasonal — anything not tied to a marketing tier.</p>
+                    </div>
+                )}
+            </div>
+
+
             {/* ═══ Product Line Form Modal ═══ */}
             {showLineForm && (
                 <>
@@ -429,10 +518,9 @@ export default function CategoryManager({
             {showCategoryForm && (
                 <>
                     <div className="fixed inset-0 bg-black/60 z-40" onClick={() => { setShowCategoryForm(null); setEditingCategory(null); }} />
-                    <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-lg bg-[#0F0F0F] border border-[#B96A3D22] z-50">
+                    <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-lg max-h-[90vh] overflow-y-auto bg-[#0F0F0F] border border-[#B96A3D22] z-50">
                         <form action={handleSaveCategory} className="p-6 space-y-5">
                             {editingCategory && <input type="hidden" name="id" value={editingCategory.id} />}
-                            <input type="hidden" name="productLineId" value={showCategoryForm} />
 
                             <div className="flex items-center justify-between">
                                 <h2 className="text-white font-bold text-lg">
@@ -461,6 +549,52 @@ export default function CategoryManager({
                                     <input name="sortOrder" type="number" defaultValue={editingCategory?.sortOrder ?? 0}
                                         className="w-full bg-[#0C0C0C] border border-[#B96A3D22] text-white py-2.5 px-4 focus:outline-none focus:border-[#B96A3D] text-sm" />
                                 </div>
+                            </div>
+
+                            {/* Phase 9a: optional product-line picker (was a hidden input). */}
+                            <div>
+                                <label className="block text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wider">Product Line (optional)</label>
+                                <select
+                                    name="productLineId"
+                                    defaultValue={
+                                        editingCategory?.productLineId
+                                            ?? (showCategoryForm === '__standalone__' ? '' : showCategoryForm)
+                                    }
+                                    className="w-full bg-[#0C0C0C] border border-[#B96A3D22] text-white py-2.5 px-4 focus:outline-none focus:border-[#B96A3D] text-sm"
+                                >
+                                    <option value="">— Standalone (no marketing tier) —</option>
+                                    {productLines.map(l => (
+                                        <option key={l.id} value={l.id}>{l.name}</option>
+                                    ))}
+                                </select>
+                                <p className="text-[10px] text-gray-600 mt-1">
+                                    Categories like &ldquo;Drinks&rdquo; can stay standalone. Tier-anchored ones (e.g. &ldquo;Reserve · Aged Cheese&rdquo;) pick a line here.
+                                </p>
+                            </div>
+
+                            {/* Phase 9a: section tags drive storefront routing. */}
+                            <div>
+                                <label className="block text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wider">Sections</label>
+                                <div className="grid grid-cols-2 gap-2">
+                                    {SECTION_OPTIONS.map(opt => (
+                                        <label key={opt.value} className="flex items-start gap-2 bg-[#0C0C0C] border border-[#B96A3D22] py-2 px-3 cursor-pointer hover:border-[#B96A3D]/40 transition-colors">
+                                            <input
+                                                type="checkbox"
+                                                name="sections"
+                                                value={opt.value}
+                                                defaultChecked={editingCategory?.sections?.includes(opt.value) ?? false}
+                                                className="accent-[#B96A3D] w-4 h-4 mt-0.5 shrink-0"
+                                            />
+                                            <div>
+                                                <div className="text-sm text-white">{opt.label}</div>
+                                                <div className="text-[10px] text-gray-600">{opt.hint}</div>
+                                            </div>
+                                        </label>
+                                    ))}
+                                </div>
+                                <p className="text-[10px] text-gray-600 mt-1.5">
+                                    Pick where this category appears on the storefront. A category can appear in multiple sections.
+                                </p>
                             </div>
 
                             <div>

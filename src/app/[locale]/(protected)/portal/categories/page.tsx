@@ -19,34 +19,36 @@ export default async function StaffCategoriesPage({ params }: { params: any }) {
     const session = await getSession();
     if (!session || !ALLOWED.includes(session.role)) redirect(`/${locale}/portal-login`);
 
-    const productLines = await prisma.productLine.findMany({
-        orderBy: { sortOrder: 'asc' },
-        include: {
-            categories: {
-                orderBy: { sortOrder: 'asc' },
-                include: { _count: { select: { products: true } } },
+    const [productLines, standaloneCategories, allProducts] = await Promise.all([
+        prisma.productLine.findMany({
+            orderBy: { sortOrder: 'asc' },
+            include: {
+                categories: {
+                    orderBy: { sortOrder: 'asc' },
+                    include: { _count: { select: { products: true } } },
+                },
+                _count: { select: { products: true } },
             },
-            _count: { select: { products: true } },
-        },
-    });
-
-    const allProducts = await prisma.product.findMany({
-        orderBy: { name: 'asc' },
-        select: {
-            id: true,
-            name: true,
-            sku: true,
-            productLineId: true,
-            categoryId: true,
-        },
-    });
+        }),
+        prisma.category.findMany({
+            where: { productLineId: null },
+            orderBy: { sortOrder: 'asc' },
+            include: { _count: { select: { products: true } } },
+        }),
+        prisma.product.findMany({
+            orderBy: { name: 'asc' },
+            select: { id: true, name: true, sku: true, productLineId: true, categoryId: true },
+        }),
+    ]);
 
     const serializedLines = JSON.parse(JSON.stringify(productLines));
+    const serializedStandalone = JSON.parse(JSON.stringify(standaloneCategories));
     const serializedProducts = JSON.parse(JSON.stringify(allProducts));
 
     return (
         <CategoryManager
             productLines={serializedLines}
+            standaloneCategories={serializedStandalone}
             allProducts={serializedProducts}
             saveLineAction={saveProductLineAction}
             deleteLineAction={deleteProductLineAction}

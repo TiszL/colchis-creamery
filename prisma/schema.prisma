@@ -372,18 +372,26 @@ model ProductLine {
 // Categories within each product line (e.g., "Pulled-Curd Cheese", "Whey Spread")
 
 model Category {
-  id              String      @id @default(uuid())
-  slug            String      @unique
-  name            String                // "Pulled-Curd Cheese"
+  id              String       @id @default(uuid())
+  slug            String       @unique
+  name            String                  // "Pulled-Curd Cheese" | "Drinks" | "Hot Pastries"
   description     String?
-  imageUrl        String?               // Category hero/icon image
-  productLineId   String
+  imageUrl        String?                 // Category hero/icon image
+  // Phase 9a: ProductLine relation is now optional. Categories can live
+  // independently ("Drinks") without being chained under a marketing tier.
+  productLineId   String?
+  // Phase 9a: which storefront sections this category appears on.
+  // Values: "creamery" | "bakery" | "shop" | "wholesale". A category may
+  // appear on multiple sections — e.g. a "Drinks" category could be
+  // tagged ["bakery"] (cafe drinks) or ["bakery", "creamery"] (also
+  // cultured drinks like kefir).
+  sections        String[]    @default([])
   sortOrder       Int         @default(0)
   isActive        Boolean     @default(true)
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 
-  productLine     ProductLine @relation(fields: [productLineId], references: [id])
+  productLine     ProductLine? @relation(fields: [productLineId], references: [id])
   products        Product[]
 }
 

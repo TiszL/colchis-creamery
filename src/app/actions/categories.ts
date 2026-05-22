@@ -57,14 +57,25 @@ export async function deleteProductLineAction(formData: FormData) {
 
 // ─── Category Actions ────────────────────────────────────────────────────────
 
+const VALID_SECTIONS = ['creamery', 'bakery', 'shop', 'wholesale'] as const;
+
 export async function saveCategoryAction(formData: FormData) {
     const id = formData.get('id') as string;
+    // Phase 9a: productLineId is optional. Empty form value → null (decoupled
+    // category like "Drinks" that doesn't live under any marketing tier).
+    const productLineIdRaw = formData.get('productLineId') as string;
+    const productLineId = productLineIdRaw && productLineIdRaw !== '' ? productLineIdRaw : null;
+    // Sections come from checkboxes; FormData.getAll returns an array.
+    const sections = (formData.getAll('sections') as string[])
+        .filter(s => (VALID_SECTIONS as readonly string[]).includes(s));
+
     const data = {
         name: formData.get('name') as string,
         slug: formData.get('slug') as string,
         description: (formData.get('description') as string) || null,
         imageUrl: (formData.get('imageUrl') as string) || null,
-        productLineId: formData.get('productLineId') as string,
+        productLineId,
+        sections,
         sortOrder: parseInt(formData.get('sortOrder') as string, 10) || 0,
         isActive: formData.get('isActive') === 'on' || formData.get('isActive') === 'true',
     };
@@ -76,8 +87,9 @@ export async function saveCategoryAction(formData: FormData) {
     }
 
     revalidatePath('/admin/categories');
-    revalidatePath('/staff-portal/categories');
     revalidatePath('/admin/inventory');
+    revalidatePath('/creamery');
+    revalidatePath('/bakery');
     revalidatePath('/shop');
 }
 

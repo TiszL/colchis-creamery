@@ -154,7 +154,7 @@ interface ProductForPanel {
   productLineId: string | null;
   categoryId: string | null;
   productLine: { id: string; slug: string; name: string; tagline: string | null; description: string | null; badgeColor: string | null; sortOrder: number; isActive: boolean } | null;
-  productCategory: { id: string; slug: string; name: string; description: string | null; imageUrl: string | null; productLineId: string; sortOrder: number; isActive: boolean } | null;
+  productCategory: { id: string; slug: string; name: string; description: string | null; imageUrl: string | null; productLineId: string | null; sections: string[]; sortOrder: number; isActive: boolean } | null;
 }
 
 export function InfoPanel({ product }: { product: ProductForPanel }) {

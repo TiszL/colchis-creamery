@@ -15,7 +15,7 @@ interface CategoryOption {
     id: string;
     slug: string;
     name: string;
-    productLineId: string;
+    productLineId: string | null;
 }
 
 interface ShopFilterBarProps {

@@ -36,7 +36,10 @@ export interface Category {
   name: string;
   description: string | null;
   imageUrl: string | null;
-  productLineId: string;
+  // Phase 9a: optional — categories like "Drinks" don't belong to a tier.
+  productLineId: string | null;
+  // Phase 9a: storefront section tags ("creamery" | "bakery" | "shop" | "wholesale").
+  sections: string[];
   sortOrder: number;
   isActive: boolean;
 }

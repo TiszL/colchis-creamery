@@ -59,8 +59,23 @@ export default async function LocationPortalLayout({
                 </div>
             </header>
 
+            {/* Mobile: nav becomes a horizontal scrollable bar above the
+                content. Desktop (md+): nav becomes the left sidebar. */}
+            <nav className="md:hidden flex overflow-x-auto border-b border-[#ffffff0A] scrollbar-hide">
+                {navItems.map(item => (
+                    <Link
+                        key={item.href}
+                        href={item.href}
+                        className="flex items-center gap-1.5 px-4 py-3 text-xs text-gray-400 hover:text-white whitespace-nowrap shrink-0 border-r border-[#ffffff0A]"
+                    >
+                        <item.icon className="w-3.5 h-3.5" />
+                        {item.label}
+                    </Link>
+                ))}
+            </nav>
+
             <div className="flex">
-                <nav className="w-56 shrink-0 border-r border-[#ffffff0A] min-h-[calc(100vh-72px)] py-4">
+                <nav className="hidden md:block w-56 shrink-0 border-r border-[#ffffff0A] min-h-[calc(100vh-72px)] py-4">
                     {navItems.map(item => (
                         <Link
                             key={item.href}
@@ -73,7 +88,7 @@ export default async function LocationPortalLayout({
                     ))}
                 </nav>
 
-                <main className="flex-1 p-8">{children}</main>
+                <main className="flex-1 p-4 md:p-8 min-w-0">{children}</main>
             </div>
         </div>
     );

@@ -37,7 +37,32 @@
       "Bash(perl -i -0pe 's/const productChannels = new Set\\\\\\(\\\\[\\\\]\\\\\\);\\\\s*\\\\n\\\\s*const matching = reachableChannels\\\\.filter\\\\\\(c => productChannels\\\\.has\\\\\\(c\\\\\\)\\\\\\);/const matching = reachableChannels;/g' src/app/actions/bakery-availability.ts src/app/actions/creamery-availability.ts)",
       "Bash(perl -i -pe 's/import \\\\{ ProductKind \\\\} from \"\\\\@prisma\\\\/client\";/import { ProductKind, type DeliveryMethod } from \"\\\\@prisma\\\\/client\";/g' 'src/app/[locale]/\\(public\\)/bakery/[slug]/page.tsx' 'src/app/[locale]/\\(public\\)/creamery/[productId]/page.tsx')",
       "Bash(awk '/Fulfillment Channels/,/Stock by Location/' src/components/admin/InventoryClient.tsx)",
-      "Bash(awk '/{\\\\/\\\\* ── Fulfillment Channels ── \\\\*\\\\/}/,/{\\\\/\\\\* ── Per-Location Stock ── \\\\*\\\\/}/' src/components/admin/InventoryClient.tsx)"
+      "Bash(awk '/{\\\\/\\\\* ── Fulfillment Channels ── \\\\*\\\\/}/,/{\\\\/\\\\* ── Per-Location Stock ── \\\\*\\\\/}/' src/components/admin/InventoryClient.tsx)",
+      "Bash(npm run *)",
+      "Bash(grep -E \"^/Users.*\\\\.\\(ts|tsx\\)$\")",
+      "Bash(grep -E \"\\\\.\\(ts|tsx\\)$\")",
+      "Bash(grep -cE \"^/Users.*\\\\.\\(ts|tsx\\)$\")",
+      "Bash(grep -rEn \"sk_live_[A-Za-z0-9_-]{20,}|sk_test_[A-Za-z0-9_-]{20,}|rk_live_[A-Za-z0-9_-]{20,}|whsec_[A-Za-z0-9_-]{20,}\" docs/)",
+      "Bash(grep -rEn 'sk_live_|sk_test_|rk_live_|rk_test_|whsec_|EZAK[A-Za-z0-9]|EZTK[A-Za-z0-9]|AKIA[A-Z0-9]{16}|ghp_[A-Za-z0-9]{36}|github_pat_|password\\\\s*[:=]\\\\s*[\"'\\\\''][^\"'\\\\'']{8,}' --include=*.md --include=*.tsx --include=*.ts --include=*.json --include=*.yml --include=*.yaml --include=*.txt --exclude-dir=node_modules --exclude-dir=.next --exclude-dir=.claude --exclude=.env.example .)",
+      "Bash(grep -c \"rebrandingmaterials\\\\|^Brand$\" .gitignore)",
+      "Bash(git rm *)",
+      "Bash(perl -i -pe 's/^Brand\\\\n//; chomp_if_last_is_brand' .gitignore)",
+      "Bash(sed -i '' '/^Brand$/d' .gitignore)",
+      "Bash(coderabbit --version)",
+      "Bash(coderabbit auth *)",
+      "Bash(curl -fsSL https://cli.coderabbit.ai/install.sh)",
+      "Bash(sh)",
+      "Bash(perl -i -pe 's/\\\\s*fulfillmentChannels=\\\\{[A-Z_]+\\\\}\\\\n//g' 'src/app/[locale]/\\(protected\\)/admin/inventory/page.tsx' 'src/app/[locale]/\\(protected\\)/portal/products/page.tsx' 'src/app/[locale]/\\(protected\\)/portal/products-b2b/page.tsx')",
+      "Bash(perl -i -pe 's/, DeliveryMethod//g; s/DeliveryMethod, //g' src/components/admin/InventoryClient.tsx)",
+      "Bash(perl -i -pe 's/^\\\\s*channels:\\\\s*DeliveryMethod\\\\[\\\\];\\\\s*$//m' src/components/admin/InventoryClient.tsx)",
+      "Bash(git reset *)",
+      "Bash(git push *)",
+      "Bash(git fetch *)",
+      "Bash(git pull *)",
+      "Bash(git commit *)",
+      "Bash(grep -oE \">[A-Z][^<>]{20,140}<\")",
+      "Bash(vercel --version)",
+      "Bash(perl -i -0pe 's/\\\\n\\\\/\\\\* hide scrollbar but keep scroll \\\\*\\\\/\\\\n\\\\.no-scrollbar \\\\{[^}]*\\\\}\\\\n\\\\.no-scrollbar::-webkit-scrollbar \\\\{[^}]*\\\\}\\\\n//g' src/app/globals.css)"
     ]
   }
 }

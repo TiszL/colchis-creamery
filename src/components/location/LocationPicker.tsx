@@ -65,23 +65,31 @@ export function LocationPicker() {
         ? selectedLocation.name
         : "Choose a location";
 
+    // Trim long bakery names on mobile: show first segment before " — " or " · "
+    // ("Bakery — Dublin OH" → "Bakery") so the chip fits next to seal + cart.
+    const shortLabel = label.split(/\s[—·]\s/)[0];
+
     return (
         <div ref={ref} className="relative">
             <button
                 type="button"
                 onClick={() => setOpen(o => !o)}
-                className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-ink bg-cream border border-ink/10 rounded-full hover:border-ink/30 transition-colors"
+                className="flex items-center gap-1.5 sm:gap-2 px-2 py-1 sm:px-3 sm:py-1.5 text-[11px] sm:text-xs font-medium text-ink bg-cream border border-ink/10 rounded-full hover:border-ink/30 transition-colors min-w-0 max-w-[160px] sm:max-w-none"
                 aria-haspopup="listbox"
                 aria-expanded={open}
             >
-                <MapPin className="w-3.5 h-3.5 text-[#B96A3D]" />
+                <MapPin className="w-3.5 h-3.5 text-[#B96A3D] shrink-0" />
                 <span className="hidden sm:inline">Ordering from</span>
-                <span className="font-semibold max-w-[140px] truncate">{label}</span>
-                <ChevronDown className={`w-3.5 h-3.5 transition-transform ${open ? "rotate-180" : ""}`} />
+                <span className="font-semibold truncate">
+                    <span className="sm:hidden">{shortLabel}</span>
+                    <span className="hidden sm:inline max-w-[160px]">{label}</span>
+                </span>
+                <ChevronDown className={`w-3.5 h-3.5 shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
             </button>
 
             {open && (
-                <div className="absolute right-0 mt-2 w-[320px] bg-cream border border-ink/15 rounded-lg shadow-xl z-50 overflow-hidden">
+                /* Dropdown — caps to viewport width on small screens with side gutters */
+                <div className="absolute right-0 mt-2 w-[min(320px,calc(100vw-32px))] bg-cream border border-ink/15 rounded-lg shadow-xl z-50 overflow-hidden">
                     <div className="px-4 py-3 border-b border-ink/10">
                         <p className="text-[11px] font-bold text-ink/60 uppercase tracking-wider">Pick a bakery</p>
                         <p className="text-[10px] text-ink/40 mt-0.5">Catalog + delivery options scope to your choice.</p>

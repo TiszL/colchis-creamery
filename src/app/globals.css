@@ -201,8 +201,12 @@ html {
 @media (max-width: 900px) {
   .ch-nav-desktop { display: none !important; }
   .ch-burger { display: flex !important; }
-  .ch-header-inner { padding: 16px 24px !important; }
+  .ch-header-inner { padding: 16px 16px !important; gap: 8px !important; }
   .ch-header-cta { display: none !important; }
+  /* Phase 8 mobile fix: scale logo down + drop wordmark below tablet —
+     the seal alone conveys identity. */
+  .ch-logo-seal { width: 56px !important; height: 56px !important; }
+  .ch-logo-wordmark { display: none !important; }
 }
 
 /* HERO */
@@ -428,8 +432,13 @@ img, svg, video { max-width: 100%; height: auto; }
 @media (max-width: 900px) {
   .ch-nav-desktop { display: none !important; }
   .ch-burger { display: flex !important; }
-  .ch-header-inner { padding: 16px 24px !important; }
+  .ch-header-inner { padding: 16px 16px !important; gap: 8px !important; }
   .ch-header-cta { display: none !important; }
+  /* Phase 8 mobile fix (duplicate header block — kept in sync with the
+     earlier one above intentionally; this is where the active rules live
+     after the cascade). */
+  .ch-logo-seal { width: 56px !important; height: 56px !important; }
+  .ch-logo-wordmark { display: none !important; }
 }
 
 /* ─── HERO (homepage) ───────────────────────────────────────────────────── */
@@ -758,4 +767,3 @@ body { max-width: 100vw; position: relative; }
   .ch-od-h1 { font-size: 34px !important; }
   .ch-od-loc-h2 { font-size: 20px !important; }
 }
-

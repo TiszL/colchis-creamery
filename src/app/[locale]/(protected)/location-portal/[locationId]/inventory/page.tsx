@@ -71,7 +71,7 @@ export default async function LocationInventoryPage({
                 {receivableProducts.length === 0 ? (
                     <p className="text-xs text-gray-500 italic">No SKUs carried at this location yet. Add stock via Admin → Inventory first.</p>
                 ) : (
-                    <form action={async fd => { "use server"; await receiveStockAction(fd); }} className="grid grid-cols-2 md:grid-cols-6 gap-3 items-end">
+                    <form action={async fd => { "use server"; await receiveStockAction(fd); }} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-3 items-end">
                         <input type="hidden" name="locationId" value={locationId} />
                         <div className="col-span-2">
                             <label className="block text-[10px] font-bold text-gray-500 mb-1 uppercase tracking-wider">Product</label>

@@ -92,10 +92,12 @@ export function Header({ primaryAddressShort }: HeaderProps = {}) {
     <>
       <header style={{ position: "sticky", top: 0, zIndex: 50, background: "#F5F0E6F2", backdropFilter: "blur(12px)", borderBottom: "1px solid #1F302614" }}>
         <div className="ch-header-inner" style={{ maxWidth: 1440, margin: "0 auto", padding: "20px 40px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 24 }}>
-          {/* Logo */}
+          {/* Logo — seal scales down on mobile via .ch-logo-seal in globals.css;
+              wordmark hides on mobile via .ch-logo-wordmark (the CF seal already
+              conveys identity, no need to duplicate). */}
           <Link href={`${prefix}/`} style={{ display: "flex", alignItems: "center", gap: 12, textDecoration: "none", flexShrink: 0 }}>
-            <img src="/brand/seal-primary.svg" alt="Colchis Food" width={88} height={88} style={{ display: "block", flexShrink: 0 }} />
-            <div style={{ fontFamily: "var(--font-serif)", fontWeight: 500, fontSize: 15, letterSpacing: "0.18em", textTransform: "uppercase", color: "#1F3026", whiteSpace: "nowrap" }}>Colchis Food</div>
+            <img className="ch-logo-seal" src="/brand/seal-primary.svg" alt="Colchis Food" width={88} height={88} style={{ display: "block", flexShrink: 0 }} />
+            <div className="ch-logo-wordmark" style={{ fontFamily: "var(--font-serif)", fontWeight: 500, fontSize: 15, letterSpacing: "0.18em", textTransform: "uppercase", color: "#1F3026", whiteSpace: "nowrap" }}>Colchis Food</div>
           </Link>
 
           {/* Desktop nav */}

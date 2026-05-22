@@ -24,6 +24,28 @@ import { commitStock, releaseStock } from '@/lib/stock-reservation';
 import { sendOrderConfirmation, type OrderForEmail } from '@/lib/email';
 import { doordashCreateDelivery, isDoorDashConfigured } from '@/lib/doordash';
 import { uberCreateDelivery, isUberDirectConfigured } from '@/lib/uber-direct';
+import { easypostBuyLabel, isEasyPostConfigured } from '@/lib/easypost';
+
+/**
+ * Phase 5 — best-effort parser for Order.shippingAddress (free-text snapshot).
+ *
+ * Expected format from checkout: "line1, city, state zip[, country]".
+ * Returns null when the string doesn't conform. EasyPost label-buy then
+ * skips this fulfillment with a warning (ops books manually). A follow-up
+ * migration should add structured address columns to Order.
+ */
+function parseFreeTextShippingAddress(addr: string | null | undefined): { line1: string; city: string; state: string; postalCode: string; country: string } | null {
+    if (!addr) return null;
+    const parts = addr.split(',').map(s => s.trim()).filter(Boolean);
+    if (parts.length < 3) return null;
+    const line1 = parts[0];
+    const city  = parts[1];
+    const stateZip = parts[2];
+    const m = stateZip.match(/^([A-Z]{2})\s+(\d{5}(?:-\d{4})?)$/i);
+    if (!m) return null;
+    const country = parts[3] || 'US';
+    return { line1, city, state: m[1].toUpperCase(), postalCode: m[2], country };
+}
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs'; // signature verification needs Node crypto
@@ -186,6 +208,22 @@ async function handlePaymentSucceeded(pi: Stripe.PaymentIntent) {
         } catch (e) {
             console.warn(
                 '[stripe-webhook] Uber Direct dispatch failed for Order',
+                order.id, ':', e instanceof Error ? e.message : e,
+            );
+        }
+    }
+
+    // Phase 5 (5c): buy UPS labels for any NATIONAL_SHIP fulfillments via
+    // EasyPost. Same best-effort contract: a failed label-buy leaves the
+    // fulfillment in CONFIRMED with no trackingNumber, and ops can re-run
+    // (idempotency below skips already-bought labels). Skipped entirely if
+    // EasyPost env unset.
+    if (isEasyPostConfigured()) {
+        try {
+            await dispatchUpsLabels(order.id);
+        } catch (e) {
+            console.warn(
+                '[stripe-webhook] UPS label dispatch failed for Order',
                 order.id, ':', e instanceof Error ? e.message : e,
             );
         }
@@ -547,6 +585,94 @@ async function loadOrderForEmail(orderId: string): Promise<OrderForEmail | null>
         },
     });
     return order;
+}
+
+/* ─── UPS label dispatch (Phase 5 / 5c) ─────────────────────────────────── */
+
+async function dispatchUpsLabels(orderId: string): Promise<void> {
+    const order = await prisma.order.findUnique({
+        where: { id: orderId },
+        include: {
+            user: { select: { name: true, email: true, phone: true } },
+            fulfillments: {
+                include: {
+                    location: true,
+                    items: { include: { orderItem: { include: { product: { select: { name: true } } } } } },
+                },
+            },
+        },
+    });
+    if (!order) return;
+
+    const recipientPhone = order.guestPhone || order.user.phone || undefined;
+    const recipientEmail = order.guestEmail || order.user.email || undefined;
+    const recipientName  = (order.user.name || 'Customer').trim();
+
+    // Parse the snapshot address into components for EasyPost's structured payload.
+    // Order keeps shippingAddress as free text + line2 + delivery notes —
+    // structured columns (city/state/zip) for label-buy are a follow-up.
+    const parsed = parseFreeTextShippingAddress(order.shippingAddress);
+    const dropAddr = parsed
+        ? { ...parsed, line2: order.shippingAddressLine2 || undefined }
+        : null;
+
+    for (const f of order.fulfillments) {
+        if (f.deliveryMethod !== 'UPS_2DAY') continue;
+        if (f.externalOrderId) continue; // idempotency: label already bought
+
+        const loc = f.location;
+        if (!loc.postalCode) {
+            console.warn('[easypost] skipping fulfillment', f.id, '— pickup location', loc.name, 'missing postalCode');
+            continue;
+        }
+        if (!dropAddr || !dropAddr.line1 || !dropAddr.city || !dropAddr.state || !dropAddr.postalCode) {
+            console.warn('[easypost] skipping fulfillment', f.id, '— order ship-to address could not be parsed:', order.shippingAddress);
+            continue;
+        }
+
+        const bought = await easypostBuyLabel({
+            from: {
+                name: loc.name,
+                street1: loc.addressLine1,
+                street2: loc.addressLine2 || undefined,
+                city: loc.city,
+                state: loc.state,
+                zip: loc.postalCode,
+                country: loc.country || 'US',
+                phone: loc.phone || undefined,
+            },
+            to: {
+                name: recipientName,
+                street1: dropAddr.line1,
+                street2: dropAddr.line2 || undefined,
+                city: dropAddr.city,
+                state: dropAddr.state,
+                zip: dropAddr.postalCode,
+                country: dropAddr.country || 'US',
+                phone: recipientPhone,
+                email: recipientEmail,
+            },
+            // Same MVP parcel as the rate quote in shipping.ts (5b). When we
+            // add per-product weights, this should sum across f.items.
+            parcel: { length: 10, width: 8, height: 6, weight: 64 },
+            referenceOrderId: order.id,
+        });
+
+        if (bought) {
+            await prisma.orderFulfillment.update({
+                where: { id: f.id },
+                data: {
+                    externalOrderId: bought.shipmentId,
+                    trackingNumber: bought.trackingCode,
+                },
+            });
+            console.log(
+                `[easypost] Label bought for fulfillment ${f.id}: ${bought.carrier} ${bought.service} ${bought.trackingCode} (label: ${bought.labelUrl})`,
+            );
+        } else {
+            console.warn('[easypost] Label purchase failed for fulfillment', f.id, '— leaving for manual booking');
+        }
+    }
 }
 
 /* ─── Phase 4 (4d) — Connect event handlers ──────────────────────────────── */

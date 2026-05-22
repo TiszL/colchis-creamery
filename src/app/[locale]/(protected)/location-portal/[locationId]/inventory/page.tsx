@@ -4,8 +4,6 @@ import { PackagePlus } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
-const LOW_STOCK_THRESHOLD = 5;
-
 export default async function LocationInventoryPage({
     params,
 }: {
@@ -46,9 +44,12 @@ export default async function LocationInventoryPage({
         .filter(p => !p.isMadeToOrder)
         .sort((a, b) => a.name.localeCompare(b.name));
 
-    const lowStock = stocks.filter(s => s.quantity !== null && s.quantity <= LOW_STOCK_THRESHOLD);
+    // Per-Stock.lowStockThreshold (defaults to 0). A Stock row is "low" when
+    // quantity <= its own threshold (which is 0 by default — meaning only
+    // out-of-stock rows count until the admin sets a higher threshold per SKU).
+    const lowStock = stocks.filter(s => s.quantity !== null && s.quantity <= s.lowStockThreshold);
     const mto      = stocks.filter(s => s.quantity === null);
-    const inStock  = stocks.filter(s => s.quantity !== null && s.quantity > LOW_STOCK_THRESHOLD);
+    const inStock  = stocks.filter(s => s.quantity !== null && s.quantity > s.lowStockThreshold);
 
     const today = new Date();
     const inSevenDays = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
@@ -165,7 +166,7 @@ function StockSection({
 }: {
     title: string;
     tone: "red" | "neutral";
-    rows: Array<{ id: string; quantity: number | null; product: { sku: string; name: string; salesChannel: string; isMadeToOrder: boolean } }>;
+    rows: Array<{ id: string; quantity: number | null; lowStockThreshold: number; product: { sku: string; name: string; salesChannel: string; isMadeToOrder: boolean } }>;
 }) {
     return (
         <div>

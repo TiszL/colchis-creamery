@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
-import { ClipboardList, AlertTriangle, Package, ArrowRight } from "lucide-react";
+import { ClipboardList, AlertTriangle, Package, ArrowRight, CalendarClock } from "lucide-react";
 
 export const dynamic = "force-dynamic";
+
+const EXPIRY_WINDOW_DAYS = 7;
 
 export default async function LocationPortalOverview({
     params,
@@ -13,15 +15,28 @@ export default async function LocationPortalOverview({
     const prefix = locale === "en" ? "" : `/${locale}`;
     const base = `${prefix}/location-portal/${locationId}`;
 
-    // Pending / in-flight fulfillments for this location
-    const [pendingCount, preparingCount, outForDeliveryCount, lowStockCount, totalStockRows] = await Promise.all([
+    const today = new Date();
+    const expiryHorizon = new Date(today.getTime() + EXPIRY_WINDOW_DAYS * 24 * 60 * 60 * 1000);
+
+    // Use per-Stock.lowStockThreshold (defaults to 0 in schema) so admins can
+    // tune it per SKU instead of relying on a global constant. quantity == 0 is
+    // ALWAYS low; otherwise quantity <= threshold counts (with threshold > 0).
+    const [pendingCount, preparingCount, outForDeliveryCount, lowStockCount, expiringCount, totalStockRows] = await Promise.all([
         prisma.orderFulfillment.count({ where: { locationId, status: "PENDING" } }),
         prisma.orderFulfillment.count({ where: { locationId, status: "PREPARING" } }),
         prisma.orderFulfillment.count({ where: { locationId, status: "OUT_FOR_DELIVERY" } }),
-        prisma.stock.count({
+        prisma.$queryRaw<Array<{ count: bigint }>>`
+            SELECT COUNT(*)::bigint AS count
+            FROM "Stock"
+            WHERE "locationId" = ${locationId}
+              AND "quantity" IS NOT NULL
+              AND "quantity" <= "lowStockThreshold"
+        `.then(rows => Number(rows[0]?.count ?? 0)),
+        prisma.productBatch.count({
             where: {
                 locationId,
-                quantity: { not: null, lte: 5 }, // arbitrary low-stock threshold for now
+                quantity: { gt: 0 },
+                expiresAt: { lte: expiryHorizon, gte: today },
             },
         }),
         prisma.stock.count({ where: { locationId } }),
@@ -32,6 +47,7 @@ export default async function LocationPortalOverview({
         { label: "Preparing",            value: preparingCount,       href: `${base}/orders?status=PREPARING`,       tone: "blue",   icon: ClipboardList },
         { label: "Out for delivery",     value: outForDeliveryCount,  href: `${base}/orders?status=OUT_FOR_DELIVERY`, tone: "green", icon: ClipboardList },
         { label: "Low stock SKUs",       value: lowStockCount,        href: `${base}/inventory`,                     tone: "red",    icon: AlertTriangle },
+        { label: `Expiring ≤ ${EXPIRY_WINDOW_DAYS}d`, value: expiringCount, href: `${base}/inventory`,               tone: "amber",  icon: CalendarClock },
         { label: "SKUs carried",         value: totalStockRows,       href: `${base}/menu`,                          tone: "neutral", icon: Package },
     ];
 

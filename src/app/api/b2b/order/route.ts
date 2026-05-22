@@ -209,19 +209,55 @@ export async function POST(req: NextRequest) {
                 return NextResponse.json({ error: "Could not reserve stock for this order." }, { status: 500 });
             }
 
-            // Stripe expects integer cents. payment_method_types is left empty —
-            // the Elements PaymentElement on the client decides which methods to
-            // surface based on `mode + amount + currency`.
+            // Stripe best practice: reuse the User.stripeCustomerId when present;
+            // create + persist if not. Attaching a Customer enables:
+            //   - the Stripe dashboard to group repeat partner orders
+            //   - support tooling to look up partner-side payment history
+            //   - future "save card" flow without retyping
+            let stripeCustomerId = user.stripeCustomerId;
+            if (!stripeCustomerId) {
+                const cust = await stripe.customers.create({
+                    email: user.email,
+                    name: user.companyName || user.name || undefined,
+                    phone: user.phone || undefined,
+                    metadata: { userId: user.id, role: "B2B_PARTNER" },
+                });
+                stripeCustomerId = cust.id;
+                await db.user.update({
+                    where: { id: user.id },
+                    data: { stripeCustomerId },
+                });
+            }
+
+            // Statement descriptor — what shows on the partner's card statement.
+            // Limit: 22 chars total (prefix + suffix). Order-id slice gives them
+            // a referenceable ID. Use only allowed chars (alnum + spaces).
+            const statementSuffix = `B2B ${order.id.slice(0, 8).toUpperCase()}`.slice(0, 22);
+
+            // Stripe best practice: idempotency key on retryable requests. Keyed
+            // on order.id so a network retry won't create a duplicate
+            // PaymentIntent for the same order. (Different orders → different
+            // PaymentIntents — order.id is unique per attempt.)
             const intent = await stripe.paymentIntents.create({
                 amount: subtotalCents,
                 currency: "usd",
+                customer: stripeCustomerId,
                 automatic_payment_methods: { enabled: true },
                 metadata: {
                     orderId: order.id,
                     orderType: "B2B",
                     paymentMethodChoice: method,
+                    userId,
                 },
                 description: `B2B order ${order.id.slice(0, 8)} — ${totalItemCount} items`,
+                // Receipts auto-send when a Customer is attached + has an email,
+                // but receipt_email here forces it even when the Stripe receipt
+                // setting in dashboard is dialed down. B2B partners want the
+                // paper trail.
+                receipt_email: user.email,
+                statement_descriptor_suffix: statementSuffix,
+            }, {
+                idempotencyKey: `b2b-order-pi-${order.id}`,
             });
 
             await db.order.update({

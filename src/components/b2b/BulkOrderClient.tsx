@@ -3,8 +3,21 @@
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ShieldCheck, Calculator } from 'lucide-react';
-import { loadStripe, type Stripe as StripeJs } from '@stripe/stripe-js';
+import { loadStripe, type Stripe as StripeJs, type StripeElementLocale } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
+
+// Map site locale → Stripe Elements locale. Stripe doesn't currently support
+// Georgian (ka) so we fall through to 'auto', which makes Stripe pick the
+// closest match based on the browser's Accept-Language header (typically
+// English for ka-GE browsers — fine fallback).
+function stripeLocaleFor(siteLocale: string): StripeElementLocale {
+    switch (siteLocale) {
+        case 'en': return 'en';
+        case 'ru': return 'ru';
+        case 'es': return 'es';
+        default:   return 'auto';
+    }
+}
 
 interface BulkOrderClientProps {
     products: any[];
@@ -97,6 +110,11 @@ export default function BulkOrderClient(props: BulkOrderClientProps) {
                     mode: 'payment',
                     amount: Math.max(totalCents, 100),
                     currency: 'usd',
+                    // Stripe best practice: pass site locale so PaymentElement UI
+                    // (labels, error messages, 3DS prompts) matches the user's
+                    // chosen language. ka maps to 'auto' (Stripe doesn't support
+                    // Georgian yet — falls back to browser language).
+                    locale: stripeLocaleFor(props.locale),
                     appearance: { theme: 'night', variables: { colorPrimary: '#CBA153' } },
                 }}
             >

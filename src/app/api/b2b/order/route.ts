@@ -3,7 +3,8 @@ import { prisma as db } from "@/lib/db";
 import { jwtVerify } from "jose";
 import { B2bPaymentMethod } from "@prisma/client";
 import { createResolveCustomer, createResolveCharge, isResolveConfigured } from "@/lib/resolve";
-import { commitStock } from "@/lib/stock-reservation";
+import { commitStock, reserveStock } from "@/lib/stock-reservation";
+import { stripe } from "@/lib/stripe";
 
 const SECRET_KEY = new TextEncoder().encode(
     process.env.JWT_SECRET || "dev-secret-change-in-production"
@@ -176,39 +177,76 @@ export async function POST(req: NextRequest) {
             };
         });
 
-        // Commit stock OUTSIDE the order-creation tx — commitStock uses its own
-        // transaction (writes StockMovement SALE rows + FIFO-consumes batches).
-        // If a partner order's stock commit fails mid-flight, ops can replay
-        // via the manual dispatch queue; we don't want to roll back the Order
-        // itself since the partner already saw a confirmation.
-        await commitStock(
-            result.fulfillmentPlan.map(l => ({
-                productId: l.productId,
-                locationId: l.locationId,
-                quantity: l.quantity,
-            })),
-            { orderId: result.order.id },
-        );
-
         const order = result.order;
         const subtotalCents = result.subtotalCents;
         const totalItemCount = result.totalItemCount;
+        const reservationItems = result.fulfillmentPlan.map(l => ({
+            productId: l.productId,
+            locationId: l.locationId,
+            quantity: l.quantity,
+        }));
 
         // 3. Phase 6 (6c) — branch on paymentMethod
         const method: B2bPaymentMethod | undefined = paymentMethod;
 
-        // 3a. Stripe pay-now paths — not yet wired client-side (Elements in the
-        // B2B portal is a focused follow-up). For now, accept the request +
-        // return a clear "coming soon" so the partner doesn't get a silent
-        // legacy Net-30 invoice when they explicitly picked Stripe.
+        // 3a. Stripe pay-now paths (Phase 10 — Elements wired in B2B portal).
+        //     Reserve stock now (race-safe), create a PaymentIntent with
+        //     metadata.orderId so the shared webhook handler at
+        //     /api/webhooks/stripe finds + commits this order on success,
+        //     then return the clientSecret to the client for confirmPayment.
         if (method === "STRIPE_CARD" || method === "STRIPE_ACH") {
+            try {
+                await reserveStock(reservationItems);
+            } catch (e) {
+                console.error("[b2b/order] reserveStock failed for Stripe path:", e);
+                // Best-effort: try to mark the just-created order as cancelled so
+                // it doesn't sit in PROCESSING forever. If THIS fails too, ops
+                // can clean up via admin tools.
+                await db.order.update({
+                    where: { id: order.id },
+                    data: { orderStatus: "CANCELLED", paymentStatus: "FAILED" },
+                }).catch(() => undefined);
+                return NextResponse.json({ error: "Could not reserve stock for this order." }, { status: 500 });
+            }
+
+            // Stripe expects integer cents. payment_method_types is left empty —
+            // the Elements PaymentElement on the client decides which methods to
+            // surface based on `mode + amount + currency`.
+            const intent = await stripe.paymentIntents.create({
+                amount: subtotalCents,
+                currency: "usd",
+                automatic_payment_methods: { enabled: true },
+                metadata: {
+                    orderId: order.id,
+                    orderType: "B2B",
+                    paymentMethodChoice: method,
+                },
+                description: `B2B order ${order.id.slice(0, 8)} — ${totalItemCount} items`,
+            });
+
+            await db.order.update({
+                where: { id: order.id },
+                data: {
+                    stripePaymentIntentId: intent.id,
+                    orderStatus: "AWAITING_PAYMENT",
+                },
+            });
+
             return NextResponse.json({
                 success: true,
                 orderId: order.id,
                 paymentStatus: "AWAITING_PAYMENT",
-                note: "Stripe pay-now flow is not yet wired in the B2B portal (Elements integration pending). The order has been placed and will be invoiced. Contact sales to switch payment method.",
+                clientSecret: intent.client_secret,
+                paymentIntentId: intent.id,
+                amountCents: subtotalCents,
             });
         }
+
+        // 3b/3c. Non-Stripe paths: commit stock now (synchronous fulfillment).
+        // commitStock uses its own transaction (writes StockMovement SALE rows
+        // + FIFO-consumes batches). If a partner order's stock commit fails
+        // mid-flight, ops can replay via /admin/b2b/dispatch.
+        await commitStock(reservationItems, { orderId: order.id });
 
         // 3b. Resolve net-terms path
         if (method && NET_TERM_DAYS[method] !== undefined) {

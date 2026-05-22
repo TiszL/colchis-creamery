@@ -1,13 +1,19 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Package, Truck, ShieldCheck, Calculator } from 'lucide-react';
-import Image from 'next/image';
+import { ShieldCheck, Calculator } from 'lucide-react';
+import { loadStripe, type Stripe as StripeJs } from '@stripe/stripe-js';
+import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 
 interface BulkOrderClientProps {
     products: any[];
     discount: number;
+    /** Stripe publishable key — passed in from the server page so this
+     *  component doesn't need NEXT_PUBLIC_* on the bundler hot path. */
+    stripePublishableKey: string;
+    /** Locale prefix used for the success redirect URL. */
+    locale: string;
 }
 
 type PaymentMethodChoice = 'STRIPE_CARD' | 'STRIPE_ACH' | 'RESOLVE_NET_7' | 'RESOLVE_NET_15' | 'RESOLVE_NET_30' | 'RESOLVE_NET_45';
@@ -18,88 +24,226 @@ const PAYMENT_OPTIONS: { value: PaymentMethodChoice; label: string; hint: string
     { value: 'RESOLVE_NET_7',  label: 'Resolve · Net 7',   hint: 'Pay in 7 days' },
     { value: 'RESOLVE_NET_45', label: 'Resolve · Net 45',  hint: 'Pay in 45 days · subject to credit' },
     { value: 'STRIPE_ACH',     label: 'Pay now · ACH',     hint: 'Bank transfer · 1-3 day settlement' },
-    { value: 'STRIPE_CARD',    label: 'Pay now · Card',    hint: 'Higher fee · instant' },
+    { value: 'STRIPE_CARD',    label: 'Pay now · Card',    hint: 'Card · instant settlement, higher processing fee' },
 ];
 
-export default function BulkOrderClient({ products, discount }: BulkOrderClientProps) {
-    const router = useRouter();
-    const [quantities, setQuantities] = useState<Record<string, number>>({});
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    // Phase 6 (6c) — Stripe vs Resolve choice at submit time. Default to
-    // Net 30 since that's the most common B2B term.
-    const [paymentMethod, setPaymentMethod] = useState<PaymentMethodChoice>('RESOLVE_NET_30');
+const isStripePath = (m: PaymentMethodChoice): boolean => m === 'STRIPE_CARD' || m === 'STRIPE_ACH';
 
-    // Filter to only active products with stock > 0
+/* ─── Stripe Elements (memoized loader) ─────────────────────────────────── */
+
+const stripePromiseCache = new Map<string, Promise<StripeJs | null>>();
+function getStripePromise(publishableKey: string): Promise<StripeJs | null> | null {
+    if (!publishableKey) return null;
+    let promise = stripePromiseCache.get(publishableKey);
+    if (!promise) {
+        promise = loadStripe(publishableKey);
+        stripePromiseCache.set(publishableKey, promise);
+    }
+    return promise;
+}
+
+/* ─── Outer wrapper ─────────────────────────────────────────────────────── */
+
+export default function BulkOrderClient(props: BulkOrderClientProps) {
+    const { stripePublishableKey, discount, products } = props;
+
+    // We re-mount BulkOrderInner when the cart subtotal changes so Stripe
+    // Elements can recompute pricing in deferred mode (`amount` is part of
+    // the <Elements> options on init).
+    const [paymentMethod, setPaymentMethod] = useState<PaymentMethodChoice>('RESOLVE_NET_30');
+    const [quantities, setQuantities] = useState<Record<string, number>>({});
+
     const availableProducts = products.filter(p => p.isActive && p.stockQuantity > 0);
+
+    // Compute current cart total in cents — Stripe Elements deferred mode
+    // wants this upfront so it can show the right "Pay $X" CTA.
+    const totalCents = useMemo(() => {
+        let cents = 0;
+        for (const p of availableProducts) {
+            const qty = quantities[p.id] || 0;
+            const unit = parseFloat(p.priceB2b.replace(/[^0-9.-]+/g, "")) || 0;
+            const discounted = unit * (1 - discount / 100);
+            cents += Math.round(discounted * 100) * qty;
+        }
+        return cents;
+    }, [availableProducts, quantities, discount]);
+
+    const stripePromise = useMemo(
+        () => isStripePath(paymentMethod) ? getStripePromise(stripePublishableKey) : null,
+        [paymentMethod, stripePublishableKey],
+    );
+
+    const inner = (
+        <BulkOrderInner
+            {...props}
+            paymentMethod={paymentMethod}
+            setPaymentMethod={setPaymentMethod}
+            quantities={quantities}
+            setQuantities={setQuantities}
+            totalCents={totalCents}
+        />
+    );
+
+    // Wrap in <Elements> only when a Stripe payment path is active. The Elements
+    // provider must be mounted BEFORE PaymentElement renders, so we toggle this
+    // at the outer level based on the user's payment-method choice. amount > 0
+    // is required by Stripe — fall back to $1 placeholder while the cart is
+    // empty (we disable submit anyway).
+    if (isStripePath(paymentMethod) && stripePromise) {
+        return (
+            <Elements
+                stripe={stripePromise}
+                options={{
+                    mode: 'payment',
+                    amount: Math.max(totalCents, 100),
+                    currency: 'usd',
+                    appearance: { theme: 'night', variables: { colorPrimary: '#CBA153' } },
+                }}
+            >
+                {inner}
+            </Elements>
+        );
+    }
+
+    return inner;
+}
+
+/* ─── Inner component (rendered with or without <Elements>) ─────────────── */
+
+interface InnerProps extends BulkOrderClientProps {
+    paymentMethod: PaymentMethodChoice;
+    setPaymentMethod: (m: PaymentMethodChoice) => void;
+    quantities: Record<string, number>;
+    setQuantities: React.Dispatch<React.SetStateAction<Record<string, number>>>;
+    totalCents: number;
+}
+
+function BulkOrderInner({
+    products, discount, locale,
+    paymentMethod, setPaymentMethod,
+    quantities, setQuantities,
+    totalCents,
+}: InnerProps) {
+    const router = useRouter();
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [submitError, setSubmitError] = useState<string | null>(null);
+
+    // Stripe hooks — only meaningful when paymentMethod is a STRIPE_* path
+    // and we're inside an <Elements> provider. They return null otherwise.
+    const stripe = useStripe();
+    const elements = useElements();
+
+    const availableProducts = products.filter(p => p.isActive && p.stockQuantity > 0);
+    const prefix = locale === 'en' ? '' : `/${locale}`;
 
     const handleQuantityChange = (productId: string, value: string, maxStock: number) => {
         let parsed = parseInt(value, 10);
         if (isNaN(parsed) || parsed < 0) parsed = 0;
         if (parsed > maxStock) parsed = maxStock;
-
-        setQuantities(prev => ({
-            ...prev,
-            [productId]: parsed
-        }));
+        setQuantities(prev => ({ ...prev, [productId]: parsed }));
     };
 
-    const calculateTotals = () => {
+    const totals = useMemo(() => {
         let subtotal = 0;
         availableProducts.forEach(product => {
             const qty = quantities[product.id] || 0;
-            // Assumes B2B price implies a numeric value in string format "$50.00"
             const price = parseFloat(product.priceB2b.replace(/[^0-9.-]+/g, "")) || 0;
-            subtotal += (qty * price);
+            subtotal += qty * price;
         });
-
         const discountAmount = subtotal * (discount / 100);
         const total = subtotal - discountAmount;
-
         return { subtotal, discountAmount, total };
-    };
+    }, [availableProducts, quantities, discount]);
 
-    const totals = calculateTotals();
     const isOrderEmpty = totals.total === 0;
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-
         if (isOrderEmpty) return;
 
+        setSubmitError(null);
         setIsSubmitting(true);
 
         const orderItems = Object.entries(quantities)
-            .filter(([_, qty]) => qty > 0)
+            .filter(([, qty]) => qty > 0)
             .map(([id, qty]) => ({ id, quantity: qty }));
 
         try {
+            // Stripe path: validate card form client-side BEFORE we touch
+            // the server. Errors from Elements render inline; we abort here.
+            if (isStripePath(paymentMethod)) {
+                if (!stripe || !elements) {
+                    setSubmitError('Payment form is still loading. Please wait a moment and try again.');
+                    setIsSubmitting(false);
+                    return;
+                }
+                const { error: validateErr } = await elements.submit();
+                if (validateErr) {
+                    setSubmitError(validateErr.message ?? 'Please complete the payment details.');
+                    setIsSubmitting(false);
+                    return;
+                }
+            }
+
+            // Server: reserve stock, create Order + Fulfillments, and (for
+            // Stripe paths) create a PaymentIntent + return clientSecret.
             const response = await fetch('/api/b2b/order', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ items: orderItems, paymentMethod }),
             });
 
-            if (response.ok) {
-                const data = await response.json().catch(() => ({}));
-                // If Resolve returned a hosted pay URL, send the partner there
-                // so they see the invoice immediately.
-                if (data.invoicePayUrl) {
-                    window.location.href = data.invoicePayUrl;
+            if (!response.ok) {
+                const errBody = await response.json().catch(() => ({}));
+                setSubmitError(errBody.error || 'Order failed. Please try again.');
+                setIsSubmitting(false);
+                return;
+            }
+
+            const data = await response.json();
+
+            // Stripe path: confirm payment with the returned clientSecret.
+            // Stripe redirects to return_url on success (incl. 3DS).
+            if (isStripePath(paymentMethod)) {
+                if (!data.clientSecret) {
+                    setSubmitError('Server did not return a payment session. Please contact sales.');
+                    setIsSubmitting(false);
                     return;
                 }
-                router.push('/en/b2b-portal');
-                router.refresh();
-            } else {
-                alert("Order failed. Please try again.");
+                if (!stripe || !elements) {
+                    setSubmitError('Payment form lost its connection. Please refresh.');
+                    setIsSubmitting(false);
+                    return;
+                }
+
+                const returnUrl = `${window.location.origin}${prefix}/b2b-portal/order/success?order_id=${data.orderId}`;
+                const { error: confirmErr } = await stripe.confirmPayment({
+                    elements,
+                    clientSecret: data.clientSecret,
+                    confirmParams: { return_url: returnUrl },
+                });
+                if (confirmErr) {
+                    setSubmitError(confirmErr.message ?? 'Payment failed. Check your card and try again.');
+                    setIsSubmitting(false);
+                }
+                // On non-3DS success Stripe redirects to return_url and this
+                // component unmounts — no need to reset state.
+                return;
             }
-        } catch (error) {
-            console.error(error);
-            alert("Order failed due to network error.");
-        } finally {
+
+            // Resolve net-terms or legacy path: redirect or refresh.
+            if (data.invoicePayUrl) {
+                window.location.href = data.invoicePayUrl;
+                return;
+            }
+            router.push(`${prefix}/b2b-portal`);
+            router.refresh();
+        } catch (err) {
+            console.error('Bulk order submit failed:', err);
+            setSubmitError('Network error. Please try again.');
             setIsSubmitting(false);
         }
     };
-
 
     return (
         <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -205,13 +349,38 @@ export default function BulkOrderClient({ products, discount }: BulkOrderClientP
                             </p>
                         </div>
 
+                        {/* Phase 10: PaymentElement renders here when a Stripe path is
+                            selected. It self-manages 3DS, card / ACH bank-debit toggling,
+                            and inline validation messages. */}
+                        {isStripePath(paymentMethod) && (
+                            <div className="bg-[#0C0C0C] border border-gray-800 rounded p-4">
+                                <PaymentElement
+                                    options={{
+                                        layout: 'tabs',
+                                        // Hide Stripe's default "Save for later" toggle — B2B
+                                        // partners place orders infrequently + we don't yet
+                                        // store saved payment methods on the partner profile.
+                                        wallets: { applePay: 'never', googlePay: 'never' },
+                                    }}
+                                />
+                            </div>
+                        )}
+
+                        {submitError && (
+                            <div className="bg-red-950/30 border border-red-900/50 text-red-300 text-xs p-3 rounded">
+                                {submitError}
+                            </div>
+                        )}
+
                         <button
                             type="submit"
-                            disabled={isOrderEmpty || isSubmitting}
-                            className={`w-full py-3 rounded-lg font-medium transition flex items-center justify-center gap-2 ${isOrderEmpty ? 'bg-gray-800 text-gray-600 cursor-not-allowed' : 'bg-[#CBA153] hover:bg-[#b08d47] text-white shadow-md'
+                            disabled={isOrderEmpty || isSubmitting || (isStripePath(paymentMethod) && !stripe)}
+                            className={`w-full py-3 rounded-lg font-medium transition flex items-center justify-center gap-2 ${isOrderEmpty || isSubmitting ? 'bg-gray-800 text-gray-600 cursor-not-allowed' : 'bg-[#CBA153] hover:bg-[#b08d47] text-white shadow-md'
                                 }`}
                         >
-                            {isSubmitting ? 'Processing...' : 'Submit Bulk Order'}
+                            {isSubmitting
+                                ? (isStripePath(paymentMethod) ? 'Charging…' : 'Processing…')
+                                : (isStripePath(paymentMethod) ? `Pay $${totals.total.toFixed(2)}` : 'Submit Bulk Order')}
                         </button>
 
                         <div className="text-[10px] text-gray-500 text-center flex flex-col items-center gap-1">
@@ -219,7 +388,7 @@ export default function BulkOrderClient({ products, discount }: BulkOrderClientP
                             <span>
                                 {paymentMethod.startsWith('RESOLVE_')
                                     ? 'Resolve will issue an invoice with the selected net term.'
-                                    : 'Stripe pay-now flow is being wired — for now the order is placed and sales will follow up.'}
+                                    : 'Payment is processed by Stripe. Stock is reserved on submit and released if payment fails.'}
                             </span>
                         </div>
                     </div>

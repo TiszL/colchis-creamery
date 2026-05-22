@@ -52,6 +52,8 @@ export default async function B2BOrderPage({ params }: { params: Promise<{ local
             <BulkOrderClient
                 products={products}
                 discount={parseInt(activeContract.discountPercentage, 10) || 0}
+                stripePublishableKey={process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || ''}
+                locale={locale}
             />
 
         </div>

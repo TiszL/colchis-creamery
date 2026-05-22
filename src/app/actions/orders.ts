@@ -151,7 +151,10 @@ export async function cancelOrder(orderId: string): Promise<CancelOrderResult> {
             quantity: it.quantity,
         })),
     );
-    await restoreStock(restoreItems);
+    // Phase 9c: thread orderId into the StockMovement audit row so
+    // /admin/sales-reports + the inventory timeline can attribute the
+    // restored quantity back to this order.
+    await restoreStock(restoreItems, { orderId: order.id });
 
     // Cancel any active carrier deliveries so the driver isn't en route after
     // we've refunded the customer. Best-effort — see helper for the contract.
@@ -318,7 +321,13 @@ export async function refundOrder(input: RefundOrderInput): Promise<RefundOrderR
                 quantity: it.quantity,
             })),
         );
-        await restoreStock(restoreItems);
+        // Phase 9c: thread orderId + admin userId into the StockMovement audit
+        // row so the refund-restore shows up linked to both this order AND the
+        // admin who issued it.
+        await restoreStock(restoreItems, {
+            orderId: order.id,
+            initiatedByUserId: session.userId,
+        });
         stockRestored = true;
     }
 

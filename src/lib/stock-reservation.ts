@@ -168,10 +168,25 @@ class ReservationError extends Error {
  * at zero (commit decremented it) so we leave it alone. MTO products are
  * skipped because they don't track quantity in the first place.
  *
+ * Phase 9c: writes a StockMovement ADJUSTMENT row per restored line so the
+ * audit log mirrors the SALE rows that commitStock wrote on the original
+ * sale. Batch-level restoration (un-consuming the FIFO'd ProductBatch rows)
+ * is deliberately NOT attempted — once a lot was picked + shipped, we treat
+ * the inventory accounting as cash-basis and only resurrect the aggregate
+ * count. A later phase can revisit if expiry-aware batch restoration matters.
+ *
  * Idempotency: not enforced here. Callers must check Order.paymentStatus
  * before invoking, so we never restore stock twice for the same Order.
+ *
+ * @param items per-(location, product) quantities to credit back
+ * @param opts.orderId  threaded into every ADJUSTMENT movement for traceability
+ * @param opts.initiatedByUserId  the admin issuing the refund (optional;
+ *                                null for system-driven restores like cron)
  */
-export async function restoreStock(items: ReservationItem[]): Promise<void> {
+export async function restoreStock(
+    items: ReservationItem[],
+    opts: { orderId?: string | null; initiatedByUserId?: string | null } = {},
+): Promise<void> {
     if (items.length === 0) return;
     await prisma.$transaction(async (tx) => {
         for (const item of items) {
@@ -182,9 +197,25 @@ export async function restoreStock(items: ReservationItem[]): Promise<void> {
             if (!stock) continue;
             // MTO products have no quantity counter — nothing to restore.
             if (stock.product.isMadeToOrder || stock.quantity === null) continue;
+
             await tx.stock.update({
                 where: { id: stock.id },
                 data: { quantity: { increment: item.quantity } },
+            });
+
+            // Phase 9c: audit row. ADJUSTMENT keeps the StockMovement.type
+            // surface honest — we're not "receiving" a new shipment, we're
+            // adjusting the count back up after a sale was undone.
+            await tx.stockMovement.create({
+                data: {
+                    type: 'ADJUSTMENT',
+                    productId: item.productId,
+                    locationId: item.locationId,
+                    quantityDelta: item.quantity,
+                    orderId: opts.orderId ?? null,
+                    initiatedByUserId: opts.initiatedByUserId ?? null,
+                    reason: 'REFUND_RESTORE',
+                },
             });
         }
     }, { timeout: TX_TIMEOUT_MS });

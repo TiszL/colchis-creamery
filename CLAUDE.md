@@ -1,6 +1,6 @@
 # Colchis Food — Project Context
 
-Next.js 16 + Prisma + Neon Postgres + Stripe storefront for a Georgian cheese creamery + bakery + B2B wholesale business. Pre-launch test mode — sandbox keys, no real orders. Phases 1–7 of the major overhaul are landed; Phase 8 cleanup is the most recent pass.
+Next.js 16 + Prisma + Neon Postgres + Stripe storefront for a Georgian cheese creamery + bakery + B2B wholesale business. Pre-launch test mode — sandbox keys, no real orders. Phases 1–9 of the major overhaul are landed; Phase 9c (taxonomy follow-ups + per-location menu toggle + structured order shipping) is the most recent pass.
 
 ## Quick commands
 
@@ -85,14 +85,17 @@ External integrations:
 - **Google Places** — address autocomplete + geocoding
 - **JWT/jose** — sessions (cookie `auth_token`, HS256, 7-day)
 
-## Channel + delivery model
+## Channel + delivery + category model
 
-Two orthogonal axes — internalize this before touching cart, checkout, catalog, or admin-product code:
+Three orthogonal axes — internalize this before touching cart, checkout, catalog, or admin-product code:
 
 | Concept | Values | Meaning |
 |---|---|---|
-| `SalesChannel` | `LOCAL_HOT`, `LOCAL_COLD`, `NATIONAL_SHIP`, `B2B_WHOLESALE`, `B2B_FROZEN` | Catalog tier — every `Product` belongs to exactly one |
+| `SalesChannel` | `LOCAL_HOT`, `LOCAL_COLD`, `NATIONAL_SHIP`, `B2B_WHOLESALE`, `B2B_FROZEN` | Catalog tier — every `Product` belongs to exactly one. Drives location eligibility (`Location.allowsChannels`) and routing. |
+| `Category` (free-form, Phase 9b) | DB rows: `cheese`, `butter`, `spreads`, `other-dairy`, `hot-pastries`, `frozen-bake-off`, `pastries`, `breads`, plus any standalone (`drinks` etc.) | Storefront taxonomy. Each Category has `sections String[]` (`creamery`/`bakery`/`shop`/`wholesale`) and `packagingMode` (`HOT`/`COLD`/`AMBIENT`) — the latter feeds DoorDash/Uber packaging selection. Every `Product` has a required `categoryId`. |
 | `DeliveryMethod` (was `FulfillmentChannel`, renamed in Phase 1h via `@@map`) | `UPS_2DAY`, `OWN_DELIVERY`, `DOORDASH_DRIVE`, `UBER_DIRECT`, `IN_STORE_PICKUP`, `IN_STORE_DINE_IN`, `MANUAL_DISPATCH`, marketplace variants | How an order physically moves |
+
+The `ProductKind` enum + `Product.category` string are **gone** (Phase 9b). The `Category.productLineId` relation is now optional — categories like "Drinks" live standalone in `/admin/categories` → Standalone Categories.
 
 A product is available at a location when:
 1. `Product.salesChannel ∈ Location.allowsChannels`
@@ -109,28 +112,31 @@ There is **no per-product DeliveryMethod gating** (Phase 8a dropped `ProductChan
 
 **Customer location** lives in cookie `colchis_loc_id` + localStorage `colchis-loc-id`. Server reads via `getSelectedLocation()` in `src/lib/customer-location.ts`. Client uses `useLocation()` from `src/providers/LocationProvider`.
 
-## Inventory model (Phase 3)
+## Inventory model (Phase 3 + 9c)
 
-- `Stock(locationId, productId, quantity, lowStockThreshold)` — cached aggregate per location. `quantity = null` means made-to-order.
+- `Stock(locationId, productId, quantity, reservedQuantity, lowStockThreshold, isEnabled)` — cached aggregate per location. `quantity = null` means made-to-order. **`isEnabled` (Phase 9c)** hides a SKU from public availability + cart eligibility per location without losing the on-hand count — location managers toggle it via `/location-portal/[id]/menu`.
 - `ProductBatch(productId, locationId, lotNumber, mfgDate, expiresAt, quantity, initialQuantity)` — individual lots. Created on `receiveStockAction` (admin "Receive shipment" form).
 - `StockMovement(type, quantityDelta, batchId, orderId, initiatedByUserId, reason)` — append-only audit log. Types: RECEIVE, TRANSFER_OUT, TRANSFER_IN, SALE, RESERVE, RELEASE, ADJUSTMENT, WASTE.
 - D2C sales auto-consume batches FIFO (oldest expiry first) via `fifoConsumeStock` in `src/app/actions/inventory.ts`, invoked from `commitStock` on Stripe `payment_intent.succeeded`.
-- **B2B sales currently bypass this** — `/api/b2b/order` still decrements `Product.stockQuantity` directly without writing `StockMovement`. Inline TODO at the decrement site. Future fix: B2B fulfillment moves per-location.
+- **Phase 9c — B2B sales now also route per-location:** `/api/b2b/order` picks the first active Location whose `allowsChannels` matches the product's `salesChannel` AND has enough enabled Stock, then calls `commitStock` so SALE + FIFO + audit happen the same way as D2C. It also creates an `OrderFulfillment(MANUAL_DISPATCH)` row per location so the admin dispatch queue groups lines correctly.
+- **Phase 9c — `restoreStock` writes ADJUSTMENT audit rows** with `reason=REFUND_RESTORE` and threads `orderId` + `initiatedByUserId`. Batch-level restoration is intentionally skipped (cash-basis accounting once a lot was shipped).
 
-## RBAC (Phases 2 + 6)
+## RBAC (Phases 2 + 6, unified UI in Phase 9 staff rework)
 
 | Role / row | Granted by | What it sees |
 |---|---|---|
 | `User.role = MASTER_ADMIN` (global) | direct DB | `/admin/*` + everything else (bypasses per-location checks) |
-| `User.role = PRODUCT_MANAGER` / `CONTENT_MANAGER` / `SALES` | direct DB | `/portal/*` |
+| `User.role = PRODUCT_MANAGER` / `CONTENT_MANAGER` / `SALES` | `/admin/staff` (or direct DB) | `/portal/*` |
 | `User.role = B2B_PARTNER` | self-register with AccessCode | `/b2b-portal/*` |
 | `User.role = B2C_CUSTOMER` (default) | self-register | `/account/*` |
-| `User.role = ANALYTICS_VIEWER` | direct DB | `/analytics` only (legacy read-only) |
-| `UserLocation(role = LOCATION_MANAGER)` | `/admin/location-staff` | `/location-portal/[locationId]/*` — full edit |
-| `UserLocation(role = LOCATION_FULFILLMENT)` | `/admin/location-staff` | `/location-portal/[locationId]/orders` only (status advance) |
-| `UserLocation(role = B2B_SALES_MANAGER)` | `/admin/location-staff` | `/admin/b2b/*` org-wide |
+| `User.role = ANALYTICS_VIEWER` | `/admin/staff` (or direct DB) | `/analytics` only (legacy read-only) |
+| `UserLocation(role = LOCATION_MANAGER)` | `/admin/staff` (inline) **or** `/admin/location-staff` | `/location-portal/[locationId]/*` — full edit + Stock.isEnabled menu toggle |
+| `UserLocation(role = LOCATION_FULFILLMENT)` | `/admin/staff` (inline) **or** `/admin/location-staff` | `/location-portal/[locationId]/orders` only (status advance) |
+| `UserLocation(role = B2B_SALES_MANAGER)` | `/admin/staff` (inline) **or** `/admin/location-staff` | `/admin/b2b/*` org-wide |
 
 Per-location row access via `requireLocationAccess(locationId, requiredRoles?)` in `src/lib/location-rbac.ts` (page-guard, redirects) or `assertLocationRole(locationId, requiredRoles)` (server actions, throws).
+
+**`/admin/staff`** is the unified people view (Phase 9): four sections — Master Admins, Global Staff (with role-change + inline per-location badges + 2FA enrollment), Location-only Staff (B2C_CUSTOMER with UserLocation rows), B2B Partners (read-only with link to `/admin/requests`). `/admin/location-staff` remains the by-location complementary view; both share the same `assignLocationRoleAction` / `removeLocationRoleAction` server actions in `app/actions/auth.ts`.
 
 ## B2B (Phase 6)
 
@@ -210,24 +216,32 @@ BAKERY_NOTIFICATION_EMAIL=
 
 ## Legacy / deprecated — avoid
 
-- `Product.stockQuantity` — cached total. Truth is in `Stock[]` per location. Reading is fine but writing is a smell (only `/api/b2b/order` still writes here — flagged with TODO).
-- `Product.house` — **dropped** in 1i. Use `Product.kind` (`ProductKind` enum).
+- `Product.stockQuantity` — cached total. Truth is in `Stock[]` per location. Reading is fine but writing is a smell. Phase 9c routed `/api/b2b/order` through `commitStock` so direct decrements no longer happen.
+- `Product.house` — **dropped** in 1i.
+- `Product.kind` + `ProductKind` enum — **dropped** in 9b. Use `Product.categoryId` + `Category.sections` + `Category.packagingMode`.
+- `Product.category` (legacy String "cheese" default) — **dropped** in 9b. Use `Product.productCategory` relation.
 - `ProductChannel` — **dropped** in 8a. Use `Product.salesChannel` + `Location.allowsChannels`.
 - `prisma db push` — never. Use `migrate dev` / `migrate deploy`. When `migrate dev` refuses (destructive change in non-interactive mode), hand-write the SQL.
 - Legacy enum value strings `UPS_GROUND_2DAY`, `HOT_DELIVERY_OWN` exist only in the Postgres enum (via `@map`) for zero-data-migration compatibility. TS code uses `UPS_2DAY`, `OWN_DELIVERY`.
 - `FulfillmentChannel` / `LocationChannel` (the type names) — renamed to `DeliveryMethod` / `LocationDeliveryMethod` in 1h via `@@map`. Postgres column / table names stayed the same; TS code uses the new names.
+- `Order.shippingAddress` free-text parser path in `webhooks/stripe/route.ts` — kept as fallback for pre-9c orders, but new orders write structured `shipping{Line1,City,State,PostalCode}` columns directly.
 
 ## Known follow-ups (not blockers)
 
-1. **B2B fulfillment per-location**: `/api/b2b/order` decrements `Product.stockQuantity` directly. Needs to route to a target location + call `commitStock`/`fifoConsumeStock` so audit + batches work. Marked with TODO at the decrement site.
-2. **Stripe Elements in B2B portal**: `STRIPE_CARD` / `STRIPE_ACH` paths return a "coming soon" note. Wire `<Elements>` in `BulkOrderClient`.
-3. **Resolve API spec verification**: confirm endpoint paths, auth header, field names against the merchant's live Resolve docs. TODOs inline in `src/lib/resolve.ts`.
-4. **Structured shipping address on `Order`**: 5c uses a free-text parser. Add `shippingLine1/City/State/Zip` columns + skip the parser.
-5. **Cart-aware UPS parcel sizing**: 5b uses a fixed `10×8×6, 64oz` parcel for the rate quote. Sum from per-product weights once `Product.weightOz` is added.
-6. **`restoreStock` audit row**: refund path adds back to `Stock.quantity` without writing an `ADJUSTMENT` movement or restoring batches.
-7. **Menu enable/disable toggles** on `/location-portal/[id]/menu`: currently the presence of a Stock row = "carries this SKU"; an explicit on/off toggle would let location managers hide SKUs without losing stock counts.
-8. **InventoryClient dead form fields**: `channels[]` form field still posted but server ignores it (Phase 8a). Remove the unused state in a focused lint pass.
-9. **BingSiteAuth.xml** sneaked into a commit during the Phase 7 rename — harmless verification file, but trim it from history if you prefer.
+1. **Stripe Elements in B2B portal**: `STRIPE_CARD` / `STRIPE_ACH` paths in `/api/b2b/order` return a "coming soon" note. Wire `<Elements>` in `BulkOrderClient` + a PaymentIntent server action + a webhook branch for B2B `payment_intent.succeeded`.
+2. **Resolve API spec verification**: confirm endpoint paths, auth header, field names against the merchant's live Resolve docs. TODOs inline in `src/lib/resolve.ts`. Sandbox calls currently succeed but field shapes weren't verified against the live spec.
+3. **Cart-aware UPS parcel sizing**: 5b uses a fixed `10×8×6, 64oz` parcel for the rate quote. Sum from per-product weights once `Product.weightOz` is added.
+4. **InventoryClient dead form fields**: `channels[]` form field still posted but server ignores it (Phase 8a). Remove the unused state in a focused lint pass.
+5. **i18n for new strings**: chip filter labels, unified staff page labels, Category UI are English-only. Wire next-intl translations when the user wants Russian/Spanish/Georgian on those surfaces.
+6. **No automated tests** anywhere. New surfaces shipped in Phases 9a–9c are typecheck-clean but unverified by tests.
+
+## Done in Phase 9 (sweep of older follow-ups)
+
+- ✅ **B2B fulfillment per-location** — Phase 9c routes `/api/b2b/order` through `commitStock` + writes `OrderFulfillment` per location.
+- ✅ **Structured shipping address on `Order`** — Phase 9c added `shippingLine1/City/State/PostalCode`; checkout writes them; uber-direct dispatch reads them preferentially.
+- ✅ **`restoreStock` audit row** — Phase 9c writes ADJUSTMENT with `reason=REFUND_RESTORE` (batch-level restoration intentionally skipped).
+- ✅ **Per-location menu enable/disable** — Phase 9c added `Stock.isEnabled` + UI toggle on `/location-portal/[id]/menu`; all public availability + cart eligibility queries respect it.
+- ✅ **BingSiteAuth.xml** — deleted in Phase 9c cleanup.
 
 ## Pre-existing uncommitted changes — leave alone
 

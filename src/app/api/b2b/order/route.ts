@@ -3,6 +3,7 @@ import { prisma as db } from "@/lib/db";
 import { jwtVerify } from "jose";
 import { B2bPaymentMethod } from "@prisma/client";
 import { createResolveCustomer, createResolveCharge, isResolveConfigured } from "@/lib/resolve";
+import { commitStock } from "@/lib/stock-reservation";
 
 const SECRET_KEY = new TextEncoder().encode(
     process.env.JWT_SECRET || "dev-secret-change-in-production"
@@ -59,30 +60,62 @@ export async function POST(req: NextRequest) {
 
         const discountPercentage = parseInt(user.contracts[0].discountPercentage, 10) || 0;
 
-        // 2. Process items + create order in a transaction
+        // Phase 9c: route each B2B line to a real Location so commitStock can
+        // run + write StockMovement (audit) + decrement ProductBatch (FIFO).
+        // Pick the first active Location whose allowsChannels matches the
+        // product's salesChannel AND has enough free stock for the request.
+        // This is intentionally O(items × locations) — partner orders are
+        // small enough that we don't need a global packing solver yet.
         const result = await db.$transaction(async tx => {
             let subtotal = 0;
             const processedItems: { productId: string; quantity: number; unitPrice: string }[] = [];
+            const fulfillmentPlan: { productId: string; locationId: string; quantity: number; orderItemIndex: number }[] = [];
 
             for (const item of items) {
-                const product = await tx.product.findUnique({ where: { id: item.id } });
+                const product = await tx.product.findUnique({
+                    where: { id: item.id },
+                    select: {
+                        id: true, name: true, isActive: true, salesChannel: true,
+                        priceB2b: true, isMadeToOrder: true,
+                    },
+                });
                 if (!product || !product.isActive) throw new Error(`Product ${item.id} is invalid or inactive`);
-                if (product.stockQuantity < item.quantity) throw new Error(`Insufficient stock for ${product.name}`);
 
-                // TODO (B2B inventory migration): this route still decrements
-                // Product.stockQuantity directly instead of going through
-                // commitStock + fifoConsumeStock (Phase 3). That means:
-                //   - no StockMovement audit row is written for B2B sales
-                //   - no per-location FIFO batch consumption (B2B is global)
-                //   - Stock.quantity at warehouses can drift from
-                //     Product.stockQuantity over time
-                // Fix lands when B2B fulfillment moves to per-location
-                // dispatch: each B2B Order needs a target locationId, then
-                // we can call commitStock([{productId, locationId, quantity}])
-                // and get audit + batches for free. Tracked in Phase 8 summary.
-                await tx.product.update({
-                    where: { id: product.id },
-                    data: { stockQuantity: product.stockQuantity - item.quantity },
+                // Find candidate locations: active + carries this salesChannel +
+                // has an enabled Stock row with enough free quantity. MTO products
+                // skip the quantity gate (capacity-bound, not stock-bound).
+                const candidates = await tx.location.findMany({
+                    where: {
+                        isActive: true,
+                        allowsChannels: { has: product.salesChannel },
+                    },
+                    select: {
+                        id: true, name: true, isPrimary: true,
+                        stocks: {
+                            where: { productId: product.id, isEnabled: true },
+                            select: { id: true, quantity: true, reservedQuantity: true },
+                        },
+                    },
+                    orderBy: [{ isPrimary: 'desc' }, { name: 'asc' }],
+                });
+
+                const target = candidates.find(loc => {
+                    const stock = loc.stocks[0];
+                    if (!stock) return false;
+                    if (product.isMadeToOrder) return true;
+                    const free = (stock.quantity ?? 0) - stock.reservedQuantity;
+                    return free >= item.quantity;
+                });
+
+                if (!target) {
+                    throw new Error(`Insufficient stock for ${product.name} at any wholesale-capable location`);
+                }
+
+                fulfillmentPlan.push({
+                    productId: product.id,
+                    locationId: target.id,
+                    quantity: item.quantity,
+                    orderItemIndex: processedItems.length,
                 });
 
                 const basePrice = parseFloat(product.priceB2b.replace(/[^0-9.-]+/g, "")) || 0;
@@ -106,9 +139,56 @@ export async function POST(req: NextRequest) {
                     totalAmount: `$${subtotal.toFixed(2)}`,
                     orderItems: { create: processedItems },
                 },
+                include: { orderItems: true },
             });
-            return { order, subtotalCents: Math.round(subtotal * 100), totalItemCount: processedItems.reduce((n, i) => n + i.quantity, 0) };
+
+            // Group lines by location → one OrderFulfillment per location so the
+            // dispatch queue can pull/ship them as a unit. Maps OrderItem.id
+            // back via positional index from processedItems (order preserved).
+            const byLocation = new Map<string, typeof fulfillmentPlan>();
+            for (const line of fulfillmentPlan) {
+                const list = byLocation.get(line.locationId) ?? [];
+                list.push(line);
+                byLocation.set(line.locationId, list);
+            }
+            for (const [locationId, lines] of byLocation) {
+                await tx.orderFulfillment.create({
+                    data: {
+                        orderId: order.id,
+                        locationId,
+                        deliveryMethod: 'MANUAL_DISPATCH', // B2B 3PL freight — admin dispatch queue handles tracking
+                        status: 'PENDING',
+                        items: {
+                            create: lines.map(l => ({
+                                orderItemId: order.orderItems[l.orderItemIndex].id,
+                                quantity: l.quantity,
+                            })),
+                        },
+                    },
+                });
+            }
+
+            return {
+                order,
+                subtotalCents: Math.round(subtotal * 100),
+                totalItemCount: processedItems.reduce((n, i) => n + i.quantity, 0),
+                fulfillmentPlan,
+            };
         });
+
+        // Commit stock OUTSIDE the order-creation tx — commitStock uses its own
+        // transaction (writes StockMovement SALE rows + FIFO-consumes batches).
+        // If a partner order's stock commit fails mid-flight, ops can replay
+        // via the manual dispatch queue; we don't want to roll back the Order
+        // itself since the partner already saw a confirmation.
+        await commitStock(
+            result.fulfillmentPlan.map(l => ({
+                productId: l.productId,
+                locationId: l.locationId,
+                quantity: l.quantity,
+            })),
+            { orderId: result.order.id },
+        );
 
         const order = result.order;
         const subtotalCents = result.subtotalCents;

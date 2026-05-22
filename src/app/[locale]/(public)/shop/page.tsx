@@ -98,10 +98,10 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
     const selectedLocation = await getSelectedLocation();
     const locationFilter = productCatalogWhereForLocation(selectedLocation);
 
-    // Stage 4: when a category chip is active, the product query narrows to
-    // that slug. The chip count query (groupBy below) stays unfiltered so the
-    // chip badges always show "what you'd see if you clicked me".
-    const [products, chipRows] = await Promise.all([
+    // Stage 4: chip nav uses Prisma _count with the visibility filter so the
+    // category list + per-chip badge counts come back in a single query
+    // (no more groupBy + findMany N+1).
+    const [products, chipCategoryRows] = await Promise.all([
         prisma.product.findMany({
             where: {
                 status: { in: ['ACTIVE', 'COMING_SOON'] },
@@ -119,33 +119,30 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
                 productCategory: { select: { slug: true, name: true, sections: true } },
             },
         }),
-        prisma.product.groupBy({
-            by: ['categoryId'],
-            where: {
-                status: { in: ['ACTIVE', 'COMING_SOON'] },
-                isActive: true,
-                isB2cVisible: true,
-                ...locationFilter,
+        prisma.category.findMany({
+            where: { isActive: true },
+            select: {
+                slug: true, name: true,
+                _count: {
+                    select: {
+                        products: {
+                            where: {
+                                status: { in: ['ACTIVE', 'COMING_SOON'] },
+                                isActive: true,
+                                isB2cVisible: true,
+                                ...locationFilter,
+                            },
+                        },
+                    },
+                },
             },
-            _count: true,
+            orderBy: { sortOrder: 'asc' },
         }),
     ]);
 
-    // Map groupBy counts → Category slug/name records for chip nav.
-    const chipCategoryIds = chipRows.map(r => r.categoryId);
-    const chipCategoryRecords = chipCategoryIds.length > 0
-        ? await prisma.category.findMany({
-            where: { id: { in: chipCategoryIds }, isActive: true },
-            select: { id: true, slug: true, name: true, sortOrder: true },
-            orderBy: { sortOrder: 'asc' },
-        })
-        : [];
-    const countById = new Map(chipRows.map(r => [r.categoryId, r._count ?? 0]));
-    const chipCategories = chipCategoryRecords.map(c => ({
-        slug: c.slug,
-        name: c.name,
-        count: countById.get(c.id) ?? 0,
-    }));
+    const chipCategories = chipCategoryRows
+        .map(c => ({ slug: c.slug, name: c.name, count: c._count.products }))
+        .filter(c => c.count > 0); // hide chips with 0 visible products
     const sectionTotal = chipCategories.reduce((sum, c) => sum + c.count, 0);
 
     // /shop renders the filtered product list. The Creamery and Bakery chips

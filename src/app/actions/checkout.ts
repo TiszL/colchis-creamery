@@ -279,6 +279,12 @@ export async function createCheckoutSession(input: CheckoutInput): Promise<Check
                     shippingAddress: addr.formatted,
                     shippingLat: addr.lat,
                     shippingLng: addr.lng,
+                    // Phase 9c: structured components — carriers + admin displays
+                    // prefer these over parsing the free-text shippingAddress.
+                    shippingLine1:      addr.line1      || null,
+                    shippingCity:       addr.city       || null,
+                    shippingState:      addr.state      || null,
+                    shippingPostalCode: addr.postalCode || null,
                     // Phase B: snapshot extended delivery details onto the order.
                     shippingAddressLine2:  addr.line2         || null,
                     shippingAccessCode:    addr.accessCode    || null,

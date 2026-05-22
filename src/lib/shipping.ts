@@ -493,7 +493,12 @@ export async function planFulfillment(
             // Phase 8: ProductChannel relation removed. Per-product delivery-
             // method gating is gone — location.channels (LocationDeliveryMethod)
             // is the source of truth for what can ship from a location.
-            stocks: { include: { location: { include: { channels: { where: { isActive: true } } } } } },
+            // Phase 9c: skip stocks the location manager has disabled — same
+            // visibility gate as the public availability queries.
+            stocks: {
+                where: { isEnabled: true },
+                include: { location: { include: { channels: { where: { isActive: true } } } } },
+            },
             // Phase 9b: packagingMode drives DoorDash/Uber packaging selection
             // (was on the dropped ProductKind enum). Pulled per-product via Category.
             productCategory: { select: { packagingMode: true } },

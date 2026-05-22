@@ -455,14 +455,23 @@ async function dispatchUberDirectDeliveries(orderId: string) {
     const firstName = fullName.split(/\s+/)[0] || 'Customer';
     const lastName = fullName.split(/\s+/).slice(1).join(' ') || undefined;
 
-    // Parse shipping address back into components. shippingAddress is a free-text
-    // formatted string like "123 Main St, City, ST 12345". For Uber we need
-    // structured components — best-effort parse. If parsing fails, skip this
-    // delivery (admin will see the warning and can intervene).
-    const parsed = parseShippingAddress(order.shippingAddress);
+    // Phase 9c: prefer structured shipping columns when available; fall back
+    // to parsing the free-text shippingAddress for legacy orders (pre-9c) that
+    // only have the formatted snapshot. New orders always set the structured
+    // columns at checkout — see actions/checkout.ts.
+    const parsed =
+        order.shippingLine1 && order.shippingCity && order.shippingState && order.shippingPostalCode
+            ? {
+                line1: order.shippingLine1,
+                city: order.shippingCity,
+                state: order.shippingState,
+                postalCode: order.shippingPostalCode,
+                country: 'US', // checkout enforces US-only; UberAddressInput requires country
+            }
+            : parseShippingAddress(order.shippingAddress);
     if (!parsed) {
         console.warn(
-            '[uber-direct] Skipping dispatch — could not parse shippingAddress for Order',
+            '[uber-direct] Skipping dispatch — could not derive structured shipping address for Order',
             order.id,
         );
         return;

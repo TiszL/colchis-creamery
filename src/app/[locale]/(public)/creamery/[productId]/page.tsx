@@ -133,7 +133,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
           <span style={{ color: "#2C3D33", opacity: 0.5 }}>/</span>
           {product.productCategory && (
             <>
-              <Link href={`${prefix}/creamery?category=${product.productCategory.slug}`} style={{ color: "#7A8278", textDecoration: "none" }}>{product.productCategory.name}</Link>
+              <Link href={`${prefix}/creamery?cat=${product.productCategory.slug}`} style={{ color: "#7A8278", textDecoration: "none" }}>{product.productCategory.name}</Link>
               <span style={{ color: "#2C3D33", opacity: 0.5 }}>/</span>
             </>
           )}

@@ -70,6 +70,9 @@ export async function getAvailableBakeryProducts(
             channels: { where: { isActive: true } },
             stocks: {
                 where: {
+                    // Phase 9c: per-location menu toggle — hide stocks that the
+                    // location manager has disabled from public availability.
+                    isEnabled: true,
                     product: {
                         isActive: true,
                         isB2cVisible: true,

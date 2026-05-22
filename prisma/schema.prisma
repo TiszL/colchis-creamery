@@ -552,6 +552,14 @@ model Order {
   shippingAddress        String?
   shippingLat            Float?
   shippingLng            Float?
+  // Phase 9c: structured snapshot of shipping address at order time.
+  // Replaces the lossy parser in lib/shipping.ts uber-direct dispatch path.
+  // Readers prefer these when present; fall back to parsing shippingAddress
+  // for older rows (pre-9c) that only have the free-text snapshot.
+  shippingLine1          String?
+  shippingCity           String?
+  shippingState          String?
+  shippingPostalCode     String?
   // Phase B: address-detail snapshot at order time (so future UserAddress
   // edits/deletes don't mutate historical orders). All optional; carriers use
   // these to populate dropoff_instructions / dropoff_notes for the driver.
@@ -977,6 +985,11 @@ model Stock {
   quantity          Int?                              // NULL = made-to-order (unlimited while location open)
   reservedQuantity  Int      @default(0)
   lowStockThreshold Int      @default(0)
+  // Phase 9c: per-location menu toggle. When false, the SKU stays in the
+  // Stock table (count preserved) but disappears from public availability
+  // queries + cart eligibility. Location managers flip this via
+  // /location-portal/[id]/menu without losing on-hand counts.
+  isEnabled         Boolean  @default(true)
   updatedAt         DateTime @updatedAt
   createdAt         DateTime @default(now())
 

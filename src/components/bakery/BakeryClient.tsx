@@ -84,6 +84,12 @@ interface BakeryClientProps {
   deliveryContent?: DeliveryContent | null;
   hotItems?: BakeryItem[];      // from DB (Phase 4) — takes precedence
   frozenItems?: BakeryItem[];   // from DB (Phase 4) — takes precedence
+  /** Stage 4: when a Category chip is active on /bakery, the page passes the
+   *  filtered items here. BakeryClient then renders a single grid (no hot/
+   *  frozen tabs) using the section label below. When undefined, falls back
+   *  to the legacy hot/frozen tab UX. */
+  singleSectionItems?: BakeryItem[];
+  singleSectionLabel?: string;
   apiKey: string;               // Google Maps key for Places Autocomplete (Phase 5)
   isLoggedIn?: boolean;         // Phase 5.5 — drives guest vs logged-in address UX
   userAddresses?: UserAddressDto[]; // Phase 5.5 — saved addresses for logged-in user
@@ -105,7 +111,7 @@ function channelMeta(ch: DeliveryMethod): string {
   }
 }
 
-export default function BakeryClient({ heroContent, menuContent, deliveryContent, hotItems: hotItemsProp, frozenItems: frozenItemsProp, apiKey, isLoggedIn = false, userAddresses = [], primaryAddressLine1, primaryCityState }: BakeryClientProps) {
+export default function BakeryClient({ heroContent, menuContent, deliveryContent, hotItems: hotItemsProp, frozenItems: frozenItemsProp, singleSectionItems, singleSectionLabel, apiKey, isLoggedIn = false, userAddresses = [], primaryAddressLine1, primaryCityState }: BakeryClientProps) {
   const [tab, setTab] = useState<"hot" | "frozen">("hot");
   // Phase 5.5: address-gated availability (guest localStorage OR logged-in UserAddress)
   const [activeAddress, setActiveAddress] = useState<ActiveAddress | null>(null);
@@ -250,7 +256,13 @@ export default function BakeryClient({ heroContent, menuContent, deliveryContent
 
   const hotItems: BakeryItem[] = (hotItemsProp ?? menu.hot_items ?? []).map(enrichWithAvailability);
   const frozenItems: BakeryItem[] = (frozenItemsProp ?? menu.frozen_items ?? []).map(enrichWithAvailability);
-  const items = tab === "hot" ? hotItems : frozenItems;
+  // Stage 4: when /bakery applies a Category chip filter, singleSectionItems
+  // replaces the hot/frozen split with a single flat list. The hot/frozen
+  // tab UI hides itself in this mode (see below).
+  const isFilteredView = Array.isArray(singleSectionItems);
+  const items = isFilteredView
+      ? singleSectionItems.map(enrichWithAvailability)
+      : (tab === "hot" ? hotItems : frozenItems);
   // "No coverage" = address is set but NO location is in delivery range. This is purely
   // address-based; it does NOT trigger when products are merely out of stock / coming-soon.
   const noCoverage = !!availability && !availability.inServiceArea;
@@ -295,10 +307,19 @@ export default function BakeryClient({ heroContent, menuContent, deliveryContent
                 {menu.heading} <em style={{ color: "#B96A3D", fontWeight: 400 }}>{menu.heading_accent}</em>
               </div>
             </div>
-            <div className="ch-tab-row" style={{ display: "flex", gap: 0, border: "1px solid #1F302644" }}>
-              <button onClick={() => setTab("hot")} style={{ padding: "14px 26px", fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.28em", textTransform: "uppercase", background: tab === "hot" ? "#1F3026" : "transparent", color: tab === "hot" ? "#F5F0E6" : "#1F3026", border: "none", cursor: "pointer" }}>{menu.hot_tab_label}</button>
-              <button onClick={() => setTab("frozen")} style={{ padding: "14px 26px", fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.28em", textTransform: "uppercase", background: tab === "frozen" ? "#1F3026" : "transparent", color: tab === "frozen" ? "#F5F0E6" : "#1F3026", border: "none", cursor: "pointer", borderLeft: "1px solid #1F302644" }}>{menu.frozen_tab_label}</button>
-            </div>
+            {isFilteredView ? (
+              // Stage 4: when /bakery is filtered to a single Category, swap
+              // the hot/frozen tabs for a static label that names the filter.
+              <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 22px", border: "1px solid #1F302644", background: "#1F3026", color: "#F5F0E6", fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.28em", textTransform: "uppercase" }}>
+                <span>{singleSectionLabel ?? "Filtered"}</span>
+                <span style={{ opacity: 0.55 }}>{items.length}</span>
+              </div>
+            ) : (
+              <div className="ch-tab-row" style={{ display: "flex", gap: 0, border: "1px solid #1F302644" }}>
+                <button onClick={() => setTab("hot")} style={{ padding: "14px 26px", fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.28em", textTransform: "uppercase", background: tab === "hot" ? "#1F3026" : "transparent", color: tab === "hot" ? "#F5F0E6" : "#1F3026", border: "none", cursor: "pointer" }}>{menu.hot_tab_label}</button>
+                <button onClick={() => setTab("frozen")} style={{ padding: "14px 26px", fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.28em", textTransform: "uppercase", background: tab === "frozen" ? "#1F3026" : "transparent", color: tab === "frozen" ? "#F5F0E6" : "#1F3026", border: "none", cursor: "pointer", borderLeft: "1px solid #1F302644" }}>{menu.frozen_tab_label}</button>
+              </div>
+            )}
           </div>
 
           {/* Phase 5.5 — Address manager (guest + logged-in flows, multi-address) */}

@@ -56,6 +56,8 @@ export async function getAvailableCreameryProducts(
             channels: { where: { isActive: true } },
             stocks: {
                 where: {
+                    // Phase 9c: per-location menu toggle.
+                    isEnabled: true,
                     product: {
                         isActive: true,
                         isB2cVisible: true,

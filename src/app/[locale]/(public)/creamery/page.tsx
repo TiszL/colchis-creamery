@@ -96,7 +96,8 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
   const selectedLocation = await getSelectedLocation();
   const locationFilter = productCatalogWhereForLocation(selectedLocation);
 
-  const [dbProducts, sectionCategoryRows, creameryConfigs, primary] = await Promise.all([
+  // Stage 4: single-query chip nav via Prisma _count + relation `where`.
+  const [dbProducts, chipCategoryRows, creameryConfigs, primary] = await Promise.all([
     prisma.product.findMany({
       where: {
         status: { in: ['ACTIVE', 'COMING_SOON'] },
@@ -111,43 +112,33 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
       include: {
         productLine: { select: { id: true, slug: true, name: true, tagline: true, badgeColor: true } },
         productCategory: { select: { id: true, slug: true, name: true } },
-
       },
     }),
-    // Phase 9b — Stage 4: chip nav data. Counts come from a separate groupBy
-    // against the SAME visibility filter as the product query so the chip
-    // labels match what the user actually sees once they click.
-    prisma.product.groupBy({
-      by: ['categoryId'],
-      where: {
-        status: { in: ['ACTIVE', 'COMING_SOON'] },
-        isB2cVisible: true,
-        productCategory: { sections: { has: CREAMERY_SECTION } },
-        ...locationFilter,
+    prisma.category.findMany({
+      where: { isActive: true, sections: { has: CREAMERY_SECTION } },
+      select: {
+        slug: true, name: true,
+        _count: {
+          select: {
+            products: {
+              where: {
+                status: { in: ['ACTIVE', 'COMING_SOON'] },
+                isB2cVisible: true,
+                ...locationFilter,
+              },
+            },
+          },
+        },
       },
-      _count: { _all: true },
+      orderBy: { sortOrder: 'asc' },
     }),
     prisma.siteConfig.findMany({ where: { key: { startsWith: 'creamery.' } } }).catch(() => []),
     getPrimaryLocation(),
   ]);
 
-  // Resolve category records for the chip nav (any category in the section
-  // that has at least one visible product at this location). Join groupBy
-  // counts back to the slug/name records via the categoryId we just got.
-  const sectionCategoryIds = sectionCategoryRows.map(r => r.categoryId).filter((x): x is string => !!x);
-  const sectionCategories = sectionCategoryIds.length > 0
-    ? await prisma.category.findMany({
-        where: { id: { in: sectionCategoryIds }, isActive: true },
-        select: { id: true, slug: true, name: true, sortOrder: true },
-        orderBy: { sortOrder: 'asc' },
-      })
-    : [];
-  const countById = new Map(sectionCategoryRows.map(r => [r.categoryId, r._count?._all ?? 0] as [string, number]));
-  const chipCategories = sectionCategories.map(c => ({
-    slug: c.slug,
-    name: c.name,
-    count: countById.get(c.id) ?? 0,
-  }));
+  const chipCategories = chipCategoryRows
+    .map(c => ({ slug: c.slug, name: c.name, count: c._count.products }))
+    .filter(c => c.count > 0);
   const sectionTotal = chipCategories.reduce((sum, c) => sum + c.count, 0);
 
   const session = await getSession();

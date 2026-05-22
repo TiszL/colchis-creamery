@@ -6,6 +6,33 @@ import ContentBlockRenderer from '@/components/content/ContentBlockRenderer';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://colchisfood.com';
 
+// Convert free-form duration strings ("1 hour", "30 min", "1h30m", "PT1H30M",
+// "1:30") into ISO 8601 duration (e.g. "PT1H30M"). Returns null when the input
+// can't be parsed — we'd rather omit the field than emit invalid markup that
+// triggers Google's structured-data validator.
+function toIso8601Duration(input: string | null | undefined): string | null {
+    if (!input) return null;
+    const s = input.trim();
+
+    if (/^PT\d+([HMS]\d*)*$/i.test(s)) return s.toUpperCase();
+
+    const colonMatch = s.match(/^(\d+):(\d+)$/);
+    if (colonMatch) {
+        const h = parseInt(colonMatch[1], 10);
+        const m = parseInt(colonMatch[2], 10);
+        if (h === 0 && m === 0) return null;
+        return `PT${h > 0 ? `${h}H` : ''}${m > 0 ? `${m}M` : ''}`;
+    }
+
+    const lower = s.toLowerCase();
+    const hourMatch = lower.match(/(\d+)\s*(?:h(?:ours?|rs?)?)\b/);
+    const minMatch = lower.match(/(\d+)\s*(?:m(?:in(?:ute)?s?)?)\b/);
+    const hours = hourMatch ? parseInt(hourMatch[1], 10) : 0;
+    const minutes = minMatch ? parseInt(minMatch[1], 10) : 0;
+    if (hours === 0 && minutes === 0) return null;
+    return `PT${hours > 0 ? `${hours}H` : ''}${minutes > 0 ? `${minutes}M` : ''}`;
+}
+
 interface RecipePageProps {
     params: Promise<{ locale: string; slug: string }>;
 }
@@ -28,7 +55,16 @@ export async function generateMetadata({ params }: RecipePageProps): Promise<Met
             siteName: 'Colchis Food',
             url: `${SITE_URL}${canonicalPath}`,
         },
-        alternates: { canonical: `${SITE_URL}${canonicalPath}` },
+        alternates: {
+            canonical: `${SITE_URL}${canonicalPath}`,
+            languages: {
+                'en': `${SITE_URL}/recipes/${slug}`,
+                'ka': `${SITE_URL}/ka/recipes/${slug}`,
+                'ru': `${SITE_URL}/ru/recipes/${slug}`,
+                'es': `${SITE_URL}/es/recipes/${slug}`,
+                'x-default': `${SITE_URL}/recipes/${slug}`,
+            },
+        },
     };
 }
 
@@ -76,41 +112,85 @@ export default async function SingleRecipePage({ params }: RecipePageProps) {
         orderBy: { createdAt: 'desc' },
     });
 
-    // Parse contentBlocks for metadata
+    // Parse contentBlocks for metadata. We track the *raw* parsed object
+    // separately so the JSON-LD below only emits real per-recipe data — the
+    // DEFAULT_INGREDIENTS/STEPS are khachapuri-flavoured visual fallbacks that
+    // would be misleading if published as structured data for an arbitrary recipe.
     let meta = { cuisine: "Traditional", ka: "", pairing: "", diet: [] as string[], ingredients: DEFAULT_INGREDIENTS, steps: DEFAULT_STEPS };
+    let cb: any = null;
     try {
-        const cb = recipe.contentBlocks ? JSON.parse(recipe.contentBlocks) : {};
-        meta = {
-            cuisine: cb.cuisine || "Traditional",
-            ka: cb.ka || "",
-            pairing: cb.pairing || "",
-            diet: cb.diet || [],
-            ingredients: cb.ingredients || DEFAULT_INGREDIENTS,
-            steps: cb.steps || DEFAULT_STEPS,
-        };
+        cb = recipe.contentBlocks ? JSON.parse(recipe.contentBlocks) : null;
+        if (cb) {
+            meta = {
+                cuisine: cb.cuisine || "Traditional",
+                ka: cb.ka || "",
+                pairing: cb.pairing || "",
+                diet: cb.diet || [],
+                ingredients: cb.ingredients || DEFAULT_INGREDIENTS,
+                steps: cb.steps || DEFAULT_STEPS,
+            };
+        }
     } catch { /* use defaults */ }
 
     const serves = recipe.servings || "4";
     const timeLabel = recipe.prepTime || "1 hour";
 
-    // JSON-LD
-    const jsonLd = {
+    // JSON-LD — emit only when we have a real image. Without an image the
+    // Recipe rich result is invalid per Google; better to skip the markup
+    // entirely than publish broken structured data.
+    const prepTimeIso = toIso8601Duration(recipe.prepTime);
+    const cookTimeIso = toIso8601Duration(recipe.cookTime);
+    const totalMinutes = (() => {
+        const parse = (iso: string | null) => {
+            if (!iso) return 0;
+            const h = parseInt(iso.match(/(\d+)H/)?.[1] ?? '0', 10);
+            const m = parseInt(iso.match(/(\d+)M/)?.[1] ?? '0', 10);
+            return h * 60 + m;
+        };
+        return parse(prepTimeIso) + parse(cookTimeIso);
+    })();
+    const totalTimeIso = totalMinutes > 0
+        ? `PT${Math.floor(totalMinutes / 60) > 0 ? `${Math.floor(totalMinutes / 60)}H` : ''}${totalMinutes % 60 > 0 ? `${totalMinutes % 60}M` : ''}`
+        : null;
+    const realIngredients = Array.isArray(cb?.ingredients)
+        ? (cb.ingredients as Array<{ items?: string[] }>).flatMap(g => g.items ?? [])
+        : null;
+    const realSteps = Array.isArray(cb?.steps)
+        ? (cb.steps as Array<{ t: string; d: string }>)
+        : null;
+    const keywords = [meta.cuisine, ...meta.diet, 'Georgian', 'Colchis Food']
+        .filter((k): k is string => !!k && k.length > 0)
+        .join(', ');
+
+    const jsonLd = recipe.imageUrl ? {
         '@context': 'https://schema.org',
         '@type': 'Recipe',
         name: recipe.title,
         description: recipe.description,
-        image: recipe.imageUrl || undefined,
-        ...(recipe.prepTime && { prepTime: `PT${recipe.prepTime.replace(/\s/g, '').toUpperCase()}` }),
+        image: recipe.imageUrl,
+        author: { '@type': 'Organization', name: 'Colchis Food', url: SITE_URL },
+        datePublished: recipe.createdAt.toISOString(),
+        ...(prepTimeIso && { prepTime: prepTimeIso }),
+        ...(cookTimeIso && { cookTime: cookTimeIso }),
+        ...(totalTimeIso && { totalTime: totalTimeIso }),
         ...(recipe.servings && { recipeYield: recipe.servings }),
         recipeCategory: 'Georgian Cuisine',
         recipeCuisine: 'Georgian',
-        author: { '@type': 'Organization', name: 'Colchis Food', url: SITE_URL },
-        datePublished: recipe.createdAt.toISOString(),
-    };
+        keywords,
+        ...(realIngredients && realIngredients.length > 0 && { recipeIngredient: realIngredients }),
+        ...(realSteps && realSteps.length > 0 && {
+            recipeInstructions: realSteps.map((s, i) => ({
+                '@type': 'HowToStep',
+                position: i + 1,
+                name: s.t,
+                text: s.d,
+            })),
+        }),
+    } : null;
 
     return (
         <>
-            <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+            {jsonLd && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />}
             <article>
                 {/* Breadcrumb */}
                 <div className="ch-breadcrumb" style={{ background: "#F5F0E6", padding: "24px 56px 0" }}>

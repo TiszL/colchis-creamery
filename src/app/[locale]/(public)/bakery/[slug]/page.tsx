@@ -29,7 +29,13 @@ export async function generateMetadata({ params }: BakeryPdpProps): Promise<Meta
     description: product.description.slice(0, 160),
     alternates: {
       canonical: `${SITE_URL}${canonicalPath}`,
-      languages: { 'en': `${SITE_URL}/bakery/${slug}`, 'ka': `${SITE_URL}/ka/bakery/${slug}` },
+      languages: {
+        'en': `${SITE_URL}/bakery/${slug}`,
+        'ka': `${SITE_URL}/ka/bakery/${slug}`,
+        'ru': `${SITE_URL}/ru/bakery/${slug}`,
+        'es': `${SITE_URL}/es/bakery/${slug}`,
+        'x-default': `${SITE_URL}/bakery/${slug}`,
+      },
     },
     openGraph: {
       type: 'website',

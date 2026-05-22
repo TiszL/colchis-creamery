@@ -16,7 +16,13 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
         keywords: ['Georgian cheese blog', 'artisanal cheese journal', 'Colchis Food news', 'cheesemaking stories', 'Georgian heritage'],
         alternates: {
             canonical: `${SITE_URL}${canonicalPath}`,
-            languages: { 'en': `${SITE_URL}/journal`, 'ka': `${SITE_URL}/ka/journal` },
+            languages: {
+                'en': `${SITE_URL}/journal`,
+                'ka': `${SITE_URL}/ka/journal`,
+                'ru': `${SITE_URL}/ru/journal`,
+                'es': `${SITE_URL}/es/journal`,
+                'x-default': `${SITE_URL}/journal`,
+            },
         },
         openGraph: {
             type: 'website',

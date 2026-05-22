@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { permanentRedirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import type { Metadata } from "next";
 import { getOgImage, buildOgImages } from "@/lib/seo";
@@ -44,7 +45,13 @@ export async function generateMetadata({ params, searchParams }: ShopPageProps):
     ],
     alternates: {
       canonical: `${SITE_URL}${canonicalPath}`,
-      languages: { 'en': `${SITE_URL}/creamery`, 'ka': `${SITE_URL}/ka/creamery` },
+      languages: {
+        'en': `${SITE_URL}/creamery`,
+        'ka': `${SITE_URL}/ka/creamery`,
+        'ru': `${SITE_URL}/ru/creamery`,
+        'es': `${SITE_URL}/es/creamery`,
+        'x-default': `${SITE_URL}/creamery`,
+      },
     },
     openGraph: {
       type: 'website',
@@ -62,9 +69,18 @@ function parseJSON(value: string | undefined | null) {
   try { return JSON.parse(value); } catch { return null; }
 }
 
-export default async function ShopPage({ params }: ShopPageProps) {
+export default async function ShopPage({ params, searchParams }: ShopPageProps) {
   const { locale } = await params;
+  const { line } = await searchParams;
   const prefix = locale === "en" ? "" : `/${locale}`;
+
+  // Legacy ?line=<slug> URLs → 301 to the dedicated line route. The old
+  // query-string filter was a near-duplicate of /creamery (only the <title>
+  // differed) and triggered Google's "Duplicate canonical" flag; the dedicated
+  // route has line-specific content and is the proper indexable target.
+  if (line) {
+    permanentRedirect(`${prefix}/creamery/line/${line}`);
+  }
 
   // Phase 1 (1f) — scope catalog to the customer's selected location.
   const selectedLocation = await getSelectedLocation();

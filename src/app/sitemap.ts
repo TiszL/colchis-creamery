@@ -36,13 +36,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         ...localizedUrls('/legal/returns', 0.3, 'yearly'),
     ];
 
-    // --- Dynamic: Product Line filtered creamery pages (creamery lines today) ---
+    // --- Dynamic: Product Line landing pages (/creamery/line/<slug>) ---
+    // Real paths with line-specific content (hero + filtered product grid).
+    // Old query-string filter URLs are 301-redirected to these paths.
     const productLines = await prisma.productLine.findMany({
         where: { isActive: true },
-        select: { slug: true, updatedAt: true },
+        select: { slug: true },
     });
     const linePages = productLines.flatMap(l =>
-        localizedUrls(`/creamery?line=${l.slug}`, 0.85, 'daily')
+        localizedUrls(`/creamery/line/${l.slug}`, 0.85, 'weekly')
     );
 
     // --- Dynamic: Products — kind-routed (creamery → /creamery/<slug>, bakery → /bakery/<slug>) ---

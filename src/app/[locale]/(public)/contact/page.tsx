@@ -24,7 +24,7 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
         keywords: ['contact Colchis Food', 'Georgian cheese support', 'wholesale inquiry', 'cheese order help', 'Dublin Ohio cheese'],
         alternates: {
             canonical: `${SITE_URL}${canonicalPath}`,
-            languages: { 'en': `${SITE_URL}/contact`, 'ka': `${SITE_URL}/ka/contact`, 'ru': `${SITE_URL}/ru/contact`, 'es': `${SITE_URL}/es/contact` },
+            languages: { 'en': `${SITE_URL}/contact`, 'ka': `${SITE_URL}/ka/contact`, 'ru': `${SITE_URL}/ru/contact`, 'es': `${SITE_URL}/es/contact`, 'x-default': `${SITE_URL}/contact` },
         },
         openGraph: {
             type: 'website', title: 'Contact Us | Colchis Food',

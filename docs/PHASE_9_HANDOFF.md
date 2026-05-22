@@ -285,7 +285,7 @@ All pushed via `prisma db push` (no `prisma/migrations/` folder used in this rep
 
 ### E2 — Dashboards (✅ done by user)
 
-- E2.1: Stripe production webhook endpoint → `https://colchisfood.com/api/webhooks/stripe` → `whsec_jmqZyPP6AeKX5r2x2yJZEPc05Rzw9ocl` (in Vercel env)
+- E2.1: Stripe production webhook endpoint → `https://colchisfood.com/api/webhooks/stripe` → `whsec_REDACTED_ROTATE_THIS_KEY_IN_STRIPE_DASHBOARD` (in Vercel env)
 - E2.2: DoorDash production webhook → bearer token (in Vercel as `DOORDASH_WEBHOOK_AUTH`)
 - E2.3: Uber Direct production webhook (sandbox-side)
 - E2.4: Resend DNS verified for `noreply.colchisfood.com` (provider: Cloudflare, region: us-east-1, verified May 03)
@@ -321,7 +321,7 @@ All pushed via `prisma db push` (no `prisma/migrations/` folder used in this rep
 - `CRON_SECRET` (fresh)
 - `STRIPE_SECRET_KEY` (`sk_test_` / `rk_test_` — TEST mode for now)
 - `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` (`pk_test_`)
-- `STRIPE_WEBHOOK_SECRET` (`whsec_jmqZyPP6AeKX5r2x2yJZEPc05Rzw9ocl` — from production endpoint, not the dev `whsec_f560...`)
+- `STRIPE_WEBHOOK_SECRET` (`whsec_REDACTED_ROTATE_THIS_KEY_IN_STRIPE_DASHBOARD` — from production endpoint, not the dev `whsec_f560...`)
 - `RESEND_API_KEY`
 - `EMAIL_FROM=hello@noreply.colchisfood.com`
 - `BAKERY_NOTIFICATION_EMAIL=tornikeshergelashvili@gmail.com`

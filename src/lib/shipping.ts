@@ -25,6 +25,7 @@ import { distanceMiles, channelMaxRadius } from './distance';
 import { cartEligibleChannels } from './fulfillment';
 import { doordashCreateQuote, isDoorDashConfigured, UNDELIVERABLE as DD_UNDELIVERABLE } from './doordash';
 import { uberCreateQuote, isUberDirectConfigured, UNDELIVERABLE as UBER_UNDELIVERABLE } from './uber-direct';
+import { easypostGetRate, isEasyPostConfigured } from './easypost';
 import { DeliveryMethod, ProductKind } from '@prisma/client';
 
 /** Phase 8.2: customer address bundle passed into planFulfillment. All fields
@@ -376,6 +377,60 @@ export async function getShippingQuote(opts: {
                 packagingType: packagingFor(opts.deliveryMethod, opts.productKind),
             });
         }
+    }
+
+    // Phase 5 (5b): live UPS / FedEx 2-day rate via EasyPost for NATIONAL_SHIP.
+    // Same graceful-fallback contract as DD/Uber: when EasyPost isn't configured
+    // or the address is incomplete, fall through to LocationChannel.flatFee.
+    const ai = opts.customerAddressInfo;
+    if (
+        opts.deliveryMethod === 'UPS_2DAY'
+        && isEasyPostConfigured()
+        && ai && ai.line1 && ai.city && ai.state && ai.postalCode
+        && loc.postalCode
+    ) {
+        const rate = await easypostGetRate({
+            from: {
+                name: loc.name,
+                street1: loc.addressLine1,
+                street2: loc.addressLine2 || undefined,
+                city: loc.city,
+                state: loc.state,
+                zip: loc.postalCode,
+                country: loc.country || 'US',
+                phone: loc.phone || undefined,
+            },
+            to: {
+                street1: ai.line1,
+                street2: ai.line2,
+                city: ai.city,
+                state: ai.state,
+                zip: ai.postalCode,
+                country: ai.country || 'US',
+                phone: opts.customerPhone || undefined,
+            },
+            // MVP parcel: typical 4-cheese cold-pack box. Replace with cart-
+            // aware dimensions when we add Product.weightOz/dimensions in a
+            // follow-up. Rate is for estimate only; real label is bought at
+            // payment time and may differ if actual weight differs significantly.
+            parcel: { length: 10, width: 8, height: 6, weight: 64 },
+        });
+        if (rate) {
+            const withMarkup = Math.round((rate.feeCents / 100) * (lc.priceMultiplier || 1.0) * 100) / 100;
+            return cacheAndReturn(cacheKey, {
+                locationId: loc.id,
+                locationName: loc.name,
+                deliveryMethod: opts.deliveryMethod,
+                shippingCost: withMarkup,
+                baseShippingCost: withMarkup,
+                isFreeShipping: false,
+                etaMinutes: null, // shown as a delivery date in UI, not minutes
+                distanceMiles: distance,
+                carrier: carrierFor(opts.deliveryMethod),
+                packagingType: packagingFor(opts.deliveryMethod, opts.productKind),
+            });
+        }
+        // EasyPost returned null → fall through to flatFee below.
     }
 
     // Calculate cost: prefer flatFee, fall back to perMileFee × distance

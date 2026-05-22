@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 import { getOgImage, buildOgImages } from "@/lib/seo";
 import Link from "next/link";
 import CreameryClient from "@/components/shop/CreameryClient";
+import { CategoryChips } from "@/components/shop/CategoryChips";
 import { getSession } from "@/lib/session";
 import { getMyAddresses } from "@/app/actions/addresses";
 import { getPrimaryLocation } from "@/lib/business-location";
@@ -18,7 +19,11 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://colchisfood.com';
 
 interface ShopPageProps {
   params: Promise<{ locale: string }>;
-  searchParams: Promise<{ line?: string; category?: string }>;
+  // Phase 9b: `cat` is the canonical Category filter slug (?cat=cheese).
+  // Legacy `category` accepted for backwards compat with old breadcrumb links
+  // that used /creamery?category=<slug>. Legacy `line` still 301s to the
+  // dedicated line route.
+  searchParams: Promise<{ line?: string; category?: string; cat?: string }>;
 }
 
 export async function generateMetadata({ params, searchParams }: ShopPageProps): Promise<Metadata> {
@@ -72,7 +77,7 @@ function parseJSON(value: string | undefined | null) {
 
 export default async function ShopPage({ params, searchParams }: ShopPageProps) {
   const { locale } = await params;
-  const { line } = await searchParams;
+  const { line, category, cat } = await searchParams;
   const prefix = locale === "en" ? "" : `/${locale}`;
 
   // Legacy ?line=<slug> URLs → 301 to the dedicated line route. The old
@@ -83,16 +88,23 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
     permanentRedirect(`${prefix}/creamery/line/${line}`);
   }
 
+  // Phase 9b: support both `cat` (canonical) and `category` (legacy). The
+  // chip nav writes `cat`; old in-app breadcrumb links still use `category`.
+  const activeCat = (cat || category || null) as string | null;
+
   // Phase 1 (1f) — scope catalog to the customer's selected location.
   const selectedLocation = await getSelectedLocation();
   const locationFilter = productCatalogWhereForLocation(selectedLocation);
 
-  const [dbProducts, creameryConfigs, primary] = await Promise.all([
+  const [dbProducts, sectionCategoryRows, creameryConfigs, primary] = await Promise.all([
     prisma.product.findMany({
       where: {
         status: { in: ['ACTIVE', 'COMING_SOON'] },
         isB2cVisible: true,
-        productCategory: { sections: { has: CREAMERY_SECTION } }, // creamery-section products only; bakery has its own page
+        productCategory: {
+          sections: { has: CREAMERY_SECTION },
+          ...(activeCat ? { slug: activeCat } : {}),
+        },
         ...locationFilter,
       },
       orderBy: { name: 'asc' },
@@ -102,9 +114,41 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
 
       },
     }),
+    // Phase 9b — Stage 4: chip nav data. Counts come from a separate groupBy
+    // against the SAME visibility filter as the product query so the chip
+    // labels match what the user actually sees once they click.
+    prisma.product.groupBy({
+      by: ['categoryId'],
+      where: {
+        status: { in: ['ACTIVE', 'COMING_SOON'] },
+        isB2cVisible: true,
+        productCategory: { sections: { has: CREAMERY_SECTION } },
+        ...locationFilter,
+      },
+      _count: { _all: true },
+    }),
     prisma.siteConfig.findMany({ where: { key: { startsWith: 'creamery.' } } }).catch(() => []),
     getPrimaryLocation(),
   ]);
+
+  // Resolve category records for the chip nav (any category in the section
+  // that has at least one visible product at this location). Join groupBy
+  // counts back to the slug/name records via the categoryId we just got.
+  const sectionCategoryIds = sectionCategoryRows.map(r => r.categoryId).filter((x): x is string => !!x);
+  const sectionCategories = sectionCategoryIds.length > 0
+    ? await prisma.category.findMany({
+        where: { id: { in: sectionCategoryIds }, isActive: true },
+        select: { id: true, slug: true, name: true, sortOrder: true },
+        orderBy: { sortOrder: 'asc' },
+      })
+    : [];
+  const countById = new Map(sectionCategoryRows.map(r => [r.categoryId, r._count?._all ?? 0] as [string, number]));
+  const chipCategories = sectionCategories.map(c => ({
+    slug: c.slug,
+    name: c.name,
+    count: countById.get(c.id) ?? 0,
+  }));
+  const sectionTotal = chipCategories.reduce((sum, c) => sum + c.count, 0);
 
   const session = await getSession();
   const isLoggedIn = !!session?.userId;
@@ -195,6 +239,17 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
           </section>
         );
       })()}
+
+      {/* Stage 4: server-rendered Category chip nav. Hidden when only one
+          category exists in the section (single-option chips are noise). */}
+      <CategoryChips
+        basePath="/creamery"
+        prefix={prefix}
+        categories={chipCategories}
+        activeSlug={activeCat}
+        totalCount={sectionTotal}
+        label="Browse the creamery"
+      />
 
       {/* ─── SHOP + BATCH (client — tabs, interactivity) ──────────────── */}
       <CreameryClient

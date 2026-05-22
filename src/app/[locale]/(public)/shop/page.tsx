@@ -20,11 +20,12 @@ type ProductForCard = {
     id: string; sku: string; slug: string; name: string; nameKa: string | null;
     description: string; weight: string | null; tag: string | null;
     status: string; imageUrl: string; priceB2c: string; isCartOrderable: boolean;
-    productCategory: { sections: string[] } | null;
+    productCategory: { slug: string; name: string; sections: string[] } | null;
 };
 import { getTranslations } from "next-intl/server";
 import { getOgImage, buildOgImages } from "@/lib/seo";
 import { getSelectedLocation, productCatalogWhereForLocation } from "@/lib/customer-location";
+import { CategoryChips } from "@/components/shop/CategoryChips";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://colchisfood.com';
 
@@ -43,6 +44,8 @@ function buildTabs(prefix: string): Array<{ id: 'all' | 'creamery' | 'bakery'; l
 
 interface ShopPageProps {
     params: Promise<{ locale: string }>;
+    // Stage 4: ?cat=<slug> filters by Category.slug.
+    searchParams: Promise<{ cat?: string }>;
 }
 
 export async function generateMetadata({ params }: ShopPageProps): Promise<Metadata> {
@@ -82,8 +85,10 @@ function fmtPrice(s: string): string {
     return Number.isInteger(n) ? `$${n}` : `$${n.toFixed(2)}`;
 }
 
-export default async function ShopPage({ params }: ShopPageProps) {
+export default async function ShopPage({ params, searchParams }: ShopPageProps) {
     const { locale } = await params;
+    const { cat: activeCatRaw } = await searchParams;
+    const activeCat = activeCatRaw || null;
     const prefix = locale === 'en' ? '' : `/${locale}`;
     const tabs = buildTabs(prefix);
 
@@ -93,30 +98,63 @@ export default async function ShopPage({ params }: ShopPageProps) {
     const selectedLocation = await getSelectedLocation();
     const locationFilter = productCatalogWhereForLocation(selectedLocation);
 
-    const products = await prisma.product.findMany({
-        where: {
-            status: { in: ['ACTIVE', 'COMING_SOON'] },
-            isActive: true,
-            isB2cVisible: true,
-            ...locationFilter,
-        },
-        orderBy: [{ productCategory: { sortOrder: 'asc' } }, { name: 'asc' }],
-        select: {
-            id: true, sku: true, slug: true, name: true, nameKa: true,
-            description: true, weight: true, tag: true,
-            status: true,
-            imageUrl: true, priceB2c: true, isCartOrderable: true,
-            productCategory: { select: { sections: true } },
-        },
-    });
+    // Stage 4: when a category chip is active, the product query narrows to
+    // that slug. The chip count query (groupBy below) stays unfiltered so the
+    // chip badges always show "what you'd see if you clicked me".
+    const [products, chipRows] = await Promise.all([
+        prisma.product.findMany({
+            where: {
+                status: { in: ['ACTIVE', 'COMING_SOON'] },
+                isActive: true,
+                isB2cVisible: true,
+                ...locationFilter,
+                ...(activeCat ? { productCategory: { slug: activeCat } } : {}),
+            },
+            orderBy: [{ productCategory: { sortOrder: 'asc' } }, { name: 'asc' }],
+            select: {
+                id: true, sku: true, slug: true, name: true, nameKa: true,
+                description: true, weight: true, tag: true,
+                status: true,
+                imageUrl: true, priceB2c: true, isCartOrderable: true,
+                productCategory: { select: { slug: true, name: true, sections: true } },
+            },
+        }),
+        prisma.product.groupBy({
+            by: ['categoryId'],
+            where: {
+                status: { in: ['ACTIVE', 'COMING_SOON'] },
+                isActive: true,
+                isB2cVisible: true,
+                ...locationFilter,
+            },
+            _count: true,
+        }),
+    ]);
 
-    // /shop renders EVERY product. The Creamery and Bakery chips below are
-    // navigation, not in-place filters — they take customers to /creamery
-    // and /bakery (the curated section pages with their own copy + UX).
+    // Map groupBy counts → Category slug/name records for chip nav.
+    const chipCategoryIds = chipRows.map(r => r.categoryId);
+    const chipCategoryRecords = chipCategoryIds.length > 0
+        ? await prisma.category.findMany({
+            where: { id: { in: chipCategoryIds }, isActive: true },
+            select: { id: true, slug: true, name: true, sortOrder: true },
+            orderBy: { sortOrder: 'asc' },
+        })
+        : [];
+    const countById = new Map(chipRows.map(r => [r.categoryId, r._count ?? 0]));
+    const chipCategories = chipCategoryRecords.map(c => ({
+        slug: c.slug,
+        name: c.name,
+        count: countById.get(c.id) ?? 0,
+    }));
+    const sectionTotal = chipCategories.reduce((sum, c) => sum + c.count, 0);
+
+    // /shop renders the filtered product list. The Creamery and Bakery chips
+    // below are navigation, not in-place filters — they take customers to
+    // /creamery and /bakery (the curated section pages with their own copy + UX).
     const filtered = products;
 
     const counts = {
-        all: products.length,
+        all: sectionTotal,
         creamery: products.filter(p => p.productCategory?.sections?.includes('creamery')).length,
         bakery: products.filter(p => p.productCategory?.sections?.includes('bakery')).length,
     };
@@ -159,6 +197,16 @@ export default async function ShopPage({ params }: ShopPageProps) {
                     })}
                 </div>
             </section>
+
+            {/* Stage 4: Category chip filter — refines the grid below by ?cat=<slug>. */}
+            <CategoryChips
+                basePath="/shop"
+                prefix={prefix}
+                categories={chipCategories}
+                activeSlug={activeCat}
+                totalCount={sectionTotal}
+                label="Filter by category"
+            />
 
             {/* Grid */}
             <section style={{ padding: '56px' }}>

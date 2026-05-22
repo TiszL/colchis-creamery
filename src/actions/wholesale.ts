@@ -79,6 +79,10 @@ function sealHeader(subtitle: string): string {
         <tr><td style="height:2px;background:${C.accent};font-size:0;line-height:0;">&nbsp;</td></tr>`;
 }
 
+function divider(): string {
+    return `<tr><td style="background:${C.cream2};padding:0 48px;"><div style="height:1px;background:${C.forest};opacity:0.12;"></div></td></tr>`;
+}
+
 function darkFooter(): string {
     return `
         <tr>
@@ -99,71 +103,117 @@ function buildApplicantConfirmationEmail(contactName: string, companyName: strin
     return emailShell(`
         ${sealHeader('Wholesale Partnership')}
 
-        <!-- Main body on parchment -->
+        <!-- Phase 11 redesign: status banner above the hero, like the
+             "🔔 New wholesale request" sales-team email. Sets expectations
+             instantly — partner sees their request landed before reading. -->
         <tr>
-          <td style="background:${C.cream2};padding:48px 48px 24px;">
-            <p style="margin:0 0 20px;font-family:'Courier New',monospace;font-size:10px;letter-spacing:3px;color:${C.accent2};text-transform:uppercase;">
-              Application Received
-            </p>
-            <h1 style="margin:0 0 24px;font-family:'Georgia',serif;font-size:30px;font-weight:300;color:${C.forest};line-height:1.15;letter-spacing:-0.5px;">
-              Thank you, <em style="color:${C.accent2};font-weight:400;">${contactName}.</em>
-            </h1>
-            <p style="margin:0;font-family:'Georgia',serif;font-size:15px;color:${C.moss};line-height:1.75;font-style:italic;">
-              We've received the partnership application for <strong style="color:${C.forest};font-style:normal;">${companyName}</strong>. Our wholesale team reviews every request personally — expect to hear back within 1–2 business days.
+          <td style="background:${C.accent2};padding:14px 48px;text-align:center;">
+            <p style="margin:0;font-family:'Courier New',monospace;font-size:10px;letter-spacing:4px;color:${C.cream};text-transform:uppercase;">
+              ✓ Application received
             </p>
           </td>
         </tr>
 
-        <!-- Separator -->
-        <tr><td style="background:${C.cream2};padding:0 48px;"><div style="height:1px;background:${C.forest};opacity:0.12;"></div></td></tr>
-
-        <!-- Steps -->
+        <!-- Editorial hero on parchment. Tightened headline + supporting copy. -->
         <tr>
-          <td style="background:${C.cream2};padding:28px 48px 40px;">
-            <p style="margin:0 0 20px;font-family:'Courier New',monospace;font-size:10px;letter-spacing:3px;color:${C.accent2};text-transform:uppercase;">
+          <td style="background:${C.cream2};padding:48px 48px 28px;">
+            <p style="margin:0 0 18px;font-family:'Courier New',monospace;font-size:10px;letter-spacing:3px;color:${C.accent2};text-transform:uppercase;">
+              From our wholesale team
+            </p>
+            <h1 style="margin:0 0 22px;font-family:'Georgia',serif;font-size:32px;font-weight:300;color:${C.forest};line-height:1.12;letter-spacing:-0.5px;">
+              Thank you, <em style="color:${C.accent2};font-weight:400;">${contactName}.</em>
+            </h1>
+            <p style="margin:0 0 14px;font-family:'Georgia',serif;font-size:16px;color:${C.moss};line-height:1.7;">
+              We&apos;ve got the partnership application for <strong style="color:${C.forest};">${companyName}</strong>.
+            </p>
+            <p style="margin:0;font-family:'Georgia',serif;font-size:15px;color:${C.muted};line-height:1.7;font-style:italic;">
+              Every wholesale request is reviewed personally — no auto-replies. You&apos;ll hear back within <strong style="color:${C.forest};font-style:normal;">1–2 business days</strong> from your dedicated account manager.
+            </p>
+          </td>
+        </tr>
+
+        <!-- Featured highlight card — what makes the partnership real -->
+        <tr>
+          <td style="background:${C.cream2};padding:0 48px 32px;">
+            <table width="100%" cellpadding="0" cellspacing="0">
+              <tr>
+                <td style="background:${C.cream};border-left:3px solid ${C.accent};padding:24px 28px;">
+                  <p style="margin:0 0 8px;font-family:'Courier New',monospace;font-size:9px;letter-spacing:3px;color:${C.accent2};text-transform:uppercase;">
+                    What you get
+                  </p>
+                  <p style="margin:0;font-family:'Georgia',serif;font-size:14px;color:${C.moss};line-height:1.7;">
+                    Tiered wholesale pricing · Net-30 terms · Cold-chain shipping · Account manager · Recurring-order automation
+                  </p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        ${divider()}
+
+        <!-- Timeline — same as before but with breathing room + clearer copy -->
+        <tr>
+          <td style="background:${C.cream2};padding:32px 48px 36px;">
+            <p style="margin:0 0 22px;font-family:'Courier New',monospace;font-size:10px;letter-spacing:3px;color:${C.accent2};text-transform:uppercase;">
               What happens next
             </p>
             <table width="100%" cellpadding="0" cellspacing="0">
-              <tr><td style="padding:10px 0;border-bottom:1px solid ${C.forest}0d;">
+              <tr><td style="padding:12px 0;border-bottom:1px solid ${C.forest}0d;">
                 <table cellpadding="0" cellspacing="0"><tr>
-                  <td style="width:28px;font-family:'Georgia',serif;font-size:18px;color:${C.accent};vertical-align:top;font-style:italic;">01</td>
-                  <td style="padding-left:14px;font-family:'Georgia',serif;font-size:14px;color:${C.moss};line-height:1.5;">Application review by our sales team</td>
+                  <td style="width:32px;font-family:'Georgia',serif;font-size:20px;color:${C.accent};vertical-align:top;font-style:italic;">01</td>
+                  <td style="padding-left:14px;">
+                    <p style="margin:0 0 2px;font-family:'Georgia',serif;font-size:14px;color:${C.forest};line-height:1.4;font-weight:700;">Application review</p>
+                    <p style="margin:0;font-family:'Georgia',serif;font-size:13px;color:${C.muted};line-height:1.5;">Sales reads every line. Usually within one business day.</p>
+                  </td>
                 </tr></table>
               </td></tr>
-              <tr><td style="padding:10px 0;border-bottom:1px solid ${C.forest}0d;">
+              <tr><td style="padding:12px 0;border-bottom:1px solid ${C.forest}0d;">
                 <table cellpadding="0" cellspacing="0"><tr>
-                  <td style="width:28px;font-family:'Georgia',serif;font-size:18px;color:${C.accent};vertical-align:top;font-style:italic;">02</td>
-                  <td style="padding-left:14px;font-family:'Georgia',serif;font-size:14px;color:${C.moss};line-height:1.5;">Dedicated account manager reaches out</td>
+                  <td style="width:32px;font-family:'Georgia',serif;font-size:20px;color:${C.accent};vertical-align:top;font-style:italic;">02</td>
+                  <td style="padding-left:14px;">
+                    <p style="margin:0 0 2px;font-family:'Georgia',serif;font-size:14px;color:${C.forest};line-height:1.4;font-weight:700;">Intro call from your account manager</p>
+                    <p style="margin:0;font-family:'Georgia',serif;font-size:13px;color:${C.muted};line-height:1.5;">15 minutes to walk through your needs + answer questions.</p>
+                  </td>
                 </tr></table>
               </td></tr>
-              <tr><td style="padding:10px 0;border-bottom:1px solid ${C.forest}0d;">
+              <tr><td style="padding:12px 0;border-bottom:1px solid ${C.forest}0d;">
                 <table cellpadding="0" cellspacing="0"><tr>
-                  <td style="width:28px;font-family:'Georgia',serif;font-size:18px;color:${C.accent};vertical-align:top;font-style:italic;">03</td>
-                  <td style="padding-left:14px;font-family:'Georgia',serif;font-size:14px;color:${C.moss};line-height:1.5;">Product sampling &amp; pricing discussion</td>
+                  <td style="width:32px;font-family:'Georgia',serif;font-size:20px;color:${C.accent};vertical-align:top;font-style:italic;">03</td>
+                  <td style="padding-left:14px;">
+                    <p style="margin:0 0 2px;font-family:'Georgia',serif;font-size:14px;color:${C.forest};line-height:1.4;font-weight:700;">Sampling &amp; pricing</p>
+                    <p style="margin:0;font-family:'Georgia',serif;font-size:13px;color:${C.muted};line-height:1.5;">We send product samples + a custom price sheet for your volume.</p>
+                  </td>
                 </tr></table>
               </td></tr>
-              <tr><td style="padding:10px 0;">
+              <tr><td style="padding:12px 0;">
                 <table cellpadding="0" cellspacing="0"><tr>
-                  <td style="width:28px;font-family:'Georgia',serif;font-size:18px;color:${C.accent};vertical-align:top;font-style:italic;">04</td>
-                  <td style="padding-left:14px;font-family:'Georgia',serif;font-size:14px;color:${C.moss};line-height:1.5;">Paperless contract &amp; first order</td>
+                  <td style="width:32px;font-family:'Georgia',serif;font-size:20px;color:${C.accent};vertical-align:top;font-style:italic;">04</td>
+                  <td style="padding-left:14px;">
+                    <p style="margin:0 0 2px;font-family:'Georgia',serif;font-size:14px;color:${C.forest};line-height:1.4;font-weight:700;">Sign &amp; place your first order</p>
+                    <p style="margin:0;font-family:'Georgia',serif;font-size:13px;color:${C.muted};line-height:1.5;">Paperless e-sign + access code emailed to you the same day.</p>
+                  </td>
                 </tr></table>
               </td></tr>
             </table>
           </td>
         </tr>
 
-        <!-- CTA -->
+        <!-- Primary CTA — explore products while you wait -->
         <tr>
-          <td style="background:${C.cream2};padding:0 48px 48px;">
+          <td style="background:${C.cream2};padding:0 48px 40px;">
             <table width="100%" cellpadding="0" cellspacing="0">
               <tr>
-                <td style="background:${C.forest};padding:18px 28px;text-align:center;">
-                  <a href="https://colchisfood.com/shop" style="font-family:'Courier New',monospace;font-size:11px;letter-spacing:3px;color:${C.cream};text-decoration:none;text-transform:uppercase;">
-                    Explore our products →
+                <td style="background:${C.forest};padding:20px 28px;text-align:center;">
+                  <a href="https://colchisfood.com/shop" style="display:block;font-family:'Courier New',monospace;font-size:12px;letter-spacing:3px;color:${C.cream};text-decoration:none;text-transform:uppercase;font-weight:700;">
+                    Browse the catalog →
                   </a>
                 </td>
               </tr>
             </table>
+            <p style="margin:14px 0 0;font-family:'Georgia',serif;font-size:12px;color:${C.muted};text-align:center;font-style:italic;">
+              Questions in the meantime? <a href="mailto:sales@colchisfood.com" style="color:${C.accent2};text-decoration:none;">sales@colchisfood.com</a>
+            </p>
           </td>
         </tr>
 

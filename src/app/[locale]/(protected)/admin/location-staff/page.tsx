@@ -19,7 +19,13 @@ async function assignUserToLocationAction(formData: FormData) {
     const role = formData.get("role") as LocationRole;
     if (!email || !locationId || !role) throw new Error("Missing fields");
 
-    const user = await prisma.user.findUnique({ where: { email }, select: { id: true } });
+    // Phase 11: email is no longer globally unique. For location-staff
+    // assignment we look up the FIRST matching user — same-email B2C/B2B
+    // coexistence means there might be two rows, but per-location roles
+    // attach to the User.id regardless of their global role, so picking
+    // either row is acceptable. In practice the admin assigning here
+    // knows which person they mean (single team member, one identity).
+    const user = await prisma.user.findFirst({ where: { email }, select: { id: true } });
     if (!user) throw new Error(`No user found with email ${email}`);
 
     // Idempotent: unique(userId, locationId, role) — duplicate adds no-op via upsert.

@@ -1,11 +1,15 @@
 "use server";
 
 import bcryptjs from "bcryptjs";
+import { randomBytes } from "crypto";
 import { prisma } from "@/lib/db";
 import { setSession, clearSession, getSession } from "@/lib/session";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { sendVerificationEmail, send2FAEmail, generateVerificationCode } from "@/lib/email";
+import {
+    sendVerificationEmail, send2FAEmail, generateVerificationCode,
+    sendB2bEmailChangeRequest, sendB2bEmailChangeUnlocked,
+} from "@/lib/email";
 import { normalizeUSPhone } from "@/lib/phone";
 
 // ── Role Constants ────────────────────────────────────────────────────────────
@@ -19,21 +23,39 @@ const CUSTOMER_ROLES = ["B2C_CUSTOMER", "B2B_PARTNER"];
 export async function loginAction(formData: FormData) {
     const email = formData.get("email") as string;
     const password = formData.get("password") as string;
+    // Phase 11: login form posts a hidden `context` so we can scope the
+    // user lookup to the right role bucket. Same email may map to BOTH a
+    // D2C and a B2B identity now; the form the user submitted dictates
+    // which one we resolve. Defaults to 'b2c' so old/missing context still
+    // returns the retail account.
+    const context = ((formData.get("context") as string) || "b2c").toLowerCase();
 
     if (!email || !password) {
         return { error: "Email and password are required." };
     }
 
     try {
-        const user = await prisma.user.findUnique({ where: { email } });
+        // Phase 11: scope to context-appropriate roles. /b2b/login posts
+        // context=b2b so a partner with both identities lands in their B2B
+        // account; /login posts context=b2c and lands them in retail.
+        const acceptedRoles = context === "b2b"
+            ? ["B2B_PARTNER", "MASTER_ADMIN"]
+            : [...CUSTOMER_ROLES, "MASTER_ADMIN"].filter(r => r !== "B2B_PARTNER");
+
+        const user = await prisma.user.findFirst({
+            where: { email, role: { in: acceptedRoles } },
+        });
 
         if (!user || !user.isActive) {
             return { error: "Invalid credentials." };
         }
 
-        // Customer login should only work for customer roles
-        if (!CUSTOMER_ROLES.includes(user.role) && user.role !== "MASTER_ADMIN") {
-            return { error: "Staff accounts must use the staff login portal." };
+        // Belt-and-suspenders: still verify the role bucket fits this context
+        // even though findFirst already filtered. Defense in depth.
+        if (!acceptedRoles.includes(user.role)) {
+            return context === "b2b"
+                ? { error: "This account isn't a B2B partner. Use the retail sign-in instead." }
+                : { error: "Staff/partner accounts must use the dedicated sign-in portal." };
         }
 
         if (!user.passwordHash) {
@@ -85,9 +107,14 @@ export async function registerB2CAction(formData: FormData) {
     }
 
     try {
-        const existing = await prisma.user.findUnique({ where: { email } });
+        // Phase 11: only block duplicates within the SAME role bucket.
+        // A person who already has a B2B identity at this email can still
+        // open a retail account.
+        const existing = await prisma.user.findFirst({
+            where: { email, role: "B2C_CUSTOMER" },
+        });
         if (existing) {
-            return { error: "An account with this email already exists." };
+            return { error: "A retail account with this email already exists." };
         }
 
         const passwordHash = await bcryptjs.hash(password, 12);
@@ -142,7 +169,12 @@ export async function verifyEmailAction(email: string, code: string) {
     }
 
     try {
-        const user = await prisma.user.findUnique({ where: { email } });
+        // Phase 11: scope to B2C — this flow is only called from the retail
+        // verify-email page. A B2B partner with the same email shouldn't be
+        // resolved here.
+        const user = await prisma.user.findFirst({
+            where: { email, role: "B2C_CUSTOMER" },
+        });
 
         if (!user) {
             return { error: "Account not found." };
@@ -190,7 +222,10 @@ export async function resendVerificationAction(email: string) {
     }
 
     try {
-        const user = await prisma.user.findUnique({ where: { email } });
+        // Phase 11: B2C-only resend flow.
+        const user = await prisma.user.findFirst({
+            where: { email, role: "B2C_CUSTOMER" },
+        });
 
         if (!user) {
             // Don't reveal if email exists or not
@@ -236,7 +271,7 @@ export async function resendVerificationAction(email: string) {
 export async function registerB2BAction(formData: FormData) {
     const accessCode = formData.get("code") as string;
     const companyName = formData.get("company") as string;
-    const email = formData.get("email") as string;
+    const email = (formData.get("email") as string)?.trim().toLowerCase();
     const password = formData.get("password") as string;
 
     if (!accessCode || !companyName || !email || !password || password.length < 8) {
@@ -260,13 +295,20 @@ export async function registerB2BAction(formData: FormData) {
             return { error: "This Access Code has expired." };
         }
 
-        if (validCode.email && validCode.email !== email) {
-            return { error: "This Access Code was not assigned to this email." };
+        // Phase 11: instead of rejecting an email mismatch, initiate an
+        // email-change confirmation flow. The original invitee gets a
+        // confirm-or-deny email; nothing else moves until they click.
+        if (validCode.email && validCode.email.toLowerCase() !== email) {
+            return await stageAccessCodeEmailChange(validCode.id, validCode.email, email, companyName);
         }
 
-        const existing = await prisma.user.findUnique({ where: { email } });
+        // Phase 11: only block duplicate B2B identities with this email.
+        // A D2C account with the same address is fine and stays separate.
+        const existing = await prisma.user.findFirst({
+            where: { email, role: "B2B_PARTNER" },
+        });
         if (existing) {
-            return { error: "An account with this email already exists." };
+            return { error: "A B2B partner account with this email already exists. Sign in instead." };
         }
 
         const passwordHash = await bcryptjs.hash(password, 12);
@@ -280,6 +322,7 @@ export async function registerB2BAction(formData: FormData) {
                 data: {
                     email,
                     passwordHash,
+                    name: companyName, // use companyName as display name fallback
                     companyName,
                     role: "B2B_PARTNER",
                     isActiveB2b: true,
@@ -288,12 +331,115 @@ export async function registerB2BAction(formData: FormData) {
             }),
         ]);
 
-        await setSession(newUser.id, newUser.role, newUser.email, newUser.name || undefined);
+        await setSession(newUser.id, newUser.role, newUser.email, newUser.name || newUser.companyName || undefined);
 
         return { success: true };
     } catch (error) {
         console.error("Register B2B error:", error);
         return { error: "Failed to securely provision B2B partner account." };
+    }
+}
+
+/**
+ * Phase 11 — stage an email-change for a B2B AccessCode and email the
+ * original invitee for confirmation. Returns a "pending" response so the
+ * register page can show the right UX.
+ *
+ * Rate-limit: refuses if a pending change was requested in the last 60s.
+ * The token expires after 24h; an unconfirmed change just lapses and the
+ * code stays locked to the original email until then.
+ */
+async function stageAccessCodeEmailChange(
+    codeId: string,
+    originalEmail: string,
+    requestedEmail: string,
+    companyName: string,
+): Promise<{ pendingApproval: true; originalEmail: string } | { error: string }> {
+    const code = await prisma.accessCode.findUnique({ where: { id: codeId } });
+    if (!code) return { error: "Access code not found." };
+
+    if (code.pendingEmailRequestedAt && Date.now() - code.pendingEmailRequestedAt.getTime() < 60_000) {
+        return { error: "Please wait a moment before requesting another email-change." };
+    }
+
+    const token = randomBytes(24).toString("hex");
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h
+
+    await prisma.accessCode.update({
+        where: { id: codeId },
+        data: {
+            pendingEmail: requestedEmail,
+            pendingEmailToken: token,
+            pendingEmailExpiresAt: expiresAt,
+            pendingEmailRequestedAt: new Date(),
+        },
+    });
+
+    try {
+        await sendB2bEmailChangeRequest({
+            to: originalEmail,
+            originalEmail,
+            requestedEmail,
+            companyName,
+            confirmToken: token,
+            accessCode: code.code,
+        });
+    } catch (e) {
+        console.warn("[stageAccessCodeEmailChange] email send failed:", e instanceof Error ? e.message : e);
+    }
+
+    return { pendingApproval: true, originalEmail };
+}
+
+/**
+ * Phase 11 — magic-link target for the original invitee. Confirms an
+ * in-flight email change: swaps AccessCode.email to the pendingEmail,
+ * clears pending fields, and notifies the new address that registration
+ * is unlocked.
+ */
+export async function confirmAccessCodeEmailChangeAction(token: string): Promise<
+    | { ok: true; accessCode: string; newEmail: string }
+    | { ok: false; error: string }
+> {
+    if (!token || token.length < 32) return { ok: false, error: "Invalid confirmation link." };
+
+    try {
+        const code = await prisma.accessCode.findUnique({ where: { pendingEmailToken: token } });
+        if (!code) return { ok: false, error: "This confirmation link is invalid or already used." };
+
+        if (!code.pendingEmail || !code.pendingEmailExpiresAt) {
+            return { ok: false, error: "No pending email change found for this code." };
+        }
+        if (code.pendingEmailExpiresAt < new Date()) {
+            return { ok: false, error: "This confirmation link has expired. Ask the partner to retry." };
+        }
+        if (code.isUsed) {
+            return { ok: false, error: "This access code has already been redeemed." };
+        }
+
+        const newEmail = code.pendingEmail;
+
+        await prisma.accessCode.update({
+            where: { id: code.id },
+            data: {
+                email: newEmail,
+                pendingEmail: null,
+                pendingEmailToken: null,
+                pendingEmailExpiresAt: null,
+                pendingEmailRequestedAt: null,
+            },
+        });
+
+        try {
+            await sendB2bEmailChangeUnlocked({ to: newEmail, accessCode: code.code });
+        } catch (e) {
+            console.warn("[confirmAccessCodeEmailChange] new-address email failed:", e instanceof Error ? e.message : e);
+        }
+
+        return { ok: true, accessCode: code.code, newEmail };
+    } catch (e) {
+        console.error("[confirmAccessCodeEmailChange] error:", e);
+        return { ok: false, error: "Could not confirm the email change. Please retry." };
     }
 }
 
@@ -310,20 +456,22 @@ export async function staffLoginAction(formData: FormData) {
     }
 
     try {
-        // Support both email and username login
-        let user = await prisma.user.findUnique({ where: { email: loginInput } });
+        // Phase 11: staff login is scoped to staff roles only. A person who
+        // ALSO has a B2C identity at this address shouldn't get picked here.
+        const allowedRoles = [...STAFF_ROLES, "ANALYTICS_VIEWER"];
+
+        // Support both email and username login (username @staff.local).
+        let user = await prisma.user.findFirst({
+            where: { email: loginInput, role: { in: allowedRoles } },
+        });
         if (!user && !loginInput.includes("@")) {
-            user = await prisma.user.findUnique({ where: { email: `${loginInput.toLowerCase()}@staff.local` } });
+            user = await prisma.user.findFirst({
+                where: { email: `${loginInput.toLowerCase()}@staff.local`, role: { in: allowedRoles } },
+            });
         }
 
         if (!user || !user.isActive) {
             return { error: "Invalid credentials." };
-        }
-
-        // Only staff/admin/analytics roles can use staff login
-        const allowedRoles = [...STAFF_ROLES, "ANALYTICS_VIEWER"];
-        if (!allowedRoles.includes(user.role)) {
-            return { error: "This portal is for staff only. Please use the customer login." };
         }
 
         if (!user.passwordHash) {
@@ -392,10 +540,14 @@ export async function verify2FAAction(email: string, code: string) {
     }
 
     try {
-        const user = await prisma.user.findUnique({ where: { email } });
-
+        // Phase 11: 2FA flow is staff-only; scope lookup so a same-email
+        // B2C account isn't surfaced here.
         const staffRoles = ["MASTER_ADMIN", "PRODUCT_MANAGER", "CONTENT_MANAGER", "SALES"];
-        if (!user || !staffRoles.includes(user.role)) {
+        const user = await prisma.user.findFirst({
+            where: { email, role: { in: staffRoles } },
+        });
+
+        if (!user) {
             return { error: "Account not found." };
         }
 
@@ -479,9 +631,13 @@ export async function registerStaffAction(formData: FormData) {
             return { error: "This Access Code was not assigned to this email." };
         }
 
-        const existing = await prisma.user.findUnique({ where: { email } });
+        // Phase 11: scope duplicate check to staff roles only — registerStaff
+        // is used for the legacy /access-codes onboarding flow.
+        const existing = await prisma.user.findFirst({
+            where: { email, role: { in: [...STAFF_ROLES, "ANALYTICS_VIEWER"] } },
+        });
         if (existing) {
-            return { error: "An account with this email already exists." };
+            return { error: "A staff account with this email already exists." };
         }
 
         const passwordHash = await bcryptjs.hash(password, 12);
@@ -742,9 +898,14 @@ export async function createStaffAccountAction(formData: FormData) {
     const email = isEmail ? loginId : loginId ? `${loginId.toLowerCase().replace(/\s+/g, "")}@staff.local` : `viewer-${Date.now()}@viewer.local`;
 
     try {
-        const existing = await prisma.user.findUnique({ where: { email } });
+        // Phase 11: staff creation — scope to staff roles only. Admins
+        // creating staff accounts shouldn't be blocked by a coincidentally-
+        // matching B2C / B2B email.
+        const existing = await prisma.user.findFirst({
+            where: { email, role: { in: [...STAFF_ROLES, "ANALYTICS_VIEWER"] } },
+        });
         if (existing) {
-            return { error: `An account with this ${isEmail ? "email" : "username"} already exists.` };
+            return { error: `A staff account with this ${isEmail ? "email" : "username"} already exists.` };
         }
 
         const tempPassword = generateTempPassword();

@@ -43,16 +43,22 @@ function LoginContent() {
                     router.push("/shop");
                 }
             } else {
+                // Phase 11: this form is the D2C portal — tell loginAction to
+                // scope its lookup to retail (+ master-admin) so a same-email
+                // B2B partner account isn't surfaced here.
+                formData.set("context", "b2c");
                 const result = await loginAction(formData);
                 if (result?.needsVerification) {
                     router.push(`/verify-email?email=${encodeURIComponent(result.email || '')}`);
                 } else if (result?.error) {
                     setError(result.error);
                 } else if (result?.success) {
-                    if (result.role === "B2B_PARTNER") {
-                        router.push("/b2b-portal");
+                    // The retail form won't surface a B2B_PARTNER account anymore
+                    // (filtered server-side), but keep the master-admin shortcut.
+                    if (result.role === "MASTER_ADMIN") {
+                        window.location.assign("/admin");
                     } else {
-                        router.push("/shop");
+                        window.location.assign("/shop");
                     }
                 }
             }

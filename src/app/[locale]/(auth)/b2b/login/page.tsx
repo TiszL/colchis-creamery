@@ -15,13 +15,20 @@ export default function B2BLoginPage() {
 
     const handleSubmit = (formData: FormData) => {
         setError(null);
+        // Phase 11: tell loginAction to scope its lookup to the B2B bucket
+        // so a same-email D2C account isn't picked up here.
+        formData.set("context", "b2b");
         startTransition(async () => {
             const result = await loginAction(formData);
             if (result?.error) {
                 setError(result.error);
             } else if (result?.success) {
-                if (result.role === "B2B_PARTNER" || result.role === "ADMIN") {
-                    router.push("/b2b-portal");
+                if (result.role === "B2B_PARTNER") {
+                    // Full reload picks up the freshly-set auth cookie reliably
+                    // (next-intl router push has occasionally raced on this).
+                    window.location.assign("/b2b-portal");
+                } else if (result.role === "MASTER_ADMIN") {
+                    window.location.assign("/admin");
                 } else {
                     setError("Standard retail accounts cannot access the B2B portal.");
                 }

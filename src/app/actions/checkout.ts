@@ -191,7 +191,11 @@ export async function createCheckoutSession(input: CheckoutInput): Promise<Check
         });
     } else {
         isGuest = true;
-        const existing = await prisma.user.findUnique({ where: { email: input.contact.email } });
+        // Phase 11: guest D2C checkout — scope to retail accounts so a same-
+        // email B2B identity isn't accidentally picked up as the order's User.
+        const existing = await prisma.user.findFirst({
+            where: { email: input.contact.email, role: "B2C_CUSTOMER" },
+        });
         if (existing) {
             userId = existing.id;
             // Phase 9: phone uniqueness — input phone must not belong to a

@@ -1,25 +1,58 @@
 "use client";
 
-import { useTranslations } from "next-intl";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { registerB2BAction } from "@/app/actions/auth";
-import { useState, useTransition } from "react";
-import { useRouter } from "@/i18n/routing";
+import { Suspense, useEffect, useState, useTransition } from "react";
 
-export default function B2BRegisterPage() {
-    const t = useTranslations("auth");
+/**
+ * B2B partner registration. Two entry paths:
+ *
+ * 1. Magic link from the approval email: `/b2b/register?code=X&email=Y` —
+ *    code + email are pre-filled. Partner fills password + company, submits.
+ *
+ * 2. Manual: partner pastes the code from the email body. Same form, no URL.
+ *
+ * If the partner edits the email and submits with one that doesn't match
+ * the code's locked address (e.g. the original employee got the invite but
+ * the owner is signing up), the server stages an email-change request and
+ * the original invitee gets a confirmation email. The form then shows a
+ * "Pending approval" state — the partner can refresh after the original
+ * confirms, and registration proceeds.
+ */
+function B2BRegisterInner() {
+    const searchParams = useSearchParams();
+    const initialCode = searchParams.get("code") || "";
+    const initialEmail = searchParams.get("email") || "";
+
     const [error, setError] = useState<string | null>(null);
+    const [pendingApproval, setPendingApproval] = useState<{ originalEmail: string } | null>(null);
     const [isPending, startTransition] = useTransition();
-    const router = useRouter();
+    const [code, setCode] = useState(initialCode);
+    const [email, setEmail] = useState(initialEmail);
+
+    // Keep state in sync if the search params change (e.g. user clicks
+    // a second magic link in the same tab).
+    useEffect(() => {
+        if (initialCode) setCode(initialCode);
+        if (initialEmail) setEmail(initialEmail);
+    }, [initialCode, initialEmail]);
 
     const handleSubmit = (formData: FormData) => {
         setError(null);
+        setPendingApproval(null);
         startTransition(async () => {
             const result = await registerB2BAction(formData);
-            if (result?.error) {
+            if (!result) return;
+            if ("pendingApproval" in result && result.pendingApproval) {
+                setPendingApproval({ originalEmail: result.originalEmail });
+            } else if ("error" in result && result.error) {
                 setError(result.error);
-            } else if (result?.success) {
-                router.push("/b2b-portal");
+            } else if ("success" in result && result.success) {
+                // Phase 11 — full reload to make sure the freshly-set auth
+                // cookie is picked up. next-intl's router push has been
+                // racey here in the past, causing post-register crashes.
+                window.location.assign("/b2b-portal");
             }
         });
     };
@@ -38,8 +71,27 @@ export default function B2BRegisterPage() {
                     </Link>
                     <span className="text-xs tracking-[0.4em] uppercase opacity-60 mb-4 block">Partner Portal</span>
                     <h1 className="text-4xl font-serif text-white mb-2">Create Account</h1>
-                    <p className="text-gray-400 font-light">Enter your invite code to join the B2B supply network.</p>
+                    <p className="text-gray-400 font-light">
+                        {initialCode
+                            ? "Confirm your details to activate your B2B partner account."
+                            : "Enter your invite code to join the B2B supply network."}
+                    </p>
                 </div>
+
+                {pendingApproval && (
+                    <div className="mb-6 p-5 bg-amber-900/30 text-amber-100 border border-amber-700 text-sm rounded space-y-2">
+                        <p className="font-bold">Confirmation required</p>
+                        <p>
+                            We've emailed <span className="font-mono">{pendingApproval.originalEmail}</span> — the address
+                            this invite was originally sent to — asking them to approve registering with{" "}
+                            <span className="font-mono">{email}</span>.
+                        </p>
+                        <p className="text-xs text-amber-200/80">
+                            Once they approve, refresh this page and your registration will go through.
+                            No password is stored until the change is confirmed.
+                        </p>
+                    </div>
+                )}
 
                 {error && (
                     <div className="mb-6 p-3 bg-red-900/40 text-red-200 border border-red-800 text-sm rounded">
@@ -55,10 +107,16 @@ export default function B2BRegisterPage() {
                             type="text"
                             id="code"
                             name="code"
+                            value={code}
+                            onChange={e => setCode(e.target.value)}
                             placeholder="e.g. COLCHIS-2026-XYZ"
                             className="w-full bg-[#1A1A1A] border border-gray-700 text-white placeholder-gray-600 focus:outline-none focus:border-[#CBA153] focus:ring-1 focus:ring-[#CBA153] p-3 rounded uppercase font-mono tracking-widest"
                             required
+                            readOnly={!!initialCode}
                         />
+                        {initialCode && (
+                            <p className="text-[10px] text-gray-500 mt-1.5">Pre-filled from your invite link.</p>
+                        )}
                     </div>
 
                     <div className="pt-4 border-t border-gray-800">
@@ -81,10 +139,18 @@ export default function B2BRegisterPage() {
                             type="email"
                             id="email"
                             name="email"
+                            value={email}
+                            onChange={e => setEmail(e.target.value)}
                             placeholder="buyer@supermarket.com"
                             className="w-full bg-[#1A1A1A] border border-gray-700 text-white placeholder-gray-600 focus:outline-none focus:border-[#CBA153] focus:ring-1 focus:ring-[#CBA153] p-3 rounded"
                             required
                         />
+                        {initialEmail && (
+                            <p className="text-[10px] text-gray-500 mt-1.5">
+                                Pre-filled — change to register under a different address and we&apos;ll email the
+                                original invitee to confirm.
+                            </p>
+                        )}
                     </div>
 
                     <div>
@@ -121,5 +187,15 @@ export default function B2BRegisterPage() {
 
             </div>
         </main>
+    );
+}
+
+export default function B2BRegisterPage() {
+    // useSearchParams needs to be inside a Suspense boundary in the Next.js
+    // app router because params can be unknown during the first render pass.
+    return (
+        <Suspense fallback={<div className="min-h-screen bg-[#1A1A1A]" />}>
+            <B2BRegisterInner />
+        </Suspense>
     );
 }

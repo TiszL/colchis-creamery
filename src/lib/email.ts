@@ -358,13 +358,33 @@ export async function sendB2bApprovalEmail(
             </td>
           </tr>
 
+          <!-- Phase 11: primary activate-now CTA so the partner doesn't have to retype the code. -->
           <tr>
-            <td style="background:${C.cream2};padding:12px 48px 32px;">
+            <td style="background:${C.cream2};padding:12px 48px 24px;">
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
-                  <td style="background:${C.cream};border:2px solid ${C.accent};padding:32px 20px;text-align:center;">
-                    <p style="margin:0 0 8px;font-family:'Courier New',monospace;font-size:9px;letter-spacing:4px;color:${C.muted};text-transform:uppercase;">B2B Access Code</p>
-                    <p style="margin:0;font-family:'Courier New',monospace;font-size:32px;font-weight:700;letter-spacing:6px;color:${C.forest};">${accessCode}</p>
+                  <td style="background:${C.forest};padding:22px 28px;text-align:center;">
+                    <a href="https://colchisfood.com/b2b/register?code=${encodeURIComponent(accessCode)}&email=${encodeURIComponent(to)}"
+                       style="display:block;font-family:'Courier New',monospace;font-size:13px;letter-spacing:4px;color:${C.cream};text-decoration:none;text-transform:uppercase;font-weight:700;">
+                      Activate Your Account →
+                    </a>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin:14px 0 0;font-family:'Georgia',serif;font-size:12px;color:${C.muted};text-align:center;font-style:italic;">
+                One click — no need to type the code by hand.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Fallback code box (in case link is stripped or partner is forwarding the email). -->
+          <tr>
+            <td style="background:${C.cream2};padding:8px 48px 32px;">
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="background:${C.cream};border:2px solid ${C.accent};padding:24px 20px;text-align:center;">
+                    <p style="margin:0 0 8px;font-family:'Courier New',monospace;font-size:9px;letter-spacing:4px;color:${C.muted};text-transform:uppercase;">Or paste this code manually</p>
+                    <p style="margin:0;font-family:'Courier New',monospace;font-size:26px;font-weight:700;letter-spacing:5px;color:${C.forest};">${accessCode}</p>
                   </td>
                 </tr>
               </table>
@@ -374,41 +394,18 @@ export async function sendB2bApprovalEmail(
           ${divider()}
 
           <tr>
-            <td style="background:${C.cream2};padding:28px 48px 40px;">
-              <p style="margin:0 0 20px;font-family:'Courier New',monospace;font-size:10px;letter-spacing:3px;color:${C.accent2};text-transform:uppercase;">Getting started</p>
-              <table width="100%" cellpadding="0" cellspacing="0">
-                <tr><td style="padding:10px 0;border-bottom:1px solid ${C.forest}0d;">
-                  <table cellpadding="0" cellspacing="0"><tr>
-                    <td style="width:28px;font-family:'Georgia',serif;font-size:18px;color:${C.accent};vertical-align:top;font-style:italic;">01</td>
-                    <td style="padding-left:14px;font-family:'Georgia',serif;font-size:14px;color:${C.moss};line-height:1.5;">Visit <a href="https://colchisfood.com/b2b/register" style="color:${C.accent2};text-decoration:none;">colchisfood.com/b2b/register</a></td>
-                  </tr></table>
-                </td></tr>
-                <tr><td style="padding:10px 0;border-bottom:1px solid ${C.forest}0d;">
-                  <table cellpadding="0" cellspacing="0"><tr>
-                    <td style="width:28px;font-family:'Georgia',serif;font-size:18px;color:${C.accent};vertical-align:top;font-style:italic;">02</td>
-                    <td style="padding-left:14px;font-family:'Georgia',serif;font-size:14px;color:${C.moss};line-height:1.5;">Click <strong>"Register with Access Code"</strong></td>
-                  </tr></table>
-                </td></tr>
-                <tr><td style="padding:10px 0;border-bottom:1px solid ${C.forest}0d;">
-                  <table cellpadding="0" cellspacing="0"><tr>
-                    <td style="width:28px;font-family:'Georgia',serif;font-size:18px;color:${C.accent};vertical-align:top;font-style:italic;">03</td>
-                    <td style="padding-left:14px;font-family:'Georgia',serif;font-size:14px;color:${C.moss};line-height:1.5;">Enter the code above with <strong>${to}</strong></td>
-                  </tr></table>
-                </td></tr>
-                <tr><td style="padding:10px 0;">
-                  <table cellpadding="0" cellspacing="0"><tr>
-                    <td style="width:28px;font-family:'Georgia',serif;font-size:18px;color:${C.accent};vertical-align:top;font-style:italic;">04</td>
-                    <td style="padding-left:14px;font-family:'Georgia',serif;font-size:14px;color:${C.moss};line-height:1.5;">Complete registration and start ordering</td>
-                  </tr></table>
-                </td></tr>
-              </table>
+            <td style="background:${C.cream2};padding:24px 48px 40px;">
+              <p style="margin:0 0 16px;font-family:'Courier New',monospace;font-size:10px;letter-spacing:3px;color:${C.accent2};text-transform:uppercase;">Need to register with a different email?</p>
+              <p style="margin:0;font-family:'Georgia',serif;font-size:13px;color:${C.moss};line-height:1.6;">
+                The activate button above is pre-filled with <strong style="color:${C.forest};">${to}</strong>. If a colleague should register instead, they can change the email on the form — we&apos;ll send a confirmation request to <strong style="color:${C.forest};">${to}</strong> first to make sure the change is intentional.
+              </p>
             </td>
           </tr>
 
           <tr>
             <td style="background:${C.cream2};padding:0 48px 44px;">
               <p style="margin:0 0 16px;font-family:'Georgia',serif;font-size:13px;color:${C.muted};text-align:center;">
-                Code locked to your email · expires in <strong style="color:${C.forest};">30 days</strong>
+                Code locked to this email · expires in <strong style="color:${C.forest};">30 days</strong>
               </p>
               <div style="height:1px;background:${C.forest};opacity:0.08;margin:0 0 16px;"></div>
               <p style="margin:0;font-family:'Georgia',serif;font-size:12px;color:${C.muted};text-align:center;">
@@ -490,6 +487,165 @@ export async function sendB2bRejectionEmail(
     return { success: true, id: data?.id };
   } catch (err: unknown) {
     console.error('[Resend] Error sending B2B rejection email:', err);
+    return { success: false, error: err instanceof Error ? err.message : 'unknown error' };
+  }
+}
+
+// ─── 6. B2B Email-Change Confirmation (Phase 11) ────────────────────────────
+//
+// When a partner tries to register with an email different from the one on
+// the AccessCode, /api/auth's stageAccessCodeEmailChange persists a token
+// + sends this email to the ORIGINAL invitee. Clicking the confirm link
+// runs confirmAccessCodeEmailChangeAction which unlocks registration for
+// the new address.
+
+export async function sendB2bEmailChangeRequest({
+  to,
+  originalEmail,
+  requestedEmail,
+  companyName,
+  confirmToken,
+  accessCode,
+}: {
+  to: string;
+  originalEmail: string;
+  requestedEmail: string;
+  companyName: string;
+  confirmToken: string;
+  accessCode: string;
+}) {
+  const confirmUrl = `https://colchisfood.com/b2b/confirm-email?token=${encodeURIComponent(confirmToken)}`;
+
+  try {
+    const { data, error } = await resend.emails.send({
+      from: getFrom(),
+      to: [to],
+      subject: `Confirm account transfer for ${companyName} — Colchis Food`,
+      html: wrap(`
+          ${sealHead('B2B Account Transfer')}
+
+          <tr>
+            <td style="background:${C.cream2};padding:48px 48px 24px;">
+              <p style="margin:0 0 20px;font-family:'Courier New',monospace;font-size:10px;letter-spacing:3px;color:${C.accent2};text-transform:uppercase;">Action required</p>
+              <h1 style="margin:0 0 20px;font-family:'Georgia',serif;font-size:28px;font-weight:300;color:${C.forest};line-height:1.2;">
+                Someone wants to register <em style="color:${C.accent2};font-weight:400;">${companyName}</em> under a different email.
+              </h1>
+              <p style="margin:0;font-family:'Georgia',serif;font-size:15px;color:${C.moss};line-height:1.75;font-style:italic;">
+                You received an access-code invite at <strong style="color:${C.forest};font-style:normal;">${originalEmail}</strong>. Someone has just started the B2B registration with a different address — they need your approval before we can lock the account to the new email.
+              </p>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="background:${C.cream2};padding:0 48px 28px;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="background:${C.cream};border:1px solid ${C.forest}22;">
+                <tr><td style="padding:16px 20px;border-bottom:1px solid ${C.forest}11;font-family:'Courier New',monospace;font-size:9px;letter-spacing:2px;color:${C.muted};text-transform:uppercase;">Invite originally sent to</td></tr>
+                <tr><td style="padding:0 20px 14px;font-family:'Georgia',serif;font-size:14px;color:${C.forest};">${originalEmail}</td></tr>
+                <tr><td style="padding:14px 20px;border-top:1px solid ${C.forest}11;border-bottom:1px solid ${C.forest}11;font-family:'Courier New',monospace;font-size:9px;letter-spacing:2px;color:${C.muted};text-transform:uppercase;">Requested change to</td></tr>
+                <tr><td style="padding:0 20px 16px;font-family:'Georgia',serif;font-size:14px;color:${C.forest};font-weight:700;">${requestedEmail}</td></tr>
+              </table>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="background:${C.cream2};padding:0 48px 32px;">
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="background:${C.forest};padding:22px 28px;text-align:center;">
+                    <a href="${confirmUrl}" style="display:block;font-family:'Courier New',monospace;font-size:13px;letter-spacing:4px;color:${C.cream};text-decoration:none;text-transform:uppercase;font-weight:700;">
+                      Confirm transfer →
+                    </a>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin:14px 0 0;font-family:'Georgia',serif;font-size:12px;color:${C.muted};text-align:center;font-style:italic;">
+                One click — only the new email will be able to register.
+              </p>
+            </td>
+          </tr>
+
+          ${divider()}
+
+          <tr>
+            <td style="background:${C.cream2};padding:24px 48px 40px;">
+              <p style="margin:0;font-family:'Georgia',serif;font-size:13px;color:${C.moss};line-height:1.6;">
+                <strong style="color:${C.forest};">Didn&apos;t expect this?</strong> Ignore this email — your access code stays locked to <strong style="color:${C.forest};">${originalEmail}</strong> and the request automatically expires in 24 hours.
+              </p>
+            </td>
+          </tr>
+
+          ${darkFoot()}
+      `),
+    });
+    if (error) {
+      console.error('[Resend] Failed to send email-change request:', error);
+      return { success: false, error: error.message };
+    }
+    return { success: true, id: data?.id };
+  } catch (err: unknown) {
+    console.error('[Resend] Error sending email-change request:', err);
+    return { success: false, error: err instanceof Error ? err.message : 'unknown error' };
+  }
+}
+
+/**
+ * Sent to the NEW email once the original recipient confirms the change.
+ * Includes a magic link straight into /b2b/register with the access code
+ * + new email already pre-filled.
+ */
+export async function sendB2bEmailChangeUnlocked({
+  to,
+  accessCode,
+}: {
+  to: string;
+  accessCode: string;
+}) {
+  const registerUrl = `https://colchisfood.com/b2b/register?code=${encodeURIComponent(accessCode)}&email=${encodeURIComponent(to)}`;
+
+  try {
+    const { data, error } = await resend.emails.send({
+      from: getFrom(),
+      to: [to],
+      subject: `Your B2B registration is unlocked — Colchis Food`,
+      html: wrap(`
+          ${sealHead('B2B Partnership')}
+
+          <tr>
+            <td style="background:${C.cream2};padding:48px 48px 24px;">
+              <p style="margin:0 0 20px;font-family:'Courier New',monospace;font-size:10px;letter-spacing:3px;color:${C.accent2};text-transform:uppercase;">Access confirmed</p>
+              <h1 style="margin:0 0 20px;font-family:'Georgia',serif;font-size:28px;font-weight:300;color:${C.forest};line-height:1.2;">
+                You&apos;re cleared to <em style="color:${C.accent2};font-weight:400;">register.</em>
+              </h1>
+              <p style="margin:0;font-family:'Georgia',serif;font-size:15px;color:${C.moss};line-height:1.75;font-style:italic;">
+                The original invite recipient confirmed your email. You can now complete the B2B partner registration with this address.
+              </p>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="background:${C.cream2};padding:0 48px 32px;">
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="background:${C.forest};padding:22px 28px;text-align:center;">
+                    <a href="${registerUrl}" style="display:block;font-family:'Courier New',monospace;font-size:13px;letter-spacing:4px;color:${C.cream};text-decoration:none;text-transform:uppercase;font-weight:700;">
+                      Complete registration →
+                    </a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          ${darkFoot()}
+      `),
+    });
+    if (error) {
+      console.error('[Resend] Failed to send unlock email:', error);
+      return { success: false, error: error.message };
+    }
+    return { success: true, id: data?.id };
+  } catch (err: unknown) {
+    console.error('[Resend] Error sending unlock email:', err);
     return { success: false, error: err instanceof Error ? err.message : 'unknown error' };
   }
 }

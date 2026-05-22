@@ -18,7 +18,10 @@ datasource db {
 
 model User {
   id                String     @id @default(uuid())
-  email             String     @unique
+  // Phase 11: email is no longer globally unique — it's unique PER ROLE.
+  // A real person can have one D2C identity AND one B2B identity sharing
+  // an email; login flows scope by role to disambiguate. See @@unique below.
+  email             String
   passwordHash      String?
   name              String?
   phone             String?    @unique
@@ -59,6 +62,10 @@ model User {
   // sales-manager assignments. Both nullable — a normal user has neither.
   b2bPartner            B2bPartner?
   b2bPartnersOwned      B2bPartner[]    @relation("AssignedSales")
+
+  // Phase 11: scope email uniqueness to (email, role) so a person can hold
+  // both a D2C and a B2B identity with the same address.
+  @@unique([email, role])
 }
 
 // Phase 2 — Per-location operator roles. A user can hold multiple roles at
@@ -677,6 +684,17 @@ model AccessCode {
   isUsed     Boolean   @default(false)
   createdAt  DateTime  @default(now())
   expiresAt  DateTime?
+
+  // Phase 11: staged email-change. When a partner tries to register with an
+  // email different from `email` (the address the invite was sent to), we
+  // don't reject — we store the new address here + a confirmation token,
+  // and email the ORIGINAL address asking them to approve. Clicking confirm
+  // updates `email = pendingEmail` and clears these fields, unlocking
+  // registration for the new address.
+  pendingEmail            String?
+  pendingEmailToken       String?  @unique
+  pendingEmailExpiresAt   DateTime?
+  pendingEmailRequestedAt DateTime?
 }
 
 // ─── AnalyticsPin ────────────────────────────────────────────────────────────

@@ -89,8 +89,9 @@ export async function GET(req: NextRequest) {
         if (account) {
             user = account.user;
         } else {
-            // Check if email somehow matches
-            user = await prisma.user.findUnique({ where: { email } });
+            // Check if email somehow matches. Phase 11: scope to B2C — social
+            // login is retail-only; partners use password at /b2b/login.
+            user = await prisma.user.findFirst({ where: { email, role: "B2C_CUSTOMER" } });
 
             if (!user) {
                 user = await prisma.user.create({

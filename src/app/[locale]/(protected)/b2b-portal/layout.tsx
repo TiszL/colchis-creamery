@@ -16,8 +16,14 @@ export default async function B2BLayout({
     const token = await getSessionToken();
     const session = token ? await verifyToken(token) : null;
 
-    if (!session || (session.role !== 'B2B_PARTNER' && session.role !== 'ADMIN')) {
-        redirect(`/${locale}/login`);
+    // Phase 11: replace the stale 'ADMIN' check (never matched — codebase
+    // uses 'MASTER_ADMIN') and route partners to the correct sign-in.
+    // This was the root cause of the post-registration crash: a session
+    // with role=B2B_PARTNER passed, but if anything later returned to
+    // /login (D2C), the partner saw a generic error page instead of their
+    // dashboard.
+    if (!session || (session.role !== 'B2B_PARTNER' && session.role !== 'MASTER_ADMIN')) {
+        redirect(`/${locale}/b2b/login`);
     }
 
     // Fetch company name for display

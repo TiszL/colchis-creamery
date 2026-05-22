@@ -67,7 +67,8 @@
       "Bash(grep -rn \"/staff\\\\`\" /Users/Tornike/Desktop/Cheese/1/website/src/ --include=\"*.tsx\" --include=\"*.ts\")",
       "Bash(grep -rn \"locale}/staff\\\\`\" /Users/Tornike/Desktop/Cheese/1/website/src/ --include=\"*.tsx\" --include=\"*.ts\")",
       "Bash(mkdir -p /Users/Tornike/Desktop/Cheese/1/website/src/app/\\\\[locale\\\\]/\\\\\\(protected\\\\\\)/b2b-portal/order/success)",
-      "mcp__mcp-registry__search_mcp_registry"
+      "mcp__mcp-registry__search_mcp_registry",
+      "Bash(mkdir -p /Users/Tornike/Desktop/Cheese/1/website/src/app/\\\\[locale\\\\]/\\\\\\(auth\\\\\\)/b2b/confirm-email)"
     ]
   }
 }

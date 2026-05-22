@@ -51,9 +51,12 @@ export async function GET(req: NextRequest) {
             return NextResponse.redirect(new URL("/login?error=EmailRequired", siteUrl));
         }
 
-        // 3. Find or create user
-        let user = await prisma.user.findUnique({
-            where: { email: userData.email }
+        // 3. Find or create user. Phase 11: social login is a retail-side
+        // flow — scope to B2C so a same-email B2B partner identity isn't
+        // returned here. A partner can still sign into the portal via
+        // password at /b2b/login.
+        let user = await prisma.user.findFirst({
+            where: { email: userData.email, role: "B2C_CUSTOMER" }
         });
 
         if (!user) {

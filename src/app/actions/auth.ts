@@ -899,6 +899,83 @@ export async function quickResetPasswordAction(userId: string) {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
+// Admin: global role + per-location role assignment (Stage 2 unified staff)
+// ──────────────────────────────────────────────────────────────────────────────
+
+const ASSIGNABLE_GLOBAL_ROLES = [
+    "PRODUCT_MANAGER", "CONTENT_MANAGER", "SALES",
+    "ANALYTICS_VIEWER", "B2C_CUSTOMER",
+] as const;
+
+export async function changeUserGlobalRoleAction(userId: string, newRole: string) {
+    const session = await getSession();
+    if (!session || session.role !== "MASTER_ADMIN") return { error: "Unauthorized." };
+    if (!ASSIGNABLE_GLOBAL_ROLES.includes(newRole as any)) {
+        return { error: "Invalid role." };
+    }
+
+    try {
+        const user = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+        if (!user) return { error: "User not found." };
+        // Refuse to demote/promote master admins from this surface — they
+        // must be managed via the Security page so the elevation chain is
+        // deliberate and audited separately.
+        if (user.role === "MASTER_ADMIN") return { error: "Master admin role is managed in Security." };
+        if (newRole === "MASTER_ADMIN") return { error: "Promote to master admin from the Security page." };
+
+        await prisma.user.update({ where: { id: userId }, data: { role: newRole } });
+        revalidatePath("/admin/staff");
+        return { success: true };
+    } catch (error) {
+        console.error("Change user global role error:", error);
+        return { error: "Failed to change role." };
+    }
+}
+
+export async function assignLocationRoleAction(formData: FormData) {
+    const session = await getSession();
+    if (!session || session.role !== "MASTER_ADMIN") return { error: "Unauthorized." };
+
+    const userId = formData.get("userId") as string;
+    const locationId = formData.get("locationId") as string;
+    const role = formData.get("role") as string;
+    if (!userId || !locationId || !role) return { error: "Missing fields." };
+
+    const validRoles = ["LOCATION_MANAGER", "LOCATION_FULFILLMENT", "B2B_SALES_MANAGER"];
+    if (!validRoles.includes(role)) return { error: "Invalid location role." };
+
+    try {
+        await prisma.userLocation.upsert({
+            where: { userId_locationId_role: { userId, locationId, role: role as any } },
+            update: {},
+            create: { userId, locationId, role: role as any },
+        });
+        revalidatePath("/admin/staff");
+        revalidatePath("/admin/location-staff");
+        return { success: true };
+    } catch (error) {
+        console.error("Assign location role error:", error);
+        return { error: "Failed to assign role." };
+    }
+}
+
+export async function removeLocationRoleAction(userLocationId: string) {
+    const session = await getSession();
+    if (!session || session.role !== "MASTER_ADMIN") return { error: "Unauthorized." };
+    if (!userLocationId) return { error: "Missing id." };
+
+    try {
+        await prisma.userLocation.delete({ where: { id: userLocationId } });
+        revalidatePath("/admin/staff");
+        revalidatePath("/admin/location-staff");
+        return { success: true };
+    } catch (error) {
+        console.error("Remove location role error:", error);
+        return { error: "Failed to remove role." };
+    }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
 // Logout
 // ──────────────────────────────────────────────────────────────────────────────
 

@@ -22,8 +22,8 @@ const NAV_ITEMS = [
     { label: 'Website Content', href: '/admin/website', icon: Globe },
     { label: '  ↳ Recipes', href: '/admin/website/recipes', icon: FileText },
     { label: '  ↳ Journal', href: '/admin/website/articles', icon: FileText },
-    { label: 'Analytics',         href: '/admin/analytics',         icon: BarChart3 },
-    { label: 'Analytics Control', href: '/admin/analytics-control', icon: BarChart3 },
+    { label: 'Sales & Inventory', href: '/admin/sales-reports',     icon: BarChart3 },
+    { label: 'Prospect Map',      href: '/admin/analytics-control', icon: BarChart3 },
     { label: 'Security Settings', href: '/admin/security', icon: Shield },
 ];
 

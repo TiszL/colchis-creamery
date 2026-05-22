@@ -71,7 +71,7 @@ export default async function AdminAnalyticsPage({
                         {PERIOD_OPTIONS.map(p => (
                             <Link
                                 key={p.value}
-                                href={`${prefix}/admin/analytics?period=${p.value}`}
+                                href={`${prefix}/admin/sales-reports?period=${p.value}`}
                                 className={`px-3 py-1.5 text-[11px] font-mono uppercase tracking-wider ${p.value === period.value ? "bg-[#B96A3D] text-black" : "text-gray-400 hover:text-white"}`}
                             >
                                 {p.label.replace("Last ", "")}

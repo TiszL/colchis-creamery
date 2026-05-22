@@ -21,7 +21,10 @@
       "Bash(sed -n '52,60p' \"src/app/[locale]/\\(protected\\)/admin/orders/[id]/page.tsx\")",
       "Bash(sed -n '50,60p' \"src/app/[locale]/\\(protected\\)/admin/orders/[id]/page.tsx\")",
       "Bash(sed -n '98,140p' src/lib/shipping.ts)",
-      "Bash(sed -n '635,645p' src/lib/shipping.ts)"
+      "Bash(sed -n '635,645p' src/lib/shipping.ts)",
+      "Bash(mkdir -p \"src/app/[locale]/\\(protected\\)/admin/sales-reports\")",
+      "Bash(git mv *)",
+      "Bash(rmdir \"src/app/[locale]/\\(protected\\)/admin/analytics\")"
     ]
   }
 }

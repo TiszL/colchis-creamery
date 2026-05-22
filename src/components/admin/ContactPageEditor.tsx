@@ -195,9 +195,9 @@ export default function ContactPageEditor({ initial }: Props) {
             {/* HOURS */}
             <Section title="Hours table" subtitle="The 'Counter hours' card in the sidebar">
                 {hours.map((row, i) => (
-                    <div key={i} className="flex items-center gap-3">
-                        <input value={row.day} onChange={e => { const next = [...hours]; next[i] = { ...row, day: e.target.value }; setHours(next); }} className={inputCls + ' w-32'} placeholder="Day(s)" />
-                        <input value={row.hours} onChange={e => { const next = [...hours]; next[i] = { ...row, hours: e.target.value }; setHours(next); }} className={inputCls + ' flex-1'} placeholder="Hours" />
+                    <div key={i} className="flex flex-wrap items-center gap-3">
+                        <input value={row.day} onChange={e => { const next = [...hours]; next[i] = { ...row, day: e.target.value }; setHours(next); }} className={inputCls + ' w-full sm:w-32'} placeholder="Day(s)" />
+                        <input value={row.hours} onChange={e => { const next = [...hours]; next[i] = { ...row, hours: e.target.value }; setHours(next); }} className={inputCls + ' flex-1 min-w-[140px]'} placeholder="Hours" />
                         <button onClick={() => setHours(hours.filter((_, j) => j !== i))} className="text-[#A8312C] hover:text-[#F5F0E6] p-1" disabled={hours.length <= 1}>
                             <Trash2 className="w-3.5 h-3.5" />
                         </button>

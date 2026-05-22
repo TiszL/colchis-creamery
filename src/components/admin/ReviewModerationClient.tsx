@@ -136,7 +136,7 @@ export default function ReviewModerationClient({ reviews: initialReviews, pendin
             </div>
 
             {/* Filter Tabs */}
-            <div className="flex gap-2 mb-6 flex-wrap">
+            <div className="flex gap-2 gap-y-2 mb-6 flex-wrap">
                 {(['ALL', 'FLAGGED', 'PENDING', 'APPROVED', 'REJECTED'] as const).map((tab) => (
                     <button
                         key={tab}

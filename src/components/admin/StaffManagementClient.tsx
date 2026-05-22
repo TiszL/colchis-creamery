@@ -285,12 +285,12 @@ export default function StaffManagementClient({ initialStaff }: { initialStaff: 
                                 </select>
                             </div>
                         </div>
-                        <div className="flex items-center gap-4 pt-2 border-t border-[#ffffff0A]">
+                        <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-[#ffffff0A]">
                             <button type="submit" disabled={isPending}
                                 className="bg-[#B96A3D] text-black font-bold uppercase tracking-widest text-xs py-3 px-6 hover:bg-white transition-all disabled:opacity-50">
                                 {isPending ? "Creating..." : "Create Account"}
                             </button>
-                            <span className="text-gray-600 text-xs">A temporary password will be generated and displayed after creation.</span>
+                            <span className="text-gray-600 text-xs flex-1 min-w-[200px]">A temporary password will be generated and displayed after creation.</span>
                         </div>
                     </form>
                 </div>

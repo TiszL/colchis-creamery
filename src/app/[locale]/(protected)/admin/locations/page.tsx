@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import LocationsClient from '@/components/admin/LocationsClient';
 import { LocationType, DeliveryMethod, SalesChannel } from '@prisma/client';
+import { LocationConnectPanel } from '@/components/admin/LocationConnectPanel';
 
 export const dynamic = 'force-dynamic';
 
@@ -242,19 +243,33 @@ export default async function AdminLocationsPage({ params }: { params: Promise<{
         })),
     }));
 
+    // Phase 4 (4e) — Connect status panel feeds off the same locations list.
+    const connectRows = locations.map(l => ({
+        id: l.id,
+        name: l.name,
+        city: l.city,
+        state: l.state,
+        stripeConnectAccountId: l.stripeConnectAccountId,
+        stripeOnboardingStatus: l.stripeOnboardingStatus,
+        stripeOnboardingUpdatedAt: l.stripeOnboardingUpdatedAt ? l.stripeOnboardingUpdatedAt.toISOString() : null,
+    }));
+
     return (
-        <LocationsClient
-            locations={serialized}
-            locationTypes={LOCATION_TYPES}
-            fulfillmentChannels={FULFILLMENT_CHANNELS}
-            salesChannels={SALES_CHANNELS}
-            apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY || ''}
-            locale={locale}
-            saveAction={saveLocationAction}
-            deleteAction={deleteLocationAction}
-            toggleActiveAction={toggleActiveAction}
-            setPrimaryAction={setPrimaryLocationAction}
-            moveAction={moveLocationAction}
-        />
+        <>
+            <LocationConnectPanel locations={connectRows} />
+            <LocationsClient
+                locations={serialized}
+                locationTypes={LOCATION_TYPES}
+                fulfillmentChannels={FULFILLMENT_CHANNELS}
+                salesChannels={SALES_CHANNELS}
+                apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY || ''}
+                locale={locale}
+                saveAction={saveLocationAction}
+                deleteAction={deleteLocationAction}
+                toggleActiveAction={toggleActiveAction}
+                setPrimaryAction={setPrimaryLocationAction}
+                moveAction={moveLocationAction}
+            />
+        </>
     );
 }

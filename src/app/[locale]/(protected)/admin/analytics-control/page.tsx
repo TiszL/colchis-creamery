@@ -170,7 +170,7 @@ export default async function AnalyticsControlPage({ params, searchParams }: { p
                                         <td className="p-3 text-right">
                                             <form action={deletePin}>
                                                 <input type="hidden" name="id" value={pin.id} />
-                                                <button type="submit" className="text-gray-600 hover:text-red-400 transition-colors p-2 rounded hover:bg-red-400/10 opacity-0 group-hover:opacity-100">
+                                                <button type="submit" className="text-gray-600 hover:text-red-400 transition-colors p-2 rounded hover:bg-red-400/10 opacity-100 md:opacity-0 md:group-hover:opacity-100">
                                                     <Trash2 className="w-4 h-4" />
                                                 </button>
                                             </form>
@@ -190,7 +190,7 @@ export default async function AnalyticsControlPage({ params, searchParams }: { p
 
                 {/* Pagination */}
                 {totalPages > 1 && (
-                    <div className="flex items-center justify-between px-5 py-3 border-t border-[#ffffff0A] text-xs text-gray-500">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-5 py-3 border-t border-[#ffffff0A] text-xs text-gray-500">
                         <span>Page {currentPage} of {totalPages} ({totalCount} records)</span>
                         <div className="flex gap-2">
                             {currentPage > 1 && (

@@ -65,14 +65,14 @@ export default async function AdminAnalyticsPage({
                     </h1>
                     <p className="text-sm text-gray-500">Revenue, margin, inventory turn, and AR — org-wide.</p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center flex-wrap gap-2">
                     {/* Period selector via plain links — fully server-rendered */}
                     <div className="flex items-center gap-1 bg-[#161616] border border-[#ffffff0A]">
                         {PERIOD_OPTIONS.map(p => (
                             <Link
                                 key={p.value}
                                 href={`${prefix}/admin/sales-reports?period=${p.value}`}
-                                className={`px-3 py-1.5 text-[11px] font-mono uppercase tracking-wider ${p.value === period.value ? "bg-[#B96A3D] text-black" : "text-gray-400 hover:text-white"}`}
+                                className={`px-2 sm:px-3 py-1.5 text-[10px] sm:text-[11px] font-mono uppercase tracking-wider ${p.value === period.value ? "bg-[#B96A3D] text-black" : "text-gray-400 hover:text-white"}`}
                             >
                                 {p.label.replace("Last ", "")}
                             </Link>
@@ -88,7 +88,7 @@ export default async function AdminAnalyticsPage({
             </header>
 
             {/* Top-line tiles */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
                 <Tile label="Revenue (period)"  value={fmtMoney(summary.totalCents)}    tone="green" />
                 <Tile label="Orders"            value={summary.orderCount.toString()}   tone="neutral" />
                 <Tile label="B2C / B2B"         value={`${fmtMoney(summary.b2cCents)} · ${fmtMoney(summary.b2bCents)}`} tone="blue" small />

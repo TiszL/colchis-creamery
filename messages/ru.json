@@ -67,7 +67,12 @@
     "flavorProfile": "Вкусовой профиль",
     "pairsWith": "Хорошо сочетается с",
     "weight": "Вес",
-    "ingredients": "Ингредиенты"
+    "ingredients": "Ингредиенты",
+    "all": "Все",
+    "filterByCategory": "Фильтр по категории",
+    "browseCreamery": "Каталог сыра",
+    "browseBakery": "Каталог выпечки",
+    "filteredView": "Отфильтровано"
   },
   "cart": {
     "title": "Корзина",

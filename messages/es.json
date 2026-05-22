@@ -67,7 +67,12 @@
     "flavorProfile": "Perfil de sabor",
     "pairsWith": "Marida bien con",
     "weight": "Peso",
-    "ingredients": "Ingredientes"
+    "ingredients": "Ingredientes",
+    "all": "Todos",
+    "filterByCategory": "Filtrar por categoría",
+    "browseCreamery": "Explorar la cremería",
+    "browseBakery": "Explorar la panadería",
+    "filteredView": "Filtrado"
   },
   "cart": {
     "title": "Carrito de compras",

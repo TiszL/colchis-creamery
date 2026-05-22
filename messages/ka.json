@@ -67,7 +67,12 @@
     "flavorProfile": "გემოს პროფილი",
     "pairsWith": "კარგად შეერწყმის",
     "weight": "წონა",
-    "ingredients": "ინგრედიენტები"
+    "ingredients": "ინგრედიენტები",
+    "all": "ყველა",
+    "filterByCategory": "კატეგორიის ფილტრი",
+    "browseCreamery": "კრემერი",
+    "browseBakery": "ცომეული",
+    "filteredView": "გაფილტრული"
   },
   "cart": {
     "title": "სასყიდლო კალათა",

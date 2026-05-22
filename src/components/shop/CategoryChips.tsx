@@ -18,8 +18,12 @@ interface CategoryChipsProps {
     activeSlug: string | null;
     /** Total product count for the "All" chip. */
     totalCount: number;
-    /** Section label shown in the eyebrow above the chips (e.g. "Browse by category"). */
+    /** Eyebrow label shown above the chip row. Translated server-side by the
+     *  caller and passed in — keeps this component i18n-agnostic. */
     label?: string;
+    /** Label for the "show everything" chip. Defaults to "All" (English) when
+     *  omitted so existing callers don't break. */
+    allLabel?: string;
 }
 
 /**
@@ -39,6 +43,7 @@ export function CategoryChips({
     activeSlug,
     totalCount,
     label = "Browse by category",
+    allLabel = "All",
 }: CategoryChipsProps) {
     if (categories.length <= 1) return null;
 
@@ -74,7 +79,7 @@ export function CategoryChips({
                         overflowX: "auto",
                     }}
                 >
-                    <CategoryChip href={allHref} active={!activeSlug} label="All" count={totalCount} />
+                    <CategoryChip href={allHref} active={!activeSlug} label={allLabel} count={totalCount} />
                     {categories.map(c => (
                         <CategoryChip
                             key={c.slug}

@@ -68,7 +68,12 @@
     "flavorProfile": "Flavor Profile",
     "pairsWith": "Pairs Well With",
     "weight": "Weight",
-    "ingredients": "Ingredients"
+    "ingredients": "Ingredients",
+    "all": "All",
+    "filterByCategory": "Filter by category",
+    "browseCreamery": "Browse the creamery",
+    "browseBakery": "Browse the bakery",
+    "filteredView": "Filtered"
   },
   "cart": {
     "title": "Shopping Cart",

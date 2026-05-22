@@ -79,6 +79,9 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
   const { locale } = await params;
   const { line, category, cat } = await searchParams;
   const prefix = locale === "en" ? "" : `/${locale}`;
+  // Stage 4 i18n: fetch translations for chip nav labels — falls back to
+  // English keys if the locale file is missing them.
+  const t = await getTranslations({ locale, namespace: "shop" });
 
   // Legacy ?line=<slug> URLs → 301 to the dedicated line route. The old
   // query-string filter was a near-duplicate of /creamery (only the <title>
@@ -239,7 +242,8 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
         categories={chipCategories}
         activeSlug={activeCat}
         totalCount={sectionTotal}
-        label="Browse the creamery"
+        label={t('browseCreamery')}
+        allLabel={t('all')}
       />
 
       {/* ─── SHOP + BATCH (client — tabs, interactivity) ──────────────── */}

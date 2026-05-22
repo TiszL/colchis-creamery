@@ -91,6 +91,8 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
     const activeCat = activeCatRaw || null;
     const prefix = locale === 'en' ? '' : `/${locale}`;
     const tabs = buildTabs(prefix);
+    // Stage 4 i18n
+    const tShop = await getTranslations({ locale, namespace: 'shop' });
 
     // Phase 1 (1f) — scope catalog to the customer's selected location.
     // When no location is picked, the picker auto-defaults to the primary
@@ -202,7 +204,8 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
                 categories={chipCategories}
                 activeSlug={activeCat}
                 totalCount={sectionTotal}
-                label="Filter by category"
+                label={tShop('filterByCategory')}
+                allLabel={tShop('all')}
             />
 
             {/* Grid */}

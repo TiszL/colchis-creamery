@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { getMyAddresses } from "@/app/actions/addresses";
 import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 import { getPrimaryLocation } from "@/lib/business-location";
 import { getSelectedLocation, productCatalogWhereForLocation } from "@/lib/customer-location";
 import { CategoryChips } from "@/components/shop/CategoryChips";
@@ -39,6 +40,8 @@ export default async function BakeryPage({ params, searchParams }: BakeryPagePro
   const { cat: activeCatRaw } = await searchParams;
   const activeCat = activeCatRaw || null;
   const prefix = locale === 'en' ? '' : `/${locale}`;
+  // Stage 4 i18n
+  const t = await getTranslations({ locale, namespace: 'shop' });
 
   // Hero / delivery / tab labels still come from SiteConfig (admin-editable copy).
   // Menu items now come from the Product DB (Phase 4).
@@ -146,8 +149,9 @@ export default async function BakeryPage({ params, searchParams }: BakeryPagePro
 
     if (activeCat) {
       // Single-category view: flat grid, no hot/frozen tabs.
+      // Prefer the Category display name; fall back to translated "Filtered".
       contentProps.singleSectionItems = mapped;
-      contentProps.singleSectionLabel = activeCategoryLabel ?? activeCat;
+      contentProps.singleSectionLabel = activeCategoryLabel ?? t('filteredView');
     } else {
       const hotItems = mapped.filter((_item, i) => bakeryProducts[i].productCategory?.slug === HOT_CATEGORY_SLUG);
       const frozenItems = mapped.filter((_item, i) => bakeryProducts[i].productCategory?.slug === FROZEN_CATEGORY_SLUG);
@@ -175,7 +179,8 @@ export default async function BakeryPage({ params, searchParams }: BakeryPagePro
         categories={chipCategories}
         activeSlug={activeCat}
         totalCount={sectionTotal}
-        label="Browse the bakery"
+        label={t('browseBakery')}
+        allLabel={t('all')}
       />
 
       <BakeryClient

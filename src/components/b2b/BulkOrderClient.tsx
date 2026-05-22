@@ -10,10 +10,24 @@ interface BulkOrderClientProps {
     discount: number;
 }
 
+type PaymentMethodChoice = 'STRIPE_CARD' | 'STRIPE_ACH' | 'RESOLVE_NET_7' | 'RESOLVE_NET_15' | 'RESOLVE_NET_30' | 'RESOLVE_NET_45';
+
+const PAYMENT_OPTIONS: { value: PaymentMethodChoice; label: string; hint: string }[] = [
+    { value: 'RESOLVE_NET_30', label: 'Resolve · Net 30',  hint: 'Pay in 30 days · credit check' },
+    { value: 'RESOLVE_NET_15', label: 'Resolve · Net 15',  hint: 'Pay in 15 days' },
+    { value: 'RESOLVE_NET_7',  label: 'Resolve · Net 7',   hint: 'Pay in 7 days' },
+    { value: 'RESOLVE_NET_45', label: 'Resolve · Net 45',  hint: 'Pay in 45 days · subject to credit' },
+    { value: 'STRIPE_ACH',     label: 'Pay now · ACH',     hint: 'Bank transfer · 1-3 day settlement' },
+    { value: 'STRIPE_CARD',    label: 'Pay now · Card',    hint: 'Higher fee · instant' },
+];
+
 export default function BulkOrderClient({ products, discount }: BulkOrderClientProps) {
     const router = useRouter();
     const [quantities, setQuantities] = useState<Record<string, number>>({});
     const [isSubmitting, setIsSubmitting] = useState(false);
+    // Phase 6 (6c) — Stripe vs Resolve choice at submit time. Default to
+    // Net 30 since that's the most common B2B term.
+    const [paymentMethod, setPaymentMethod] = useState<PaymentMethodChoice>('RESOLVE_NET_30');
 
     // Filter to only active products with stock > 0
     const availableProducts = products.filter(p => p.isActive && p.stockQuantity > 0);
@@ -62,12 +76,18 @@ export default function BulkOrderClient({ products, discount }: BulkOrderClientP
             const response = await fetch('/api/b2b/order', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ items: orderItems })
+                body: JSON.stringify({ items: orderItems, paymentMethod }),
             });
 
             if (response.ok) {
-                // Redirect back to dashboard on success
-                router.push('/en/b2b-portal'); // Using hardcoded 'en' for simplicity in client component, actual implementation should use next-intl router
+                const data = await response.json().catch(() => ({}));
+                // If Resolve returned a hosted pay URL, send the partner there
+                // so they see the invoice immediately.
+                if (data.invoicePayUrl) {
+                    window.location.href = data.invoicePayUrl;
+                    return;
+                }
+                router.push('/en/b2b-portal');
                 router.refresh();
             } else {
                 alert("Order failed. Please try again.");
@@ -167,6 +187,24 @@ export default function BulkOrderClient({ products, discount }: BulkOrderClientP
                     </div>
 
                     <div className="p-6 bg-gray-900 border-t border-gray-800 space-y-4">
+                        {/* Phase 6 (6c) — payment method choice */}
+                        <div>
+                            <label className="block text-[10px] font-bold text-gray-500 mb-2 uppercase tracking-wider">Payment method</label>
+                            <select
+                                value={paymentMethod}
+                                onChange={e => setPaymentMethod(e.target.value as PaymentMethodChoice)}
+                                className="w-full bg-gray-950 border border-gray-800 text-white py-2 px-3 text-sm rounded focus:outline-none focus:border-[#CBA153]"
+                                disabled={isSubmitting}
+                            >
+                                {PAYMENT_OPTIONS.map(opt => (
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                ))}
+                            </select>
+                            <p className="text-[10px] text-gray-500 mt-1">
+                                {PAYMENT_OPTIONS.find(o => o.value === paymentMethod)?.hint}
+                            </p>
+                        </div>
+
                         <button
                             type="submit"
                             disabled={isOrderEmpty || isSubmitting}
@@ -178,7 +216,11 @@ export default function BulkOrderClient({ products, discount }: BulkOrderClientP
 
                         <div className="text-[10px] text-gray-500 text-center flex flex-col items-center gap-1">
                             <ShieldCheck className="w-4 h-4 text-gray-400" />
-                            <span>This order will be processed as a Net-30 invoice.</span>
+                            <span>
+                                {paymentMethod.startsWith('RESOLVE_')
+                                    ? 'Resolve will issue an invoice with the selected net term.'
+                                    : 'Stripe pay-now flow is being wired — for now the order is placed and sales will follow up.'}
+                            </span>
                         </div>
                     </div>
                 </div>

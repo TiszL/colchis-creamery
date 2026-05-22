@@ -1,10 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma as db } from "@/lib/db";
 import { jwtVerify } from "jose";
+import { B2bPaymentMethod } from "@prisma/client";
+import { createResolveCustomer, createResolveCharge, isResolveConfigured } from "@/lib/resolve";
 
 const SECRET_KEY = new TextEncoder().encode(
     process.env.JWT_SECRET || "dev-secret-change-in-production"
 );
+
+// Phase 6 (6c) — B2B order placement now branches on paymentMethod.
+// Backward compat: omit the field and the order falls through to the
+// legacy Net-30-manual path (paymentStatus=UNPAID, no B2bInvoice).
+const NET_TERM_DAYS: Record<string, number> = {
+    RESOLVE_NET_7: 7,
+    RESOLVE_NET_15: 15,
+    RESOLVE_NET_30: 30,
+    RESOLVE_NET_45: 45,
+};
+
+interface B2bOrderRequestBody {
+    items: { id: string; quantity: number }[];
+    paymentMethod?: B2bPaymentMethod;
+}
 
 export async function POST(req: NextRequest) {
     try {
@@ -17,67 +34,58 @@ export async function POST(req: NextRequest) {
         const userId = payload.userId as string;
         const role = payload.role as string;
 
-        if (role !== "B2B_PARTNER" && role !== "ADMIN") {
+        if (role !== "B2B_PARTNER" && role !== "MASTER_ADMIN" && role !== "ADMIN") {
             return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
 
-        const { items }: { items: { id: string, quantity: number }[] } = await req.json();
+        const body: B2bOrderRequestBody = await req.json();
+        const { items, paymentMethod } = body;
 
         if (!items || items.length === 0) {
             return NextResponse.json({ error: "Empty order" }, { status: 400 });
         }
 
-        // 1. Verify contract discount
+        // 1. Verify contract is signed (existing gate; preserved)
         const user = await db.user.findUnique({
             where: { id: userId },
-            include: { contracts: { where: { status: "SIGNED" }, take: 1 } }
+            include: {
+                contracts: { where: { status: "SIGNED" }, take: 1 },
+                b2bPartner: true,
+            },
         });
-
         if (!user || user.contracts.length === 0) {
             return NextResponse.json({ error: "No active contract found" }, { status: 403 });
         }
 
         const discountPercentage = parseInt(user.contracts[0].discountPercentage, 10) || 0;
 
-        // 2. Wrap all creates & stock updates in a Prisma Transaction (ACID compliance)
-        const result = await db.$transaction(async (tx: any) => {
-
+        // 2. Process items + create order in a transaction
+        const result = await db.$transaction(async tx => {
             let subtotal = 0;
-            const processedItems = [];
+            const processedItems: { productId: string; quantity: number; unitPrice: string }[] = [];
 
-            // 3. Process each item: Check stock, compute price
             for (const item of items) {
                 const product = await tx.product.findUnique({ where: { id: item.id } });
+                if (!product || !product.isActive) throw new Error(`Product ${item.id} is invalid or inactive`);
+                if (product.stockQuantity < item.quantity) throw new Error(`Insufficient stock for ${product.name}`);
 
-                if (!product || !product.isActive) {
-                    throw new Error(`Product ${item.id} is invalid or inactive`);
-                }
-
-                if (product.stockQuantity < item.quantity) {
-                    throw new Error(`Insufficient stock for ${product.name}`);
-                }
-
-                // Deduct stock immediately!
                 await tx.product.update({
                     where: { id: product.id },
-                    data: { stockQuantity: product.stockQuantity - item.quantity }
+                    data: { stockQuantity: product.stockQuantity - item.quantity },
                 });
 
                 const basePrice = parseFloat(product.priceB2b.replace(/[^0-9.-]+/g, "")) || 0;
                 const discountAmount = basePrice * (discountPercentage / 100);
                 const finalPrice = basePrice - discountAmount;
 
-                subtotal += (finalPrice * item.quantity);
-
+                subtotal += finalPrice * item.quantity;
                 processedItems.push({
                     productId: product.id,
                     quantity: item.quantity,
-                    unitPrice: `$${finalPrice.toFixed(2)}`
+                    unitPrice: `$${finalPrice.toFixed(2)}`,
                 });
             }
 
-            // 4. Create the final Order record
-            // By default, it's UNPAID because it's a Net-30 B2B invoice
             const order = await tx.order.create({
                 data: {
                     userId,
@@ -85,19 +93,121 @@ export async function POST(req: NextRequest) {
                     paymentStatus: "UNPAID",
                     orderStatus: "PROCESSING",
                     totalAmount: `$${subtotal.toFixed(2)}`,
-                    orderItems: {
-                        create: processedItems
-                    }
-                }
+                    orderItems: { create: processedItems },
+                },
             });
-
-            return order;
+            return { order, subtotalCents: Math.round(subtotal * 100), totalItemCount: processedItems.reduce((n, i) => n + i.quantity, 0) };
         });
 
-        return NextResponse.json({ success: true, orderId: result.id });
+        const order = result.order;
+        const subtotalCents = result.subtotalCents;
+        const totalItemCount = result.totalItemCount;
 
-    } catch (error: any) {
+        // 3. Phase 6 (6c) — branch on paymentMethod
+        const method: B2bPaymentMethod | undefined = paymentMethod;
+
+        // 3a. Stripe pay-now paths — not yet wired client-side (Elements in the
+        // B2B portal is a focused follow-up). For now, accept the request +
+        // return a clear "coming soon" so the partner doesn't get a silent
+        // legacy Net-30 invoice when they explicitly picked Stripe.
+        if (method === "STRIPE_CARD" || method === "STRIPE_ACH") {
+            return NextResponse.json({
+                success: true,
+                orderId: order.id,
+                paymentStatus: "AWAITING_PAYMENT",
+                note: "Stripe pay-now flow is not yet wired in the B2B portal (Elements integration pending). The order has been placed and will be invoiced. Contact sales to switch payment method.",
+            });
+        }
+
+        // 3b. Resolve net-terms path
+        if (method && NET_TERM_DAYS[method] !== undefined) {
+            const dueDays = NET_TERM_DAYS[method];
+
+            if (!isResolveConfigured()) {
+                console.warn("[b2b/order] Resolve not configured; falling back to legacy Net-30 invoicing for order", order.id);
+                return NextResponse.json({
+                    success: true,
+                    orderId: order.id,
+                    paymentStatus: "UNPAID",
+                    note: "Resolve is not configured. Order falls back to manual Net-30 invoicing.",
+                });
+            }
+
+            // Ensure B2bPartner exists + has resolveCustomerId. Just-in-time
+            // creation per Phase plan Q15 (credit check on first net-terms order).
+            let partner = user.b2bPartner;
+            if (!partner) {
+                partner = await db.b2bPartner.create({
+                    data: {
+                        userId,
+                        companyName: user.companyName || user.name || user.email,
+                    },
+                });
+            }
+
+            if (!partner.resolveCustomerId) {
+                const created = await createResolveCustomer({
+                    partnerId: partner.id,
+                    companyName: partner.companyName,
+                    contactName: user.name || undefined,
+                    contactEmail: user.email,
+                    contactPhone: user.phone || undefined,
+                    businessAddress: partner.businessAddress || undefined,
+                    ein: partner.ein || undefined,
+                });
+                if (!created) {
+                    return NextResponse.json({
+                        success: true,
+                        orderId: order.id,
+                        paymentStatus: "UNPAID",
+                        note: "Could not create Resolve customer. Order falls back to manual invoicing — sales will follow up.",
+                    });
+                }
+                partner = await db.b2bPartner.update({
+                    where: { id: partner.id },
+                    data: { resolveCustomerId: created.customerId, resolveStatusUpdatedAt: new Date() },
+                });
+            }
+
+            const charge = await createResolveCharge({
+                customerId: partner.resolveCustomerId!,
+                amountCents: subtotalCents,
+                dueDays,
+                orderRef: order.id,
+                description: `Order ${order.id.slice(0, 8)} — ${totalItemCount} items`,
+            });
+
+            // Issue B2bInvoice regardless of Resolve outcome — if Resolve
+            // failed, the invoice is on file for ops to chase manually.
+            const dueAt = new Date(Date.now() + dueDays * 24 * 60 * 60 * 1000);
+            const invoice = await db.b2bInvoice.create({
+                data: {
+                    orderId: order.id,
+                    partnerId: partner.id,
+                    amountCents: subtotalCents,
+                    paymentMethod: method,
+                    dueAt,
+                    resolveInvoiceId: charge?.chargeId ?? null,
+                    resolveStatus: charge?.status ?? null,
+                    notes: charge ? null : "Resolve charge creation failed — verify spec + retry",
+                },
+            });
+
+            return NextResponse.json({
+                success: true,
+                orderId: order.id,
+                invoiceId: invoice.id,
+                paymentStatus: "UNPAID",
+                invoicePayUrl: charge?.invoicePayUrl ?? null,
+            });
+        }
+
+        // 3c. Legacy Net-30 path (no paymentMethod provided) — current behavior.
+        return NextResponse.json({ success: true, orderId: order.id, paymentStatus: "UNPAID" });
+
+    } catch (error) {
         console.error("Order processing error:", error);
-        return NextResponse.json({ error: error.message || "Internal Server Error" }, { status: 500 });
+        const msg = error instanceof Error ? error.message : "Internal Server Error";
+        return NextResponse.json({ error: msg }, { status: 500 });
     }
 }

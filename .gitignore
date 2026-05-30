@@ -49,3 +49,6 @@ CLAUDE.local.md
 # Claude Code worktrees
 .claude/worktrees/
 rebrandingmaterials
+
+# Local UX problem screenshots (do not commit)
+colchis current problem screenshots/

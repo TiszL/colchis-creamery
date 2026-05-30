@@ -71,8 +71,9 @@ async function getAccessToken(): Promise<string | null> {
         if (!data.access_token) return null;
         cachedToken = {
             token: data.access_token,
-            // expires_in is seconds; default 30-day window if missing
-            expiresAt: Date.now() + ((data.expires_in ?? 60 * 60 * 24 * 30) * 1000),
+            // expires_in is seconds; if missing, refresh hourly rather than
+            // trusting a possibly-stale/revoked token for 30 days.
+            expiresAt: Date.now() + ((data.expires_in ?? 60 * 60) * 1000),
         };
         return cachedToken.token;
     } catch (err) {

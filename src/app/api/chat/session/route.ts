@@ -102,6 +102,15 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ session: existing, resumed: true });
         }
 
+        // Rate limit anonymous session creation per visitor (serverless-safe,
+        // DB-counted) so the public endpoint can't be spammed into the DB.
+        const recentSessions = await prisma.chatSession.count({
+            where: { visitorId, createdAt: { gte: new Date(Date.now() - 60_000) } },
+        });
+        if (recentSessions >= 3) {
+            return NextResponse.json({ error: 'Too many chat sessions — please wait a moment.' }, { status: 429 });
+        }
+
         // Create new session
         const contactInfo = visitorEmail
             ? visitorEmail

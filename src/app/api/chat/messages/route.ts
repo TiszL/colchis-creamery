@@ -59,6 +59,17 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Session is closed' }, { status: 400 });
         }
 
+        // Lightweight rate limit (serverless-safe, DB-counted): cap visitor
+        // message bursts so the public endpoint can't be flooded.
+        if (sender === 'visitor') {
+            const recent = await prisma.chatMessage.count({
+                where: { sessionId, sender: 'visitor', createdAt: { gte: new Date(Date.now() - 10_000) } },
+            });
+            if (recent >= 8) {
+                return NextResponse.json({ error: 'You are sending messages too quickly.' }, { status: 429 });
+            }
+        }
+
         // A visitor message tied to a registered account must come from that
         // account (or staff). Anonymous sessions are bearer-authed by their
         // unguessable sessionId.

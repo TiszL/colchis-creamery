@@ -384,6 +384,14 @@ async function dispatchDoorDashDeliveries(orderId: string) {
     const firstName = fullName.split(/\s+/)[0] || 'Customer';
     const lastName = fullName.split(/\s+/).slice(1).join(' ') || undefined;
 
+    // Phase 9c: prefer the structured shipping columns (formatted into DD's
+    // single-string address), falling back to the free-text snapshot for legacy
+    // pre-9c orders — matching the Uber path's preference.
+    const structuredDropoff = [order.shippingLine1, order.shippingCity, order.shippingState, order.shippingPostalCode];
+    const dropoffAddress = structuredDropoff.every(Boolean)
+        ? structuredDropoff.join(', ')
+        : (order.shippingAddress || '');
+
     for (const f of order.fulfillments) {
         if (f.deliveryMethod !== 'DOORDASH_DRIVE') continue;
         if (f.externalOrderId) continue; // idempotency — already dispatched
@@ -427,7 +435,7 @@ async function dispatchDoorDashDeliveries(orderId: string) {
                 instructions: loc.notes || undefined,
             },
             dropoff: {
-                address: order.shippingAddress || '',
+                address: dropoffAddress,
                 phone: recipientPhone,
                 firstName,
                 lastName,

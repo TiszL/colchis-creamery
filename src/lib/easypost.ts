@@ -280,12 +280,19 @@ export function verifyEasyPostSignature(rawBody: string, headerValue: string | n
         return true; // dev: accept unsigned
     }
     if (!headerValue) return false;
-    const expected = createHmac('sha256', WEBHOOK_SECRET).update(rawBody).digest('hex');
-    try {
-        return timingSafeEqual(Buffer.from(expected, 'hex'), Buffer.from(headerValue, 'hex'));
-    } catch {
-        return false;
-    }
+    const digest = createHmac('sha256', WEBHOOK_SECRET).update(rawBody).digest();
+    // EasyPost's X-Hmac-Signature may be hex- or base64-encoded depending on the
+    // account/era — accept either (decoding hex-only would reject a valid
+    // base64 signature). Compare as raw strings, timing-safe per candidate.
+    const header = headerValue.trim();
+    return [digest.toString('hex'), digest.toString('base64')].some(expected => {
+        if (expected.length !== header.length) return false;
+        try {
+            return timingSafeEqual(Buffer.from(expected), Buffer.from(header));
+        } catch {
+            return false;
+        }
+    });
 }
 
 /**

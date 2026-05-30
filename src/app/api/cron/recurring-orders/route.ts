@@ -88,7 +88,8 @@ export async function GET(req: Request) {
                     take: 1,
                 });
                 if (!contract) throw new Error("No active signed contract");
-                const discountPct = parseInt(contract.discountPercentage, 10) || 0;
+                // Clamp 0–100 so a malformed contract value can't make a negative total.
+                const discountPct = Math.min(100, Math.max(0, parseInt(contract.discountPercentage, 10) || 0));
 
                 let subtotal = 0;
                 const processed: { productId: string; quantity: number; unitPrice: string }[] = [];

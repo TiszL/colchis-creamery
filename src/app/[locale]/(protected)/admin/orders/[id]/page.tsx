@@ -5,6 +5,7 @@
 // manually (Phase 8 will auto-update via carrier webhooks).
 
 import { prisma as db } from '@/lib/db';
+import { getSession } from '@/lib/session';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
@@ -29,12 +30,27 @@ const NEXT_STATUS: Record<FulfillmentStatus, FulfillmentStatus | null> = {
 
 async function updateFulfillmentStatus(formData: FormData) {
     'use server';
+    // Server Actions are public POST endpoints — the page guard doesn't protect
+    // this. Re-assert master-admin here.
+    const session = await getSession();
+    if (!session || session.role !== 'MASTER_ADMIN') throw new Error('Unauthorized');
+
     const fulfillmentId = formData.get('fulfillmentId') as string | null;
     const nextStatus = formData.get('nextStatus') as string | null;
     const orderId = formData.get('orderId') as string | null;
 
     if (!fulfillmentId || !nextStatus || !orderId) return;
     if (!FULFILLMENT_STATUSES.includes(nextStatus as FulfillmentStatus)) return;
+
+    // Legality: only the single legal forward transition or a cancel — never an
+    // arbitrary jump (e.g. DELIVERED → PENDING) from a forged nextStatus.
+    const current = await db.orderFulfillment.findUnique({
+        where: { id: fulfillmentId },
+        select: { status: true },
+    });
+    if (!current) return;
+    const legalNext = NEXT_STATUS[current.status as FulfillmentStatus];
+    if (nextStatus !== 'CANCELLED' && nextStatus !== legalNext) return;
 
     await db.orderFulfillment.update({
         where: { id: fulfillmentId },

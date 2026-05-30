@@ -60,7 +60,9 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "No active contract found" }, { status: 403 });
         }
 
-        const discountPercentage = parseInt(user.contracts[0].discountPercentage, 10) || 0;
+        // Clamp 0–100: a malformed contract value (>100 or negative) would
+        // otherwise produce a negative line price / invalid Stripe amount.
+        const discountPercentage = Math.min(100, Math.max(0, parseInt(user.contracts[0].discountPercentage, 10) || 0));
 
         // Phase 9c: route each B2B line to a real Location so commitStock can
         // run + write StockMovement (audit) + decrement ProductBatch (FIFO).

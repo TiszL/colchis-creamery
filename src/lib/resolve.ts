@@ -192,7 +192,11 @@ import { createHmac, timingSafeEqual } from 'crypto';
 const WEBHOOK_SECRET = process.env.RESOLVE_WEBHOOK_SECRET;
 
 export function verifyResolveSignature(rawBody: string, headerValue: string | null): boolean {
-    if (!WEBHOOK_SECRET) return true;
+    if (!WEBHOOK_SECRET) {
+        // Fail closed in production — never accept unsigned webhooks live.
+        if (process.env.NODE_ENV === 'production') return false;
+        return true;
+    }
     if (!headerValue) return false;
     const expected = createHmac('sha256', WEBHOOK_SECRET).update(rawBody).digest('hex');
     try {

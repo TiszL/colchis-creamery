@@ -428,6 +428,7 @@ export async function POST(req: NextRequest) {
                     dueAt,
                     resolveInvoiceId: charge?.chargeId ?? null,
                     resolveStatus: charge?.status ?? null,
+                    resolvePayUrl: charge?.invoicePayUrl ?? null,
                     notes: charge ? null : "Resolve charge creation failed — verify spec + retry",
                 },
             });

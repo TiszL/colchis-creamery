@@ -216,6 +216,7 @@ export async function GET(req: Request) {
                         dueAt,
                         resolveInvoiceId: charge?.chargeId ?? null,
                         resolveStatus: charge?.status ?? null,
+                        resolvePayUrl: charge?.invoicePayUrl ?? null,
                         status: B2bInvoiceStatus.PENDING,
                         notes: charge ? null : "Resolve charge failed — retry / verify spec",
                     },

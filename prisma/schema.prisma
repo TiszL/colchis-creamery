@@ -184,6 +184,7 @@ model B2bInvoice {
   // Resolve linkage when paymentMethod ∈ RESOLVE_NET_*.
   resolveInvoiceId  String?
   resolveStatus     String?
+  resolvePayUrl     String?          // persisted Resolve hosted pay link, re-shown to the partner
 
   issuedAt          DateTime         @default(now())
   dueAt             DateTime?        // null for STRIPE_* — pay-now has no due date

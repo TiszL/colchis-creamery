@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Menu, X, LogOut, PackagePlus, LayoutDashboard, Repeat } from 'lucide-react';
+import { Menu, X, LogOut, PackagePlus, LayoutDashboard, Repeat, FileText } from 'lucide-react';
 
 export default function B2BSidebar({
     locale,
@@ -22,6 +22,7 @@ export default function B2BSidebar({
         { label: 'Partner Dashboard', href: `/${locale}/b2b-portal`, icon: LayoutDashboard },
         { label: 'Place Bulk Order', href: `/${locale}/b2b-portal/order`, icon: PackagePlus },
         { label: 'Recurring Orders', href: `/${locale}/b2b-portal/schedules`, icon: Repeat },
+        { label: 'Invoices & Billing', href: `/${locale}/b2b-portal/invoices`, icon: FileText },
     ];
 
     return (

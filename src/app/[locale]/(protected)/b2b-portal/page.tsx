@@ -12,11 +12,12 @@ function money(s: string | null | undefined): string {
     return `$${n.toFixed(2)}`;
 }
 
-export default async function B2BPortalDashboardPage() {
+export default async function B2BPortalDashboardPage({ params }: { params: Promise<{ locale: string }> }) {
+    const { locale } = await params;
     // getSession enforces the live isActive/sessionVersion check (the layout does
     // too); a deactivated/demoted partner is evicted instead of riding the cookie.
     const session = await getSession();
-    if (!session) redirect('/b2b/login');
+    if (!session) redirect(`/${locale}/b2b/login`);
 
     // Active contract = SIGNED AND not expired (matches the order gate).
     const now = new Date();
@@ -40,6 +41,15 @@ export default async function B2BPortalDashboardPage() {
     const activeContract = user?.contracts[0];
     const recentOrders = user?.orders || [];
 
+    // B2B billing summary for the AR widget.
+    const partner = await db.b2bPartner.findUnique({ where: { userId: session.userId }, select: { id: true } });
+    const openInvoices = partner ? await db.b2bInvoice.findMany({
+        where: { partnerId: partner.id, status: { in: ['PENDING', 'OVERDUE'] } },
+        select: { amountCents: true, dueAt: true },
+    }) : [];
+    const outstandingCents = openInvoices.reduce((s, i) => s + i.amountCents, 0);
+    const overdueCents = openInvoices.filter(i => i.dueAt && i.dueAt < now).reduce((s, i) => s + i.amountCents, 0);
+
     return (
         <div className="max-w-5xl mx-auto space-y-8">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -47,11 +57,25 @@ export default async function B2BPortalDashboardPage() {
                     <h1 className="text-3xl font-serif text-[#2C2A29]">Partner Dashboard</h1>
                     <p className="text-gray-500 mt-1">Welcome back, {user?.companyName}.</p>
                 </div>
-                <Link href="./b2b-portal/order" className="bg-[#CBA153] hover:bg-[#b08d47] text-white px-6 py-2.5 rounded-lg font-medium transition shadow-sm flex items-center justify-center gap-2 self-start sm:self-auto">
+                <Link href={`/${locale}/b2b-portal/order`} className="bg-[#CBA153] hover:bg-[#b08d47] text-white px-6 py-2.5 rounded-lg font-medium transition shadow-sm flex items-center justify-center gap-2 self-start sm:self-auto">
                     <Package className="w-4 h-4" />
                     New Bulk Order
                 </Link>
             </div>
+
+            {/* Billing summary — links to the full invoices page */}
+            {partner && (outstandingCents > 0 || overdueCents > 0) && (
+                <Link href={`/${locale}/b2b-portal/invoices`} className="block">
+                    <div className={`rounded-xl p-5 border shadow-sm flex items-center justify-between gap-4 transition hover:border-[#CBA153]/50 ${overdueCents > 0 ? 'bg-red-50 border-red-200' : 'bg-white border-[#E8E6E1]'}`}>
+                        <div>
+                            <div className="text-[10px] font-mono uppercase tracking-wider text-gray-500">Outstanding balance</div>
+                            <div className="text-2xl font-serif text-[#2C2A29] mt-0.5">${(outstandingCents / 100).toFixed(2)}</div>
+                            {overdueCents > 0 && <div className="text-xs text-red-700 mt-1 font-medium">${(overdueCents / 100).toFixed(2)} past due</div>}
+                        </div>
+                        <span className="text-xs font-mono uppercase tracking-wider text-[#CBA153] whitespace-nowrap">View invoices →</span>
+                    </div>
+                </Link>
+            )}
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 

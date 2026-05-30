@@ -202,12 +202,19 @@ html {
 /* Breakpoints: 1100 (laptop) / 900 (tablet) / 640 (mobile) */
 
 /* HEADER */
-@media (max-width: 1100px) {
-  .ch-nav { gap: 16px !important; font-size: 10px !important; }
+/* The full inline nav only fits on wide screens; below 1200px it collapses into
+   the burger drawer (which carries the same links + auth + order), so links are
+   never clipped or wrapped. The compact location chip + cart stay inline. The
+   quick-action CTA (lang/auth/order) stays inline until 900px, then it too lives
+   only in the drawer. */
+@media (max-width: 1320px) {
+  .ch-nav { gap: 14px !important; font-size: 10px !important; }
 }
-@media (max-width: 900px) {
+@media (max-width: 1200px) {
   .ch-nav-desktop { display: none !important; }
   .ch-burger { display: flex !important; }
+}
+@media (max-width: 900px) {
   .ch-header-inner { padding: 16px 16px !important; gap: 8px !important; }
   .ch-header-cta { display: none !important; }
   /* Phase 8 mobile fix: scale logo down + drop wordmark below tablet —

@@ -100,12 +100,13 @@ export function Header({ primaryAddressShort }: HeaderProps = {}) {
             <div className="ch-logo-wordmark" style={{ fontFamily: "var(--font-serif)", fontWeight: 500, fontSize: 15, letterSpacing: "0.18em", textTransform: "uppercase", color: "#1F3026", whiteSpace: "nowrap" }}>Colchis Food</div>
           </Link>
 
-          {/* Desktop nav — minWidth:0 + overflow hidden so the NAV is the flex
-              child that yields width first when the row gets tight; the right
-              cluster (lang/auth/order/cart) stays flexShrink:0 and never collapses. */}
-          <nav className="ch-nav ch-nav-desktop" style={{ display: "flex", gap: 22, fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", alignItems: "center", minWidth: 0, overflow: "hidden" }}>
+          {/* Desktop nav — flexShrink:0 + nowrap so links are never clipped or
+              wrapped; the compact location chip (no "Ordering from" prose) keeps
+              the row within budget. Below 900px the whole nav collapses into the
+              burger (globals.css .ch-nav-desktop). */}
+          <nav className="ch-nav ch-nav-desktop" style={{ display: "flex", gap: 18, fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", alignItems: "center", flexShrink: 0, whiteSpace: "nowrap" }}>
             {links.map(l => (
-              <Link key={l.href} href={l.href} style={{ color: "#1F3026", textDecoration: "none" }}>{l.label}</Link>
+              <Link key={l.href} href={l.href} style={{ color: "#1F3026", textDecoration: "none", whiteSpace: "nowrap" }}>{l.label}</Link>
             ))}
           </nav>
 

@@ -80,7 +80,6 @@ export function LocationPicker() {
                 aria-expanded={open}
             >
                 <MapPin className="w-3.5 h-3.5 text-[#B96A3D] shrink-0" />
-                <span className="hidden sm:inline">Ordering from</span>
                 <span className="font-semibold truncate min-w-0">
                     <span className="sm:hidden">{shortLabel}</span>
                     <span className="hidden sm:inline">{label}</span>

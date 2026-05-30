@@ -86,15 +86,26 @@ export async function POST(req: NextRequest) {
             typeof body.partnerLocationId === "string" && body.partnerLocationId ? body.partnerLocationId : null;
         if (orgCtx?.assignedLocationId) partnerLocationId = orgCtx.assignedLocationId;
         let shopLine1: string | undefined, shopLine2: string | undefined, shopCity: string | undefined, shopState: string | undefined, shopPostal: string | undefined;
+        let shopRecord: {
+            id: string; separateBilling: boolean; billingCompanyName: string | null;
+            billingEin: string | null; billingEmail: string | null; billingAddress: string | null; resolveCustomerId: string | null;
+        } | null = null;
         if (partnerLocationId) {
             const shop = await db.b2bPartnerLocation.findFirst({
                 where: { id: partnerLocationId, partnerId: orgCtx?.partnerId ?? "__none__", isActive: true },
-                select: { line1: true, line2: true, city: true, state: true, postalCode: true },
+                select: {
+                    id: true, line1: true, line2: true, city: true, state: true, postalCode: true,
+                    separateBilling: true, billingCompanyName: true, billingEin: true, billingEmail: true, billingAddress: true, resolveCustomerId: true,
+                },
             });
             if (!shop) {
                 return NextResponse.json({ error: "Invalid ship-to location for this account." }, { status: 400 });
             }
             shopLine1 = shop.line1; shopLine2 = shop.line2 ?? undefined; shopCity = shop.city; shopState = shop.state; shopPostal = shop.postalCode;
+            shopRecord = {
+                id: shop.id, separateBilling: shop.separateBilling, billingCompanyName: shop.billingCompanyName,
+                billingEin: shop.billingEin, billingEmail: shop.billingEmail, billingAddress: shop.billingAddress, resolveCustomerId: shop.resolveCustomerId,
+            };
         }
         // A chosen shop's address wins over any manually-typed ship-to.
         const finalLine1 = shopLine1 ?? shippingLine1;
@@ -453,49 +464,78 @@ export async function POST(req: NextRequest) {
                 });
             }
 
-            if (!partner.resolveCustomerId) {
-                const created = await createResolveCustomer({
-                    partnerId: partner.id,
-                    companyName: partner.companyName,
-                    contactName: user.name || undefined,
-                    contactEmail: user.email,
-                    contactPhone: user.phone || undefined,
-                    businessAddress: partner.businessAddress || undefined,
-                    ein: partner.ein || undefined,
-                });
-                if (!created) {
-                    // Stock is already committed — don't lose the receivable.
-                    // Record the B2bInvoice with null Resolve fields so it stays
-                    // on the AR books for ops to chase manually.
-                    const dueAt = new Date(Date.now() + dueDays * 24 * 60 * 60 * 1000);
-                    const invoice = await db.b2bInvoice.create({
-                        data: {
-                            orderId: order.id,
-                            partnerId: partner.id,
-                            amountCents: subtotalCents,
-                            paymentMethod: method,
-                            dueAt,
-                            resolveInvoiceId: null,
-                            resolveStatus: null,
-                            notes: "Resolve customer creation failed — verify spec + retry. Receivable recorded for manual follow-up.",
-                        },
+            // Subcompany billing (Tier 2 C): when the ship-to shop has separate
+            // billing on, the invoice + Resolve customer belong to the SHOP's own
+            // entity + AR; otherwise the parent partner's. partnerId always stays
+            // the org (for ownership); partnerLocationId tags the subcompany.
+            const subBill = shopRecord?.separateBilling ? shopRecord : null;
+            const billingLocationId = subBill ? subBill.id : null;
+
+            let billingCustomerId: string | null;
+            if (subBill) {
+                billingCustomerId = subBill.resolveCustomerId ?? null;
+                if (!billingCustomerId) {
+                    const created = await createResolveCustomer({
+                        partnerId: partner.id,
+                        companyName: subBill.billingCompanyName || partner.companyName,
+                        contactName: user.name || undefined,
+                        contactEmail: subBill.billingEmail || user.email,
+                        contactPhone: user.phone || undefined,
+                        businessAddress: subBill.billingAddress || undefined,
+                        ein: subBill.billingEin || undefined,
                     });
-                    return NextResponse.json({
-                        success: true,
-                        orderId: order.id,
-                        invoiceId: invoice.id,
-                        paymentStatus: "UNPAID",
-                        note: "Could not create Resolve customer. Invoice recorded for manual follow-up.",
-                    });
+                    if (created) {
+                        await db.b2bPartnerLocation.update({ where: { id: subBill.id }, data: { resolveCustomerId: created.customerId } });
+                        billingCustomerId = created.customerId;
+                    }
                 }
-                partner = await db.b2bPartner.update({
-                    where: { id: partner.id },
-                    data: { resolveCustomerId: created.customerId, resolveStatusUpdatedAt: new Date() },
+            } else {
+                billingCustomerId = partner.resolveCustomerId ?? null;
+                if (!billingCustomerId) {
+                    const created = await createResolveCustomer({
+                        partnerId: partner.id,
+                        companyName: partner.companyName,
+                        contactName: user.name || undefined,
+                        contactEmail: user.email,
+                        contactPhone: user.phone || undefined,
+                        businessAddress: partner.businessAddress || undefined,
+                        ein: partner.ein || undefined,
+                    });
+                    if (created) {
+                        await db.b2bPartner.update({ where: { id: partner.id }, data: { resolveCustomerId: created.customerId, resolveStatusUpdatedAt: new Date() } });
+                        billingCustomerId = created.customerId;
+                    }
+                }
+            }
+
+            if (!billingCustomerId) {
+                // Stock is already committed — don't lose the receivable. Record
+                // the B2bInvoice with null Resolve fields for manual follow-up.
+                const dueAt = new Date(Date.now() + dueDays * 24 * 60 * 60 * 1000);
+                const invoice = await db.b2bInvoice.create({
+                    data: {
+                        orderId: order.id,
+                        partnerId: partner.id,
+                        partnerLocationId: billingLocationId,
+                        amountCents: subtotalCents,
+                        paymentMethod: method,
+                        dueAt,
+                        resolveInvoiceId: null,
+                        resolveStatus: null,
+                        notes: "Resolve customer creation failed — verify spec + retry. Receivable recorded for manual follow-up.",
+                    },
+                });
+                return NextResponse.json({
+                    success: true,
+                    orderId: order.id,
+                    invoiceId: invoice.id,
+                    paymentStatus: "UNPAID",
+                    note: "Could not create Resolve customer. Invoice recorded for manual follow-up.",
                 });
             }
 
             const charge = await createResolveCharge({
-                customerId: partner.resolveCustomerId!,
+                customerId: billingCustomerId,
                 amountCents: subtotalCents,
                 dueDays,
                 orderRef: order.id,
@@ -509,6 +549,7 @@ export async function POST(req: NextRequest) {
                 data: {
                     orderId: order.id,
                     partnerId: partner.id,
+                    partnerLocationId: billingLocationId,
                     amountCents: subtotalCents,
                     paymentMethod: method,
                     dueAt,

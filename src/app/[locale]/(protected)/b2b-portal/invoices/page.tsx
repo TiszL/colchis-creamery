@@ -28,7 +28,7 @@ export default async function PartnerInvoicesPage({ params }: { params: Promise<
         ? await prisma.b2bInvoice.findMany({
             where: { partnerId },
             orderBy: { issuedAt: "desc" },
-            include: { order: { select: { id: true } } },
+            include: { order: { select: { id: true } }, partnerLocation: { select: { label: true } } },
         })
         : [];
 
@@ -110,6 +110,7 @@ export default async function PartnerInvoicesPage({ params }: { params: Promise<
                                             <p className="text-[10px] font-mono text-gray-500">
                                                 {inv.paymentMethod.replace(/_/g, " ")} · issued {ymd(inv.issuedAt)}
                                                 {inv.dueAt && <span> · due {ymd(inv.dueAt)}</span>}
+                                                {inv.partnerLocation && <span> · {inv.partnerLocation.label}</span>}
                                             </p>
                                         </div>
                                     </div>

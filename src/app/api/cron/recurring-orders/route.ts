@@ -221,9 +221,19 @@ export async function GET(req: Request) {
             // Resolve invoice — only if configured + a resolve customer exists.
             // Legacy Net-30 path still puts the order on the dispatch queue.
             const dueDays = NET_TERM_DAYS[sched.paymentMethod];
-            if (dueDays !== undefined && isResolveConfigured() && sched.partner.resolveCustomerId) {
+            // Subcompany billing (Tier 2 C): a separate-billing shop with its own
+            // Resolve customer invoices to that customer + AR; otherwise the parent
+            // partner's. The cron doesn't JIT-create shop customers (the on-demand
+            // path does on first order), so it falls back safely until then.
+            const subShop = sched.partnerLocationId
+                ? await prisma.b2bPartnerLocation.findUnique({ where: { id: sched.partnerLocationId }, select: { separateBilling: true, resolveCustomerId: true } })
+                : null;
+            const useSub = !!(subShop?.separateBilling && subShop.resolveCustomerId);
+            const billingCustomerId = useSub ? subShop!.resolveCustomerId! : sched.partner.resolveCustomerId;
+            const billingLocationId = useSub ? sched.partnerLocationId : null;
+            if (dueDays !== undefined && isResolveConfigured() && billingCustomerId) {
                 const charge = await createResolveCharge({
-                    customerId: sched.partner.resolveCustomerId,
+                    customerId: billingCustomerId,
                     amountCents: result.subtotalCents,
                     dueDays,
                     orderRef: result.order.id,
@@ -234,6 +244,7 @@ export async function GET(req: Request) {
                     data: {
                         orderId: result.order.id,
                         partnerId: sched.partnerId,
+                        partnerLocationId: billingLocationId,
                         amountCents: result.subtotalCents,
                         paymentMethod: sched.paymentMethod as B2bPaymentMethod,
                         dueAt,

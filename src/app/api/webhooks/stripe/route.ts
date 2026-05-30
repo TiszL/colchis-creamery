@@ -74,6 +74,19 @@ export async function POST(req: Request) {
         return new NextResponse(`Webhook Error: ${msg}`, { status: 400 });
     }
 
+    // Event-level idempotency: claim the event id (PK = Stripe event.id). A
+    // duplicate delivery / retry conflicts on insert and short-circuits, so side
+    // effects can never apply twice. On processing failure we release the claim
+    // (in the catch below) so Stripe's retry reprocesses cleanly.
+    try {
+        await prisma.processedStripeEvent.create({ data: { id: event.id, type: event.type } });
+    } catch (e) {
+        if ((e as { code?: string })?.code === 'P2002') {
+            return new NextResponse('Already processed', { status: 200 });
+        }
+        throw e;
+    }
+
     try {
         switch (event.type) {
             case 'payment_intent.succeeded':
@@ -105,6 +118,8 @@ export async function POST(req: Request) {
         // 500 so Stripe retries with exponential backoff. Our state-machine checks
         // make those retries safe (re-running on an already-PAID order is a no-op).
         console.error('[stripe-webhook] Handler threw for', event.type, e);
+        // Release the idempotency claim so the retry can reprocess this event.
+        await prisma.processedStripeEvent.delete({ where: { id: event.id } }).catch(() => undefined);
         return new NextResponse('Internal handler error', { status: 500 });
     }
 

@@ -584,6 +584,10 @@ model Order {
   refunds      Refund[]
   // Phase 6 — B2B invoice when paymentMethod ∈ RESOLVE_NET_*.
   b2bInvoice   B2bInvoice?
+
+  @@index([userId])
+  @@index([orderStatus])
+  @@index([paymentStatus])
 }
 
 // ─── OrderItem ───────────────────────────────────────────────────────────────
@@ -598,6 +602,18 @@ model OrderItem {
   order            Order                  @relation(fields: [orderId], references: [id])
   product          Product                @relation(fields: [productId], references: [id])
   fulfillmentItems OrderFulfillmentItem[]
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+// ─── ProcessedStripeEvent ──────────────────────────────────────────────────────
+// Event-level idempotency for the Stripe webhook. PK = the Stripe event.id, so a
+// duplicate delivery/retry conflicts on insert and the handler short-circuits.
+model ProcessedStripeEvent {
+  id          String   @id
+  type        String?
+  processedAt DateTime @default(now())
 }
 
 // ─── Shipment ────────────────────────────────────────────────────────────────

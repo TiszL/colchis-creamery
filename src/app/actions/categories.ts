@@ -137,6 +137,17 @@ export async function assignProductCategoryAction(formData: FormData) {
 
     if (Object.keys(data).length === 0) return;
 
+    // Validate referenced ids exist so a bad value yields a friendly error
+    // instead of a raw FK violation.
+    if (typeof data.categoryId === 'string') {
+        const cat = await prisma.category.findUnique({ where: { id: data.categoryId }, select: { id: true } });
+        if (!cat) throw new Error('Selected category does not exist.');
+    }
+    if (typeof data.productLineId === 'string') {
+        const line = await prisma.productLine.findUnique({ where: { id: data.productLineId }, select: { id: true } });
+        if (!line) throw new Error('Selected product line does not exist.');
+    }
+
     await prisma.product.update({
         where: { id: productId },
         data,
@@ -162,6 +173,16 @@ export async function bulkAssignCategoryAction(formData: FormData) {
     else if (productLineIdRaw) data.productLineId = productLineIdRaw;
     if (categoryIdRaw) data.categoryId = categoryIdRaw;
     if (Object.keys(data).length === 0) return;
+
+    // Validate referenced ids exist before a bulk write.
+    if (typeof data.categoryId === 'string') {
+        const cat = await prisma.category.findUnique({ where: { id: data.categoryId }, select: { id: true } });
+        if (!cat) throw new Error('Selected category does not exist.');
+    }
+    if (typeof data.productLineId === 'string') {
+        const line = await prisma.productLine.findUnique({ where: { id: data.productLineId }, select: { id: true } });
+        if (!line) throw new Error('Selected product line does not exist.');
+    }
 
     await prisma.product.updateMany({
         where: { id: { in: productIds } },

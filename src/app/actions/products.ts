@@ -33,11 +33,10 @@ export async function saveProductAction(formData: FormData) {
         throw new Error('categoryId is required (Phase 9b — Product.categoryId became NOT NULL).');
     }
 
-    const legacyStockInput = formData.get('stockQuantity');
-    const computedTotal = stocks.reduce((sum, s) => sum + (typeof s.quantity === 'number' ? s.quantity : 0), 0);
-    const stockQuantity = legacyStockInput !== null && legacyStockInput !== ''
-        ? (parseInt(legacyStockInput as string, 10) || 0)
-        : computedTotal;
+    // Per-location Stock rows are the source of truth; Product.stockQuantity is a
+    // cached aggregate. Always derive it from the sum and ignore any posted
+    // stockQuantity override so the cache can't be made to drift from reality.
+    const stockQuantity = stocks.reduce((sum, s) => sum + (typeof s.quantity === 'number' ? s.quantity : 0), 0);
 
     const name = formData.get('name') as string;
     const description = formData.get('description') as string;
@@ -118,6 +117,15 @@ export async function deleteProductAction(formData: FormData) {
     await requireRole(PRODUCT_EDITORS);
     const id = formData.get('id') as string;
     if (id) {
+        // A product with sale/stock history can't be hard-deleted (StockMovement +
+        // OrderItem FKs are Restrict). Surface a friendly error instead of a raw 500.
+        const [movements, orderItems] = await Promise.all([
+            prisma.stockMovement.count({ where: { productId: id } }),
+            prisma.orderItem.count({ where: { productId: id } }),
+        ]);
+        if (movements > 0 || orderItems > 0) {
+            throw new Error('Cannot delete a product with sales or stock history. Set its status to Inactive instead.');
+        }
         await prisma.product.delete({ where: { id } });
         revalidatePath('/admin/inventory');
         revalidatePath('/staff-portal/products');

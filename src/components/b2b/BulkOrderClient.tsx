@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ShieldCheck, Calculator, FileText, ChevronDown } from 'lucide-react';
+import { validateB2bQty, constraintHint, unitLabelOf } from '@/lib/b2b-moq';
 import { loadStripe, type Stripe as StripeJs, type StripeElementLocale } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 
@@ -202,11 +203,28 @@ function BulkOrderInner({
         return { subtotal, discountAmount, total };
     }, [availableProducts, quantities, discount]);
 
+    // Tier 2 — per-line MOQ/case violations (advisory; server re-checks).
+    const lineErrors = useMemo(() => {
+        const errs: Record<string, string> = {};
+        for (const p of availableProducts) {
+            const qty = quantities[p.id] || 0;
+            if (qty <= 0) continue;
+            const e = validateB2bQty(qty, { caseSize: p.b2bCaseSize, minOrderQty: p.b2bMinOrderQty, unitLabel: p.b2bUnitLabel });
+            if (e) errs[p.id] = e;
+        }
+        return errs;
+    }, [availableProducts, quantities]);
+    const hasLineErrors = Object.keys(lineErrors).length > 0;
+
     const isOrderEmpty = totals.total === 0;
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (isOrderEmpty) return;
+        if (hasLineErrors) {
+            setSubmitError('Some quantities don’t meet wholesale minimums or case sizes. Adjust the highlighted lines.');
+            return;
+        }
 
         setSubmitError(null);
         setIsSubmitting(true);
@@ -360,6 +378,9 @@ function BulkOrderInner({
                 {availableProducts.map(product => {
                     const priceNum = parseFloat(product.priceB2b.replace(/[^0-9.-]+/g, "")) || 0;
                     const discountedPrice = priceNum * (1 - (discount / 100));
+                    const hint = constraintHint({ caseSize: product.b2bCaseSize, minOrderQty: product.b2bMinOrderQty });
+                    const unitLbl = unitLabelOf({ unitLabel: product.b2bUnitLabel });
+                    const lineErr = lineErrors[product.id];
 
                     return (
                         <div key={product.id} className="bg-white p-4 rounded-xl shadow-sm border border-[#E8E6E1] flex flex-col sm:flex-row gap-4 sm:gap-6 sm:items-center">
@@ -372,7 +393,7 @@ function BulkOrderInner({
                                 <p className="text-sm text-gray-500 line-clamp-1">{product.description}</p>
                                 <div className="mt-2 flex items-center gap-4 text-sm">
                                     <span className="text-gray-400 line-through">{product.priceB2b}</span>
-                                    <span className="font-bold text-[#CBA153]">${discountedPrice.toFixed(2)} <span className="text-xs text-gray-400 font-normal">/ unit</span></span>
+                                    <span className="font-bold text-[#CBA153]">${discountedPrice.toFixed(2)} <span className="text-xs text-gray-400 font-normal">/ {unitLbl}</span></span>
                                 </div>
                             </div>
 
@@ -382,10 +403,11 @@ function BulkOrderInner({
                                     <input
                                         type="number"
                                         min="0"
+                                        step={product.b2bCaseSize ?? undefined}
                                         max={product.availableQty ?? undefined}
                                         value={quantities[product.id] || ''}
                                         onChange={(e) => handleQuantityChange(product.id, e.target.value, product.availableQty ?? Infinity)}
-                                        className="w-20 text-right border border-[#E8E6E1] rounded-md py-1.5 px-3 focus:ring-[#CBA153] focus:border-[#CBA153] outline-none transition"
+                                        className={`w-20 text-right border rounded-md py-1.5 px-3 focus:ring-[#CBA153] outline-none transition ${lineErr ? 'border-red-400 focus:border-red-400' : 'border-[#E8E6E1] focus:border-[#CBA153]'}`}
                                         placeholder="0"
                                     />
                                 </div>
@@ -396,6 +418,8 @@ function BulkOrderInner({
                                         {product.availableQty} in stock
                                     </span>
                                 )}
+                                {hint && <span className="text-[9px] text-gray-400 font-mono">{hint}</span>}
+                                {lineErr && <span className="text-[10px] font-medium text-red-500 text-right">{lineErr}</span>}
                             </div>
                         </div>
                     );
@@ -490,8 +514,8 @@ function BulkOrderInner({
 
                         <button
                             type="submit"
-                            disabled={isOrderEmpty || isSubmitting || (isStripePath(paymentMethod) && !stripe)}
-                            className={`w-full py-3 rounded-lg font-medium transition flex items-center justify-center gap-2 ${isOrderEmpty || isSubmitting ? 'bg-gray-800 text-gray-600 cursor-not-allowed' : 'bg-[#CBA153] hover:bg-[#b08d47] text-white shadow-md'
+                            disabled={isOrderEmpty || isSubmitting || hasLineErrors || (isStripePath(paymentMethod) && !stripe)}
+                            className={`w-full py-3 rounded-lg font-medium transition flex items-center justify-center gap-2 ${isOrderEmpty || isSubmitting || hasLineErrors ? 'bg-gray-800 text-gray-600 cursor-not-allowed' : 'bg-[#CBA153] hover:bg-[#b08d47] text-white shadow-md'
                                 }`}
                         >
                             {isSubmitting

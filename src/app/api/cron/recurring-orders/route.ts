@@ -18,6 +18,7 @@ import { prisma } from "@/lib/db";
 import { B2bPaymentMethod, B2bInvoiceStatus } from "@prisma/client";
 import { createResolveCharge, isResolveConfigured } from "@/lib/resolve";
 import { reserveStock, commitStock } from "@/lib/stock-reservation";
+import { validateB2bQty } from "@/lib/b2b-moq";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -98,9 +99,16 @@ export async function GET(req: Request) {
                 for (const item of items) {
                     const product = await tx.product.findUnique({
                         where: { id: item.productId },
-                        select: { id: true, name: true, isActive: true, salesChannel: true, priceB2b: true, isMadeToOrder: true },
+                        select: { id: true, name: true, isActive: true, salesChannel: true, priceB2b: true, isMadeToOrder: true, b2bCaseSize: true, b2bMinOrderQty: true, b2bUnitLabel: true },
                     });
                     if (!product || !product.isActive) throw new Error(`Product ${item.productId} invalid or inactive`);
+
+                    // Tier 2 — same MOQ/case enforcement as /api/b2b/order. A schedule
+                    // whose quantity violates a (possibly later-added) constraint throws
+                    // → recorded as a failure + retries until the partner fixes it,
+                    // mirroring the contract gate. Never silently places an invalid order.
+                    const qtyErr = validateB2bQty(item.quantity, { caseSize: product.b2bCaseSize, minOrderQty: product.b2bMinOrderQty, unitLabel: product.b2bUnitLabel });
+                    if (qtyErr) throw new Error(`${product.name}: ${qtyErr} — update this recurring schedule's quantity`);
 
                     // Per-location routing: active location carrying this channel with
                     // an enabled Stock row that has enough free quantity. MTO products

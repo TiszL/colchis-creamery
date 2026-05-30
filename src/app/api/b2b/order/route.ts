@@ -5,6 +5,7 @@ import { B2bPaymentMethod } from "@prisma/client";
 import { createResolveCustomer, createResolveCharge, isResolveConfigured } from "@/lib/resolve";
 import { commitStock, reserveStock } from "@/lib/stock-reservation";
 import { stripe } from "@/lib/stripe";
+import { validateB2bQty } from "@/lib/b2b-moq";
 
 // Phase 6 (6c) — B2B order placement now branches on paymentMethod.
 // Backward compat: omit the field and the order falls through to the
@@ -107,9 +108,18 @@ export async function POST(req: NextRequest) {
                     select: {
                         id: true, name: true, isActive: true, salesChannel: true,
                         priceB2b: true, isMadeToOrder: true,
+                        b2bCaseSize: true, b2bMinOrderQty: true, b2bUnitLabel: true,
                     },
                 });
                 if (!product || !product.isActive) throw new Error(`Product ${item.id} is invalid or inactive`);
+
+                // Tier 2 — enforce MOQ + case-multiple server-side (client is advisory).
+                const qtyErr = validateB2bQty(item.quantity, {
+                    caseSize: product.b2bCaseSize,
+                    minOrderQty: product.b2bMinOrderQty,
+                    unitLabel: product.b2bUnitLabel,
+                });
+                if (qtyErr) throw new Error(`${product.name}: ${qtyErr}`);
 
                 // Find candidate locations: active + carries this salesChannel +
                 // has an enabled Stock row with enough free quantity. MTO products

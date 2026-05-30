@@ -42,6 +42,12 @@ export async function saveProductAction(formData: FormData) {
     const description = formData.get('description') as string;
     const imageUrl = formData.get('imageUrl') as string;
 
+    // Tier 2 — wholesale constraints: positive ints only; blank/invalid → null.
+    const parseOptInt = (v: FormDataEntryValue | null): number | null => {
+        const n = parseInt((v as string) ?? '', 10);
+        return Number.isFinite(n) && n > 0 ? n : null;
+    };
+
     const data = {
         name,
         nameKa: (formData.get('nameKa') as string) || null,
@@ -61,6 +67,9 @@ export async function saveProductAction(formData: FormData) {
         salesChannel,
         packagingType: (formData.get('packagingType') as string) || null,
         unitCost: (formData.get('unitCost') as string) || null,
+        b2bCaseSize: parseOptInt(formData.get('b2bCaseSize')),
+        b2bMinOrderQty: parseOptInt(formData.get('b2bMinOrderQty')),
+        b2bUnitLabel: ((formData.get('b2bUnitLabel') as string) || '').trim() || null,
         isMadeToOrder,
         tag: (formData.get('tag') as string) || null,
         productLineId: (formData.get('productLineId') as string) || null,

@@ -89,6 +89,9 @@ export default async function AdminInventoryPage({ params }: { params: Promise<{
         salesChannel: p.salesChannel,
         packagingType: p.packagingType,
         unitCost: p.unitCost,
+        b2bCaseSize: p.b2bCaseSize,
+        b2bMinOrderQty: p.b2bMinOrderQty,
+        b2bUnitLabel: p.b2bUnitLabel,
         stocks: p.stocks.map(s => ({
             locationId: s.locationId,
             locationName: s.location.name,

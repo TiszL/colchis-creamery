@@ -59,6 +59,10 @@ interface Product {
     salesChannel: SalesChannel;
     packagingType: string | null;
     unitCost: string | null;
+    // Tier 2 — wholesale order constraints (null = simple each-unit ordering).
+    b2bCaseSize: number | null;
+    b2bMinOrderQty: number | null;
+    b2bUnitLabel: string | null;
     stocks: StockRow[];
 }
 
@@ -608,6 +612,36 @@ export default function InventoryClient({ products, productLines, productFamilie
                                     placeholder="8.50"
                                     className="w-full bg-[#0C0C0C] border border-[#B96A3D22] text-white py-2.5 px-4 focus:outline-none focus:border-[#B96A3D] placeholder-gray-700 text-sm" />
                                 <p className="text-[10px] text-gray-500 mt-1">Used by margin reporting (Phase 7). Leave blank if unknown.</p>
+                            </div>
+                        </div>
+
+                        {/* ── Wholesale Ordering (Tier 2) ── */}
+                        <div className="space-y-1 pt-2">
+                            <h3 className="text-xs font-bold text-[#B96A3D] uppercase tracking-widest">Wholesale Ordering (B2B)</h3>
+                            <div className="h-px bg-[#B96A3D]/20" />
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-4">
+                            <div>
+                                <label className="block text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wider">Case Size</label>
+                                <input name="b2bCaseSize" type="number" min="1" defaultValue={editProduct?.b2bCaseSize ?? ''}
+                                    placeholder="e.g. 12"
+                                    className="w-full bg-[#0C0C0C] border border-[#B96A3D22] text-white py-2.5 px-4 focus:outline-none focus:border-[#B96A3D] placeholder-gray-700 text-sm" />
+                                <p className="text-[10px] text-gray-500 mt-1">Units per case. Orders snap to whole-case multiples. Blank = sold by each.</p>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wider">Min Order Qty</label>
+                                <input name="b2bMinOrderQty" type="number" min="1" defaultValue={editProduct?.b2bMinOrderQty ?? ''}
+                                    placeholder="e.g. 24"
+                                    className="w-full bg-[#0C0C0C] border border-[#B96A3D22] text-white py-2.5 px-4 focus:outline-none focus:border-[#B96A3D] placeholder-gray-700 text-sm" />
+                                <p className="text-[10px] text-gray-500 mt-1">Minimum units per order line. Blank = no minimum.</p>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wider">Unit Label</label>
+                                <input name="b2bUnitLabel" defaultValue={editProduct?.b2bUnitLabel || ''}
+                                    placeholder="unit · lb · jar · loaf"
+                                    className="w-full bg-[#0C0C0C] border border-[#B96A3D22] text-white py-2.5 px-4 focus:outline-none focus:border-[#B96A3D] placeholder-gray-700 text-sm" />
+                                <p className="text-[10px] text-gray-500 mt-1">What one unit is called on the bulk-order form.</p>
                             </div>
                         </div>
 

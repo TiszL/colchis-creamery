@@ -494,6 +494,12 @@ model Product {
   isActive       Boolean       @default(true)
   isB2cVisible   Boolean       @default(true)
   isB2bVisible   Boolean       @default(true)
+  // Tier 2 — wholesale order constraints. All optional/null = simple each-unit
+  // ordering with no minimum. caseSize forces order quantities to whole-case
+  // multiples; minOrderQty sets a per-line floor; unitLabel names one unit.
+  b2bCaseSize    Int?          // units per case (null = sold by each)
+  b2bMinOrderQty Int?          // minimum units per B2B order line (null = 1)
+  b2bUnitLabel   String?       // display name for one unit, e.g. "lb" | "jar" | "loaf" (null = "unit")
   // Phase 10: surfaces an "Add to cart" vs "Wholesale request" gate without
   // hiding the product. B2B-only items keep isB2cVisible=true + isCartOrderable=false
   // so they appear in /shop with a "Wholesale only" CTA instead of disappearing.

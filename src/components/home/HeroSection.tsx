@@ -46,9 +46,11 @@ interface HeroSectionProps {
   content?: typeof DEFAULTS | null;
   ticker?: typeof TICKER_DEFAULTS | null;
   heroMedia?: HeroMedia | null;
+  /** NEXT_PUBLIC_GOOGLE_MAPS_KEY — threaded to DeliverySelector for ZIP/geo geocoding. */
+  mapsApiKey?: string;
 }
 
-export function HeroSection({ locale, content, ticker, heroMedia }: HeroSectionProps) {
+export function HeroSection({ locale, content, ticker, heroMedia, mapsApiKey }: HeroSectionProps) {
   const prefix = locale === "en" ? "" : `/${locale}`;
   const d = content || DEFAULTS;
   const t = ticker || TICKER_DEFAULTS;
@@ -187,7 +189,7 @@ export function HeroSection({ locale, content, ticker, heroMedia }: HeroSectionP
               <div style={{ fontFamily: "var(--font-mono)", fontSize: 8, letterSpacing: "0.16em", marginTop: 4 }}>{d.badge_location}</div>
             </div>
           </div>
-          <DeliverySelector />
+          <DeliverySelector apiKey={mapsApiKey} linkPrefix={prefix} />
         </div>
       </div>
 

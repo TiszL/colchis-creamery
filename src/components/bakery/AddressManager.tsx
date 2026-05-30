@@ -813,11 +813,17 @@ export default function AddressManager({
     };
 
     const handleSetDefault = (id: string) => {
+        setSaveError(null);
+        setSaveSuccess(null);
         startTransition(async () => {
             const ok = await setDefaultAddress(id);
             if (ok) {
                 setAddresses(prev => prev.map(a => ({ ...a, isDefault: a.id === id })));
                 broadcastRef.current?.postMessage({ type: 'setDefault', id } satisfies AddressBroadcastMessage);
+                setSaveSuccess('Default updated');
+                setTimeout(() => setSaveSuccess(null), 2500);
+            } else {
+                setSaveError('Couldn’t set default — try again.');
             }
         });
     };
@@ -826,6 +832,9 @@ export default function AddressManager({
 
     // Banner mode: address chosen → compact picker
     if (activeAddress && !showPicker) {
+        // Surface default status inline so the collapsed banner names which saved
+        // address is in use the same way the expanded picker does.
+        const activeIsDefault = addresses.some(a => a.id === activeAddress.id && a.isDefault);
         return (
             <div style={{
                 background: '#F5F0E6',
@@ -841,7 +850,7 @@ export default function AddressManager({
                     <MapPin className="w-4 h-4" style={{ color: '#B96A3D', flexShrink: 0 }} />
                     <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                         <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.24em', color: '#B96A3D', textTransform: 'uppercase' }}>
-                            Delivering to {activeAddress.label ? `· ${activeAddress.label}` : ''}
+                            Delivering to {activeAddress.label ? `· ${activeAddress.label}` : ''}{activeIsDefault ? ' · Default' : ''}
                         </span>
                         <span style={{ fontFamily: 'var(--font-sans)', fontSize: 15, color: '#1F3026', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {activeAddress.formatted}
@@ -906,8 +915,8 @@ export default function AddressManager({
                                                 </span>
                                             )}
                                             {a.isDefault && (
-                                                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.22em', color: '#2C3D33', background: '#1F302610', padding: '2px 7px', textTransform: 'uppercase' }}>
-                                                    Default
+                                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.22em', color: '#F5F0E6', background: '#B96A3D', padding: '2px 8px', textTransform: 'uppercase' }}>
+                                                    <Star className="w-3 h-3" fill="#F5F0E6" /> Default
                                                 </span>
                                             )}
                                             {geoMissing && (
@@ -915,7 +924,11 @@ export default function AddressManager({
                                                     No coordinates
                                                 </span>
                                             )}
-                                            {isActive && <Check className="w-3 h-3" style={{ color: '#B96A3D' }} />}
+                                            {isActive && (
+                                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.22em', color: '#B96A3D', border: '1px solid #B96A3D55', padding: '2px 7px', textTransform: 'uppercase' }}>
+                                                    <Check className="w-3 h-3" /> Selected
+                                                </span>
+                                            )}
                                         </div>
                                         <div style={{ fontFamily: 'var(--font-sans)', fontSize: 14, color: '#1F3026', marginTop: 4 }}>
                                             {dtoToFormatted(a)}
@@ -939,7 +952,7 @@ export default function AddressManager({
                                                 title="Mark as your default address (auto-selected on next visit)"
                                                 style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'transparent', border: '1px solid #B96A3D55', color: '#B96A3D', cursor: 'pointer', padding: '6px 10px', fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.22em', textTransform: 'uppercase' }}
                                             >
-                                                <Star className="w-3 h-3" /> Default
+                                                <Star className="w-3 h-3" /> Set as default
                                             </button>
                                         )}
                                         <button
@@ -968,6 +981,13 @@ export default function AddressManager({
                 {saveSuccess && (
                     <div style={{ background: '#2C3D33', color: '#F5F0E6', padding: '10px 14px', fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.24em', textTransform: 'uppercase' }}>
                         ✓ {saveSuccess}
+                    </div>
+                )}
+                {/* Top-level error channel — covers set-default failures (no add form
+                    open). The add-form has its own inline error block for save errors. */}
+                {saveError && !isAdding && (
+                    <div style={{ background: '#A8312C', color: '#F5F0E6', padding: '10px 14px', fontFamily: 'var(--font-sans)', fontSize: 13, lineHeight: 1.4 }}>
+                        {saveError}
                     </div>
                 )}
                 {isAdding && (

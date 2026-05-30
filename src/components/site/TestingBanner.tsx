@@ -16,20 +16,32 @@
 // SEO: this is a client component mounted in body — crawlers see the actual
 // page content; the strip/modal is overlay-only.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { TestingModeConfig } from '@/lib/site-config';
 
 interface Props {
     config: TestingModeConfig;
 }
 
-const STRIP_HEIGHT_DESKTOP = 36;
-const STRIP_HEIGHT_MOBILE = 52;
+// Minimum heights only keep first paint stable before the ResizeObserver
+// reports the real rendered height. The CSS variable below is driven by the
+// MEASURED strip height so wrapping (e.g. long stripText or narrow/RTL
+// locales) never leaves panel chrome tucked behind the banner.
+const STRIP_MIN_HEIGHT_DESKTOP = 36;
+const STRIP_MIN_HEIGHT_MOBILE = 52;
+
+// Single source of truth for the offset variable. globals.css seeds it to 0px;
+// we set the measured value while visible and reset to 0px when dismissed.
+function setStripHeightVar(px: number) {
+    if (typeof document === 'undefined') return;
+    document.documentElement.style.setProperty('--testing-strip-height', `${px}px`);
+}
 
 export default function TestingBanner({ config }: Props) {
     const [mounted, setMounted] = useState(false);
     const [showModal, setShowModal] = useState(false);
     const [stripDismissed, setStripDismissed] = useState(false);
+    const stripRef = useRef<HTMLDivElement | null>(null);
 
     // Hydration-safe: only consult storage AFTER mount. SSR renders the strip
     // unconditionally so first paint matches before storage check pops it off.
@@ -50,6 +62,20 @@ export default function TestingBanner({ config }: Props) {
         }
     }, [config.enabled, config.showModalOnFirstVisit, config.version]);
 
+    // Drive --testing-strip-height from the strip's MEASURED rendered height so
+    // any wrapping grows the offset in lockstep. Re-measures on resize/content
+    // change via ResizeObserver. Skipped while the modal is up (strip not in DOM)
+    // or once dismissed (handled in dismissStrip, which sets the var to 0px).
+    useEffect(() => {
+        const el = stripRef.current;
+        if (!el) return;
+        const update = () => setStripHeightVar(Math.ceil(el.getBoundingClientRect().height));
+        update();
+        const ro = new ResizeObserver(update);
+        ro.observe(el);
+        return () => ro.disconnect();
+    }, [mounted, showModal, stripDismissed, config.stripText]);
+
     const acknowledgeModal = () => {
         try {
             window.localStorage.setItem(
@@ -64,6 +90,7 @@ export default function TestingBanner({ config }: Props) {
         try {
             window.sessionStorage.setItem('colchis-testing-strip-dismissed', 'true');
         } catch { /* ignore */ }
+        setStripHeightVar(0);
         setStripDismissed(true);
     };
 
@@ -83,23 +110,15 @@ export default function TestingBanner({ config }: Props) {
     // Strip: SSR-render unconditionally; client suppresses if dismissed.
     // The CSS variable lets the header layout offset itself below the strip.
     if (mounted && stripDismissed) {
-        // After dismissal, clear the CSS variable so the header pops back up.
-        return (
-            <style jsx global>{`
-                :root { --testing-strip-height: 0px; }
-            `}</style>
-        );
+        // After dismissal the var is already 0px (set in dismissStrip; globals.css
+        // also seeds 0px for repeat-visit mounts), so the header pops back up.
+        return null;
     }
 
     return (
         <>
-            <style jsx global>{`
-                :root { --testing-strip-height: ${STRIP_HEIGHT_DESKTOP}px; }
-                @media (max-width: 640px) {
-                    :root { --testing-strip-height: ${STRIP_HEIGHT_MOBILE}px; }
-                }
-            `}</style>
             <div
+                ref={stripRef}
                 role="status"
                 aria-live="polite"
                 style={{
@@ -111,8 +130,8 @@ export default function TestingBanner({ config }: Props) {
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    padding: '0 16px',
-                    minHeight: STRIP_HEIGHT_DESKTOP,
+                    padding: '8px 16px',
+                    minHeight: STRIP_MIN_HEIGHT_DESKTOP,
                     fontFamily: 'var(--font-mono)',
                     fontSize: 10,
                     letterSpacing: '0.18em',
@@ -122,7 +141,22 @@ export default function TestingBanner({ config }: Props) {
                     borderBottom: '1px solid rgba(31,48,38,0.18)',
                 }}
             >
-                <span style={{ flex: 1, paddingRight: 12 }}>{config.stripText}</span>
+                <span
+                    style={{
+                        // flex:1 + minWidth:0 lets the span shrink instead of
+                        // pushing the dismiss button off-screen; the 2-line clamp
+                        // caps wrapped height while the ResizeObserver measures it.
+                        flex: 1,
+                        minWidth: 0,
+                        paddingRight: 12,
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden',
+                    }}
+                >
+                    {config.stripText}
+                </span>
                 <button
                     onClick={dismissStrip}
                     aria-label="Dismiss testing notice"
@@ -149,7 +183,7 @@ export default function TestingBanner({ config }: Props) {
             <style jsx global>{`
                 @media (max-width: 640px) {
                     [role="status"][aria-live="polite"]:first-of-type {
-                        min-height: ${STRIP_HEIGHT_MOBILE}px !important;
+                        min-height: ${STRIP_MIN_HEIGHT_MOBILE}px !important;
                         font-size: 9px !important;
                         letter-spacing: 0.14em !important;
                     }

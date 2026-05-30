@@ -1,11 +1,10 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import Link from "next/link";
 import { loginAction } from "@/app/actions/auth";
 import { registerB2CAction } from "@/app/actions/auth";
 import { useState, useTransition, useEffect, Suspense } from "react";
-import { useRouter } from "@/i18n/routing";
+import { useRouter, Link } from "@/i18n/routing";
 import { useSearchParams } from "next/navigation";
 
 function LoginContent() {
@@ -70,6 +69,9 @@ function LoginContent() {
                 {/* ─── LEFT — Editorial column ───────────────────────────── */}
                 <aside className="ch-auth-left" style={{ borderRight: "1px solid #1F302614", padding: "72px 64px 64px", display: "flex", flexDirection: "column", justifyContent: "space-between", background: "#F5F0E6" }}>
                     <div>
+                        <Link href="/" style={{ display: "inline-block", marginBottom: 36 }}>
+                            <img src="/logo.svg" alt="Colchis Food — home" style={{ height: 38, width: "auto", objectFit: "contain", display: "block" }} />
+                        </Link>
                         <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.32em", color: "#B96A3D", textTransform: "uppercase", marginBottom: 18 }}>
                             № 00 — The Pantry
                         </div>
@@ -209,8 +211,15 @@ function LoginContent() {
                             )}
                         </form>
 
+                        {/* Partner-portal cross-link — secondary door */}
+                        <Link href="/b2b/login" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginTop: 28, padding: "14px 16px", border: "1px solid #1F302633", textDecoration: "none", fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.24em", color: "#7A8278", textTransform: "uppercase" }}>
+                            <span>Wholesale partner? Sign in to the partner portal</span>
+                            <span style={{ color: "#B96A3D" }}>→</span>
+                        </Link>
+
                         {/* Footnote */}
-                        <div style={{ marginTop: 40, paddingTop: 22, borderTop: "1px solid #1F302614", display: "flex", justifyContent: "space-between", fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.28em", color: "#7A8278", textTransform: "uppercase" }}>
+                        <div style={{ marginTop: 40, paddingTop: 22, borderTop: "1px solid #1F302614", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.28em", color: "#7A8278", textTransform: "uppercase" }}>
+                            <Link href="/" style={{ color: "#B96A3D", textDecoration: "none", letterSpacing: "0.28em" }}>← Back to home</Link>
                             <span>EN / ქართული</span>
                             <span>Secure · TLS 1.3</span>
                         </div>

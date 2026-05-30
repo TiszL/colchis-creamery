@@ -123,17 +123,8 @@ export async function saveMyAddress(formData: FormData): Promise<SaveAddressResu
     }
     // postalCode is "nice to have" — some rural pins / Places results legitimately lack it
 
-    // If saving as default, clear any other default for this user
-    if (data.isDefault) {
-        await prisma.userAddress.updateMany({
-            where: { userId: session.userId, isDefault: true, NOT: id ? { id } : undefined },
-            data: { isDefault: false },
-        });
-    }
-
-    let row;
+    // Ownership guard: a forged `id` must never touch another user's row (IDOR).
     if (id) {
-        // Ownership guard: a forged `id` must never touch another user's row (IDOR).
         const existing = await prisma.userAddress.findUnique({
             where: { id },
             select: { userId: true },
@@ -141,17 +132,41 @@ export async function saveMyAddress(formData: FormData): Promise<SaveAddressResu
         if (!existing || existing.userId !== session.userId) {
             return { ok: false, error: 'Address not found.' };
         }
-        row = await prisma.userAddress.update({
-            where: { id },
-            data,
-        });
-    } else {
-        // First address is auto-default
-        const count = await prisma.userAddress.count({ where: { userId: session.userId } });
-        row = await prisma.userAddress.create({
-            data: { ...data, userId: session.userId, isDefault: data.isDefault || count === 0 },
-        });
     }
+
+    // Atomic write: clear any other default + create/update in one transaction so
+    // there's always exactly one default. On create, the auto-default flag is
+    // computed from the in-transaction count so a first-address save can't race
+    // with a concurrent one and leave two (or zero) defaults.
+    const row = await prisma.$transaction(async (tx) => {
+        if (id) {
+            // Edit preserves the form's isDefault (the component keeps an existing
+            // default flagged and never clears the only default), so clearing
+            // others only when isDefault is set keeps the single-default invariant.
+            if (data.isDefault) {
+                await tx.userAddress.updateMany({
+                    where: { userId: session.userId, isDefault: true, NOT: { id } },
+                    data: { isDefault: false },
+                });
+            }
+            return tx.userAddress.update({
+                where: { id },
+                data,
+            });
+        }
+        // First address ever saved is auto-default.
+        const count = await tx.userAddress.count({ where: { userId: session.userId } });
+        const willDefault = data.isDefault || count === 0;
+        if (willDefault) {
+            await tx.userAddress.updateMany({
+                where: { userId: session.userId, isDefault: true },
+                data: { isDefault: false },
+            });
+        }
+        return tx.userAddress.create({
+            data: { ...data, userId: session.userId, isDefault: willDefault },
+        });
+    });
 
     // Revalidate every public surface that reads the user's saved addresses
     // server-side. /shop is the unified all-products index, /creamery is the
@@ -193,18 +208,22 @@ export async function deleteMyAddress(addressId: string): Promise<boolean> {
     const row = await prisma.userAddress.findUnique({ where: { id: addressId } });
     if (!row || row.userId !== session.userId) return false;
 
-    await prisma.userAddress.delete({ where: { id: addressId } });
+    // Atomic: delete + promote-next in one transaction so we never sit in a state
+    // where the deleted default is gone but no replacement has been chosen.
+    await prisma.$transaction(async (tx) => {
+        await tx.userAddress.delete({ where: { id: addressId } });
 
-    // If we deleted the default, promote the most recent remaining row to default
-    if (row.isDefault) {
-        const next = await prisma.userAddress.findFirst({
-            where: { userId: session.userId },
-            orderBy: { createdAt: 'desc' },
-        });
-        if (next) {
-            await prisma.userAddress.update({ where: { id: next.id }, data: { isDefault: true } });
+        // If we deleted the default, promote the most recent remaining row to default
+        if (row.isDefault) {
+            const next = await tx.userAddress.findFirst({
+                where: { userId: session.userId },
+                orderBy: { createdAt: 'desc' },
+            });
+            if (next) {
+                await tx.userAddress.update({ where: { id: next.id }, data: { isDefault: true } });
+            }
         }
-    }
+    });
 
     // Revalidate every public surface that reads the user's saved addresses
     // server-side. /shop is the unified all-products index, /creamery is the
@@ -226,11 +245,15 @@ export async function setDefaultAddress(addressId: string): Promise<boolean> {
     const row = await prisma.userAddress.findUnique({ where: { id: addressId } });
     if (!row || row.userId !== session.userId) return false;
 
-    await prisma.userAddress.updateMany({
-        where: { userId: session.userId, isDefault: true },
-        data: { isDefault: false },
-    });
-    await prisma.userAddress.update({ where: { id: addressId }, data: { isDefault: true } });
+    // Atomic: clear every other default + set this one in a single transaction so
+    // there's never a window with zero (or two) defaults.
+    await prisma.$transaction([
+        prisma.userAddress.updateMany({
+            where: { userId: session.userId, isDefault: true, NOT: { id: addressId } },
+            data: { isDefault: false },
+        }),
+        prisma.userAddress.update({ where: { id: addressId }, data: { isDefault: true } }),
+    ]);
 
     // Revalidate every public surface that reads the user's saved addresses
     // server-side. /shop is the unified all-products index, /creamery is the

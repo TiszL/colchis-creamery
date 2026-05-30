@@ -117,8 +117,8 @@ export default function StaffSidebar({
 
     return (
         <>
-            {/* Mobile Header */}
-            <div className="md:hidden fixed top-0 left-0 w-full h-16 bg-[#0F0F0F] border-b border-[#B96A3D22] z-30 flex items-center justify-between px-4">
+            {/* Mobile Header — offset below the testing strip (fixed, so needs explicit top) */}
+            <div className="md:hidden fixed left-0 w-full h-16 bg-[#0F0F0F] border-b border-[#B96A3D22] z-30 flex items-center justify-between px-4" style={{ top: 'var(--testing-strip-height, 0px)' }}>
                 <div className="flex items-center gap-3">
                     <ColchisSeal size={28} />
                     <div>
@@ -136,8 +136,11 @@ export default function StaffSidebar({
                 <div className="md:hidden fixed inset-0 bg-black/70 z-40 transition-opacity" onClick={closeSidebar}></div>
             )}
 
-            {/* Sidebar drawer */}
-            <aside className={`w-72 bg-[#0F0F0F] border-r border-[#B96A3D22] fixed top-0 left-0 h-full flex flex-col z-50 transform transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
+            {/* Sidebar drawer — offset below the testing strip (fixed, so needs explicit top/height) */}
+            <aside
+                className={`w-72 bg-[#0F0F0F] border-r border-[#B96A3D22] fixed left-0 flex flex-col z-50 transform transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}
+                style={{ top: 'var(--testing-strip-height, 0px)', height: 'calc(100dvh - var(--testing-strip-height, 0px))' }}
+            >
                 
                 {/* Logo */}
                 <div className="p-6 border-b border-[#B96A3D22] flex items-center justify-between">

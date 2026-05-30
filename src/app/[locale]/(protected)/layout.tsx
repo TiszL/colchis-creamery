@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { AuthProvider } from "@/providers/AuthProvider";
+import { verifyToken } from "@/lib/auth";
 import { LocationProvider, LOCATION_COOKIE_NAME } from "@/providers/LocationProvider";
 import ProtectedShell from "@/components/layout/ProtectedShell";
 import { getPrimaryLocation } from "@/lib/business-location";
@@ -36,8 +37,17 @@ export default async function ProtectedLayout({
     ? rawCookieId
     : null;
 
+  // SSR-seed auth from the verified JWT so the header avatar / Sign-In paints
+  // correctly on first render (no client pop-in). Pure JWT decode here; the
+  // AuthProvider still re-validates against /api/auth/me in the background.
+  const authToken = cookieStore.get("auth_token")?.value ?? null;
+  const payload = authToken ? await verifyToken(authToken) : null;
+  const initialUser = payload
+    ? { userId: payload.userId, name: payload.name ?? "", email: payload.email, role: payload.role }
+    : null;
+
   return (
-    <AuthProvider>
+    <AuthProvider initialUser={initialUser}>
       <LocationProvider locations={activeLocations} initialSelectedId={initialSelectedId}>
         <ProtectedShell header={<Header primaryAddressShort={primary.addressLine1} />} footer={<Footer />}>
           {children}

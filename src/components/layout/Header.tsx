@@ -100,8 +100,10 @@ export function Header({ primaryAddressShort }: HeaderProps = {}) {
             <div className="ch-logo-wordmark" style={{ fontFamily: "var(--font-serif)", fontWeight: 500, fontSize: 15, letterSpacing: "0.18em", textTransform: "uppercase", color: "#1F3026", whiteSpace: "nowrap" }}>Colchis Food</div>
           </Link>
 
-          {/* Desktop nav */}
-          <nav className="ch-nav ch-nav-desktop" style={{ display: "flex", gap: 22, fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", alignItems: "center" }}>
+          {/* Desktop nav — minWidth:0 + overflow hidden so the NAV is the flex
+              child that yields width first when the row gets tight; the right
+              cluster (lang/auth/order/cart) stays flexShrink:0 and never collapses. */}
+          <nav className="ch-nav ch-nav-desktop" style={{ display: "flex", gap: 22, fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", alignItems: "center", minWidth: 0, overflow: "hidden" }}>
             {links.map(l => (
               <Link key={l.href} href={l.href} style={{ color: "#1F3026", textDecoration: "none" }}>{l.label}</Link>
             ))}
@@ -120,7 +122,11 @@ export function Header({ primaryAddressShort }: HeaderProps = {}) {
           <div className="ch-header-cta" style={{ display: "flex", gap: 14, alignItems: "center", fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", flexShrink: 0 }}>
             <LocaleSwitcher />
 
-            {/* Auth */}
+            {/* Auth — fixed-footprint slot so signed-in (avatar) and signed-out
+                ("Sign In" pill) occupy an identical width and never reflow the
+                row. isLoading is false on first paint when SSR-seeded, so the
+                correct element shows immediately (no pop-in). */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, minWidth: 38, minHeight: 38 }}>
             {!isLoading && (
               isLoggedIn && user ? (
                 <div ref={menuRef} style={{ position: "relative" }}>
@@ -140,9 +146,10 @@ export function Header({ primaryAddressShort }: HeaderProps = {}) {
                   )}
                 </div>
               ) : (
-                <Link href={`${prefix}/login`} style={{ color: "#1F3026", textDecoration: "none", padding: "11px 4px", whiteSpace: "nowrap", borderBottom: "1px solid #1F302633" }}>Sign In</Link>
+                <Link href={`${prefix}/login`} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", height: 38, padding: "0 16px", color: "#1F3026", textDecoration: "none", whiteSpace: "nowrap", border: "1px solid #1F302633", borderRadius: 999 }}>Sign In</Link>
               )
             )}
+            </div>{/* /auth slot */}
 
             {/* Order CTA */}
             <Link href={`${prefix}/shop`} style={{ background: "#1F3026", color: "#F5F0E6", border: "none", padding: "11px 20px", fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.24em", textTransform: "uppercase", textDecoration: "none", whiteSpace: "nowrap" }}>Order →</Link>

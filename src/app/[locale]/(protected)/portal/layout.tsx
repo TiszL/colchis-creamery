@@ -29,7 +29,7 @@ export default async function StaffPortalLayout({
     }
 
     return (
-        <div className="min-h-screen bg-[#0C0C0C] flex flex-col md:flex-row">
+        <div className="min-h-screen bg-[#0C0C0C] flex flex-col md:flex-row" style={{ paddingTop: 'var(--testing-strip-height, 0px)' }}>
             <StaffSidebar
                 locale={locale}
                 sessionRole={session.role}

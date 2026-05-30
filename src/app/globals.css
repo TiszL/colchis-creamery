@@ -32,6 +32,13 @@
   --font-sans-ka: var(--font-noto-sans-georgian), system-ui, sans-serif;
 }
 
+/* Default so layouts/components that offset by the testing banner height
+   resolve to 0px when the banner isn't rendered. The banner component
+   overrides this on :root when active. */
+:root {
+  --testing-strip-height: 0px;
+}
+
 body {
   background: var(--color-background);
   color: var(--color-foreground);
@@ -216,122 +223,6 @@ html {
   .ch-addr-actions { justify-content: flex-start !important; }
 }
 
-/* HERO */
-@media (max-width: 1100px) {
-  .ch-hero-grid { grid-template-columns: 1fr !important; gap: 48px !important; padding: 80px 32px 64px !important; }
-  .ch-hero-h1 { font-size: 88px !important; }
-}
-@media (max-width: 640px) {
-  .ch-hero-grid { padding: 64px 24px 48px !important; gap: 36px !important; }
-  .ch-hero-eyebrow { font-size: 10px !important; margin-bottom: 18px !important; }
-  .ch-hero-h1 { font-size: 56px !important; line-height: 0.95 !important; }
-  .ch-hero-lead { font-size: 17px !important; margin-top: 24px !important; }
-  .ch-hero-ctas { flex-wrap: wrap; gap: 10px !important; margin-top: 28px !important; }
-  .ch-hero-ctas a { padding: 14px 22px !important; font-size: 11px !important; flex: 1; min-width: 140px; text-align: center; }
-  .ch-hero-badge { width: 84px !important; height: 84px !important; top: 12px !important; right: 12px !important; }
-  .ch-hero-badge-min { font-size: 20px !important; }
-  .ch-ticker { flex-wrap: wrap; gap: 10px 18px !important; padding: 16px 24px !important; font-size: 9px !important; }
-  .ch-ticker > span { flex: 0 0 auto; }
-}
-
-/* SECTION SHELL */
-@media (max-width: 900px) {
-  .ch-section { padding: 80px 32px !important; }
-  .ch-section-grid { grid-template-columns: 1fr !important; gap: 28px !important; }
-  .ch-h2 { font-size: 44px !important; }
-}
-@media (max-width: 640px) {
-  .ch-section { padding: 64px 24px !important; }
-  .ch-h2 { font-size: 36px !important; }
-  .ch-h2-large { font-size: 44px !important; }
-  .ch-lede { font-size: 22px !important; }
-  .ch-stats { flex-wrap: wrap; gap: 24px 32px !important; margin-top: 36px !important; padding-top: 28px !important; }
-  .ch-stat-num { font-size: 40px !important; }
-  .ch-section-header { flex-direction: column; align-items: flex-start !important; gap: 16px; margin-bottom: 32px !important; }
-}
-
-/* TWO HOUSES */
-@media (max-width: 900px) {
-  .ch-houses { grid-template-columns: 1fr !important; }
-  .ch-house { padding: 48px 32px !important; min-height: auto !important; }
-}
-@media (max-width: 640px) {
-  .ch-house { padding: 40px 24px !important; }
-  .ch-house-name { font-size: 40px !important; }
-}
-
-/* PRODUCT / MENU GRIDS */
-@media (max-width: 900px) {
-  .ch-grid-3 { grid-template-columns: repeat(2, 1fr) !important; }
-}
-@media (max-width: 640px) {
-  .ch-grid-3 { grid-template-columns: 1fr !important; gap: 16px !important; }
-  .ch-grid-2 { grid-template-columns: 1fr !important; gap: 28px !important; }
-  .ch-grid-4 { grid-template-columns: repeat(2, 1fr) !important; }
-}
-
-/* PROCESS */
-@media (max-width: 900px) {
-  .ch-process-grid { grid-template-columns: repeat(2, 1fr) !important; }
-}
-@media (max-width: 640px) {
-  .ch-process-grid { grid-template-columns: 1fr !important; }
-  .ch-process-step { padding: 28px !important; }
-  .ch-process-num { font-size: 48px !important; }
-}
-
-/* PRESS / VISIT */
-@media (max-width: 900px) {
-  .ch-split { grid-template-columns: 1fr !important; gap: 48px !important; }
-}
-
-/* BAKERY HERO */
-@media (max-width: 900px) {
-  .ch-bakery-hero { padding: 64px 24px 48px !important; }
-  .ch-bakery-hero-grid { grid-template-columns: 1fr !important; gap: 32px !important; }
-  .ch-bakery-h1 { font-size: 64px !important; }
-  .ch-tab-row { flex-direction: column; }
-  .ch-tab-row button { padding: 14px 20px !important; font-size: 10px !important; }
-}
-@media (max-width: 640px) {
-  .ch-bakery-h1 { font-size: 48px !important; }
-}
-
-/* WHOLESALE TABLE */
-@media (max-width: 900px) {
-  .ch-table-row { grid-template-columns: 90px 1fr 100px !important; padding: 16px 20px !important; gap: 8px; }
-  .ch-table-row .ch-hide-mobile { display: none !important; }
-  .ch-table-header { grid-template-columns: 90px 1fr 100px !important; padding: 14px 20px !important; }
-  .ch-table-header .ch-hide-mobile { display: none !important; }
-}
-@media (max-width: 640px) {
-  .ch-table-row { grid-template-columns: 80px 1fr 90px !important; }
-  .ch-table-row .ch-product-name { font-size: 16px !important; }
-  .ch-table-header { grid-template-columns: 80px 1fr 90px !important; font-size: 9px !important; }
-}
-
-/* HERITAGE TIMELINE */
-@media (max-width: 700px) {
-  .ch-timeline-row { grid-template-columns: 1fr !important; gap: 12px !important; padding: 28px 0 !important; }
-  .ch-timeline-year { font-size: 24px !important; }
-  .ch-timeline-title { font-size: 24px !important; }
-}
-@media (max-width: 640px) {
-  .ch-heritage-h1 { font-size: 64px !important; }
-  .ch-heritage-lead { font-size: 19px !important; margin-top: 32px !important; }
-}
-
-/* FOOTER */
-@media (max-width: 900px) {
-  .ch-footer { padding: 64px 32px 32px !important; }
-  .ch-footer-grid { grid-template-columns: 1fr 1fr !important; gap: 36px 28px !important; }
-}
-@media (max-width: 640px) {
-  .ch-footer-grid { grid-template-columns: 1fr 1fr !important; }
-  .ch-footer-brand { grid-column: 1 / -1; }
-  .ch-footer-bottom { flex-direction: column; gap: 12px; align-items: flex-start !important; }
-}
-
 /* MOBILE DRAWER */
 .ch-burger { display: none; }
 .ch-drawer-backdrop {
@@ -350,10 +241,6 @@ html {
   overscroll-behavior: contain;
 }
 .ch-drawer.open { transform: translateX(0); }
-
-/* UNIVERSAL: prevent overflow */
-html, body { overflow-x: hidden; }
-img, svg, video { max-width: 100%; height: auto; }
 
 /* ─── EDITORIAL STRIP + JOURNAL/RECIPES PAGES ───────────────────────────── */
 @media (max-width: 900px) {
@@ -432,22 +319,6 @@ img, svg, video { max-width: 100%; height: auto; }
   .ch-cm-h1 { font-size: 44px !important; }
 }
 
-/* ─── HEADER ────────────────────────────────────────────────────────────── */
-@media (max-width: 1100px) {
-  .ch-nav { gap: 16px !important; font-size: 10px !important; }
-}
-@media (max-width: 900px) {
-  .ch-nav-desktop { display: none !important; }
-  .ch-burger { display: flex !important; }
-  .ch-header-inner { padding: 16px 16px !important; gap: 8px !important; }
-  .ch-header-cta { display: none !important; }
-  /* Phase 8 mobile fix (duplicate header block — kept in sync with the
-     earlier one above intentionally; this is where the active rules live
-     after the cascade). */
-  .ch-logo-seal { width: 56px !important; height: 56px !important; }
-  .ch-logo-wordmark { display: none !important; }
-}
-
 /* ─── HERO (homepage) ───────────────────────────────────────────────────── */
 @media (max-width: 1100px) {
   .ch-hero-grid { grid-template-columns: 1fr !important; gap: 48px !important; padding: 80px 32px 64px !important; }
@@ -460,7 +331,7 @@ img, svg, video { max-width: 100%; height: auto; }
   .ch-hero-lead { font-size: 17px !important; margin-top: 24px !important; }
   .ch-hero-ctas { flex-wrap: wrap; gap: 10px !important; margin-top: 28px !important; }
   .ch-hero-ctas button,
-  .ch-hero-ctas a { padding: 14px 22px !important; font-size: 11px !important; flex: 1; min-width: 140px; }
+  .ch-hero-ctas a { padding: 14px 22px !important; font-size: 11px !important; flex: 1; min-width: 140px; text-align: center; }
   .ch-hero-badge { width: 84px !important; height: 84px !important; top: 12px !important; right: 12px !important; }
   .ch-hero-badge-min { font-size: 20px !important; }
   .ch-ticker { flex-wrap: wrap; gap: 10px 18px !important; padding: 16px 24px !important; font-size: 9px !important; }
@@ -563,14 +434,6 @@ img, svg, video { max-width: 100%; height: auto; }
   .ch-footer-grid { grid-template-columns: 1fr 1fr !important; }
   .ch-footer-brand { grid-column: 1 / -1; }
   .ch-footer-bottom { flex-direction: column; gap: 12px; align-items: flex-start !important; }
-}
-
-/* ─── EDITORIAL STRIP + JOURNAL/RECIPES ─────────────────────────────────── */
-@media (max-width: 900px) {
-  .ch-edit-mosaic { grid-template-columns: 1fr !important; gap: 56px !important; }
-  .ch-edit-tabs { display: none !important; }
-  .ch-edit-list-row { grid-template-columns: 80px 1fr !important; }
-  .ch-newsletter { padding: 24px !important; }
 }
 
 /* ─── AUTH (Login) ──────────────────────────────────────────────────────── */

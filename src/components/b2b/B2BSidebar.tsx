@@ -38,8 +38,8 @@ export default function B2BSidebar({
 
     return (
         <>
-            {/* Mobile Header */}
-            <div className="md:hidden fixed top-0 left-0 w-full h-16 bg-white border-b border-[#E8E6E1] z-30 flex items-center justify-between px-4 shadow-sm">
+            {/* Mobile Header — offset below the testing strip (fixed, so needs explicit top) */}
+            <div className="md:hidden fixed left-0 w-full h-16 bg-white border-b border-[#E8E6E1] z-30 flex items-center justify-between px-4 shadow-sm" style={{ top: 'var(--testing-strip-height, 0px)' }}>
                 <div className="flex items-center gap-3">
                     <h2 className="text-[#CBA153] font-serif text-lg leading-tight">Colchis B2B</h2>
                 </div>
@@ -53,8 +53,11 @@ export default function B2BSidebar({
                 <div className="md:hidden fixed inset-0 bg-black/50 z-40 transition-opacity" onClick={closeSidebar}></div>
             )}
 
-            {/* Sidebar drawer */}
-            <aside className={`w-64 bg-white border-r border-[#E8E6E1] fixed top-0 left-0 h-full flex flex-col z-50 transform transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
+            {/* Sidebar drawer — offset below the testing strip (fixed, so needs explicit top/height) */}
+            <aside
+                className={`w-64 bg-white border-r border-[#E8E6E1] fixed left-0 flex flex-col z-50 transform transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}
+                style={{ top: 'var(--testing-strip-height, 0px)', height: 'calc(100dvh - var(--testing-strip-height, 0px))' }}
+            >
                 <div className="p-6 border-b border-[#E8E6E1] flex items-center justify-between">
                     <div>
                         <h2 className="text-xl font-serif text-[#CBA153] leading-tight">

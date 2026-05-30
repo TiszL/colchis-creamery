@@ -74,15 +74,16 @@ export function LocationPicker() {
             <button
                 type="button"
                 onClick={() => setOpen(o => !o)}
-                className="flex items-center gap-1.5 sm:gap-2 px-2 py-1 sm:px-3 sm:py-1.5 text-[11px] sm:text-xs font-medium text-ink bg-cream border border-ink/10 rounded-full hover:border-ink/30 transition-colors min-w-0 max-w-[160px] sm:max-w-none"
+                title={label}
+                className="flex items-center gap-1.5 sm:gap-2 px-2 py-1 sm:px-3 sm:py-1.5 text-[11px] sm:text-xs font-medium text-ink bg-cream border border-ink/10 rounded-full hover:border-ink/30 transition-colors min-w-0 max-w-[150px] lg:max-w-[190px]"
                 aria-haspopup="listbox"
                 aria-expanded={open}
             >
                 <MapPin className="w-3.5 h-3.5 text-[#B96A3D] shrink-0" />
                 <span className="hidden sm:inline">Ordering from</span>
-                <span className="font-semibold truncate">
+                <span className="font-semibold truncate min-w-0">
                     <span className="sm:hidden">{shortLabel}</span>
-                    <span className="hidden sm:inline max-w-[160px]">{label}</span>
+                    <span className="hidden sm:inline">{label}</span>
                 </span>
                 <ChevronDown className={`w-3.5 h-3.5 shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
             </button>

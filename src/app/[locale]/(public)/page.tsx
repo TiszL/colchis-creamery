@@ -136,7 +136,7 @@ export default async function HomePage({ params }: HomePageProps) {
 
   return (
     <>
-      <HeroSection locale={locale} content={heroContent} ticker={tickerContent} heroMedia={heroMedia} />
+      <HeroSection locale={locale} content={heroContent} ticker={tickerContent} heroMedia={heroMedia} mapsApiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY} />
       <Story content={storyContent} />
       <ThreeHouses content={threeHousesContent} />
       <FeaturedProducts products={products} locale={locale} />

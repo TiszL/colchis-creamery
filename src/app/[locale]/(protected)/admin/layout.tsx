@@ -21,7 +21,7 @@ export default async function AdminLayout({
     }
 
     return (
-        <div className="min-h-screen bg-[#0C0C0C]">
+        <div className="min-h-screen bg-[#0C0C0C]" style={{ paddingTop: 'var(--testing-strip-height, 0px)' }}>
             <AdminSidebar 
                 locale={locale} 
                 sessionName={session.name || session.email} 

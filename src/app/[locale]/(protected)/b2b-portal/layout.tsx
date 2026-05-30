@@ -48,7 +48,7 @@ export default async function B2BLayout({
     }
 
     return (
-        <div className="min-h-screen bg-[#FDFBF7] flex flex-col md:flex-row">
+        <div className="min-h-screen bg-[#FDFBF7] flex flex-col md:flex-row" style={{ paddingTop: 'var(--testing-strip-height, 0px)' }}>
             <B2BSidebar
                 locale={locale}
                 companyName={companyName}

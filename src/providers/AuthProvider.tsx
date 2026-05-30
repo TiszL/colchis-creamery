@@ -29,9 +29,14 @@ export function useAuth() {
     return useContext(AuthContext);
 }
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-    const [user, setUser] = useState<AuthUser | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
+export function AuthProvider({ children, initialUser }: { children: ReactNode; initialUser?: AuthUser | null }) {
+    // SSR-seed from the server-verified JWT so the header renders the correct
+    // avatar / Sign-In on first paint (no auth pop-in). When initialUser is
+    // provided (even null) we trust it for the initial render and skip the
+    // loading state — the effect below still re-validates against /api/auth/me
+    // in the background to catch a stale/invalidated session.
+    const [user, setUser] = useState<AuthUser | null>(initialUser ?? null);
+    const [isLoading, setIsLoading] = useState(initialUser === undefined);
 
     const fetchUser = useCallback(async () => {
         try {

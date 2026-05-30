@@ -4,6 +4,7 @@ import { Footer } from "@/components/layout/Footer";
 import { JsonLdLocalBusiness } from "@/components/seo/JsonLdLocalBusiness";
 import { JsonLdOrganization } from "@/components/seo/JsonLdOrganization";
 import { AuthProvider } from "@/providers/AuthProvider";
+import { verifyToken } from "@/lib/auth";
 import { LocationProvider, LOCATION_COOKIE_NAME } from "@/providers/LocationProvider";
 import LiveChatWidget from "@/components/chat/LiveChatWidget";
 import { getSocialUrls } from "@/lib/site-config";
@@ -41,8 +42,17 @@ export default async function PublicLayout({
     ? rawCookieId
     : null;
 
+  // SSR-seed auth from the verified JWT so the header avatar / Sign-In paints
+  // correctly on first render (no client pop-in). Pure JWT decode here; the
+  // AuthProvider still re-validates against /api/auth/me in the background.
+  const authToken = cookieStore.get("auth_token")?.value ?? null;
+  const payload = authToken ? await verifyToken(authToken) : null;
+  const initialUser = payload
+    ? { userId: payload.userId, name: payload.name ?? "", email: payload.email, role: payload.role }
+    : null;
+
   return (
-    <AuthProvider>
+    <AuthProvider initialUser={initialUser}>
       <LocationProvider locations={activeLocations} initialSelectedId={initialSelectedId}>
         <JsonLdLocalBusiness />
         <JsonLdOrganization socials={socials} />

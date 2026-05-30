@@ -10,7 +10,7 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
 /* Segments that use their OWN sidebar/shell — no public header/footer */
-const PANEL_SEGMENTS = ["admin", "portal", "analytics"];
+const PANEL_SEGMENTS = ["admin", "portal", "analytics", "b2b-portal", "location-portal"];
 
 export default function ProtectedShell({
   children,

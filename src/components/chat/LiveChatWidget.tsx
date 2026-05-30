@@ -186,6 +186,38 @@ export default function LiveChatWidget() {
         }
     }, [sessionId, sessionStatus, connectSSE]);
 
+    // ── Polling fallback ─────────────────────────────────────────────────────
+    // SSE is unreliable on Vercel's multi-instance serverless runtime (the POST
+    // that emits and the SSE listener can be on different instances). Poll the
+    // thread every few seconds as a reliability backstop; knownMsgIds dedup keeps
+    // SSE + polling from double-rendering a message.
+    useEffect(() => {
+        if (!sessionId || sessionStatus === 'CLOSED') return;
+        let cancelled = false;
+        const poll = async () => {
+            try {
+                const res = await fetch(`/api/chat/messages?sessionId=${sessionId}`, { credentials: 'include' });
+                if (!res.ok || cancelled) return;
+                const data = await res.json();
+                if (cancelled || !Array.isArray(data.messages)) return;
+                data.messages.forEach((m: ChatMsg) => knownMsgIds.current.add(m.id));
+                setMessages(prev => {
+                    const pendingOptimistic = prev.filter(
+                        m => m.id.startsWith('opt-') &&
+                            !data.messages.some((s: ChatMsg) => s.sender === 'visitor' && s.body === m.body),
+                    );
+                    return [...data.messages, ...pendingOptimistic];
+                });
+                if (data.status && data.status !== sessionStatus) {
+                    setSessionStatus(data.status);
+                    if (data.status === 'CLOSED') setStoredSession(null);
+                }
+            } catch { /* network blip; next tick retries */ }
+        };
+        const interval = setInterval(poll, 3000);
+        return () => { cancelled = true; clearInterval(interval); };
+    }, [sessionId, sessionStatus]);
+
     // ── Create session (auth user) ───────────────────────────────────────────
     const startAuthSession = async () => {
         setIsConnecting(true);

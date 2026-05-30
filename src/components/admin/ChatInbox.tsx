@@ -164,6 +164,19 @@ export default function ChatInbox() {
         }
     }, [activeSessionId, fetchActiveSession]);
 
+    // ── Polling fallback ─────────────────────────────────────────────────────
+    // SSE delivery is unreliable on Vercel's multi-instance serverless runtime,
+    // so poll the session list + the open conversation as a reliability backstop.
+    // knownMsgIds dedup (and the optimistic-merge in fetch) keep this consistent
+    // with the SSE path.
+    useEffect(() => {
+        const interval = setInterval(() => {
+            fetchSessions();
+            if (activeSessionId) fetchActiveSession();
+        }, 4000);
+        return () => clearInterval(interval);
+    }, [fetchSessions, fetchActiveSession, activeSessionId]);
+
     // ── Claim session ────────────────────────────────────────────────────────
     const claimSession = async (sessionId: string) => {
         try {

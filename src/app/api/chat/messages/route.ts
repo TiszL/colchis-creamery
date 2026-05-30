@@ -96,3 +96,28 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Failed to send message' }, { status: 500 });
     }
 }
+
+/**
+ * GET /api/chat/messages?sessionId=xxx
+ * Polling fallback for the SSE stream, which is unreliable on Vercel's
+ * multi-instance serverless runtime (the emitting POST and the listening SSE
+ * connection can land on different instances). Returns the full thread + status.
+ * The unguessable sessionId is the bearer token, same model as the SSE stream.
+ */
+export async function GET(req: NextRequest) {
+    const sessionId = req.nextUrl.searchParams.get('sessionId');
+    if (!sessionId) {
+        return NextResponse.json({ error: 'sessionId is required' }, { status: 400 });
+    }
+    const session = await prisma.chatSession.findUnique({
+        where: { id: sessionId },
+        select: {
+            status: true,
+            messages: { orderBy: { createdAt: 'asc' } },
+        },
+    });
+    if (!session) {
+        return NextResponse.json({ error: 'Session not found' }, { status: 404 });
+    }
+    return NextResponse.json({ messages: session.messages, status: session.status });
+}

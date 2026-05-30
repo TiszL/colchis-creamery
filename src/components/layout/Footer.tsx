@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ColchisSeal } from "@/components/brand/ColchisSeal";
+import { LocaleSwitcher } from "./LocaleSwitcher";
 import { prisma } from "@/lib/db";
 import { getPrimaryLocation } from "@/lib/business-location";
 
@@ -75,9 +76,9 @@ export async function Footer() {
           ))}
         </div>
 
-        <div className="ch-footer-bottom" style={{ display: "flex", justifyContent: "space-between", marginTop: 36, fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.24em", color: "#F5F0E6", opacity: 0.5, textTransform: "uppercase" }}>
+        <div className="ch-footer-bottom" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 36, fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.24em", color: "rgba(245,240,230,0.55)", textTransform: "uppercase" }}>
           <span>© {new Date().getFullYear()} Colchis Food LLC · Dublin OH</span>
-          <span>EN / ქართული</span>
+          <LocaleSwitcher />
           <span>colchisfood.com</span>
         </div>
       </div>

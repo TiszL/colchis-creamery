@@ -6,6 +6,7 @@ import { registerB2CAction } from "@/app/actions/auth";
 import { useState, useTransition, useEffect, Suspense } from "react";
 import { useRouter, Link } from "@/i18n/routing";
 import { useSearchParams } from "next/navigation";
+import { LocaleSwitcher } from "@/components/layout/LocaleSwitcher";
 
 function LoginContent() {
     const t = useTranslations("auth");
@@ -61,7 +62,21 @@ function LoginContent() {
     };
 
     return (
-        <main className="ch-auth" style={{ background: "#F5F0E6", minHeight: "calc(100vh - 80px)", position: "relative", overflow: "hidden" }}>
+        <main className="ch-auth" style={{ background: "linear-gradient(to right, #F5F0E6 0 50%, #EAE2D2 50% 100%)", minHeight: "100vh", position: "relative", overflow: "hidden" }}>
+            {/* Top nav bar — logo (home) + site nav + language switcher, so the
+                login page is connected to the rest of the site and easy to leave. */}
+            <header style={{ position: "relative", zIndex: 3, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 24, height: 80, padding: "0 64px", borderBottom: "1px solid #1F302614" }}>
+                <Link href="/" style={{ display: "flex", alignItems: "center", textDecoration: "none", flexShrink: 0 }}>
+                    <img src="/logo.svg" alt="Colchis Food — home" style={{ height: 34, width: "auto", objectFit: "contain", display: "block" }} />
+                </Link>
+                <nav className="ch-auth-nav" style={{ display: "flex", gap: 22, fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase" }}>
+                    {([["Creamery", "/creamery"], ["Bakery", "/bakery"], ["Journal", "/journal"], ["Recipes", "/recipes"], ["Heritage", "/heritage"], ["Wholesale", "/wholesale"], ["Contact", "/contact"]] as const).map(([l, h]) => (
+                        <Link key={h} href={h} style={{ color: "#1F3026", textDecoration: "none", whiteSpace: "nowrap" }}>{l}</Link>
+                    ))}
+                </nav>
+                <div style={{ flexShrink: 0, color: "#1F3026" }}><LocaleSwitcher /></div>
+            </header>
+
             {/* Faint grid */}
             <div style={{ position: "absolute", inset: 0, backgroundImage: "linear-gradient(#1F302606 1px, transparent 1px), linear-gradient(90deg, #1F302606 1px, transparent 1px)", backgroundSize: "80px 80px", pointerEvents: "none" }} />
 
@@ -69,9 +84,6 @@ function LoginContent() {
                 {/* ─── LEFT — Editorial column ───────────────────────────── */}
                 <aside className="ch-auth-left" style={{ borderRight: "1px solid #1F302614", padding: "72px 64px 64px", display: "flex", flexDirection: "column", justifyContent: "space-between", background: "#F5F0E6" }}>
                     <div>
-                        <Link href="/" style={{ display: "inline-block", marginBottom: 36 }}>
-                            <img src="/logo.svg" alt="Colchis Food — home" style={{ height: 38, width: "auto", objectFit: "contain", display: "block" }} />
-                        </Link>
                         <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.32em", color: "#B96A3D", textTransform: "uppercase", marginBottom: 18 }}>
                             № 00 — The Pantry
                         </div>
@@ -224,7 +236,6 @@ function LoginContent() {
                         {/* Footnote */}
                         <div style={{ marginTop: 40, paddingTop: 22, borderTop: "1px solid #1F302614", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.28em", color: "#7A8278", textTransform: "uppercase" }}>
                             <Link href="/" style={{ color: "#B96A3D", textDecoration: "none", letterSpacing: "0.28em" }}>← Back to home</Link>
-                            <span>EN / ქართული</span>
                             <span>Secure · TLS 1.3</span>
                         </div>
                     </div>

@@ -80,7 +80,6 @@ export default function WholesalePage() {
                   <ColchisSeal size={44} />
                 </div>
                 <div style={{ fontFamily: "var(--font-serif)", fontStyle: "italic", fontSize: 36, color: "#1F3026", lineHeight: 1, fontWeight: 400 }}>{t.name}</div>
-                <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.28em", color: "#7A8278", textTransform: "uppercase", marginTop: 10 }}>Min · {t.min}</div>
                 <div style={{ fontFamily: "var(--font-sans)", fontSize: 14, lineHeight: 1.6, color: "#2C3D33", marginTop: 20 }}>{t.desc}</div>
                 <div style={{ height: 1, background: "#1F302622", margin: "28px 0" }} />
                 <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 12, flex: 1 }}>
@@ -110,16 +109,15 @@ export default function WholesalePage() {
             </div>
           </div>
           <div style={{ background: "#F5F0E6", border: "1px solid #1F302614" }}>
-            <div className="ch-table-header" style={{ display: "grid", gridTemplateColumns: "120px 1fr 200px 160px 160px", padding: "20px 32px", fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.24em", color: "#7A8278", textTransform: "uppercase", borderBottom: "1px solid #1F302622" }}>
-              <span>SKU</span><span>Product</span><span className="ch-hide-mobile">Size</span><span className="ch-hide-mobile">Pack</span><span style={{ textAlign: "right" }}>Wholesale</span>
+            <div className="ch-table-header" style={{ display: "grid", gridTemplateColumns: "120px 1fr 200px 160px", padding: "20px 32px", fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.24em", color: "#7A8278", textTransform: "uppercase", borderBottom: "1px solid #1F302622" }}>
+              <span>SKU</span><span>Product</span><span className="ch-hide-mobile">Size</span><span className="ch-hide-mobile">Pack</span>
             </div>
             {skuList.map((s, i) => (
-              <div key={s.code} className="ch-table-row" style={{ display: "grid", gridTemplateColumns: "120px 1fr 200px 160px 160px", padding: "22px 32px", borderBottom: i < skuList.length - 1 ? "1px solid #1F302611" : "none", alignItems: "center" }}>
+              <div key={s.code} className="ch-table-row" style={{ display: "grid", gridTemplateColumns: "120px 1fr 200px 160px", padding: "22px 32px", borderBottom: i < skuList.length - 1 ? "1px solid #1F302611" : "none", alignItems: "center" }}>
                 <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "#B96A3D", letterSpacing: "0.16em" }}>{s.code}</span>
                 <span className="ch-product-name" style={{ fontFamily: "var(--font-serif)", fontStyle: "italic", fontSize: 22, color: "#1F3026" }}>{s.name}</span>
                 <span className="ch-hide-mobile" style={{ fontFamily: "var(--font-sans)", fontSize: 13, color: "#2C3D33" }}>{s.size}</span>
                 <span className="ch-hide-mobile" style={{ fontFamily: "var(--font-sans)", fontSize: 13, color: "#2C3D33" }}>{s.pack}</span>
-                <span style={{ fontFamily: "var(--font-serif)", fontSize: 22, color: "#1F3026", textAlign: "right" }}>{s.price}</span>
               </div>
             ))}
           </div>

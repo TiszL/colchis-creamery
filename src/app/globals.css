@@ -230,6 +230,12 @@ html {
   .ch-addr-actions { justify-content: flex-start !important; }
 }
 
+/* Auth-page top nav: hide the inline site links on small screens; the logo
+   (home) + language switcher stay visible. */
+@media (max-width: 1024px) {
+  .ch-auth-nav { display: none !important; }
+}
+
 /* MOBILE DRAWER */
 .ch-burger { display: none; }
 .ch-drawer-backdrop {
@@ -409,16 +415,18 @@ html {
 }
 
 /* ─── WHOLESALE TABLE ───────────────────────────────────────────────────── */
+/* Two columns on mobile (SKU + Product) — Size/Pack are .ch-hide-mobile and the
+   price column was removed, so no empty trailing track. */
 @media (max-width: 900px) {
-  .ch-table-row { grid-template-columns: 90px 1fr 100px !important; padding: 16px 20px !important; gap: 8px; }
+  .ch-table-row { grid-template-columns: 90px 1fr !important; padding: 16px 20px !important; gap: 8px; }
   .ch-table-row .ch-hide-mobile { display: none !important; }
-  .ch-table-header { grid-template-columns: 90px 1fr 100px !important; padding: 14px 20px !important; }
+  .ch-table-header { grid-template-columns: 90px 1fr !important; padding: 14px 20px !important; }
   .ch-table-header .ch-hide-mobile { display: none !important; }
 }
 @media (max-width: 640px) {
-  .ch-table-row { grid-template-columns: 80px 1fr 90px !important; }
+  .ch-table-row { grid-template-columns: 80px 1fr !important; }
   .ch-table-row .ch-product-name { font-size: 16px !important; }
-  .ch-table-header { grid-template-columns: 80px 1fr 90px !important; font-size: 9px !important; }
+  .ch-table-header { grid-template-columns: 80px 1fr !important; font-size: 9px !important; }
 }
 
 /* ─── HERITAGE TIMELINE ─────────────────────────────────────────────────── */

@@ -33,8 +33,11 @@ export async function GET(req: Request) {
         if (auth !== `Bearer ${CRON_SECRET}`) {
             return new NextResponse('Unauthorized', { status: 401 });
         }
+    } else if (process.env.NODE_ENV === 'production') {
+        console.error('[cron/release-reservations] CRON_SECRET unset in production — refusing.');
+        return new NextResponse('Forbidden', { status: 403 });
     } else {
-        console.warn('[cron/release-reservations] CRON_SECRET unset — endpoint is unauthenticated.');
+        console.warn('[cron/release-reservations] CRON_SECRET unset — endpoint is unauthenticated (dev).');
     }
 
     const now = new Date();

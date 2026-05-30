@@ -43,8 +43,11 @@ export async function POST(req: Request) {
             console.warn('[uber-direct-webhook] Invalid signature');
             return new NextResponse('Invalid signature', { status: 401 });
         }
+    } else if (process.env.NODE_ENV === 'production') {
+        console.error('[uber-direct-webhook] UBER_DIRECT_WEBHOOK_SECRET unset in production — refusing.');
+        return new NextResponse('Webhook secret not configured', { status: 503 });
     } else {
-        console.warn('[uber-direct-webhook] UBER_DIRECT_WEBHOOK_SECRET unset — accepting unsigned request');
+        console.warn('[uber-direct-webhook] UBER_DIRECT_WEBHOOK_SECRET unset — accepting unsigned request (dev)');
     }
 
     let payload: UberWebhookPayload;

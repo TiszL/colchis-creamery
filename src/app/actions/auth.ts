@@ -21,7 +21,7 @@ const CUSTOMER_ROLES = ["B2C_CUSTOMER", "B2B_PARTNER"];
 // ──────────────────────────────────────────────────────────────────────────────
 
 export async function loginAction(formData: FormData) {
-    const email = formData.get("email") as string;
+    const email = ((formData.get("email") as string) || "").trim().toLowerCase();
     const password = formData.get("password") as string;
     // Phase 11: login form posts a hidden `context` so we can scope the
     // user lookup to the right role bucket. Same email may map to BOTH a
@@ -113,7 +113,9 @@ export async function loginAction(formData: FormData) {
 
 export async function registerB2CAction(formData: FormData) {
     const name = formData.get("name") as string;
-    const email = formData.get("email") as string;
+    // Canonicalize email (trim + lowercase) so casing can't create duplicate
+    // accounts or lock users out under the @@unique([email, role]) constraint.
+    const email = ((formData.get("email") as string) || "").trim().toLowerCase();
     const password = formData.get("password") as string;
 
     if (!name || !email || !password || password.length < 8) {
@@ -527,7 +529,12 @@ export async function staffLoginAction(formData: FormData) {
                 data: { twoFactorCode: code, twoFactorExpiry: expiry },
             });
 
-            await send2FAEmail(user.email, code, user.name || undefined);
+            const sent = await send2FAEmail(user.email, code, user.name || undefined);
+            if (!sent.success) {
+                // Don't tell the admin "code sent" when it wasn't — that's a silent
+                // lockout. Let them retry instead.
+                return { error: "Couldn't send your verification code. Please try again." };
+            }
 
             return {
                 success: false,

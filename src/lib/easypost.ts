@@ -274,7 +274,11 @@ export async function easypostFetchTracker(trackingCode: string): Promise<EpTrac
  * Header: X-Hmac-Signature  (per EasyPost docs)
  */
 export function verifyEasyPostSignature(rawBody: string, headerValue: string | null): boolean {
-    if (!WEBHOOK_SECRET) return true; // dev: accept unsigned
+    if (!WEBHOOK_SECRET) {
+        // Fail closed in production — never accept unsigned carrier webhooks live.
+        if (process.env.NODE_ENV === 'production') return false;
+        return true; // dev: accept unsigned
+    }
     if (!headerValue) return false;
     const expected = createHmac('sha256', WEBHOOK_SECRET).update(rawBody).digest('hex');
     try {

@@ -34,6 +34,12 @@ const NET_TERM_DAYS: Record<string, number> = {
 export async function GET(req: Request) {
     // Vercel cron sends `authorization: Bearer <CRON_SECRET>`.
     const auth = req.headers.get("authorization") || "";
+    // Fail closed in production: a missing secret must NOT open this
+    // order-creating + Resolve-charging endpoint to the public internet.
+    if (!CRON_SECRET && process.env.NODE_ENV === "production") {
+        console.error("[cron/recurring] CRON_SECRET unset in production — refusing.");
+        return new NextResponse("Forbidden", { status: 403 });
+    }
     if (CRON_SECRET && auth !== `Bearer ${CRON_SECRET}`) {
         return new NextResponse("Forbidden", { status: 403 });
     }
@@ -132,7 +138,8 @@ export async function GET(req: Request) {
                         orderType: "B2B",
                         paymentStatus: "UNPAID",
                         orderStatus: "PROCESSING",
-                        totalAmount: `$${subtotal.toFixed(2)}`,
+                        // Unprefixed numeric string to match D2C (refunds parseFloat this).
+                        totalAmount: subtotal.toFixed(2),
                         notes: `Auto-generated from recurring schedule "${sched.name}"`,
                         orderItems: { create: processed },
                     },

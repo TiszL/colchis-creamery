@@ -43,8 +43,11 @@ export async function POST(req: Request) {
             console.warn('[doordash-webhook] Invalid Authorization header');
             return new NextResponse('Invalid auth', { status: 401 });
         }
+    } else if (process.env.NODE_ENV === 'production') {
+        console.error('[doordash-webhook] DOORDASH_WEBHOOK_AUTH unset in production — refusing.');
+        return new NextResponse('Webhook auth not configured', { status: 503 });
     } else {
-        console.warn('[doordash-webhook] DOORDASH_WEBHOOK_AUTH unset — accepting unauthenticated request');
+        console.warn('[doordash-webhook] DOORDASH_WEBHOOK_AUTH unset — accepting unauthenticated request (dev)');
     }
 
     let payload: DoorDashWebhookPayload;

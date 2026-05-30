@@ -138,7 +138,9 @@ export async function POST(req: NextRequest) {
                     orderType: "B2B",
                     paymentStatus: "UNPAID",
                     orderStatus: "PROCESSING",
-                    totalAmount: `$${subtotal.toFixed(2)}`,
+                    // Store an unprefixed numeric string to match D2C — refunds and
+                    // the admin order page parseFloat() this; a leading "$" → NaN → $0.
+                    totalAmount: subtotal.toFixed(2),
                     orderItems: { create: processedItems },
                 },
                 include: { orderItems: true },

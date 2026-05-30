@@ -8,7 +8,7 @@ import { ColchisSeal } from "@/components/brand/ColchisSeal";
 const tiers = [
   { tag: "01", name: "Restaurant", desc: "Standard line. Net 14. Free delivery in Ohio + 5-state ring.", who: "Restaurants, cafés, bakeries", check: ["Full Creamery & Bakery line", "Weekly cold-chain delivery", "Net 14 terms", "Menu support & training"] },
   { tag: "02", name: "Grocery", desc: "Retail-ready packaging with UPC, planogram support, in-store demo days.", who: "Independent grocers, co-ops", check: ["Retail-ready labels & UPC", "Planogram & POS materials", "Quarterly demo days", "Net 30 terms"] },
-  { tag: "03", name: "National Ship", desc: "Beyond our local cold-chain ring? Carry the frozen bake-off line and travel-stable cheeses, packed and shipped 2-day to your dock.", who: "Out-of-region grocers, specialty & food service", check: ["Frozen heat-and-serve khachapuri", "2-day cold-chain shipping", "Aged & travel-stable cheese SKUs", "Net 30 terms"] },
+  { tag: "03", name: "Hospitality", desc: "Event-scale orders for hotels, caterers, and venues — cheese boards, bulk sulguni, and hot khachapuri delivered to your service window.", who: "Hotels, caterers, event venues", check: ["By-the-event or standing volume", "Curated cheese boards & platters", "Hot & cold delivery on your timeline", "Net 30 terms"] },
 ];
 
 const skuList = [
@@ -46,7 +46,7 @@ export default function WholesalePage() {
           </h1>
           <div className="ch-section-grid" style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr 1fr", gap: 48, marginTop: 80, paddingTop: 48, borderTop: "1px solid rgba(245,240,230,0.14)" }}>
             <div style={{ fontFamily: "var(--font-serif)", fontStyle: "italic", fontSize: "clamp(16px, 2vw, 22px)", lineHeight: 1.5, opacity: 0.85 }}>
-              Wholesale partners get cold-chain delivery within a 10-hour drive radius and full access to the Creamery & Bakery line — with 2-day national shipping for the frozen bake-off beyond it.
+              Wholesale partners get cold-chain delivery within a 10-hour drive radius and full access to the Creamery & Bakery line — fresh, aged, and frozen.
             </div>
             <div>
               <div className="ch-stat-num" style={{ fontFamily: "var(--font-serif)", fontSize: 56, fontWeight: 400, color: "#8B4A28", lineHeight: 1 }}>40+</div>

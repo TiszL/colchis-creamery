@@ -42,3 +42,27 @@ export async function getPartnerContext(userId: string): Promise<PartnerContext 
     }
     return null;
 }
+
+/** The owner's User id for a partner org (used for the org-wide contract/pricing). */
+export async function getOwnerUserId(partnerId: string): Promise<string | null> {
+    const p = await prisma.b2bPartner.findUnique({ where: { id: partnerId }, select: { userId: true } });
+    return p?.userId ?? null;
+}
+
+/**
+ * Every User id that belongs to an org: the owner + all ACTIVE members with a
+ * linked account. Used so an owner sees orders placed by anyone in the org.
+ */
+export async function getOrgUserIds(partnerId: string): Promise<string[]> {
+    const [owner, members] = await Promise.all([
+        prisma.b2bPartner.findUnique({ where: { id: partnerId }, select: { userId: true } }),
+        prisma.b2bPartnerMember.findMany({
+            where: { partnerId, status: "ACTIVE", userId: { not: null } },
+            select: { userId: true },
+        }),
+    ]);
+    const ids = new Set<string>();
+    if (owner?.userId) ids.add(owner.userId);
+    for (const m of members) if (m.userId) ids.add(m.userId);
+    return Array.from(ids);
+}

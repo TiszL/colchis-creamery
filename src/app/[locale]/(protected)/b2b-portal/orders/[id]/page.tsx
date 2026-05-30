@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
+import { getPartnerContext, getOrgUserIds } from "@/lib/b2b-partner";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Repeat, FileText } from "lucide-react";
@@ -32,8 +33,12 @@ export default async function PartnerOrderDetailPage({ params }: { params: Promi
             partnerLocation: { select: { label: true } },
         },
     });
-    // Ownership: "not yours" == 404 so we never leak a foreign order id. Admins may view any.
-    if (!order || (order.userId !== session.userId && session.role !== "MASTER_ADMIN")) notFound();
+    // Ownership: "not yours" == 404 so we never leak a foreign order id. An owner
+    // may view any order across the org; a member only their own. Admins, any.
+    const ctx = await getPartnerContext(session.userId);
+    const orgUserIds = ctx ? (ctx.isOwner ? await getOrgUserIds(ctx.partnerId) : [session.userId]) : [session.userId];
+    const canView = session.role === "MASTER_ADMIN" || (!!order && orgUserIds.includes(order.userId));
+    if (!order || !canView) notFound();
 
     const inv = order.b2bInvoice;
 

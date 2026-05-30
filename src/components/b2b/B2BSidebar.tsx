@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Menu, X, LogOut, PackagePlus, LayoutDashboard, Repeat, FileText, History, UserCog, FolderOpen, Store } from 'lucide-react';
+import { Menu, X, LogOut, PackagePlus, LayoutDashboard, Repeat, FileText, History, UserCog, FolderOpen, Store, Users } from 'lucide-react';
 
 export default function B2BSidebar({
     locale,
@@ -32,6 +32,7 @@ export default function B2BSidebar({
         { label: 'Invoices & Billing', href: `/${locale}/b2b-portal/invoices`, icon: FileText, show: isOwner || canViewBilling },
         { label: 'Documents', href: `/${locale}/b2b-portal/documents`, icon: FolderOpen, show: isOwner },
         { label: 'My Shops', href: `/${locale}/b2b-portal/locations`, icon: Store, show: isOwner },
+        { label: 'Team', href: `/${locale}/b2b-portal/team`, icon: Users, show: isOwner },
         { label: 'Account & Company', href: `/${locale}/b2b-portal/account`, icon: UserCog, show: isOwner },
     ].filter(i => i.show);
 

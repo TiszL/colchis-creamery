@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
+import { getPartnerContext } from "@/lib/b2b-partner";
 import { redirect } from "next/navigation";
 import { FileText, AlertCircle, ExternalLink } from "lucide-react";
 
@@ -18,13 +19,14 @@ export default async function PartnerInvoicesPage({ params }: { params: Promise<
     if (!session) redirect(`/${locale}/b2b/login`);
     if (session.role !== "B2B_PARTNER" && session.role !== "MASTER_ADMIN") redirect(`/${locale}/`);
 
-    const partner = session.role === "B2B_PARTNER"
-        ? await prisma.b2bPartner.findUnique({ where: { userId: session.userId }, select: { id: true } })
-        : null;
+    // Owner always; a member only if the owner granted billing visibility.
+    const ctx = await getPartnerContext(session.userId);
+    if (ctx && !ctx.isOwner && !ctx.canViewBilling) redirect(`/${locale}/b2b-portal`);
+    const partnerId = ctx?.partnerId ?? null;
 
-    const invoices = partner
+    const invoices = partnerId
         ? await prisma.b2bInvoice.findMany({
-            where: { partnerId: partner.id },
+            where: { partnerId },
             orderBy: { issuedAt: "desc" },
             include: { order: { select: { id: true } } },
         })
@@ -49,7 +51,7 @@ export default async function PartnerInvoicesPage({ params }: { params: Promise<
                 <p className="text-sm text-gray-500">Your net-terms invoices, balances, and payment links.</p>
             </header>
 
-            {!partner && (
+            {!partnerId && (
                 <div className="bg-amber-50 border border-amber-200 px-4 py-3 text-amber-800 text-sm rounded-lg">
                     Place your first Resolve net-terms order to initialize your partner profile and start receiving invoices.
                 </div>

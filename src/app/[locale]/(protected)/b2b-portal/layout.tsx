@@ -34,6 +34,12 @@ export default async function B2BLayout({
     // treat null as owner for nav purposes. Active members get scoped nav, and
     // their company name comes from the org (their own User has no companyName).
     const ctx = await getPartnerContext(session.userId);
+    // A B2B_PARTNER with no active context is either a proto-owner (no B2bPartner
+    // row yet — just registered, fine) or a DISABLED member. Lock out the latter.
+    if (!ctx && session.role === 'B2B_PARTNER') {
+        const membership = await db.b2bPartnerMember.findUnique({ where: { userId: session.userId }, select: { status: true } });
+        if (membership) redirect(`/${locale}/b2b/login`);
+    }
     const isOwner = !ctx || ctx.isOwner;
     let companyName = user?.companyName || 'Partner';
     if (ctx && !ctx.isOwner) {

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
+import { getPartnerContext, getOrgUserIds } from "@/lib/b2b-partner";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Package, ArrowRight } from "lucide-react";
@@ -17,12 +18,19 @@ export default async function PartnerOrdersPage({ params }: { params: Promise<{ 
     if (!session) redirect(`/${locale}/b2b/login`);
     if (session.role !== "B2B_PARTNER" && session.role !== "MASTER_ADMIN") redirect(`/${locale}/`);
 
+    // Owner sees every order placed across the org; a member sees their own.
+    const ctx = await getPartnerContext(session.userId);
+    const orgUserIds = ctx ? (ctx.isOwner ? await getOrgUserIds(ctx.partnerId) : [session.userId]) : [session.userId];
+    const isOwnerView = ctx?.isOwner ?? true;
+
     const orders = await prisma.order.findMany({
-        where: { userId: session.userId, orderType: "B2B" },
+        where: { userId: { in: orgUserIds }, orderType: "B2B" },
         orderBy: { createdAt: "desc" },
         include: {
             orderItems: { select: { quantity: true, product: { select: { name: true } } } },
             b2bInvoice: { select: { status: true } },
+            partnerLocation: { select: { label: true } },
+            user: { select: { name: true, email: true } },
         },
     });
 
@@ -51,6 +59,12 @@ export default async function PartnerOrdersPage({ params }: { params: Promise<{ 
                                         #{o.id.slice(0, 8).toUpperCase()} <span className="text-gray-400">· {o.createdAt.toISOString().slice(0, 10)}</span>
                                     </p>
                                     <p className="text-[11px] text-gray-500 truncate">{items || "—"}</p>
+                                    {(o.partnerLocation || (isOwnerView && o.user?.name)) && (
+                                        <p className="text-[10px] text-gray-400 truncate">
+                                            {o.partnerLocation ? `→ ${o.partnerLocation.label}` : ""}
+                                            {isOwnerView && o.user?.name ? `${o.partnerLocation ? " · " : ""}by ${o.user.name}` : ""}
+                                        </p>
+                                    )}
                                 </div>
                                 <div className="flex items-center gap-3 shrink-0">
                                     {o.b2bInvoice && (

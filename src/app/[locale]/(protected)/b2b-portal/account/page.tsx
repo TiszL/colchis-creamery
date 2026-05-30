@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
+import { getPartnerContext } from "@/lib/b2b-partner";
 import { redirect } from "next/navigation";
 import { stripe } from "@/lib/stripe";
 import B2BAccountClient from "@/components/b2b/B2BAccountClient";
@@ -12,6 +13,9 @@ export default async function PartnerAccountPage({ params }: { params: Promise<{
     const session = await getSession();
     if (!session) redirect(`/${locale}/b2b/login`);
     if (session.role !== "B2B_PARTNER" && session.role !== "MASTER_ADMIN") redirect(`/${locale}/`);
+    // The company profile is owner-level — members manage neither it nor billing here.
+    const ctx = await getPartnerContext(session.userId);
+    if (ctx && !ctx.isOwner) redirect(`/${locale}/b2b-portal`);
 
     const [user, partner, locations] = await Promise.all([
         prisma.user.findUnique({ where: { id: session.userId }, select: { phone: true, companyName: true, stripeCustomerId: true } }),

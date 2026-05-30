@@ -1,6 +1,6 @@
 import { prisma as db } from '@/lib/db';
 import { getSession } from '@/lib/session';
-import { getPartnerContext } from '@/lib/b2b-partner';
+import { getPartnerContext, getOwnerUserId, getOrgUserIds } from '@/lib/b2b-partner';
 import BulkOrderClient from '@/components/b2b/BulkOrderClient';
 import { PackagePlus } from 'lucide-react';
 import { redirect } from 'next/navigation';
@@ -15,38 +15,36 @@ export default async function B2BOrderPage({ params, searchParams }: { params: P
     const session = await getSession();
     if (!session) redirect(`/${locale}/b2b/login`);
 
-    // Reorder: pre-fill quantities from a past order's items (scoped to this partner).
+    const now = new Date();
+    // Resolve org context. Members order under the OWNER's contract + pricing
+    // (the contract belongs to the owner's user id, not the member's).
+    const ctx = await getPartnerContext(session.userId);
+    const ownerUserId = ctx ? (ctx.isOwner ? session.userId : await getOwnerUserId(ctx.partnerId)) : session.userId;
+
+    // Active contract = SIGNED AND not expired. An expired contract must not let
+    // the partner order (nor silently apply its discount).
+    const activeContract = ownerUserId
+        ? await db.contract.findFirst({
+            where: { partnerId: ownerUserId, status: 'SIGNED', OR: [{ validUntil: null }, { validUntil: { gte: now } }] },
+        })
+        : null;
+    if (!activeContract) {
+        redirect(`/${locale}/b2b-portal`);
+    }
+
+    // Reorder: pre-fill quantities from a past order in this org.
     const initialQuantities: Record<string, number> = {};
     if (reorder) {
+        const orgUserIds = ctx ? await getOrgUserIds(ctx.partnerId) : [session.userId];
         const prev = await db.order.findUnique({
             where: { id: reorder },
             select: { userId: true, orderItems: { select: { productId: true, quantity: true } } },
         });
-        if (prev && prev.userId === session.userId) {
+        if (prev && orgUserIds.includes(prev.userId)) {
             for (const it of prev.orderItems) {
                 initialQuantities[it.productId] = (initialQuantities[it.productId] || 0) + it.quantity;
             }
         }
-    }
-
-    // Active contract = SIGNED AND not expired. An expired contract must not let
-    // the partner order (nor silently apply its discount).
-    const now = new Date();
-    const user = await db.user.findUnique({
-        where: { id: session.userId },
-        include: {
-            contracts: {
-                where: { status: 'SIGNED', OR: [{ validUntil: null }, { validUntil: { gte: now } }] },
-                take: 1
-            }
-        }
-    });
-
-    const activeContract = user?.contracts[0];
-
-    // Block access if no active (signed, unexpired) contract exists
-    if (!activeContract) {
-        redirect(`/${locale}/b2b-portal`);
     }
 
     // Fetch B2B-purchasable products + compute REAL per-location availability so the
@@ -64,7 +62,6 @@ export default async function B2BOrderPage({ params, searchParams }: { params: P
         },
     });
     // Tier 2 — the partner's shops (ship-to). A scoped member is locked to one.
-    const ctx = await getPartnerContext(session.userId);
     const shops = ctx
         ? await db.b2bPartnerLocation.findMany({
             where: { partnerId: ctx.partnerId, isActive: true },

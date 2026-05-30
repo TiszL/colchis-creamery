@@ -6,7 +6,7 @@ import { createResolveCustomer, createResolveCharge, isResolveConfigured } from 
 import { commitStock, reserveStock } from "@/lib/stock-reservation";
 import { stripe } from "@/lib/stripe";
 import { validateB2bQty } from "@/lib/b2b-moq";
-import { getPartnerContext } from "@/lib/b2b-partner";
+import { getPartnerContext, getOwnerUserId } from "@/lib/b2b-partner";
 
 // Phase 6 (6c) — B2B order placement now branches on paymentMethod.
 // Backward compat: omit the field and the order falls through to the
@@ -103,21 +103,28 @@ export async function POST(req: NextRequest) {
         const finalState = shopState ?? shippingState;
         const finalPostal = shopPostal ?? shippingPostalCode;
 
-        // 1. Verify contract is signed (existing gate; preserved)
+        // 1. Verify the org has an active contract. Members order under the
+        // OWNER's contract (it belongs to the owner's userId, not the member's).
         const user = await db.user.findUnique({
             where: { id: userId },
-            include: {
-                contracts: { where: { status: "SIGNED", OR: [{ validUntil: null }, { validUntil: { gte: new Date() } }] }, take: 1 },
-                b2bPartner: true,
-            },
+            select: { id: true, email: true, name: true, phone: true, companyName: true, stripeCustomerId: true },
         });
-        if (!user || user.contracts.length === 0) {
+        if (!user) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+        const ownerUserId = orgCtx ? (orgCtx.isOwner ? userId : await getOwnerUserId(orgCtx.partnerId)) : userId;
+        const contract = ownerUserId
+            ? await db.contract.findFirst({
+                where: { partnerId: ownerUserId, status: "SIGNED", OR: [{ validUntil: null }, { validUntil: { gte: new Date() } }] },
+            })
+            : null;
+        if (!contract) {
             return NextResponse.json({ error: "No active contract found" }, { status: 403 });
         }
 
         // Clamp 0–100: a malformed contract value (>100 or negative) would
         // otherwise produce a negative line price / invalid Stripe amount.
-        const discountPercentage = Math.min(100, Math.max(0, parseInt(user.contracts[0].discountPercentage, 10) || 0));
+        const discountPercentage = Math.min(100, Math.max(0, parseInt(contract.discountPercentage, 10) || 0));
 
         // Phase 9c: route each B2B line to a real Location so commitStock can
         // run + write StockMovement (audit) + decrement ProductBatch (FIFO).
@@ -430,13 +437,17 @@ export async function POST(req: NextRequest) {
                 });
             }
 
-            // Ensure B2bPartner exists + has resolveCustomerId. Just-in-time
-            // creation per Phase plan Q15 (credit check on first net-terms order).
-            let partner = user.b2bPartner;
+            // Ensure the ORG's B2bPartner exists + has resolveCustomerId. For a
+            // member this is the owner's partner (orgCtx.partnerId), NOT the
+            // member's own (which is null) — otherwise we'd fork a duplicate org.
+            // Just-in-time creation per Phase plan Q15 (credit on first net order).
+            let partner = orgCtx
+                ? await db.b2bPartner.findUnique({ where: { id: orgCtx.partnerId } })
+                : null;
             if (!partner) {
                 partner = await db.b2bPartner.create({
                     data: {
-                        userId,
+                        userId: ownerUserId ?? userId,
                         companyName: user.companyName || user.name || user.email,
                     },
                 });

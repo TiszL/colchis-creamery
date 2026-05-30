@@ -1,5 +1,6 @@
 import { prisma as db } from '@/lib/db';
 import { getSession } from '@/lib/session';
+import { getPartnerContext, getOwnerUserId, getOrgUserIds } from '@/lib/b2b-partner';
 import { Truck, FileSignature, CheckCircle, Package, LifeBuoy, Mail } from 'lucide-react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
@@ -19,35 +20,47 @@ export default async function B2BPortalDashboardPage({ params }: { params: Promi
     const session = await getSession();
     if (!session) redirect(`/${locale}/b2b/login`);
 
-    // Active contract = SIGNED AND not expired (matches the order gate).
     const now = new Date();
-    const user = await db.user.findUnique({
-        where: { id: session.userId },
-        include: {
-            contracts: {
-                where: { status: 'SIGNED', OR: [{ validUntil: null }, { validUntil: { gte: now } }] },
-                orderBy: { createdAt: 'desc' },
-                take: 1
-            },
-            orders: {
-                where: { orderType: 'B2B' },
-                orderBy: { createdAt: 'desc' },
-                take: 5,
-                include: { shipment: true }
-            }
-        }
+    // Org context — members see the OWNER's contract + (if permitted) billing,
+    // and their OWN orders; the owner sees every order placed across the org.
+    const ctx = await getPartnerContext(session.userId);
+    const ownerUserId = ctx ? (ctx.isOwner ? session.userId : await getOwnerUserId(ctx.partnerId)) : session.userId;
+    const partnerId = ctx?.partnerId ?? null;
+    const canViewBilling = ctx?.canViewBilling ?? true;
+
+    const user = await db.user.findUnique({ where: { id: session.userId }, select: { name: true, companyName: true } });
+
+    // Company name = the org's (a member's own User has no companyName).
+    let companyName = user?.companyName || user?.name || 'Partner';
+    if (ctx && !ctx.isOwner && partnerId) {
+        const org = await db.b2bPartner.findUnique({ where: { id: partnerId }, select: { companyName: true } });
+        companyName = org?.companyName || companyName;
+    }
+
+    // Active (signed, unexpired) org contract.
+    const activeContract = ownerUserId
+        ? await db.contract.findFirst({
+            where: { partnerId: ownerUserId, status: 'SIGNED', OR: [{ validUntil: null }, { validUntil: { gte: now } }] },
+            orderBy: { createdAt: 'desc' },
+        })
+        : null;
+
+    // Recent orders: owner → all org orders; member → their own.
+    const orgUserIds = ctx ? (ctx.isOwner ? await getOrgUserIds(ctx.partnerId) : [session.userId]) : [session.userId];
+    const recentOrders = await db.order.findMany({
+        where: { userId: { in: orgUserIds }, orderType: 'B2B' },
+        orderBy: { createdAt: 'desc' },
+        take: 5,
+        include: { shipment: true },
     });
 
-    const activeContract = user?.contracts[0];
-    const recentOrders = user?.orders || [];
-
-    // B2B billing summary for the AR widget + assigned rep for the support card.
-    const partner = await db.b2bPartner.findUnique({
-        where: { userId: session.userId },
-        select: { id: true, assignedSales: { select: { name: true, email: true } } },
-    });
-    const openInvoices = partner ? await db.b2bInvoice.findMany({
-        where: { partnerId: partner.id, status: { in: ['PENDING', 'OVERDUE'] } },
+    // Assigned rep for the support card (org-level).
+    const partner = partnerId
+        ? await db.b2bPartner.findUnique({ where: { id: partnerId }, select: { assignedSales: { select: { name: true, email: true } } } })
+        : null;
+    // AR summary — only for the owner or a member granted billing visibility.
+    const openInvoices = (partnerId && canViewBilling) ? await db.b2bInvoice.findMany({
+        where: { partnerId, status: { in: ['PENDING', 'OVERDUE'] } },
         select: { amountCents: true, dueAt: true },
     }) : [];
     const outstandingCents = openInvoices.reduce((s, i) => s + i.amountCents, 0);
@@ -58,7 +71,7 @@ export default async function B2BPortalDashboardPage({ params }: { params: Promi
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
                     <h1 className="text-3xl font-serif text-[#2C2A29]">Partner Dashboard</h1>
-                    <p className="text-gray-500 mt-1">Welcome back, {user?.companyName}.</p>
+                    <p className="text-gray-500 mt-1">Welcome back, {companyName}.</p>
                 </div>
                 <Link href={`/${locale}/b2b-portal/order`} className="bg-[#CBA153] hover:bg-[#b08d47] text-white px-6 py-2.5 rounded-lg font-medium transition shadow-sm flex items-center justify-center gap-2 self-start sm:self-auto">
                     <Package className="w-4 h-4" />
@@ -66,8 +79,8 @@ export default async function B2BPortalDashboardPage({ params }: { params: Promi
                 </Link>
             </div>
 
-            {/* Billing summary — links to the full invoices page */}
-            {partner && (outstandingCents > 0 || overdueCents > 0) && (
+            {/* Billing summary — links to the full invoices page (gated by canViewBilling) */}
+            {(outstandingCents > 0 || overdueCents > 0) && (
                 <Link href={`/${locale}/b2b-portal/invoices`} className="block">
                     <div className={`rounded-xl p-5 border shadow-sm flex items-center justify-between gap-4 transition hover:border-[#CBA153]/50 ${overdueCents > 0 ? 'bg-red-50 border-red-200' : 'bg-white border-[#E8E6E1]'}`}>
                         <div>

@@ -1,5 +1,6 @@
 import { prisma as db } from "@/lib/db";
 import { getSession } from "@/lib/session";
+import { getPartnerContext } from "@/lib/b2b-partner";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { FolderOpen, FileSignature, BadgeCheck, FileText, Download, ExternalLink } from "lucide-react";
@@ -15,6 +16,9 @@ export default async function PartnerDocumentsPage({ params }: { params: Promise
     const session = await getSession();
     if (!session) redirect(`/${locale}/b2b/login`);
     if (session.role !== "B2B_PARTNER" && session.role !== "MASTER_ADMIN") redirect(`/${locale}/`);
+    // Org documents (contracts, resale cert) are owner-level — members redirected.
+    const ctx = await getPartnerContext(session.userId);
+    if (ctx && !ctx.isOwner) redirect(`/${locale}/b2b-portal`);
 
     const [partner, contracts] = await Promise.all([
         db.b2bPartner.findUnique({

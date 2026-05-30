@@ -208,6 +208,45 @@ export async function sendPasswordResetEmail(to: string, resetLink: string, name
   }
 }
 
+// Tier 2 — invite a teammate to a partner org (email accept-link flow).
+export async function sendPartnerInviteEmail(opts: {
+  to: string; acceptLink: string; inviterCompany: string; name?: string; shopLabel?: string | null;
+}) {
+  const { to, acceptLink, inviterCompany, name, shopLabel } = opts;
+  const greeting = name || 'there';
+  try {
+    const { data, error } = await resend.emails.send({
+      from: getFrom(),
+      to: [to],
+      subject: `You're invited to ${inviterCompany}'s wholesale account`,
+      html: wrap(`
+          ${sealHead('Team invitation')}
+          <tr>
+            <td style="background:${C.cream2};padding:48px 48px 24px;">
+              <p style="margin:0 0 20px;font-family:'Courier New',monospace;font-size:10px;letter-spacing:3px;color:${C.accent2};text-transform:uppercase;">Wholesale team invitation</p>
+              <h1 style="margin:0 0 20px;font-family:'Georgia',serif;font-size:28px;font-weight:300;color:${C.forest};line-height:1.2;">Hello, <em style="color:${C.accent2};font-weight:400;">${greeting}.</em></h1>
+              <p style="margin:0;font-family:'Georgia',serif;font-size:15px;color:${C.moss};line-height:1.75;font-style:italic;">${inviterCompany} has invited you to place wholesale orders on their Colchis Food partner account${shopLabel ? ` for <strong>${shopLabel}</strong>` : ''}. Set your password to get started:</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="background:${C.cream2};padding:12px 48px 32px;text-align:center;">
+              <a href="${acceptLink}" style="display:inline-block;background:${C.forest};color:${C.cream};text-decoration:none;padding:16px 28px;font-family:'Courier New',monospace;font-size:11px;letter-spacing:3px;text-transform:uppercase;">Accept invitation &rarr;</a>
+            </td>
+          </tr>
+          <tr>
+            <td style="background:${C.cream2};padding:0 48px 44px;">
+              <p style="margin:0;font-family:'Georgia',serif;font-size:13px;color:${C.muted};line-height:1.6;text-align:center;">This invitation expires in <strong style="color:${C.forest};">7 days</strong>. If you weren't expecting this, you can safely ignore this email.</p>
+            </td>
+          </tr>
+      `),
+    });
+    if (error) return { success: false, error: error.message };
+    return { success: true, id: data?.id };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'unknown error' };
+  }
+}
+
 export async function send2FAEmail(to: string, code: string, name?: string) {
   const greeting = name || 'Admin';
 

@@ -6,12 +6,27 @@ import { redirect } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
 
-export default async function B2BOrderPage({ params }: { params: Promise<{ locale: string }> }) {
+export default async function B2BOrderPage({ params, searchParams }: { params: Promise<{ locale: string }>; searchParams: Promise<{ reorder?: string }> }) {
     const { locale } = await params;
+    const { reorder } = await searchParams;
     // getSession enforces the live isActive/sessionVersion check (a raw verifyToken
     // would let a deactivated/demoted partner keep ordering).
     const session = await getSession();
     if (!session) redirect(`/${locale}/b2b/login`);
+
+    // Reorder: pre-fill quantities from a past order's items (scoped to this partner).
+    const initialQuantities: Record<string, number> = {};
+    if (reorder) {
+        const prev = await db.order.findUnique({
+            where: { id: reorder },
+            select: { userId: true, orderItems: { select: { productId: true, quantity: true } } },
+        });
+        if (prev && prev.userId === session.userId) {
+            for (const it of prev.orderItems) {
+                initialQuantities[it.productId] = (initialQuantities[it.productId] || 0) + it.quantity;
+            }
+        }
+    }
 
     // Active contract = SIGNED AND not expired. An expired contract must not let
     // the partner order (nor silently apply its discount).
@@ -78,6 +93,7 @@ export default async function B2BOrderPage({ params }: { params: Promise<{ local
                 discount={parseInt(activeContract.discountPercentage, 10) || 0}
                 stripePublishableKey={process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || ''}
                 locale={locale}
+                initialQuantities={initialQuantities}
             />
 
         </div>

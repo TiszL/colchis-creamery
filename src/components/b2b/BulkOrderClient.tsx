@@ -27,6 +27,8 @@ interface BulkOrderClientProps {
     stripePublishableKey: string;
     /** Locale prefix used for the success redirect URL. */
     locale: string;
+    /** Reorder: pre-filled quantities keyed by productId (from a past order). */
+    initialQuantities?: Record<string, number>;
 }
 
 type PaymentMethodChoice = 'STRIPE_CARD' | 'STRIPE_ACH' | 'RESOLVE_NET_7' | 'RESOLVE_NET_15' | 'RESOLVE_NET_30' | 'RESOLVE_NET_45';
@@ -64,7 +66,7 @@ export default function BulkOrderClient(props: BulkOrderClientProps) {
     // Elements can recompute pricing in deferred mode (`amount` is part of
     // the <Elements> options on init).
     const [paymentMethod, setPaymentMethod] = useState<PaymentMethodChoice>('RESOLVE_NET_30');
-    const [quantities, setQuantities] = useState<Record<string, number>>({});
+    const [quantities, setQuantities] = useState<Record<string, number>>(props.initialQuantities ?? {});
 
     const availableProducts = products.filter(p => p.isActive && (p.availableQty === null || p.availableQty > 0));
 

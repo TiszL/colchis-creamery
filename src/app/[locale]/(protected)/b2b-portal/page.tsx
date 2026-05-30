@@ -124,6 +124,7 @@ export default async function B2BPortalDashboardPage({ params }: { params: Promi
                             </div>
                             <h2 className="text-lg font-serif text-[#2C2A29]">Recent Shipments</h2>
                         </div>
+                        <Link href={`/${locale}/b2b-portal/orders`} className="text-xs font-mono uppercase tracking-wider text-[#CBA153] hover:text-[#2C2A29]">View all →</Link>
                     </div>
 
                     <div className="p-0 overflow-x-auto">

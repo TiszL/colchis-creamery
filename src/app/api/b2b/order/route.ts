@@ -17,6 +17,10 @@ const NET_TERM_DAYS: Record<string, number> = {
     RESOLVE_NET_45: 45,
 };
 
+// Mirror of checkout.ts so abandoned B2B Stripe checkouts release via the same
+// /api/cron/release-reservations sweep instead of holding stock forever.
+const RESERVATION_TTL_MS = 15 * 60 * 1000;
+
 interface B2bOrderRequestBody {
     items: { id: string; quantity: number }[];
     paymentMethod?: B2bPaymentMethod;
@@ -216,18 +220,19 @@ export async function POST(req: NextRequest) {
                 );
             }
 
-            try {
-                await reserveStock(reservationItems);
-            } catch (e) {
-                console.error("[b2b/order] reserveStock failed for Stripe path:", e);
-                // Best-effort: try to mark the just-created order as cancelled so
-                // it doesn't sit in PROCESSING forever. If THIS fails too, ops
-                // can clean up via admin tools.
+            // reserveStock RETURNS {ok:false} on insufficient stock (only genuine
+            // DB errors throw). The old try/catch missed that and charged the
+            // partner anyway — check the return value explicitly.
+            const reservation = await reserveStock(reservationItems);
+            if (!reservation.ok) {
                 await db.order.update({
                     where: { id: order.id },
                     data: { orderStatus: "CANCELLED", paymentStatus: "FAILED" },
                 }).catch(() => undefined);
-                return NextResponse.json({ error: "Could not reserve stock for this order." }, { status: 500 });
+                return NextResponse.json(
+                    { error: reservation.error || "Could not reserve stock for this order." },
+                    { status: 409 },
+                );
             }
 
             // Stripe best practice: reuse the User.stripeCustomerId when present;
@@ -297,6 +302,8 @@ export async function POST(req: NextRequest) {
                 data: {
                     stripePaymentIntentId: intent.id,
                     orderStatus: "AWAITING_PAYMENT",
+                    // Abandoned B2B card/ACH checkouts now release via the cron.
+                    reservationExpiresAt: new Date(Date.now() + RESERVATION_TTL_MS),
                 },
             });
 
@@ -311,6 +318,21 @@ export async function POST(req: NextRequest) {
         }
 
         // 3b/3c. Non-Stripe paths: commit stock now (synchronous fulfillment).
+        // Race-safe: the planning transaction above only *read* free stock, so a
+        // concurrent order could have taken it. reserveStock re-checks + holds
+        // atomically; commitStock then nets it out (reserved back to 0, quantity
+        // down). Without this, two simultaneous net-terms orders can oversell.
+        const reservation = await reserveStock(reservationItems);
+        if (!reservation.ok) {
+            await db.order.update({
+                where: { id: order.id },
+                data: { orderStatus: "CANCELLED", paymentStatus: "FAILED" },
+            }).catch(() => undefined);
+            return NextResponse.json(
+                { error: reservation.error || "Could not reserve stock for this order." },
+                { status: 409 },
+            );
+        }
         // commitStock uses its own transaction (writes StockMovement SALE rows
         // + FIFO-consumes batches). If a partner order's stock commit fails
         // mid-flight, ops can replay via /admin/b2b/dispatch.
@@ -353,11 +375,28 @@ export async function POST(req: NextRequest) {
                     ein: partner.ein || undefined,
                 });
                 if (!created) {
+                    // Stock is already committed — don't lose the receivable.
+                    // Record the B2bInvoice with null Resolve fields so it stays
+                    // on the AR books for ops to chase manually.
+                    const dueAt = new Date(Date.now() + dueDays * 24 * 60 * 60 * 1000);
+                    const invoice = await db.b2bInvoice.create({
+                        data: {
+                            orderId: order.id,
+                            partnerId: partner.id,
+                            amountCents: subtotalCents,
+                            paymentMethod: method,
+                            dueAt,
+                            resolveInvoiceId: null,
+                            resolveStatus: null,
+                            notes: "Resolve customer creation failed — verify spec + retry. Receivable recorded for manual follow-up.",
+                        },
+                    });
                     return NextResponse.json({
                         success: true,
                         orderId: order.id,
+                        invoiceId: invoice.id,
                         paymentStatus: "UNPAID",
-                        note: "Could not create Resolve customer. Order falls back to manual invoicing — sales will follow up.",
+                        note: "Could not create Resolve customer. Invoice recorded for manual follow-up.",
                     });
                 }
                 partner = await db.b2bPartner.update({

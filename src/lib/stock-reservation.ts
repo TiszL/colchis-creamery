@@ -8,6 +8,7 @@
 // Made-to-order products bypass quantity checks entirely (they have no inventory limit).
 
 import { prisma } from './db';
+import { Prisma } from '@prisma/client';
 
 // Prisma's default interactive transaction timeout is 5s. With cold Neon and a
 // few cart items doing sequential findUnique + update, that can exceed budget.
@@ -72,11 +73,19 @@ export async function reserveStock(items: ReservationItem[]): Promise<ReserveRes
                     data: { reservedQuantity: { increment: item.quantity } },
                 });
             }
-        }, { timeout: TX_TIMEOUT_MS });
+            // Serializable isolation makes the read-then-increment atomic across
+            // concurrent checkouts so two shoppers can't both pass the availability
+            // check and oversell. Postgres aborts the loser with P2034 (handled below).
+        }, { timeout: TX_TIMEOUT_MS, isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
         return { ok: true };
     } catch (e) {
         if (e instanceof ReservationError) {
             return { ok: false, error: e.message, failingItem: e.failingItem };
+        }
+        // P2034: serialization failure under contention — a concurrent order
+        // touched the same Stock row. Surface as a retryable soft failure.
+        if ((e as { code?: string })?.code === 'P2034') {
+            return { ok: false, error: 'That item was just updated by another order — please try again.' };
         }
         throw e;
     }
@@ -120,9 +129,9 @@ export async function releaseStock(items: ReservationItem[]): Promise<void> {
  */
 export async function commitStock(
     items: ReservationItem[],
-    opts: { orderId?: string | null } = {},
+    opts: { orderId?: string | null; onCommitted?: (tx: Prisma.TransactionClient) => Promise<void> } = {},
 ): Promise<void> {
-    if (items.length === 0) return;
+    if (items.length === 0 && !opts.onCommitted) return;
     const { fifoConsumeStock } = await import('@/app/actions/inventory');
     await prisma.$transaction(async (tx) => {
         for (const item of items) {
@@ -148,6 +157,11 @@ export async function commitStock(
                 await fifoConsumeStock(tx, item.productId, item.locationId, item.quantity, opts.orderId ?? null);
             }
         }
+        // Run the caller's follow-up writes in the SAME transaction so e.g. the
+        // order's PAID flip commits atomically with the stock decrement — closing
+        // the window where a crash leaves stock committed but the order UNPAID
+        // (a Stripe retry would then double-decrement).
+        if (opts.onCommitted) await opts.onCommitted(tx);
     }, { timeout: TX_TIMEOUT_MS });
 }
 

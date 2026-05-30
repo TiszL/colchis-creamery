@@ -154,7 +154,7 @@ export default async function B2bDispatchPage({ params }: { params: Promise<{ lo
 
                             {o.orderStatus !== "DELIVERED" && (
                                 <div className="border-t border-[#ffffff0A] pt-3 flex flex-wrap items-end gap-2">
-                                    {(o.orderStatus === "PROCESSING" || o.orderStatus === "READY_FOR_PICKUP") && (
+                                    {(o.orderStatus === "PROCESSING" || o.orderStatus === "READY_FOR_PICKUP" || o.orderStatus === "CONFIRMED") && (
                                         <form action={shipB2bOrderAction} className="flex items-end gap-2 flex-1 min-w-[260px]">
                                             <input type="hidden" name="orderId" value={o.id} />
                                             <div className="flex-1">

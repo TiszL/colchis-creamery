@@ -38,9 +38,13 @@ export async function GET(req: Request) {
     }
 
     const now = new Date();
+    // Grace window: don't cancel orders that only just expired — a customer
+    // completing 3DS / redirect auth can confirm payment slightly after the TTL
+    // (the webhook also reconciles late successes). 5 min past expiry.
+    const GRACE_MS = 5 * 60 * 1000;
     const expiredOrders = await prisma.order.findMany({
         where: {
-            reservationExpiresAt: { lt: now },
+            reservationExpiresAt: { lt: new Date(now.getTime() - GRACE_MS) },
             paymentStatus: 'UNPAID',
             orderStatus: { not: 'CANCELLED' },
         },
@@ -67,8 +71,10 @@ export async function GET(req: Request) {
                 })),
             );
 
-            await releaseStock(reservationItems);
-
+            // Flip status FIRST so a crash before releaseStock leaves a recoverable
+            // stock *leak* (re-runnable next sweep) rather than a double-release that
+            // would corrupt a concurrent reservation. CANCELLED + reservationExpiresAt
+            // = null also removes this order from the sweep predicate.
             await prisma.$transaction([
                 prisma.order.update({
                     where: { id: order.id },
@@ -83,6 +89,8 @@ export async function GET(req: Request) {
                     data: { status: 'CANCELLED' },
                 }),
             ]);
+
+            await releaseStock(reservationItems);
 
             releasedIds.push(order.id);
             released++;

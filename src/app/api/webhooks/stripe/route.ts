@@ -129,36 +129,49 @@ async function handlePaymentSucceeded(pi: Stripe.PaymentIntent) {
     // Stripe has succeeded on their side though, so we need manual intervention to
     // either refund or re-fulfill. Don't double-process here.
     if (order.orderStatus === 'CANCELLED') {
-        console.warn(
-            '[stripe-webhook] payment_intent.succeeded received but Order is CANCELLED — needs manual review:',
-            order.id, 'PI:', pi.id,
-        );
+        // The reservation-cleanup cron cancelled this order (stock already
+        // released) before the customer's payment confirmed. We can't fulfill it,
+        // so refund the captured funds rather than charge-without-shipping.
+        // Idempotent: refunding an already-refunded PI throws and is swallowed.
+        console.warn('[stripe-webhook] Late success on CANCELLED order — auto-refunding:', order.id, 'PI:', pi.id);
+        try {
+            await stripe.refunds.create({ payment_intent: pi.id });
+            await prisma.order.update({
+                where: { id: order.id },
+                data: { paymentStatus: 'REFUNDED' },
+            });
+        } catch (e) {
+            console.error('[stripe-webhook] Auto-refund failed for late success on', order.id, ':', e instanceof Error ? e.message : e);
+        }
         return;
     }
 
     const reservationItems = reservationItemsFromOrder(order);
 
-    // Commit stock OUTSIDE the Prisma transaction below — commitStock has its own
-    // internal transaction. Nesting prisma.$transaction is not supported.
+    // Commit stock AND flip the order to PAID/CONFIRMED ATOMICALLY: the order +
+    // fulfillment updates run inside commitStock's transaction via onCommitted.
+    // Previously these were separate transactions, so a crash between them left
+    // stock committed while the order stayed UNPAID — and a Stripe retry then
+    // re-committed (double-decrement). Now a partial failure rolls the whole
+    // thing back and the retry reprocesses cleanly.
     // Phase 3 (3d): pass orderId so batch SALE movements are traceable.
-    await commitStock(reservationItems, { orderId: order.id });
-
-    await prisma.$transaction([
-        prisma.order.update({
-            where: { id: order.id },
-            data: {
-                paymentStatus: 'PAID',
-                orderStatus: 'CONFIRMED',
-                // Reservation TTL is no longer relevant — leaving it set could trip
-                // the 7b cleanup cron into a redundant pass. Clear it on payment.
-                reservationExpiresAt: null,
-            },
-        }),
-        prisma.orderFulfillment.updateMany({
-            where: { orderId: order.id },
-            data: { status: 'CONFIRMED' },
-        }),
-    ]);
+    await commitStock(reservationItems, {
+        orderId: order.id,
+        onCommitted: async (tx) => {
+            await tx.order.update({
+                where: { id: order.id },
+                data: {
+                    paymentStatus: 'PAID',
+                    orderStatus: 'CONFIRMED',
+                    reservationExpiresAt: null,
+                },
+            });
+            await tx.orderFulfillment.updateMany({
+                where: { orderId: order.id },
+                data: { status: 'CONFIRMED' },
+            });
+        },
+    });
 
     // Record the Stripe Tax transaction for compliance reporting.
     // Idempotency: skip if we've already recorded a transaction for this order

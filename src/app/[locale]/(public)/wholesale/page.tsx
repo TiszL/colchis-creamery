@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { Link } from "@/i18n/routing";
 import { submitWholesaleLead } from "@/actions/wholesale";
 import { ColchisSeal } from "@/components/brand/ColchisSeal";
 
@@ -31,8 +32,14 @@ export default function WholesalePage() {
       <section className="ch-section" style={{ background: "#1F3026", color: "#F5F0E6", padding: "120px 56px 100px", position: "relative", overflow: "hidden" }}>
         <div style={{ position: "absolute", inset: 0, backgroundImage: `linear-gradient(#F5F0E606 1px, transparent 1px), linear-gradient(90deg, #F5F0E606 1px, transparent 1px)`, backgroundSize: "80px 80px", pointerEvents: "none" }} />
         <div style={{ maxWidth: 1280, margin: "0 auto", position: "relative" }}>
-          <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.32em", color: "#8B4A28", textTransform: "uppercase", marginBottom: 32 }}>
-            For Restaurants, Grocers & Specialty Markets
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, flexWrap: "wrap", marginBottom: 32 }}>
+            <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.32em", color: "#8B4A28", textTransform: "uppercase" }}>
+              For Restaurants, Grocers & Specialty Markets
+            </div>
+            {/* Returning partners look top-right for "log in" — clearly visible on the dark hero. */}
+            <Link href="/b2b/login" style={{ display: "inline-flex", alignItems: "center", gap: 10, padding: "12px 22px", border: "1px solid rgba(245,240,230,0.35)", borderRadius: 999, fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.24em", textTransform: "uppercase", color: "#F5F0E6", textDecoration: "none", background: "rgba(245,240,230,0.05)", whiteSpace: "nowrap" }}>
+              Partner login <span style={{ color: "#D98A5E" }}>→</span>
+            </Link>
           </div>
           <h1 className="ch-bakery-h1" style={{ fontFamily: "var(--font-serif)", fontWeight: 300, fontSize: "clamp(56px, 8vw, 124px)", lineHeight: 0.9, letterSpacing: "-0.03em", margin: 0, maxWidth: 1100 }}>
             Stock the only <em style={{ color: "#8B4A28", fontWeight: 300 }}>Georgian cheese</em><br />made in the Midwest.

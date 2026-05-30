@@ -211,10 +211,14 @@ function LoginContent() {
                             )}
                         </form>
 
-                        {/* Partner-portal cross-link — secondary door */}
-                        <Link href="/b2b/login" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginTop: 28, padding: "14px 16px", border: "1px solid #1F302633", textDecoration: "none", fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.24em", color: "#7A8278", textTransform: "uppercase" }}>
-                            <span>Wholesale partner? Sign in to the partner portal</span>
-                            <span style={{ color: "#B96A3D" }}>→</span>
+                        {/* Partner-portal cross-link — a clearly-readable "secondary door"
+                            for wholesale partners (copper eyebrow + ink body + accent bar). */}
+                        <Link href="/b2b/login" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, marginTop: 28, padding: "16px 18px", background: "#1F30260A", border: "1px solid #1F302626", borderLeft: "3px solid #B96A3D", textDecoration: "none" }}>
+                            <span style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                                <span style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.28em", color: "#B96A3D", textTransform: "uppercase" }}>Wholesale / B2B</span>
+                                <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.16em", color: "#1F3026", textTransform: "uppercase" }}>Sign in to the partner portal</span>
+                            </span>
+                            <span style={{ color: "#B96A3D", fontSize: 18, flexShrink: 0 }}>→</span>
                         </Link>
 
                         {/* Footnote */}

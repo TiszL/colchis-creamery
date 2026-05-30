@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/db';
 import { getSession } from '@/lib/session';
+import { requireRole } from '@/lib/authz';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import LocationsClient from '@/components/admin/LocationsClient';
@@ -14,6 +15,7 @@ const SALES_CHANNELS = Object.values(SalesChannel);
 
 async function saveLocationAction(formData: FormData) {
     'use server';
+    await requireRole(['MASTER_ADMIN']);
 
     const id = (formData.get('id') as string) || '';
     const type = formData.get('type') as LocationType;
@@ -118,6 +120,7 @@ async function saveLocationAction(formData: FormData) {
 
 async function deleteLocationAction(formData: FormData) {
     'use server';
+    await requireRole(['MASTER_ADMIN']);
     const id = formData.get('id') as string;
     if (!id) return;
 
@@ -134,6 +137,7 @@ async function deleteLocationAction(formData: FormData) {
 
 async function toggleActiveAction(formData: FormData) {
     'use server';
+    await requireRole(['MASTER_ADMIN']);
     const id = formData.get('id') as string;
     const isActive = formData.get('isActive') === 'true';
     if (!id) return;
@@ -143,6 +147,7 @@ async function toggleActiveAction(formData: FormData) {
 
 async function setPrimaryLocationAction(formData: FormData) {
     'use server';
+    await requireRole(['MASTER_ADMIN']);
     const id = formData.get('id') as string;
     if (!id) return;
 
@@ -161,6 +166,7 @@ async function setPrimaryLocationAction(formData: FormData) {
 
 async function moveLocationAction(formData: FormData) {
     'use server';
+    await requireRole(['MASTER_ADMIN']);
     const id = formData.get('id') as string;
     const direction = formData.get('direction') as 'up' | 'down';
     if (!id) return;

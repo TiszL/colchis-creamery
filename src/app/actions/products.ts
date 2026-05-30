@@ -3,8 +3,12 @@
 import { prisma } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 import { SalesChannel } from '@prisma/client';
+import { requireRole } from '@/lib/authz';
+
+const PRODUCT_EDITORS = ['MASTER_ADMIN', 'PRODUCT_MANAGER'];
 
 export async function saveProductAction(formData: FormData) {
+    await requireRole(PRODUCT_EDITORS);
     const id = formData.get('id') as string;
 
     const images = formData.getAll('images[]').filter(v => (v as string).trim() !== '') as string[];
@@ -111,6 +115,7 @@ export async function saveProductAction(formData: FormData) {
 }
 
 export async function deleteProductAction(formData: FormData) {
+    await requireRole(PRODUCT_EDITORS);
     const id = formData.get('id') as string;
     if (id) {
         await prisma.product.delete({ where: { id } });
@@ -122,6 +127,7 @@ export async function deleteProductAction(formData: FormData) {
 }
 
 export async function quickStockAction(formData: FormData) {
+    await requireRole(PRODUCT_EDITORS);
     const id = formData.get('id') as string;
     const stock = parseInt(formData.get('stock') as string, 10);
 

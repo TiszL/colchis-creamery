@@ -133,6 +133,14 @@ export async function saveMyAddress(formData: FormData): Promise<SaveAddressResu
 
     let row;
     if (id) {
+        // Ownership guard: a forged `id` must never touch another user's row (IDOR).
+        const existing = await prisma.userAddress.findUnique({
+            where: { id },
+            select: { userId: true },
+        });
+        if (!existing || existing.userId !== session.userId) {
+            return { ok: false, error: 'Address not found.' };
+        }
         row = await prisma.userAddress.update({
             where: { id },
             data,

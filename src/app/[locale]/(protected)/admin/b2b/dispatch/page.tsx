@@ -66,6 +66,13 @@ async function markDeliveredAction(formData: FormData): Promise<void> {
     "use server";
     const session = await getSession();
     if (!session) throw new Error("Unauthorized");
+    if (session.role !== "MASTER_ADMIN") {
+        const has = await prisma.userLocation.findFirst({
+            where: { userId: session.userId, role: "B2B_SALES_MANAGER" },
+            select: { id: true },
+        });
+        if (!has) throw new Error("Forbidden");
+    }
     const orderId = formData.get("orderId") as string;
     if (!orderId) return;
     await prisma.order.update({

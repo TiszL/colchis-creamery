@@ -53,13 +53,9 @@ function LoginContent() {
                 } else if (result?.error) {
                     setError(result.error);
                 } else if (result?.success) {
-                    // The retail form won't surface a B2B_PARTNER account anymore
-                    // (filtered server-side), but keep the master-admin shortcut.
-                    if (result.role === "MASTER_ADMIN") {
-                        window.location.assign("/admin");
-                    } else {
-                        window.location.assign("/shop");
-                    }
+                    // Retail door only authenticates customers now — staff/admin
+                    // must use the staff portal (2FA). Always land on the shop.
+                    window.location.assign("/shop");
                 }
             }
         });

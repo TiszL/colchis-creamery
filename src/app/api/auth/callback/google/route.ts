@@ -5,11 +5,18 @@ import { getSessionTokenValue, getSessionOptions } from "@/lib/session";
 export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const code = searchParams.get("code");
+    const state = searchParams.get("state");
 
     const siteUrl = req.nextUrl.origin;
 
     if (!code) {
         return NextResponse.redirect(new URL("/login?error=OAuthCodeMissing", siteUrl));
+    }
+
+    // CSRF: verify state against the cookie set at authorize time.
+    const stateCookie = req.cookies.get("google_oauth_state")?.value;
+    if (!state || !stateCookie || state !== stateCookie) {
+        return NextResponse.redirect(new URL("/login?error=OAuthState", siteUrl));
     }
 
     const clientId = process.env.GOOGLE_CLIENT_ID;
@@ -101,15 +108,11 @@ export async function GET(req: NextRequest) {
         // 5. Redirect to account page
         const response = NextResponse.redirect(new URL("/account", siteUrl));
         response.cookies.set("auth_token", token, getSessionOptions());
+        response.cookies.delete("google_oauth_state");
         return response;
 
-    } catch (error: any) {
+    } catch (error) {
         console.error("Google OAuth callback error:", error);
-        return NextResponse.json({
-            error: "OAuthFailed",
-            message: error?.message,
-            stack: error?.stack,
-            name: error?.name
-        }, { status: 500 });
+        return NextResponse.redirect(new URL("/login?error=OAuthFailed", siteUrl));
     }
 }

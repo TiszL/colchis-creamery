@@ -27,8 +27,6 @@ export default function B2BLoginPage() {
                     // Full reload picks up the freshly-set auth cookie reliably
                     // (next-intl router push has occasionally raced on this).
                     window.location.assign("/b2b-portal");
-                } else if (result.role === "MASTER_ADMIN") {
-                    window.location.assign("/admin");
                 } else {
                     setError("Standard retail accounts cannot access the B2B portal.");
                 }

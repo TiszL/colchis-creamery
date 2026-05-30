@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import QRCode from "qrcode";
+import { getSession } from "@/lib/session";
 
 export async function GET(request: NextRequest) {
+    const session = await getSession();
+    if (!session) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const uri = request.nextUrl.searchParams.get("uri");
     if (!uri) {
         return NextResponse.json({ error: "Missing URI" }, { status: 400 });

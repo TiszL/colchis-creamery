@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { chatEmitter } from '@/lib/chat-emitter';
+import { verifyToken } from '@/lib/auth';
+
+const STAFF_ROLES = ['MASTER_ADMIN', 'PRODUCT_MANAGER', 'CONTENT_MANAGER', 'SALES'];
+const MAX_BODY_LEN = 4000;
 
 /**
  * POST /api/chat/messages
@@ -9,7 +13,7 @@ import { chatEmitter } from '@/lib/chat-emitter';
 export async function POST(req: NextRequest) {
     try {
         const data = await req.json();
-        const { sessionId, sender, body, agentId } = data;
+        const { sessionId, sender, body } = data;
 
         if (!sessionId || !sender || !body) {
             return NextResponse.json({ error: 'sessionId, sender, and body are required' }, { status: 400 });
@@ -17,6 +21,29 @@ export async function POST(req: NextRequest) {
 
         if (!['visitor', 'agent', 'system'].includes(sender)) {
             return NextResponse.json({ error: 'Invalid sender type' }, { status: 400 });
+        }
+
+        if (typeof body !== 'string' || body.length > MAX_BODY_LEN) {
+            return NextResponse.json({ error: 'Message is empty or too long' }, { status: 400 });
+        }
+
+        // Resolve the caller's identity from the auth cookie (if any).
+        let authRole: string | null = null;
+        let authUserId: string | null = null;
+        const token = req.cookies.get('auth_token')?.value;
+        if (token) {
+            const payload = await verifyToken(token);
+            if (payload) {
+                authRole = (payload.role as string) || null;
+                authUserId = (payload.userId as string) || null;
+            }
+        }
+        const isStaff = !!authRole && STAFF_ROLES.includes(authRole);
+
+        // SECURITY: only authenticated staff may speak as the business. Without
+        // this, anyone could POST sender:'agent' and impersonate "Colchis Support".
+        if ((sender === 'agent' || sender === 'system') && !isStaff) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
 
         // Verify session exists and is not closed
@@ -32,13 +59,23 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Session is closed' }, { status: 400 });
         }
 
+        // A visitor message tied to a registered account must come from that
+        // account (or staff). Anonymous sessions are bearer-authed by their
+        // unguessable sessionId.
+        if (sender === 'visitor' && session.userId && session.userId !== authUserId && !isStaff) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
+
+        // agentId is authoritative from the staff session — never trust the client's.
+        const resolvedAgentId = sender === 'agent' ? authUserId : null;
+
         // Create the message
         const message = await prisma.chatMessage.create({
             data: {
                 sessionId,
                 sender,
                 body,
-                agentId: agentId || null,
+                agentId: resolvedAgentId,
             },
         });
 

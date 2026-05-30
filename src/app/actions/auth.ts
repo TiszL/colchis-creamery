@@ -38,15 +38,29 @@ export async function loginAction(formData: FormData) {
         // Phase 11: scope to context-appropriate roles. /b2b/login posts
         // context=b2b so a partner with both identities lands in their B2B
         // account; /login posts context=b2c and lands them in retail.
+        // Security: MASTER_ADMIN (and all staff) must NOT authenticate through the
+        // retail / B2B doors — those skip the mandatory 2FA enforced by
+        // staffLoginAction. Scope the lookup to customer roles only so the retail
+        // door can never mint a privileged session with a single factor.
         const acceptedRoles = context === "b2b"
-            ? ["B2B_PARTNER", "MASTER_ADMIN"]
-            : [...CUSTOMER_ROLES, "MASTER_ADMIN"].filter(r => r !== "B2B_PARTNER");
+            ? ["B2B_PARTNER"]
+            : CUSTOMER_ROLES.filter(r => r !== "B2B_PARTNER");
 
         const user = await prisma.user.findFirst({
             where: { email, role: { in: acceptedRoles } },
         });
 
         if (!user || !user.isActive) {
+            // If this email is actually a staff/admin account, steer them to the
+            // staff portal (which enforces 2FA) instead of a bare "invalid
+            // credentials" — the retail door must never authenticate a staff role.
+            const staffAccount = await prisma.user.findFirst({
+                where: { email, role: { in: [...STAFF_ROLES, "ANALYTICS_VIEWER"] } },
+                select: { id: true },
+            });
+            if (staffAccount) {
+                return { error: "Staff accounts must sign in through the staff portal." };
+            }
             return { error: "Invalid credentials." };
         }
 

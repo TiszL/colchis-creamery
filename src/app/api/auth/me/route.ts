@@ -2,10 +2,7 @@ import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-
-const SECRET_KEY = new TextEncoder().encode(
-    process.env.JWT_SECRET || "dev-secret-change-in-production"
-);
+import { getJwtSecret } from "@/lib/auth";
 
 export async function GET() {
     try {
@@ -16,7 +13,7 @@ export async function GET() {
             return NextResponse.json({ user: null }, { status: 401 });
         }
 
-        const { payload } = await jwtVerify(token, SECRET_KEY);
+        const { payload } = await jwtVerify(token, getJwtSecret());
         const userId = payload.userId as string;
 
         // Look up user for TOTP status

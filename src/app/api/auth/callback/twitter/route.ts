@@ -13,6 +13,14 @@ export async function GET(req: NextRequest) {
         return NextResponse.redirect(new URL("/login?error=OAuthCodeMissing", siteUrl));
     }
 
+    // CSRF + PKCE: verify state against the cookie set at authorize time and
+    // recover the per-request PKCE verifier (no more hardcoded plain challenge).
+    const stateCookie = req.cookies.get("twitter_oauth_state")?.value;
+    const codeVerifier = req.cookies.get("twitter_oauth_verifier")?.value;
+    if (!state || !stateCookie || state !== stateCookie || !codeVerifier) {
+        return NextResponse.redirect(new URL("/login?error=OAuthState", siteUrl));
+    }
+
     const clientId = process.env.TWITTER_CLIENT_ID;
     // Twitter PKCE often works with just client ID (public client), but we can pass secret if needed
     const clientSecret = process.env.TWITTER_CLIENT_SECRET || "";
@@ -29,7 +37,7 @@ export async function GET(req: NextRequest) {
             grant_type: "authorization_code",
             client_id: clientId,
             redirect_uri: redirectUri,
-            code_verifier: "colchisfood-twitter-oauth-pkce-challenge-string-v2", // Matches the 53-char plain string from initiator
+            code_verifier: codeVerifier,
         });
 
         // For Twitter OAuth 2.0 PKCE, if it is a Confidential Client, you need the Basic Auth header.
@@ -123,15 +131,12 @@ export async function GET(req: NextRequest) {
         // 5. Redirect to account page
         const response = NextResponse.redirect(new URL("/account", siteUrl));
         response.cookies.set("auth_token", token, getSessionOptions());
+        response.cookies.delete("twitter_oauth_state");
+        response.cookies.delete("twitter_oauth_verifier");
         return response;
 
-    } catch (error: any) {
+    } catch (error) {
         console.error("Twitter OAuth callback error:", error);
-        return NextResponse.json({
-            error: "OAuthFailed",
-            message: error?.message,
-            stack: error?.stack,
-            name: error?.name
-        }, { status: 500 });
+        return NextResponse.redirect(new URL("/login?error=OAuthFailed", siteUrl));
     }
 }

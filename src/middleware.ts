@@ -2,12 +2,9 @@ import createMiddleware from "next-intl/middleware";
 import { routing } from "./i18n/routing";
 import { NextRequest, NextResponse } from "next/server";
 import { jwtVerify } from "jose";
+import { getJwtSecret } from "./lib/auth";
 
 const intlMiddleware = createMiddleware(routing);
-
-const SECRET_KEY = new TextEncoder().encode(
-  process.env.JWT_SECRET || "dev-secret-change-in-production"
-);
 
 // ── Role Constants ────────────────────────────────────────────────────────────
 const STAFF_ROLES = ["MASTER_ADMIN", "PRODUCT_MANAGER", "CONTENT_MANAGER", "SALES"];
@@ -97,7 +94,7 @@ export default async function middleware(req: NextRequest) {
   }
 
   try {
-    const { payload } = await jwtVerify(token, SECRET_KEY);
+    const { payload } = await jwtVerify(token, getJwtSecret());
     const userRole = payload.role as string;
 
     if (protectedArea && !protectedArea.allowedRoles.includes(userRole)) {

@@ -2,10 +2,14 @@
 
 import { prisma } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
+import { requireRole } from '@/lib/authz';
+
+const CATEGORY_EDITORS = ['MASTER_ADMIN', 'PRODUCT_MANAGER'];
 
 // ─── Product Line Actions ────────────────────────────────────────────────────
 
 export async function saveProductLineAction(formData: FormData) {
+    await requireRole(CATEGORY_EDITORS);
     const id = formData.get('id') as string;
     const data = {
         name: formData.get('name') as string,
@@ -30,6 +34,7 @@ export async function saveProductLineAction(formData: FormData) {
 }
 
 export async function deleteProductLineAction(formData: FormData) {
+    await requireRole(CATEGORY_EDITORS);
     const id = formData.get('id') as string;
     if (!id) return;
 
@@ -60,6 +65,7 @@ export async function deleteProductLineAction(formData: FormData) {
 const VALID_SECTIONS = ['creamery', 'bakery', 'shop', 'wholesale'] as const;
 
 export async function saveCategoryAction(formData: FormData) {
+    await requireRole(CATEGORY_EDITORS);
     const id = formData.get('id') as string;
     // Phase 9a: productLineId is optional. Empty form value → null (decoupled
     // category like "Drinks" that doesn't live under any marketing tier).
@@ -94,6 +100,7 @@ export async function saveCategoryAction(formData: FormData) {
 }
 
 export async function deleteCategoryAction(formData: FormData) {
+    await requireRole(CATEGORY_EDITORS);
     const id = formData.get('id') as string;
     if (!id) return;
 
@@ -113,6 +120,7 @@ export async function deleteCategoryAction(formData: FormData) {
 // ─── Assign Product to Line + Category ───────────────────────────────────────
 
 export async function assignProductCategoryAction(formData: FormData) {
+    await requireRole(CATEGORY_EDITORS);
     const productId = formData.get('productId') as string;
     const productLineIdRaw = formData.get('productLineId') as string;
     const categoryIdRaw = formData.get('categoryId') as string;
@@ -142,6 +150,7 @@ export async function assignProductCategoryAction(formData: FormData) {
 // ─── Bulk Assign ─────────────────────────────────────────────────────────────
 
 export async function bulkAssignCategoryAction(formData: FormData) {
+    await requireRole(CATEGORY_EDITORS);
     const productIds = JSON.parse(formData.get('productIds') as string) as string[];
     const productLineIdRaw = formData.get('productLineId') as string;
     const categoryIdRaw = formData.get('categoryId') as string;

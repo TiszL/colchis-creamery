@@ -5,11 +5,18 @@ import { setSession } from "@/lib/session";
 export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const code = searchParams.get("code");
+    const state = searchParams.get("state");
 
     const siteUrl = req.nextUrl.origin;
 
     if (!code) {
         return NextResponse.redirect(new URL("/login?error=OAuthCodeMissing", siteUrl));
+    }
+
+    // CSRF: verify state against the cookie set at authorize time.
+    const stateCookie = req.cookies.get("facebook_oauth_state")?.value;
+    if (!state || !stateCookie || state !== stateCookie) {
+        return NextResponse.redirect(new URL("/login?error=OAuthState", siteUrl));
     }
 
     const clientId = process.env.FACEBOOK_APP_ID;

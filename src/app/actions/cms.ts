@@ -2,12 +2,16 @@
 
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
+import { authorize } from "@/lib/authz";
 
 // ──────────────────────────────────────────────────────────────────────────────
 // SiteConfig Actions (Key-Value Content Store)
 // ──────────────────────────────────────────────────────────────────────────────
 
 export async function upsertSiteConfigAction(formData: FormData) {
+    const session = await authorize(["MASTER_ADMIN"]);
+    if (!session) return { error: "Unauthorized." };
+
     const key = formData.get("key") as string;
     const value = formData.get("value") as string;
 
@@ -29,6 +33,9 @@ export async function upsertSiteConfigAction(formData: FormData) {
 }
 
 export async function batchUpsertSiteConfigAction(formData: FormData) {
+    const session = await authorize(["MASTER_ADMIN"]);
+    if (!session) return { error: "Unauthorized." };
+
     const entries = formData.get("entries") as string;
     if (!entries) return { error: "No entries provided." };
 
@@ -66,6 +73,9 @@ export async function batchUpsertSiteConfigAction(formData: FormData) {
 // ──────────────────────────────────────────────────────────────────────────────
 
 export async function updateProductAction(formData: FormData) {
+    const session = await authorize(["MASTER_ADMIN"]);
+    if (!session) return { error: "Unauthorized." };
+
     const id = formData.get("id") as string;
     if (!id) return { error: "Product ID is required." };
 
@@ -102,6 +112,9 @@ export async function updateProductAction(formData: FormData) {
 }
 
 export async function createProductAction(formData: FormData) {
+    const session = await authorize(["MASTER_ADMIN"]);
+    if (!session) return { error: "Unauthorized." };
+
     try {
         const slug = formData.get("slug") as string;
         const name = formData.get("name") as string;
@@ -163,6 +176,9 @@ export async function createProductAction(formData: FormData) {
 // ──────────────────────────────────────────────────────────────────────────────
 
 export async function createRecipeAction(formData: FormData) {
+    const session = await authorize(["MASTER_ADMIN"]);
+    if (!session) return { error: "Unauthorized." };
+
     try {
         await prisma.recipe.create({
             data: {
@@ -188,6 +204,9 @@ export async function createRecipeAction(formData: FormData) {
 }
 
 export async function updateRecipeAction(formData: FormData) {
+    const session = await authorize(["MASTER_ADMIN"]);
+    if (!session) return { error: "Unauthorized." };
+
     const id = formData.get("id") as string;
     if (!id) return { error: "Recipe ID is required." };
 
@@ -217,6 +236,9 @@ export async function updateRecipeAction(formData: FormData) {
 }
 
 export async function deleteRecipeAction(formData: FormData) {
+    const session = await authorize(["MASTER_ADMIN"]);
+    if (!session) return { error: "Unauthorized." };
+
     const id = formData.get("id") as string;
     if (!id) return { error: "Recipe ID is required." };
 
@@ -236,6 +258,9 @@ export async function deleteRecipeAction(formData: FormData) {
 // ──────────────────────────────────────────────────────────────────────────────
 
 export async function createArticleAction(formData: FormData) {
+    const session = await authorize(["MASTER_ADMIN"]);
+    if (!session) return { error: "Unauthorized." };
+
     try {
         await prisma.article.create({
             data: {
@@ -258,6 +283,9 @@ export async function createArticleAction(formData: FormData) {
 }
 
 export async function updateArticleAction(formData: FormData) {
+    const session = await authorize(["MASTER_ADMIN"]);
+    if (!session) return { error: "Unauthorized." };
+
     const id = formData.get("id") as string;
     if (!id) return { error: "Article ID is required." };
 
@@ -288,6 +316,9 @@ export async function updateArticleAction(formData: FormData) {
 }
 
 export async function deleteArticleAction(formData: FormData) {
+    const session = await authorize(["MASTER_ADMIN"]);
+    if (!session) return { error: "Unauthorized." };
+
     const id = formData.get("id") as string;
     if (!id) return { error: "Article ID is required." };
 

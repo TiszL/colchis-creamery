@@ -5,10 +5,7 @@ import { B2bPaymentMethod } from "@prisma/client";
 import { createResolveCustomer, createResolveCharge, isResolveConfigured } from "@/lib/resolve";
 import { commitStock, reserveStock } from "@/lib/stock-reservation";
 import { stripe } from "@/lib/stripe";
-
-const SECRET_KEY = new TextEncoder().encode(
-    process.env.JWT_SECRET || "dev-secret-change-in-production"
-);
+import { getJwtSecret } from "@/lib/auth";
 
 // Phase 6 (6c) — B2B order placement now branches on paymentMethod.
 // Backward compat: omit the field and the order falls through to the
@@ -32,7 +29,7 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
-        const { payload } = await jwtVerify(token, SECRET_KEY);
+        const { payload } = await jwtVerify(token, getJwtSecret());
         const userId = payload.userId as string;
         const role = payload.role as string;
 

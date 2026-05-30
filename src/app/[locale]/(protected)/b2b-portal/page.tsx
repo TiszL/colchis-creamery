@@ -1,6 +1,6 @@
 import { prisma as db } from '@/lib/db';
 import { getSession } from '@/lib/session';
-import { Truck, FileSignature, CheckCircle, Package } from 'lucide-react';
+import { Truck, FileSignature, CheckCircle, Package, LifeBuoy, Mail } from 'lucide-react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
@@ -41,8 +41,11 @@ export default async function B2BPortalDashboardPage({ params }: { params: Promi
     const activeContract = user?.contracts[0];
     const recentOrders = user?.orders || [];
 
-    // B2B billing summary for the AR widget.
-    const partner = await db.b2bPartner.findUnique({ where: { userId: session.userId }, select: { id: true } });
+    // B2B billing summary for the AR widget + assigned rep for the support card.
+    const partner = await db.b2bPartner.findUnique({
+        where: { userId: session.userId },
+        select: { id: true, assignedSales: { select: { name: true, email: true } } },
+    });
     const openInvoices = partner ? await db.b2bInvoice.findMany({
         where: { partnerId: partner.id, status: { in: ['PENDING', 'OVERDUE'] } },
         select: { amountCents: true, dueAt: true },
@@ -171,6 +174,34 @@ export default async function B2BPortalDashboardPage({ params }: { params: Promi
 
                 </div>
 
+            </div>
+
+            {/* Your account team — in-portal support contact (Tier 2) */}
+            <div className="bg-white rounded-xl shadow-sm border border-[#E8E6E1] p-6">
+                <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-[#FDFBF7] rounded-lg text-[#CBA153]">
+                        <LifeBuoy className="w-5 h-5" />
+                    </div>
+                    <h2 className="text-lg font-serif text-[#2C2A29]">Your account team</h2>
+                </div>
+                {partner?.assignedSales ? (
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                        <div>
+                            <p className="text-[10px] font-mono uppercase tracking-wider text-gray-400 mb-0.5">Dedicated wholesale rep</p>
+                            <p className="text-sm text-[#2C2A29] font-medium">{partner.assignedSales.name}</p>
+                            <a href={`mailto:${partner.assignedSales.email}`} className="text-sm text-[#CBA153] hover:text-[#2C2A29] transition">{partner.assignedSales.email}</a>
+                        </div>
+                        <a href={`mailto:${partner.assignedSales.email}?subject=Wholesale%20support%20%E2%80%94%20${encodeURIComponent(user?.companyName ?? '')}`}
+                            className="inline-flex items-center justify-center gap-2 bg-[#CBA153] hover:bg-[#b08d47] text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow-sm self-start">
+                            <Mail className="w-4 h-4" /> Email your rep
+                        </a>
+                    </div>
+                ) : (
+                    <p className="text-sm text-gray-500">
+                        A dedicated account rep will be assigned to your company shortly. In the meantime, reply to any
+                        order-confirmation email and our wholesale team will help.
+                    </p>
+                )}
             </div>
         </div>
     );

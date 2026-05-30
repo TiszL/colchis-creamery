@@ -39,6 +39,8 @@ model User {
   emailVerified     Boolean    @default(false)
   verificationCode  String?
   verificationExpiry DateTime?
+  passwordResetToken String?   @unique
+  passwordResetExpiry DateTime?
   twoFactorCode     String?
   twoFactorExpiry   DateTime?
   totpSecret        String?

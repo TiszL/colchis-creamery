@@ -8,7 +8,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
     sendVerificationEmail, send2FAEmail, generateVerificationCode,
-    sendB2bEmailChangeRequest, sendB2bEmailChangeUnlocked,
+    sendB2bEmailChangeRequest, sendB2bEmailChangeUnlocked, sendPasswordResetEmail,
 } from "@/lib/email";
 import { normalizeUSPhone } from "@/lib/phone";
 
@@ -109,6 +109,49 @@ export async function loginAction(formData: FormData) {
         console.error("Login action error:", error);
         return { error: "An unexpected error occurred during login." };
     }
+}
+
+// ── B2B self-service password reset ───────────────────────────────────────────
+// Request: always returns ok (never reveals whether the email exists). If a B2B
+// partner matches, we mint a single-use token (1h) and email a reset link.
+export async function requestB2bPasswordResetAction(formData: FormData): Promise<{ ok: true }> {
+    const email = ((formData.get("email") as string) || "").trim().toLowerCase();
+    if (email) {
+        const user = await prisma.user.findFirst({ where: { email, role: "B2B_PARTNER" }, select: { id: true, email: true, name: true } });
+        if (user) {
+            const token = randomBytes(32).toString("hex");
+            await prisma.user.update({
+                where: { id: user.id },
+                data: { passwordResetToken: token, passwordResetExpiry: new Date(Date.now() + 60 * 60 * 1000) },
+            });
+            const base = process.env.NEXT_PUBLIC_SITE_URL || "";
+            const link = `${base}/en/b2b/reset-password?token=${token}`;
+            await sendPasswordResetEmail(user.email, link, user.name || undefined).catch(() => undefined);
+        }
+    }
+    return { ok: true };
+}
+
+// Reset: validate the token + expiry, set the new password, bump sessionVersion
+// (invalidates any existing sessions), and clear the token.
+export async function resetPasswordWithTokenAction(formData: FormData): Promise<{ ok: boolean; error?: string }> {
+    const token = (formData.get("token") as string) || "";
+    const password = (formData.get("password") as string) || "";
+    if (!token) return { ok: false, error: "Missing reset token." };
+    if (password.length < 8) return { ok: false, error: "Password must be at least 8 characters." };
+
+    const user = await prisma.user.findFirst({
+        where: { passwordResetToken: token, passwordResetExpiry: { gte: new Date() } },
+        select: { id: true },
+    });
+    if (!user) return { ok: false, error: "This reset link is invalid or has expired. Request a new one." };
+
+    const passwordHash = await bcryptjs.hash(password, 12);
+    await prisma.user.update({
+        where: { id: user.id },
+        data: { passwordHash, passwordResetToken: null, passwordResetExpiry: null, sessionVersion: { increment: 1 } },
+    });
+    return { ok: true };
 }
 
 export async function registerB2CAction(formData: FormData) {

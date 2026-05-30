@@ -86,6 +86,52 @@ export async function createScheduleAction(formData: FormData): Promise<{ ok: tr
     }
 }
 
+export async function updateScheduleAction(formData: FormData): Promise<{ ok: true } | { ok: false; error: string }> {
+    try {
+        const { partnerId, isMasterAdmin } = await getCallerPartnerId();
+        const id = formData.get("id") as string;
+        if (!id) return { ok: false, error: "Missing schedule id" };
+        const where = isMasterAdmin ? { id } : { id, partnerId };
+        const existing = await prisma.recurringOrderSchedule.findFirst({ where, select: { id: true } });
+        if (!existing) return { ok: false, error: "Schedule not found" };
+
+        const name = (formData.get("name") as string)?.trim();
+        const intervalDays = parseInt(formData.get("intervalDays") as string, 10);
+        const paymentMethod = formData.get("paymentMethod") as B2bPaymentMethod;
+        const itemsJsonRaw = (formData.get("itemsJson") as string)?.trim() || "[]";
+        const locationId = (formData.get("fulfillmentLocationId") as string) || null;
+
+        if (!name) return { ok: false, error: "Name is required" };
+        if (!Number.isFinite(intervalDays) || intervalDays < 1) return { ok: false, error: "Interval must be ≥ 1 day" };
+        if (!paymentMethod) return { ok: false, error: "Payment method is required" };
+        if (paymentMethod === "STRIPE_CARD" || paymentMethod === "STRIPE_ACH") {
+            return { ok: false, error: "Stripe pay-now isn't supported for recurring schedules — pick a Resolve net term." };
+        }
+        let parsed: unknown;
+        try { parsed = JSON.parse(itemsJsonRaw); } catch { return { ok: false, error: "Invalid items" }; }
+        if (!Array.isArray(parsed) || parsed.length === 0) return { ok: false, error: "Add at least one item" };
+        for (const it of parsed) {
+            if (
+                typeof it !== "object" || it === null ||
+                typeof (it as { productId?: unknown }).productId !== "string" ||
+                typeof (it as { quantity?: unknown }).quantity !== "number" ||
+                ((it as { quantity: number }).quantity) < 1
+            ) {
+                return { ok: false, error: "Each item must have a product and quantity ≥ 1" };
+            }
+        }
+
+        await prisma.recurringOrderSchedule.update({
+            where: { id: existing.id },
+            data: { name, intervalDays, paymentMethod, itemsJson: JSON.stringify(parsed), fulfillmentLocationId: locationId },
+        });
+        revalidatePath("/[locale]/b2b-portal/schedules", "page");
+        return { ok: true };
+    } catch (e) {
+        return { ok: false, error: e instanceof Error ? e.message : "Unknown error" };
+    }
+}
+
 export async function toggleScheduleActiveAction(formData: FormData): Promise<void> {
     const { partnerId, isMasterAdmin } = await getCallerPartnerId();
     const id = formData.get("id") as string;

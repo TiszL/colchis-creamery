@@ -715,6 +715,9 @@ export async function sendOrderConfirmation(order: OrderForEmail) {
   const placedOn = order.createdAt.toLocaleString('en-US', {
     weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
     hour: 'numeric', minute: '2-digit',
+    // Render in store-local Eastern time, not the server's UTC (Vercel), so the
+    // customer sees the time they actually placed the order.
+    timeZone: 'America/New_York', timeZoneName: 'short',
   });
 
   // Phase 7b.3: signed lookup link. Default 30-day expiry — long enough that

@@ -31,6 +31,11 @@ model User {
   stripeCustomerId  String?
   isActiveB2b       Boolean    @default(false)
   isActive          Boolean    @default(true)
+  // Bumped to invalidate ALL of a user's existing JWT sessions at once (role
+  // change, forced logout). getSession() rejects tokens whose sessionVersion
+  // != the current value, so a demoted/fired user loses access immediately
+  // instead of keeping a valid 7-day cookie.
+  sessionVersion    Int        @default(0)
   emailVerified     Boolean    @default(false)
   verificationCode  String?
   verificationExpiry DateTime?
@@ -125,6 +130,15 @@ model B2bPartner {
   companyName              String
   businessAddress          String?
   ein                      String?   // US tax ID, optional
+
+  // Sales-tax exemption (resale). Wholesale-for-resale is tax-exempt ONLY with a
+  // valid resale certificate on file; these store that compliance record so the
+  // tax-exempt B2B pricing can be justified in an audit.
+  taxExempt                    Boolean   @default(false)
+  resaleCertificateNumber      String?
+  resaleCertificateState       String?
+  resaleCertificateExpiresAt   DateTime?
+  resaleCertificateUrl         String?   // link to the uploaded certificate doc
 
   // Resolve net-terms integration. Customer ID is created on first net-terms
   // attempt (just-in-time, not on partner signup). Credit limit is cached

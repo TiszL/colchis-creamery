@@ -978,7 +978,7 @@ export async function resetStaffPasswordAction(userId: string, newPassword?: str
 
         await prisma.user.update({
             where: { id: userId },
-            data: { passwordHash },
+            data: { passwordHash, sessionVersion: { increment: 1 } },
         });
 
         revalidatePath("/admin/staff");
@@ -1069,7 +1069,7 @@ export async function quickResetPasswordAction(userId: string) {
 
         await prisma.user.update({
             where: { id: userId },
-            data: { passwordHash },
+            data: { passwordHash, sessionVersion: { increment: 1 } },
         });
 
         revalidatePath("/admin/staff");
@@ -1105,7 +1105,13 @@ export async function changeUserGlobalRoleAction(userId: string, newRole: string
         if (user.role === "MASTER_ADMIN") return { error: "Master admin role is managed in Security." };
         if (newRole === "MASTER_ADMIN") return { error: "Promote to master admin from the Security page." };
 
-        await prisma.user.update({ where: { id: userId }, data: { role: newRole } });
+        // Bump sessionVersion so the user's existing JWT (with the old role) is
+        // rejected by getSession on their next request — they re-login and pick
+        // up the new role instead of riding the stale cookie for up to 7 days.
+        await prisma.user.update({
+            where: { id: userId },
+            data: { role: newRole, sessionVersion: { increment: 1 } },
+        });
         revalidatePath("/admin/staff");
         return { success: true };
     } catch (error) {

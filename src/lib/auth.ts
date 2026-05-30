@@ -24,6 +24,7 @@ export async function signToken(payload: {
   role: string;
   email: string;
   name?: string;
+  sessionVersion?: number;
 }): Promise<string> {
   return new SignJWT(payload)
     .setProtectedHeader({ alg: "HS256" })
@@ -40,6 +41,7 @@ export async function verifyToken(token: string) {
       role: string;
       email: string;
       name?: string;
+      sessionVersion?: number;
     };
   } catch {
     return null;

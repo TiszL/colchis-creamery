@@ -2,11 +2,43 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { Users, FileText, ClipboardList, AlertCircle, Truck, ArrowRight, Repeat } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
 const OVERDUE_GRACE_DAYS = 0; // a B2bInvoice is overdue the moment dueAt passes
+
+// Admin (or B2B sales manager) records a partner's resale certificate + exemption
+// status. Wholesale-for-resale is tax-exempt only with a valid certificate on
+// file — this stores that compliance record so the tax-exempt B2B pricing is
+// defensible in an audit.
+async function updatePartnerResaleCertAction(formData: FormData) {
+    "use server";
+    const session = await getSession();
+    if (!session) throw new Error("Unauthorized");
+    if (session.role !== "MASTER_ADMIN") {
+        const has = await prisma.userLocation.findFirst({
+            where: { userId: session.userId, role: "B2B_SALES_MANAGER" },
+            select: { id: true },
+        });
+        if (!has) throw new Error("Forbidden");
+    }
+    const partnerId = formData.get("partnerId") as string;
+    if (!partnerId) return;
+    const expiresRaw = (formData.get("resaleCertificateExpiresAt") as string)?.trim();
+    await prisma.b2bPartner.update({
+        where: { id: partnerId },
+        data: {
+            taxExempt: formData.get("taxExempt") === "on",
+            resaleCertificateNumber: (formData.get("resaleCertificateNumber") as string)?.trim() || null,
+            resaleCertificateState: (formData.get("resaleCertificateState") as string)?.trim().toUpperCase() || null,
+            resaleCertificateExpiresAt: expiresRaw ? new Date(expiresRaw) : null,
+            resaleCertificateUrl: (formData.get("resaleCertificateUrl") as string)?.trim() || null,
+        },
+    });
+    revalidatePath("/[locale]/admin/b2b", "page");
+}
 
 export default async function B2bAdminOverview({
     params,
@@ -65,6 +97,12 @@ export default async function B2bAdminOverview({
         where: { status: { in: ["NEW", "CONTACTED"] } },
         orderBy: { createdAt: "desc" },
         take: 10,
+    });
+
+    // Partners for the resale-certificate / tax-exemption register.
+    const partners = await prisma.b2bPartner.findMany({
+        include: { user: { select: { name: true, email: true } } },
+        orderBy: { companyName: "asc" },
     });
 
     const fmtMoney = (cents: number | null | undefined) => `$${((cents ?? 0) / 100).toFixed(2)}`;
@@ -167,6 +205,57 @@ export default async function B2bAdminOverview({
                                 <ArrowRight className="w-3.5 h-3.5 text-gray-600 shrink-0" />
                             </Link>
                         ))}
+                    </div>
+                )}
+            </section>
+
+            {/* Resale certificates / tax exemption register */}
+            <section>
+                <h2 className="text-[11px] font-mono uppercase tracking-wider text-gray-500 mb-2">
+                    Resale certificates / tax exemption <span className="text-gray-600">· {partners.length}</span>
+                </h2>
+                <p className="text-[11px] text-gray-600 mb-3 max-w-2xl">
+                    Wholesale-for-resale is sales-tax-exempt only with a valid resale certificate on file. Record each partner&apos;s certificate so the tax-exempt B2B pricing is defensible.
+                </p>
+                {partners.length === 0 ? (
+                    <div className="bg-[#161616] border border-[#ffffff0A] p-6 text-center text-gray-500 text-sm">
+                        No partners yet.
+                    </div>
+                ) : (
+                    <div className="bg-[#161616] border border-[#ffffff0A] divide-y divide-[#ffffff0A]">
+                        {partners.map(p => {
+                            const expired = p.resaleCertificateExpiresAt && p.resaleCertificateExpiresAt < now;
+                            return (
+                                <form action={updatePartnerResaleCertAction} key={p.id} className="px-4 py-3 flex flex-col gap-2">
+                                    <input type="hidden" name="partnerId" value={p.id} />
+                                    <div className="flex items-center justify-between gap-2">
+                                        <div className="min-w-0">
+                                            <p className="text-sm text-white truncate">{p.companyName}</p>
+                                            <p className="text-[10px] font-mono text-gray-500 truncate">{p.user.email}</p>
+                                        </div>
+                                        {p.taxExempt ? (
+                                            <span className={`text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 shrink-0 ${expired ? "bg-red-900/40 text-red-300" : "bg-emerald-900/30 text-emerald-400"}`}>
+                                                {expired ? "EXEMPT · EXPIRED" : "EXEMPT"}
+                                            </span>
+                                        ) : (
+                                            <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 bg-gray-900/40 text-gray-400 shrink-0">TAXABLE</span>
+                                        )}
+                                    </div>
+                                    <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+                                        <input name="resaleCertificateNumber" defaultValue={p.resaleCertificateNumber ?? ""} placeholder="Cert #" className="bg-[#0C0C0C] border border-[#ffffff14] text-white text-xs py-1.5 px-2 focus:outline-none focus:border-[#B96A3D]" />
+                                        <input name="resaleCertificateState" defaultValue={p.resaleCertificateState ?? ""} placeholder="ST" maxLength={2} className="bg-[#0C0C0C] border border-[#ffffff14] text-white text-xs py-1.5 px-2 uppercase focus:outline-none focus:border-[#B96A3D]" />
+                                        <input type="date" name="resaleCertificateExpiresAt" defaultValue={p.resaleCertificateExpiresAt ? p.resaleCertificateExpiresAt.toISOString().slice(0, 10) : ""} className="bg-[#0C0C0C] border border-[#ffffff14] text-white text-xs py-1.5 px-2 focus:outline-none focus:border-[#B96A3D]" />
+                                        <input name="resaleCertificateUrl" defaultValue={p.resaleCertificateUrl ?? ""} placeholder="Doc URL" className="bg-[#0C0C0C] border border-[#ffffff14] text-white text-xs py-1.5 px-2 focus:outline-none focus:border-[#B96A3D]" />
+                                        <div className="flex items-center justify-between gap-2">
+                                            <label className="flex items-center gap-1.5 text-[11px] text-gray-300">
+                                                <input type="checkbox" name="taxExempt" defaultChecked={p.taxExempt} className="accent-[#B96A3D]" /> Exempt
+                                            </label>
+                                            <button type="submit" className="bg-[#B96A3D] text-black px-3 py-1.5 text-[10px] font-mono uppercase tracking-wider hover:bg-[#a85d35] transition-colors">Save</button>
+                                        </div>
+                                    </div>
+                                </form>
+                            );
+                        })}
                     </div>
                 )}
             </section>

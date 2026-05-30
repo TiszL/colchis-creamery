@@ -1,5 +1,6 @@
 import { signToken, verifyToken } from "./auth";
 import { cookies } from "next/headers";
+import { prisma } from "./db";
 
 export function getSessionOptions() {
     const expiry = new Date();
@@ -20,7 +21,13 @@ export async function getSessionTokenValue(
     email: string,
     name?: string
 ) {
-    return signToken({ userId, role, email, name: name || "" });
+    // Stamp the current session version into the token so it can be invalidated
+    // later (role change / forced logout) by bumping User.sessionVersion.
+    const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { sessionVersion: true },
+    });
+    return signToken({ userId, role, email, name: name || "", sessionVersion: user?.sessionVersion ?? 0 });
 }
 
 export async function setSession(
@@ -45,5 +52,20 @@ export async function getSessionToken(): Promise<string | null> {
 export async function getSession() {
     const token = await getSessionToken();
     if (!token) return null;
-    return verifyToken(token);
+    const payload = await verifyToken(token);
+    if (!payload) return null;
+    // Live validation: reject the session if the user is gone, has been
+    // deactivated, or the token's session version is stale (a role change or
+    // forced logout bumps User.sessionVersion). This is what makes a
+    // demoted/fired user lose access immediately instead of riding their
+    // existing 7-day cookie. Note: middleware can't do this (no DB at the edge),
+    // so getSession() is the authoritative gate the pages/actions rely on.
+    const user = await prisma.user.findUnique({
+        where: { id: payload.userId },
+        select: { isActive: true, sessionVersion: true },
+    });
+    if (!user || !user.isActive || user.sessionVersion !== (payload.sessionVersion ?? 0)) {
+        return null;
+    }
+    return payload;
 }

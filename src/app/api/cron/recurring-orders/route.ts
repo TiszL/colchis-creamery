@@ -141,6 +141,15 @@ export async function GET(req: Request) {
                     processed.push({ productId: product.id, quantity: item.quantity, unitPrice: `$${finalPrice.toFixed(2)}` });
                 }
 
+                // Tier 2 — if the schedule targets one of the partner's shops,
+                // snapshot its address onto the order ship-to + tag the shop.
+                const shipTo = sched.partnerLocationId
+                    ? await tx.b2bPartnerLocation.findUnique({
+                        where: { id: sched.partnerLocationId },
+                        select: { line1: true, line2: true, city: true, state: true, postalCode: true },
+                    })
+                    : null;
+
                 const order = await tx.order.create({
                     data: {
                         userId: sched.partner.userId,
@@ -150,6 +159,12 @@ export async function GET(req: Request) {
                         // Unprefixed numeric string to match D2C (refunds parseFloat this).
                         totalAmount: subtotal.toFixed(2),
                         notes: `Auto-generated from recurring schedule "${sched.name}"`,
+                        partnerLocationId: shipTo ? sched.partnerLocationId : null,
+                        shippingLine1: shipTo?.line1 ?? null,
+                        shippingAddressLine2: shipTo?.line2 ?? null,
+                        shippingCity: shipTo?.city ?? null,
+                        shippingState: shipTo?.state ?? null,
+                        shippingPostalCode: shipTo?.postalCode ?? null,
                         orderItems: { create: processed },
                     },
                     include: { orderItems: true },

@@ -7,12 +7,15 @@ import { Play, Pause, Trash2, Plus, X, Pencil } from 'lucide-react';
 interface Item { productId: string; quantity: number }
 interface Schedule {
     id: string; name: string; intervalDays: number; paymentMethod: string;
-    active: boolean; nextFireAt: string; fulfillmentLocationId: string | null; items: Item[];
+    active: boolean; nextFireAt: string; fulfillmentLocationId: string | null; partnerLocationId: string | null; items: Item[];
 }
+interface Shop { id: string; label: string; city: string; state: string }
 interface Props {
     schedules: Schedule[];
     products: { id: string; name: string }[];
     locations: { id: string; name: string }[];
+    shops: Shop[];
+    lockedShopId: string | null;
 }
 
 const NET_OPTIONS = [
@@ -24,25 +27,28 @@ const NET_OPTIONS = [
 const input = 'w-full bg-white border border-[#E8E6E1] text-[#2C2A29] py-2 px-3 text-sm rounded-md focus:outline-none focus:border-[#CBA153]';
 const labelCls = 'block text-[10px] font-bold text-gray-500 mb-1 uppercase tracking-wider';
 
-export default function B2BSchedulesClient({ schedules, products, locations }: Props) {
+export default function B2BSchedulesClient({ schedules, products, locations, shops, lockedShopId }: Props) {
     const [mode, setMode] = useState<'closed' | 'create' | string>('closed'); // 'create' | scheduleId | 'closed'
     const [name, setName] = useState('');
     const [intervalDays, setIntervalDays] = useState(7);
     const [paymentMethod, setPaymentMethod] = useState('RESOLVE_NET_30');
     const [locationId, setLocationId] = useState('');
+    const [shopId, setShopId] = useState('');
     const [items, setItems] = useState<Item[]>([]);
     const [error, setError] = useState<string | null>(null);
     const [pending, start] = useTransition();
 
     const productName = (id: string) => products.find(p => p.id === id)?.name ?? id.slice(0, 8);
+    const shopName = (id: string | null) => id ? (shops.find(s => s.id === id)?.label ?? null) : null;
 
     const openCreate = () => {
         setMode('create'); setName(''); setIntervalDays(7); setPaymentMethod('RESOLVE_NET_30');
-        setLocationId(''); setItems([{ productId: products[0]?.id ?? '', quantity: 1 }]); setError(null);
+        setLocationId(''); setShopId(lockedShopId ?? ''); setItems([{ productId: products[0]?.id ?? '', quantity: 1 }]); setError(null);
     };
     const openEdit = (s: Schedule) => {
         setMode(s.id); setName(s.name); setIntervalDays(s.intervalDays); setPaymentMethod(s.paymentMethod);
-        setLocationId(s.fulfillmentLocationId ?? ''); setItems(s.items.length ? s.items : [{ productId: products[0]?.id ?? '', quantity: 1 }]); setError(null);
+        setLocationId(s.fulfillmentLocationId ?? ''); setShopId(lockedShopId ?? s.partnerLocationId ?? '');
+        setItems(s.items.length ? s.items : [{ productId: products[0]?.id ?? '', quantity: 1 }]); setError(null);
     };
 
     const submit = () => start(async () => {
@@ -55,6 +61,7 @@ export default function B2BSchedulesClient({ schedules, products, locations }: P
         fd.set('intervalDays', String(intervalDays));
         fd.set('paymentMethod', paymentMethod);
         fd.set('fulfillmentLocationId', locationId);
+        fd.set('partnerLocationId', shopId);
         fd.set('itemsJson', JSON.stringify(cleanItems));
         const r = mode === 'create' ? await createScheduleAction(fd) : await updateScheduleAction(fd);
         if (r.ok) window.location.reload();
@@ -91,6 +98,7 @@ export default function B2BSchedulesClient({ schedules, products, locations }: P
                                 </div>
                                 <p className="text-[11px] text-gray-500 font-mono">
                                     every {s.intervalDays}d · {s.items.reduce((n, i) => n + i.quantity, 0)} units · next {s.nextFireAt.slice(0, 10)}
+                                    {shopName(s.partnerLocationId) ? ` · → ${shopName(s.partnerLocationId)}` : ''}
                                 </p>
                                 <p className="text-[11px] text-gray-400 truncate">{s.items.map(i => `${i.quantity}× ${productName(i.productId)}`).join(' · ')}</p>
                             </div>
@@ -135,6 +143,18 @@ export default function B2BSchedulesClient({ schedules, products, locations }: P
                             {locations.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
                         </select>
                     </div>
+                    {(shops.length > 0 || lockedShopId) && (
+                        <div><label className={labelCls}>Ship to shop</label>
+                            {lockedShopId ? (
+                                <p className="text-sm text-[#2C2A29] py-2">{shopName(lockedShopId) ?? 'Your shop'} <span className="text-xs text-gray-400">(assigned)</span></p>
+                            ) : (
+                                <select value={shopId} onChange={e => setShopId(e.target.value)} className={input}>
+                                    <option value="">— None —</option>
+                                    {shops.map(s => <option key={s.id} value={s.id}>{s.label} — {s.city}, {s.state}</option>)}
+                                </select>
+                            )}
+                        </div>
+                    )}
                 </div>
                 <div>
                     <label className={labelCls}>Products</label>

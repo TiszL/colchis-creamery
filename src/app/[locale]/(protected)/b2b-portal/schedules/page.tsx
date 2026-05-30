@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
+import { getPartnerContext } from "@/lib/b2b-partner";
 import { redirect } from "next/navigation";
 import { Repeat } from "lucide-react";
 import B2BSchedulesClient from "@/components/b2b/B2BSchedulesClient";
@@ -16,14 +17,15 @@ export default async function PartnerSchedulesPage({
     if (!session) redirect(`/${locale}/b2b/login`);
     if (session.role !== "B2B_PARTNER" && session.role !== "MASTER_ADMIN") redirect(`/${locale}/`);
 
-    const partner = session.role === "B2B_PARTNER"
-        ? await prisma.b2bPartner.findUnique({ where: { userId: session.userId }, select: { id: true } })
-        : null;
+    // Owner or active member — members manage schedules for their assigned shop.
+    const ctx = await getPartnerContext(session.userId);
+    const partnerId = ctx?.partnerId ?? null;
+    const lockedShopId = ctx?.assignedLocationId ?? null;
 
-    const [rawSchedules, products, locations] = await Promise.all([
-        partner
+    const [rawSchedules, products, locations, shops] = await Promise.all([
+        partnerId
             ? prisma.recurringOrderSchedule.findMany({
-                where: { partnerId: partner.id },
+                where: { partnerId },
                 orderBy: [{ active: "desc" }, { nextFireAt: "asc" }],
             })
             : Promise.resolve([]),
@@ -37,6 +39,13 @@ export default async function PartnerSchedulesPage({
             orderBy: { name: "asc" },
             select: { id: true, name: true },
         }),
+        partnerId
+            ? prisma.b2bPartnerLocation.findMany({
+                where: { partnerId, isActive: true },
+                orderBy: { label: "asc" },
+                select: { id: true, label: true, city: true, state: true },
+            })
+            : Promise.resolve([]),
     ]);
 
     const schedules = rawSchedules.map(s => {
@@ -53,6 +62,7 @@ export default async function PartnerSchedulesPage({
             active: s.active,
             nextFireAt: s.nextFireAt.toISOString(),
             fulfillmentLocationId: s.fulfillmentLocationId,
+            partnerLocationId: s.partnerLocationId,
             items,
         };
     });
@@ -68,12 +78,12 @@ export default async function PartnerSchedulesPage({
                 </p>
             </header>
 
-            {!partner ? (
+            {!partnerId ? (
                 <div className="bg-amber-50 border border-amber-200 px-4 py-3 text-amber-800 text-sm rounded-lg">
                     Place your first Resolve net-terms order to initialize your partner profile, then come back to set up recurring schedules.
                 </div>
             ) : (
-                <B2BSchedulesClient schedules={schedules} products={products} locations={locations} />
+                <B2BSchedulesClient schedules={schedules} products={products} locations={locations} shops={shops} lockedShopId={lockedShopId} />
             )}
         </div>
     );

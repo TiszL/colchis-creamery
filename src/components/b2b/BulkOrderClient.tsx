@@ -66,7 +66,7 @@ export default function BulkOrderClient(props: BulkOrderClientProps) {
     const [paymentMethod, setPaymentMethod] = useState<PaymentMethodChoice>('RESOLVE_NET_30');
     const [quantities, setQuantities] = useState<Record<string, number>>({});
 
-    const availableProducts = products.filter(p => p.isActive && p.stockQuantity > 0);
+    const availableProducts = products.filter(p => p.isActive && (p.availableQty === null || p.availableQty > 0));
 
     // Compute current cart total in cents — Stripe Elements deferred mode
     // wants this upfront so it can show the right "Pay $X" CTA.
@@ -151,7 +151,7 @@ function BulkOrderInner({
     const stripe = useStripe();
     const elements = useElements();
 
-    const availableProducts = products.filter(p => p.isActive && p.stockQuantity > 0);
+    const availableProducts = products.filter(p => p.isActive && (p.availableQty === null || p.availableQty > 0));
     const prefix = locale === 'en' ? '' : `/${locale}`;
 
     const handleQuantityChange = (productId: string, value: string, maxStock: number) => {
@@ -293,16 +293,20 @@ function BulkOrderInner({
                                     <input
                                         type="number"
                                         min="0"
-                                        max={product.stockQuantity}
+                                        max={product.availableQty ?? undefined}
                                         value={quantities[product.id] || ''}
-                                        onChange={(e) => handleQuantityChange(product.id, e.target.value, product.stockQuantity)}
+                                        onChange={(e) => handleQuantityChange(product.id, e.target.value, product.availableQty ?? Infinity)}
                                         className="w-20 text-right border border-[#E8E6E1] rounded-md py-1.5 px-3 focus:ring-[#CBA153] focus:border-[#CBA153] outline-none transition"
                                         placeholder="0"
                                     />
                                 </div>
-                                <span className={`text-[10px] font-medium ${product.stockQuantity < 50 ? 'text-red-500' : 'text-green-600'}`}>
-                                    {product.stockQuantity} in stock
-                                </span>
+                                {product.availableQty === null ? (
+                                    <span className="text-[10px] font-medium text-[#CBA153]">Made to order</span>
+                                ) : (
+                                    <span className={`text-[10px] font-medium ${product.availableQty < 50 ? 'text-red-500' : 'text-green-600'}`}>
+                                        {product.availableQty} in stock
+                                    </span>
+                                )}
                             </div>
                         </div>
                     );

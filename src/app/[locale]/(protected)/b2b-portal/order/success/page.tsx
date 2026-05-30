@@ -1,11 +1,16 @@
 import { prisma as db } from '@/lib/db';
-import { getSessionToken } from '@/lib/session';
-import { verifyToken } from '@/lib/auth';
+import { getSession } from '@/lib/session';
 import Link from 'next/link';
 import { CheckCircle, Clock, Package } from 'lucide-react';
 import { redirect } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
+
+// B2B order totals are stored as unprefixed numeric strings; render with a "$".
+function money(s: string | null | undefined): string {
+    const n = Number(String(s ?? '').replace(/[^0-9.-]+/g, '')) || 0;
+    return `$${n.toFixed(2)}`;
+}
 
 interface SuccessProps {
     params: Promise<{ locale: string }>;
@@ -23,9 +28,9 @@ export default async function B2BOrderSuccessPage({ params, searchParams }: Succ
     const { order_id: orderId, redirect_status } = await searchParams;
     const prefix = locale === 'en' ? '' : `/${locale}`;
 
-    // Auth — partner can only see their own orders.
-    const token = await getSessionToken();
-    const session = token ? await verifyToken(token) : null;
+    // Auth — partner can only see their own orders. getSession enforces the live
+    // isActive/sessionVersion check.
+    const session = await getSession();
     if (!session?.userId) redirect(`${prefix}/b2b/login`);
 
     if (!orderId) {
@@ -97,7 +102,7 @@ export default async function B2BOrderSuccessPage({ params, searchParams }: Succ
                 </div>
                 <div className="flex justify-between text-sm">
                     <span className="text-gray-500">Total</span>
-                    <span className="font-bold text-[#CBA153]">{order.totalAmount}</span>
+                    <span className="font-bold text-[#CBA153]">{money(order.totalAmount)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                     <span className="text-gray-500">Payment</span>

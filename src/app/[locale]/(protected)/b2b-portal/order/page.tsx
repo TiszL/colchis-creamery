@@ -1,6 +1,5 @@
 import { prisma as db } from '@/lib/db';
-import { getSessionToken } from '@/lib/session';
-import { verifyToken } from '@/lib/auth';
+import { getSession } from '@/lib/session';
 import BulkOrderClient from '@/components/b2b/BulkOrderClient';
 import { PackagePlus } from 'lucide-react';
 import { redirect } from 'next/navigation';
@@ -9,15 +8,19 @@ export const dynamic = 'force-dynamic';
 
 export default async function B2BOrderPage({ params }: { params: Promise<{ locale: string }> }) {
     const { locale } = await params;
-    const token = await getSessionToken();
-    const session = await verifyToken(token!);
+    // getSession enforces the live isActive/sessionVersion check (a raw verifyToken
+    // would let a deactivated/demoted partner keep ordering).
+    const session = await getSession();
+    if (!session) redirect(`/${locale}/b2b/login`);
 
-    // Fetch active contract
+    // Active contract = SIGNED AND not expired. An expired contract must not let
+    // the partner order (nor silently apply its discount).
+    const now = new Date();
     const user = await db.user.findUnique({
-        where: { id: session!.userId },
+        where: { id: session.userId },
         include: {
             contracts: {
-                where: { status: 'SIGNED' },
+                where: { status: 'SIGNED', OR: [{ validUntil: null }, { validUntil: { gte: now } }] },
                 take: 1
             }
         }
@@ -25,15 +28,36 @@ export default async function B2BOrderPage({ params }: { params: Promise<{ local
 
     const activeContract = user?.contracts[0];
 
-    // Block access if no signed contract exists
+    // Block access if no active (signed, unexpired) contract exists
     if (!activeContract) {
         redirect(`/${locale}/b2b-portal`);
     }
 
-    // Fetch all active products (B2B only shows purchasable products, not Coming Soon)
-    const products = await db.product.findMany({
+    // Fetch B2B-purchasable products + compute REAL per-location availability so the
+    // catalog matches what /api/b2b/order actually allocates (it requires a single
+    // location to cover each line). MTO products are unlimited (availableQty=null).
+    const productRows = await db.product.findMany({
         where: { status: 'ACTIVE', isB2bVisible: true },
         orderBy: { name: 'asc' }
+    });
+    const locations = await db.location.findMany({
+        where: { isActive: true },
+        select: {
+            allowsChannels: true,
+            stocks: { where: { isEnabled: true }, select: { productId: true, quantity: true, reservedQuantity: true } },
+        },
+    });
+    const products = productRows.map(p => {
+        if (p.isMadeToOrder) return { ...p, availableQty: null as number | null };
+        let maxFree = 0;
+        for (const loc of locations) {
+            if (!loc.allowsChannels.includes(p.salesChannel)) continue;
+            const st = loc.stocks.find(s => s.productId === p.id);
+            if (!st) continue;
+            const free = (st.quantity ?? 0) - st.reservedQuantity;
+            if (free > maxFree) maxFree = free;
+        }
+        return { ...p, availableQty: maxFree as number | null };
     });
 
     return (

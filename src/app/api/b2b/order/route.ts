@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma as db } from "@/lib/db";
-import { jwtVerify } from "jose";
+import { getSession } from "@/lib/session";
 import { B2bPaymentMethod } from "@prisma/client";
 import { createResolveCustomer, createResolveCharge, isResolveConfigured } from "@/lib/resolve";
 import { commitStock, reserveStock } from "@/lib/stock-reservation";
 import { stripe } from "@/lib/stripe";
-import { getJwtSecret } from "@/lib/auth";
 
 // Phase 6 (6c) — B2B order placement now branches on paymentMethod.
 // Backward compat: omit the field and the order falls through to the
@@ -28,14 +27,14 @@ interface B2bOrderRequestBody {
 
 export async function POST(req: NextRequest) {
     try {
-        const token = req.cookies.get("auth_token")?.value;
-        if (!token) {
+        // getSession enforces the live isActive/sessionVersion check — a raw
+        // jwtVerify would let a deactivated/demoted partner keep placing orders.
+        const session = await getSession();
+        if (!session) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
-
-        const { payload } = await jwtVerify(token, getJwtSecret());
-        const userId = payload.userId as string;
-        const role = payload.role as string;
+        const userId = session.userId;
+        const role = session.role;
 
         if (role !== "B2B_PARTNER" && role !== "MASTER_ADMIN" && role !== "ADMIN") {
             return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -52,7 +51,7 @@ export async function POST(req: NextRequest) {
         const user = await db.user.findUnique({
             where: { id: userId },
             include: {
-                contracts: { where: { status: "SIGNED" }, take: 1 },
+                contracts: { where: { status: "SIGNED", OR: [{ validUntil: null }, { validUntil: { gte: new Date() } }] }, take: 1 },
                 b2bPartner: true,
             },
         });

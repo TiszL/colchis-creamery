@@ -88,7 +88,7 @@ export default function B2BLoginPage() {
                             <input type="checkbox" id="remember" className="bg-[#1A1A1A] border-gray-700 text-[#CBA153] focus:ring-[#CBA153] rounded mr-2" />
                             <label htmlFor="remember" className="text-sm text-gray-400">Remember me</label>
                         </div>
-                        <a href="#" className="text-sm text-[#CBA153] hover:text-white transition-colors">Forgot Password?</a>
+                        <a href="mailto:sales@colchisfood.com?subject=B2B%20password%20reset" className="text-sm text-[#CBA153] hover:text-white transition-colors">Forgot password? Contact us</a>
                     </div>
 
                     <button

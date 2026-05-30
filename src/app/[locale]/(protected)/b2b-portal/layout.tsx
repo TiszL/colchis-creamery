@@ -1,6 +1,4 @@
-import Link from 'next/link';
-import { getSessionToken } from '@/lib/session';
-import { verifyToken } from '@/lib/auth';
+import { getSession } from '@/lib/session';
 import { redirect } from 'next/navigation';
 import { prisma as db } from '@/lib/db';
 import B2BSidebar from '@/components/b2b/B2BSidebar';
@@ -13,8 +11,7 @@ export default async function B2BLayout({
     params: any;
 }) {
     const { locale } = await params;
-    const token = await getSessionToken();
-    const session = token ? await verifyToken(token) : null;
+    const session = await getSession();
 
     // Phase 11: replace the stale 'ADMIN' check (never matched — codebase
     // uses 'MASTER_ADMIN') and route partners to the correct sign-in.

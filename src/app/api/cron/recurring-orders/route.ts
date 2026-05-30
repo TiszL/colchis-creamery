@@ -84,10 +84,10 @@ export async function GET(req: Request) {
                 // Contract gate — mirror the live route's 403. No signed contract ⇒
                 // throw so the schedule retries (doesn't advance) until re-signed.
                 const contract = await tx.contract.findFirst({
-                    where: { partnerId: sched.partner.userId, status: "SIGNED" },
+                    where: { partnerId: sched.partner.userId, status: "SIGNED", OR: [{ validUntil: null }, { validUntil: { gte: now } }] },
                     take: 1,
                 });
-                if (!contract) throw new Error("No active signed contract");
+                if (!contract) throw new Error("No active signed contract (or it has expired)");
                 // Clamp 0–100 so a malformed contract value can't make a negative total.
                 const discountPct = Math.min(100, Math.max(0, parseInt(contract.discountPercentage, 10) || 0));
 

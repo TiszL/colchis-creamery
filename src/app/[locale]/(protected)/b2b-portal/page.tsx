@@ -1,22 +1,30 @@
 import { prisma as db } from '@/lib/db';
-import { getSessionToken } from '@/lib/session';
-import { verifyToken } from '@/lib/auth';
+import { getSession } from '@/lib/session';
 import { Truck, FileSignature, CheckCircle, Package } from 'lucide-react';
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
 
+// B2B order totals are stored as unprefixed numeric strings; render with a "$".
+function money(s: string | null | undefined): string {
+    const n = Number(String(s ?? '').replace(/[^0-9.-]+/g, '')) || 0;
+    return `$${n.toFixed(2)}`;
+}
+
 export default async function B2BPortalDashboardPage() {
+    // getSession enforces the live isActive/sessionVersion check (the layout does
+    // too); a deactivated/demoted partner is evicted instead of riding the cookie.
+    const session = await getSession();
+    if (!session) redirect('/b2b/login');
 
-    const token = await getSessionToken();
-    const session = await verifyToken(token!); // Layout already verified token exists
-
-    // Fetch user and active contract
+    // Active contract = SIGNED AND not expired (matches the order gate).
+    const now = new Date();
     const user = await db.user.findUnique({
-        where: { id: session!.userId },
+        where: { id: session.userId },
         include: {
             contracts: {
-                where: { status: 'SIGNED' },
+                where: { status: 'SIGNED', OR: [{ validUntil: null }, { validUntil: { gte: now } }] },
                 orderBy: { createdAt: 'desc' },
                 take: 1
             },
@@ -117,12 +125,12 @@ export default async function B2BPortalDashboardPage() {
                                                     {order.orderStatus}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-4 font-medium">{order.totalAmount}</td>
+                                            <td className="px-6 py-4 font-medium">{money(order.totalAmount)}</td>
                                             <td className="px-6 py-4">
                                                 {order.shipment?.trackingNumber ? (
-                                                    <a href="#" className="flex items-center gap-1 text-indigo-600 hover:underline">
+                                                    <span className="font-mono text-xs text-[#2C2A29]">
                                                         {order.shipment.carrierName} {order.shipment.trackingNumber}
-                                                    </a>
+                                                    </span>
                                                 ) : <span className="text-gray-400">Not assigned yet</span>}
                                             </td>
                                         </tr>

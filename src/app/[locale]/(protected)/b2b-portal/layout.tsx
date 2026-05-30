@@ -2,6 +2,7 @@ import { getSession } from '@/lib/session';
 import { redirect } from 'next/navigation';
 import { prisma as db } from '@/lib/db';
 import B2BSidebar from '@/components/b2b/B2BSidebar';
+import { getPartnerContext } from '@/lib/b2b-partner';
 
 export default async function B2BLayout({
     children,
@@ -28,14 +29,27 @@ export default async function B2BLayout({
         where: { id: session.userId }
     });
 
+    // Tier 2 — resolve org context. A B2B_PARTNER with no context yet is a
+    // proto-owner (B2bPartner row is created just-in-time on first order), so
+    // treat null as owner for nav purposes. Active members get scoped nav, and
+    // their company name comes from the org (their own User has no companyName).
+    const ctx = await getPartnerContext(session.userId);
+    const isOwner = !ctx || ctx.isOwner;
+    let companyName = user?.companyName || 'Partner';
+    if (ctx && !ctx.isOwner) {
+        const org = await db.b2bPartner.findUnique({ where: { id: ctx.partnerId }, select: { companyName: true } });
+        companyName = org?.companyName || companyName;
+    }
 
     return (
         <div className="min-h-screen bg-[#FDFBF7] flex flex-col md:flex-row">
-            <B2BSidebar 
-                locale={locale} 
-                companyName={user?.companyName || 'Unknown Partner'} 
-                companyInitial={user?.companyName?.charAt(0).toUpperCase() || 'P'}
+            <B2BSidebar
+                locale={locale}
+                companyName={companyName}
+                companyInitial={companyName.charAt(0).toUpperCase() || 'P'}
                 sessionEmail={session.email}
+                isOwner={isOwner}
+                canViewBilling={ctx?.canViewBilling ?? true}
             />
 
             {/* Main Content Area */}

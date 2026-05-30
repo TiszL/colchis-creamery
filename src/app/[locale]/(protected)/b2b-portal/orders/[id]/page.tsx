@@ -29,6 +29,7 @@ export default async function PartnerOrderDetailPage({ params }: { params: Promi
             },
             shipment: true,
             b2bInvoice: true,
+            partnerLocation: { select: { label: true } },
         },
     });
     // Ownership: "not yours" == 404 so we never leak a foreign order id. Admins may view any.
@@ -77,10 +78,13 @@ export default async function PartnerOrderDetailPage({ params }: { params: Promi
             </section>
 
             {/* Tier 2 — purchase-order metadata (only if the buyer supplied any) */}
-            {(order.poNumber || order.scheduledFor || order.shippingLine1 || order.notes) && (
+            {(order.partnerLocation || order.poNumber || order.scheduledFor || order.shippingLine1 || order.notes) && (
                 <section className="bg-white border border-[#E8E6E1] shadow-sm rounded-xl p-5">
                     <h2 className="text-[11px] font-mono uppercase tracking-wider text-gray-500 mb-3">Purchase order</h2>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
+                        {order.partnerLocation && (
+                            <div><p className="text-[10px] font-mono uppercase tracking-wider text-gray-400 mb-0.5">Shop</p><p className="text-[#2C2A29]">{order.partnerLocation.label}</p></div>
+                        )}
                         {order.poNumber && (
                             <div><p className="text-[10px] font-mono uppercase tracking-wider text-gray-400 mb-0.5">PO number</p><p className="text-[#2C2A29]">{order.poNumber}</p></div>
                         )}

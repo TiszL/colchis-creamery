@@ -20,6 +20,8 @@ function stripeLocaleFor(siteLocale: string): StripeElementLocale {
     }
 }
 
+interface ShopOpt { id: string; label: string; line1: string; line2: string | null; city: string; state: string; postalCode: string }
+
 interface BulkOrderClientProps {
     products: any[];
     discount: number;
@@ -30,6 +32,10 @@ interface BulkOrderClientProps {
     locale: string;
     /** Reorder: pre-filled quantities keyed by productId (from a past order). */
     initialQuantities?: Record<string, number>;
+    /** Tier 2 — the partner's shops (ship-to). Picking one fills the ship-to. */
+    shops?: ShopOpt[];
+    /** Tier 2 — a scoped member is locked to this shop id (can't pick another). */
+    lockedShopId?: string | null;
 }
 
 type PaymentMethodChoice = 'STRIPE_CARD' | 'STRIPE_ACH' | 'RESOLVE_NET_7' | 'RESOLVE_NET_15' | 'RESOLVE_NET_30' | 'RESOLVE_NET_45';
@@ -87,6 +93,8 @@ export default function BulkOrderClient(props: BulkOrderClientProps) {
     const [paymentMethod, setPaymentMethod] = useState<PaymentMethodChoice>('RESOLVE_NET_30');
     const [quantities, setQuantities] = useState<Record<string, number>>(props.initialQuantities ?? {});
     const [po, setPo] = useState<PoDetails>(EMPTY_PO);
+    // Ship-to shop: locked shop for scoped members, else first shop, else manual ('').
+    const [shopId, setShopId] = useState<string>(props.lockedShopId ?? (props.shops?.[0]?.id ?? ''));
 
     const availableProducts = products.filter(p => p.isActive && (p.availableQty === null || p.availableQty > 0));
 
@@ -117,6 +125,8 @@ export default function BulkOrderClient(props: BulkOrderClientProps) {
             setQuantities={setQuantities}
             po={po}
             setPo={setPo}
+            shopId={shopId}
+            setShopId={setShopId}
             totalCents={totalCents}
         />
     );
@@ -159,14 +169,17 @@ interface InnerProps extends BulkOrderClientProps {
     setQuantities: React.Dispatch<React.SetStateAction<Record<string, number>>>;
     po: PoDetails;
     setPo: React.Dispatch<React.SetStateAction<PoDetails>>;
+    shopId: string;
+    setShopId: (id: string) => void;
     totalCents: number;
 }
 
 function BulkOrderInner({
-    products, discount, locale,
+    products, discount, locale, shops, lockedShopId,
     paymentMethod, setPaymentMethod,
     quantities, setQuantities,
     po, setPo,
+    shopId, setShopId,
     totalCents,
 }: InnerProps) {
     const router = useRouter();
@@ -183,6 +196,10 @@ function BulkOrderInner({
 
     const updPo = (k: keyof PoDetails) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
         setPo(prev => ({ ...prev, [k]: e.target.value }));
+
+    const shopList = shops ?? [];
+    const selectedShop = shopList.find(s => s.id === shopId) ?? null;
+    const lockedShop = lockedShopId ? (shopList.find(s => s.id === lockedShopId) ?? null) : null;
 
     const handleQuantityChange = (productId: string, value: string, maxStock: number) => {
         let parsed = parseInt(value, 10);
@@ -258,11 +275,13 @@ function BulkOrderInner({
                 body: JSON.stringify({
                     items: orderItems,
                     paymentMethod,
-                    // Tier 2 — purchase-order metadata (server drops blanks).
+                    // Tier 2 — ship to a saved shop (server snapshots its address) or,
+                    // when none is picked, the manually-typed ship-to below.
+                    partnerLocationId: shopId || undefined,
                     poNumber: po.poNumber || undefined,
                     notes: po.notes || undefined,
                     requestedDeliveryDate: po.requestedDeliveryDate || undefined,
-                    shipTo: {
+                    shipTo: shopId ? undefined : {
                         line1: po.shipLine1 || undefined,
                         line2: po.shipLine2 || undefined,
                         city: po.shipCity || undefined,
@@ -330,6 +349,27 @@ function BulkOrderInner({
             {/* Products List */}
             <div className="lg:col-span-2 space-y-4">
 
+                {/* Tier 2 — Ship-to shop selector (partner's own locations) */}
+                {(shopList.length > 0 || lockedShop) && (
+                    <div className="bg-white rounded-xl shadow-sm border border-[#E8E6E1] p-4">
+                        <label className="block text-[10px] font-bold text-gray-500 mb-1 uppercase tracking-wider">Ship to</label>
+                        {lockedShopId ? (
+                            <p className="text-sm text-[#2C2A29]">{lockedShop?.label ?? 'Your shop'} <span className="text-xs text-gray-400">(your assigned shop)</span></p>
+                        ) : (
+                            <select value={shopId} onChange={e => setShopId(e.target.value)}
+                                className="w-full bg-white border border-[#E8E6E1] text-[#2C2A29] py-2 px-3 text-sm rounded-md focus:outline-none focus:border-[#CBA153]">
+                                {shopList.map(s => <option key={s.id} value={s.id}>{s.label} — {s.city}, {s.state}</option>)}
+                                <option value="">Enter address manually…</option>
+                            </select>
+                        )}
+                        {selectedShop && (
+                            <p className="text-[11px] text-gray-500 mt-1.5">
+                                {selectedShop.line1}{selectedShop.line2 ? `, ${selectedShop.line2}` : ''}, {selectedShop.city}, {selectedShop.state} {selectedShop.postalCode}
+                            </p>
+                        )}
+                    </div>
+                )}
+
                 {/* Tier 2 — Purchase-order details (optional, collapsible) */}
                 <details className="bg-white rounded-xl shadow-sm border border-[#E8E6E1] overflow-hidden group">
                     <summary className="cursor-pointer select-none px-4 py-3 text-sm font-medium text-[#2C2A29] flex items-center justify-between">
@@ -352,21 +392,23 @@ function BulkOrderInner({
                                     className="w-full bg-white border border-[#E8E6E1] text-[#2C2A29] py-2 px-3 text-sm rounded-md focus:outline-none focus:border-[#CBA153]" />
                             </div>
                         </div>
-                        <div>
-                            <label className="block text-[10px] font-bold text-gray-500 mb-1 uppercase tracking-wider">Ship-to address</label>
-                            <input value={po.shipLine1} onChange={updPo('shipLine1')} placeholder="Street address"
-                                className="w-full bg-white border border-[#E8E6E1] text-[#2C2A29] py-2 px-3 text-sm rounded-md focus:outline-none focus:border-[#CBA153] mb-2" />
-                            <input value={po.shipLine2} onChange={updPo('shipLine2')} placeholder="Suite / unit (optional)"
-                                className="w-full bg-white border border-[#E8E6E1] text-[#2C2A29] py-2 px-3 text-sm rounded-md focus:outline-none focus:border-[#CBA153] mb-2" />
-                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                                <input value={po.shipCity} onChange={updPo('shipCity')} placeholder="City"
-                                    className="w-full bg-white border border-[#E8E6E1] text-[#2C2A29] py-2 px-3 text-sm rounded-md focus:outline-none focus:border-[#CBA153]" />
-                                <input value={po.shipState} onChange={updPo('shipState')} placeholder="State"
-                                    className="w-full bg-white border border-[#E8E6E1] text-[#2C2A29] py-2 px-3 text-sm rounded-md focus:outline-none focus:border-[#CBA153]" />
-                                <input value={po.shipPostal} onChange={updPo('shipPostal')} placeholder="ZIP"
-                                    className="w-full bg-white border border-[#E8E6E1] text-[#2C2A29] py-2 px-3 text-sm rounded-md focus:outline-none focus:border-[#CBA153]" />
+                        {shopId === '' && (
+                            <div>
+                                <label className="block text-[10px] font-bold text-gray-500 mb-1 uppercase tracking-wider">Ship-to address</label>
+                                <input value={po.shipLine1} onChange={updPo('shipLine1')} placeholder="Street address"
+                                    className="w-full bg-white border border-[#E8E6E1] text-[#2C2A29] py-2 px-3 text-sm rounded-md focus:outline-none focus:border-[#CBA153] mb-2" />
+                                <input value={po.shipLine2} onChange={updPo('shipLine2')} placeholder="Suite / unit (optional)"
+                                    className="w-full bg-white border border-[#E8E6E1] text-[#2C2A29] py-2 px-3 text-sm rounded-md focus:outline-none focus:border-[#CBA153] mb-2" />
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                    <input value={po.shipCity} onChange={updPo('shipCity')} placeholder="City"
+                                        className="w-full bg-white border border-[#E8E6E1] text-[#2C2A29] py-2 px-3 text-sm rounded-md focus:outline-none focus:border-[#CBA153]" />
+                                    <input value={po.shipState} onChange={updPo('shipState')} placeholder="State"
+                                        className="w-full bg-white border border-[#E8E6E1] text-[#2C2A29] py-2 px-3 text-sm rounded-md focus:outline-none focus:border-[#CBA153]" />
+                                    <input value={po.shipPostal} onChange={updPo('shipPostal')} placeholder="ZIP"
+                                        className="w-full bg-white border border-[#E8E6E1] text-[#2C2A29] py-2 px-3 text-sm rounded-md focus:outline-none focus:border-[#CBA153]" />
+                                </div>
                             </div>
-                        </div>
+                        )}
                         <div>
                             <label className="block text-[10px] font-bold text-gray-500 mb-1 uppercase tracking-wider">Order notes</label>
                             <textarea value={po.notes} onChange={updPo('notes')} rows={2} placeholder="Delivery instructions, dock hours, etc."

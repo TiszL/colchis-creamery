@@ -6,6 +6,7 @@ import { createResolveCustomer, createResolveCharge, isResolveConfigured } from 
 import { commitStock, reserveStock } from "@/lib/stock-reservation";
 import { stripe } from "@/lib/stripe";
 import { validateB2bQty } from "@/lib/b2b-moq";
+import { getPartnerContext } from "@/lib/b2b-partner";
 
 // Phase 6 (6c) — B2B order placement now branches on paymentMethod.
 // Backward compat: omit the field and the order falls through to the
@@ -24,7 +25,8 @@ const RESERVATION_TTL_MS = 15 * 60 * 1000;
 interface B2bOrderRequestBody {
     items: { id: string; quantity: number }[];
     paymentMethod?: B2bPaymentMethod;
-    // Tier 2 — optional purchase-order metadata.
+    // Tier 2 — optional purchase-order metadata + ship-to shop.
+    partnerLocationId?: string;
     poNumber?: string;
     notes?: string;
     requestedDeliveryDate?: string; // ISO date (yyyy-mm-dd)
@@ -74,6 +76,32 @@ export async function POST(req: NextRequest) {
             const d = new Date(body.requestedDeliveryDate);
             if (!isNaN(d.getTime())) scheduledFor = d;
         }
+
+        // Tier 2 — resolve which partner + shop this order ships to. A scoped
+        // member is forced to their assigned shop (can't spoof another); anyone
+        // else may pick one of their partner's active shops. A chosen shop's
+        // address is snapshotted onto the order's shipping* columns.
+        const orgCtx = await getPartnerContext(userId);
+        let partnerLocationId: string | null =
+            typeof body.partnerLocationId === "string" && body.partnerLocationId ? body.partnerLocationId : null;
+        if (orgCtx?.assignedLocationId) partnerLocationId = orgCtx.assignedLocationId;
+        let shopLine1: string | undefined, shopLine2: string | undefined, shopCity: string | undefined, shopState: string | undefined, shopPostal: string | undefined;
+        if (partnerLocationId) {
+            const shop = await db.b2bPartnerLocation.findFirst({
+                where: { id: partnerLocationId, partnerId: orgCtx?.partnerId ?? "__none__", isActive: true },
+                select: { line1: true, line2: true, city: true, state: true, postalCode: true },
+            });
+            if (!shop) {
+                return NextResponse.json({ error: "Invalid ship-to location for this account." }, { status: 400 });
+            }
+            shopLine1 = shop.line1; shopLine2 = shop.line2 ?? undefined; shopCity = shop.city; shopState = shop.state; shopPostal = shop.postalCode;
+        }
+        // A chosen shop's address wins over any manually-typed ship-to.
+        const finalLine1 = shopLine1 ?? shippingLine1;
+        const finalLine2 = shopLine2 ?? shippingAddressLine2;
+        const finalCity = shopCity ?? shippingCity;
+        const finalState = shopState ?? shippingState;
+        const finalPostal = shopPostal ?? shippingPostalCode;
 
         // 1. Verify contract is signed (existing gate; preserved)
         const user = await db.user.findUnique({
@@ -179,15 +207,16 @@ export async function POST(req: NextRequest) {
                     // Store an unprefixed numeric string to match D2C — refunds and
                     // the admin order page parseFloat() this; a leading "$" → NaN → $0.
                     totalAmount: subtotal.toFixed(2),
-                    // Tier 2 — purchase-order metadata (all optional).
+                    // Tier 2 — purchase-order metadata (all optional) + ship-to shop.
                     poNumber,
                     notes: orderNotes,
                     scheduledFor,
-                    shippingLine1,
-                    shippingAddressLine2,
-                    shippingCity,
-                    shippingState,
-                    shippingPostalCode,
+                    partnerLocationId,
+                    shippingLine1: finalLine1,
+                    shippingAddressLine2: finalLine2,
+                    shippingCity: finalCity,
+                    shippingState: finalState,
+                    shippingPostalCode: finalPostal,
                     orderItems: { create: processedItems },
                 },
                 include: { orderItems: true },

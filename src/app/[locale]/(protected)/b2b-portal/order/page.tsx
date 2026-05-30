@@ -1,5 +1,6 @@
 import { prisma as db } from '@/lib/db';
 import { getSession } from '@/lib/session';
+import { getPartnerContext } from '@/lib/b2b-partner';
 import BulkOrderClient from '@/components/b2b/BulkOrderClient';
 import { PackagePlus } from 'lucide-react';
 import { redirect } from 'next/navigation';
@@ -62,6 +63,17 @@ export default async function B2BOrderPage({ params, searchParams }: { params: P
             stocks: { where: { isEnabled: true }, select: { productId: true, quantity: true, reservedQuantity: true } },
         },
     });
+    // Tier 2 — the partner's shops (ship-to). A scoped member is locked to one.
+    const ctx = await getPartnerContext(session.userId);
+    const shops = ctx
+        ? await db.b2bPartnerLocation.findMany({
+            where: { partnerId: ctx.partnerId, isActive: true },
+            orderBy: { label: 'asc' },
+            select: { id: true, label: true, line1: true, line2: true, city: true, state: true, postalCode: true },
+        })
+        : [];
+    const lockedShopId = ctx?.assignedLocationId ?? null;
+
     const products = productRows.map(p => {
         if (p.isMadeToOrder) return { ...p, availableQty: null as number | null };
         let maxFree = 0;
@@ -94,6 +106,8 @@ export default async function B2BOrderPage({ params, searchParams }: { params: P
                 stripePublishableKey={process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || ''}
                 locale={locale}
                 initialQuantities={initialQuantities}
+                shops={shops}
+                lockedShopId={lockedShopId}
             />
 
         </div>

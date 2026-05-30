@@ -2,31 +2,38 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Menu, X, LogOut, PackagePlus, LayoutDashboard, Repeat, FileText, History, UserCog, FolderOpen } from 'lucide-react';
+import { Menu, X, LogOut, PackagePlus, LayoutDashboard, Repeat, FileText, History, UserCog, FolderOpen, Store } from 'lucide-react';
 
 export default function B2BSidebar({
     locale,
     companyName,
     companyInitial,
-    sessionEmail
+    sessionEmail,
+    isOwner = true,
+    canViewBilling = true,
 }: {
     locale: string;
     companyName: string;
     companyInitial: string;
     sessionEmail: string;
+    isOwner?: boolean;
+    canViewBilling?: boolean;
 }) {
     const [isOpen, setIsOpen] = useState(false);
     const closeSidebar = () => setIsOpen(false);
 
+    // Owner sees the full org admin surface; members see ordering only (+ billing
+    // when the owner granted it). Tier 2 multi-user gating.
     const navItems = [
-        { label: 'Partner Dashboard', href: `/${locale}/b2b-portal`, icon: LayoutDashboard },
-        { label: 'Place Bulk Order', href: `/${locale}/b2b-portal/order`, icon: PackagePlus },
-        { label: 'Order History', href: `/${locale}/b2b-portal/orders`, icon: History },
-        { label: 'Recurring Orders', href: `/${locale}/b2b-portal/schedules`, icon: Repeat },
-        { label: 'Invoices & Billing', href: `/${locale}/b2b-portal/invoices`, icon: FileText },
-        { label: 'Documents', href: `/${locale}/b2b-portal/documents`, icon: FolderOpen },
-        { label: 'Account & Company', href: `/${locale}/b2b-portal/account`, icon: UserCog },
-    ];
+        { label: 'Partner Dashboard', href: `/${locale}/b2b-portal`, icon: LayoutDashboard, show: true },
+        { label: 'Place Bulk Order', href: `/${locale}/b2b-portal/order`, icon: PackagePlus, show: true },
+        { label: 'Order History', href: `/${locale}/b2b-portal/orders`, icon: History, show: true },
+        { label: 'Recurring Orders', href: `/${locale}/b2b-portal/schedules`, icon: Repeat, show: true },
+        { label: 'Invoices & Billing', href: `/${locale}/b2b-portal/invoices`, icon: FileText, show: isOwner || canViewBilling },
+        { label: 'Documents', href: `/${locale}/b2b-portal/documents`, icon: FolderOpen, show: isOwner },
+        { label: 'My Shops', href: `/${locale}/b2b-portal/locations`, icon: Store, show: isOwner },
+        { label: 'Account & Company', href: `/${locale}/b2b-portal/account`, icon: UserCog, show: isOwner },
+    ].filter(i => i.show);
 
     return (
         <>

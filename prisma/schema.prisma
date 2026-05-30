@@ -69,6 +69,9 @@ model User {
   // sales-manager assignments. Both nullable — a normal user has neither.
   b2bPartner            B2bPartner?
   b2bPartnersOwned      B2bPartner[]    @relation("AssignedSales")
+  // Tier 2: membership in a partner org as a non-owner login (null for owners
+  // + non-B2B users). Lets a teammate reach the org's portal scoped to a shop.
+  partnerMembership     B2bPartnerMember? @relation("PartnerMembership")
 
   // Phase 11: scope email uniqueness to (email, role) so a person can hold
   // both a D2C and a B2B identity with the same address.
@@ -165,8 +168,87 @@ model B2bPartner {
 
   invoices                 B2bInvoice[]
   schedules                RecurringOrderSchedule[]
+  // Tier 2 — the partner's own shop locations (ship-to destinations). A partner
+  // that runs several stores adds each here and orders per-shop (on-demand or
+  // recurring). Distinct from Colchis `Location` (which fulfills/ships FROM).
+  shopLocations            B2bPartnerLocation[]
+  members                  B2bPartnerMember[]
 
   @@index([assignedSalesUserId])
+}
+
+// Tier 2 — a partner-owned ship-to location (one of the partner's shops/outlets).
+// The partner manages these in the portal and targets orders + recurring
+// schedules at them. The address is snapshotted onto each Order's shipping*
+// columns at order time, so editing/deleting a shop never rewrites past orders.
+model B2bPartnerLocation {
+  id            String     @id @default(uuid())
+  partnerId     String
+  partner       B2bPartner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+
+  label         String     // partner-given name, e.g. "Downtown Store"
+  line1         String
+  line2         String?
+  city          String
+  state         String
+  postalCode    String
+  contactName   String?    // who receives the delivery at this shop
+  contactPhone  String?
+  isActive      Boolean    @default(true)
+
+  // Optional subcompany billing — when a partner runs shops as separate
+  // entities with their own P&L, the owner flips separateBilling on and fills
+  // the shop's company details. Net-terms invoices for this shop then bill to
+  // its own Resolve customer + AR instead of the parent partner's.
+  separateBilling    Boolean @default(false)
+  billingCompanyName String?
+  billingEin         String?
+  billingEmail       String?
+  billingAddress     String?
+  resolveCustomerId  String?  // JIT-created Resolve customer for this subcompany
+
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  orders        Order[]
+  schedules     RecurringOrderSchedule[]
+  members       B2bPartnerMember[]
+  invoices      B2bInvoice[]
+
+  @@index([partnerId])
+}
+
+// Tier 2 — an additional human login under a partner org. The OWNER is still
+// B2bPartner.userId; these are invited teammates. Each may be scoped to one
+// shop (assignedLocationId) or left org-wide (null). Permissions are toggled
+// per member by the owner (canViewBilling today; room to grow). Two creation
+// paths: an email accept-link (status PENDING + inviteToken until accepted) or
+// the owner setting a password directly (User created up-front, status ACTIVE).
+model B2bPartnerMember {
+  id                 String     @id @default(uuid())
+  partnerId          String
+  partner            B2bPartner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+
+  email              String
+  name               String?
+  userId             String?    @unique  // linked once accepted / created
+  user               User?      @relation("PartnerMembership", fields: [userId], references: [id], onDelete: SetNull)
+
+  assignedLocationId String?    // which shop this member orders for; null = all shops
+  assignedLocation   B2bPartnerLocation? @relation(fields: [assignedLocationId], references: [id], onDelete: SetNull)
+
+  canViewBilling     Boolean    @default(false)
+  status             String     @default("PENDING") // PENDING | ACTIVE | DISABLED
+
+  inviteToken        String?    @unique
+  inviteExpiry       DateTime?
+  invitedAt          DateTime   @default(now())
+  acceptedAt         DateTime?
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  @@index([partnerId])
+  @@index([assignedLocationId])
 }
 
 // B2bInvoice is created when an order is placed with payment method =
@@ -179,6 +261,10 @@ model B2bInvoice {
   order             Order            @relation(fields: [orderId], references: [id], onDelete: Cascade)
   partnerId         String
   partner           B2bPartner       @relation(fields: [partnerId], references: [id])
+  // Tier 2 — set when the order shipped to a subcompany shop with separate
+  // billing; the invoice then bills to that shop's own entity/Resolve customer.
+  partnerLocationId String?
+  partnerLocation   B2bPartnerLocation? @relation(fields: [partnerLocationId], references: [id])
 
   amountCents       Int
   paymentMethod     B2bPaymentMethod
@@ -199,6 +285,7 @@ model B2bInvoice {
 
   @@index([partnerId, status])
   @@index([status, dueAt])           // AR-aging queries
+  @@index([partnerLocationId])       // subcompany AR grouping
 }
 
 // Partner sets up "every Tuesday: 5× sulguni, 2× imeruli" and the cron
@@ -225,6 +312,10 @@ model RecurringOrderSchedule {
   // Pin to a specific warehouse, or null = use partner.defaultFulfillmentLocationId.
   fulfillmentLocationId String?
   fulfillmentLocation   Location? @relation("RecurringScheduleLocation", fields: [fulfillmentLocationId], references: [id])
+
+  // Tier 2 — which of the partner's own shops this recurring order ships TO.
+  partnerLocationId String?
+  partnerLocation   B2bPartnerLocation? @relation(fields: [partnerLocationId], references: [id])
 
   lastFiredAt     DateTime?
   createdAt       DateTime     @default(now())
@@ -599,6 +690,10 @@ model Order {
   shippingDeliveryNotes  String?
   notes                  String?
   poNumber               String?     // B2B buyer's purchase-order reference (Tier 2)
+  // Tier 2 — which of the partner's own shops this B2B order ships to. The
+  // shop's address is also snapshotted into the shipping* columns at order time.
+  partnerLocationId      String?
+  partnerLocation        B2bPartnerLocation? @relation(fields: [partnerLocationId], references: [id])
   createdAt              DateTime    @default(now())
 
   user         User              @relation(fields: [userId], references: [id])
@@ -612,6 +707,7 @@ model Order {
   @@index([userId])
   @@index([orderStatus])
   @@index([paymentStatus])
+  @@index([partnerLocationId])
 }
 
 // ─── OrderItem ───────────────────────────────────────────────────────────────

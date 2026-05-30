@@ -97,6 +97,7 @@ export default async function B2bDispatchPage({ params }: { params: Promise<{ lo
             orderItems: { include: { product: { select: { name: true, sku: true } } } },
             shipment: true,
             b2bInvoice: true,
+            partnerLocation: { select: { label: true } },
         },
         orderBy: [{ orderStatus: "asc" }, { createdAt: "asc" }],
     });
@@ -150,8 +151,9 @@ export default async function B2bDispatchPage({ params }: { params: Promise<{ lo
                                         </p>
                                     )}
                                     {/* Tier 2 — purchase-order metadata so freight ops know where + when to ship */}
-                                    {(o.poNumber || o.scheduledFor || o.shippingLine1 || o.notes) && (
+                                    {(o.partnerLocation || o.poNumber || o.scheduledFor || o.shippingLine1 || o.notes) && (
                                         <div className="mt-2 pt-2 border-t border-[#ffffff08] grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-[11px]">
+                                            {o.partnerLocation && <p className="text-gray-400">Shop: <span className="text-white">{o.partnerLocation.label}</span></p>}
                                             {o.poNumber && <p className="text-gray-400">PO: <span className="text-white font-mono">{o.poNumber}</span></p>}
                                             {o.scheduledFor && <p className="text-gray-400">Requested: <span className="text-white font-mono">{o.scheduledFor.toISOString().slice(0, 10)}</span></p>}
                                             {o.shippingLine1 && (

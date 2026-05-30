@@ -6,9 +6,9 @@ import { submitWholesaleLead } from "@/actions/wholesale";
 import { ColchisSeal } from "@/components/brand/ColchisSeal";
 
 const tiers = [
-  { tag: "01", name: "Restaurant", min: "$200 / wk", desc: "Standard line. Net 14. Free delivery in Ohio + 5-state ring.", who: "Restaurants, cafés, bakeries", check: ["Full Creamery & Bakery line", "Weekly cold-chain delivery", "Net 14 terms", "Menu support & training"] },
-  { tag: "02", name: "Grocery", min: "$500 / wk", desc: "Retail-ready packaging with UPC, planogram support, in-store demo days.", who: "Independent grocers, co-ops", check: ["Retail-ready labels & UPC", "Planogram & POS materials", "Quarterly demo days", "Net 30 terms"] },
-  { tag: "03", name: "Private Label", min: "$2,500 / mo", desc: "Your brand on our cheese. Minimum 100 wheels per SKU per run.", who: "Brands, hotels, meal-kits", check: ["Custom artwork & SKU", "Min. 100 units / SKU / run", "Quarterly production windows", "Co-marketing rights"] },
+  { tag: "01", name: "Restaurant", desc: "Standard line. Net 14. Free delivery in Ohio + 5-state ring.", who: "Restaurants, cafés, bakeries", check: ["Full Creamery & Bakery line", "Weekly cold-chain delivery", "Net 14 terms", "Menu support & training"] },
+  { tag: "02", name: "Grocery", desc: "Retail-ready packaging with UPC, planogram support, in-store demo days.", who: "Independent grocers, co-ops", check: ["Retail-ready labels & UPC", "Planogram & POS materials", "Quarterly demo days", "Net 30 terms"] },
+  { tag: "03", name: "National Ship", desc: "Beyond our local cold-chain ring? Carry the frozen bake-off line and travel-stable cheeses, packed and shipped 2-day to your dock.", who: "Out-of-region grocers, specialty & food service", check: ["Frozen heat-and-serve khachapuri", "2-day cold-chain shipping", "Aged & travel-stable cheese SKUs", "Net 30 terms"] },
 ];
 
 const skuList = [
@@ -46,7 +46,7 @@ export default function WholesalePage() {
           </h1>
           <div className="ch-section-grid" style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr 1fr", gap: 48, marginTop: 80, paddingTop: 48, borderTop: "1px solid rgba(245,240,230,0.14)" }}>
             <div style={{ fontFamily: "var(--font-serif)", fontStyle: "italic", fontSize: "clamp(16px, 2vw, 22px)", lineHeight: 1.5, opacity: 0.85 }}>
-              Wholesale partners get cold-chain delivery within a 10-hour drive radius, custom labels, and access to the full Creamery & Bakery line — including private-label runs.
+              Wholesale partners get cold-chain delivery within a 10-hour drive radius and full access to the Creamery & Bakery line — with 2-day national shipping for the frozen bake-off beyond it.
             </div>
             <div>
               <div className="ch-stat-num" style={{ fontFamily: "var(--font-serif)", fontSize: 56, fontWeight: 400, color: "#8B4A28", lineHeight: 1 }}>40+</div>

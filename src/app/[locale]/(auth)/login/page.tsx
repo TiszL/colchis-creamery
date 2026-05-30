@@ -65,7 +65,7 @@ function LoginContent() {
         <main className="ch-auth" style={{ background: "linear-gradient(to right, #F5F0E6 0 50%, #EAE2D2 50% 100%)", minHeight: "100vh", position: "relative", overflow: "hidden" }}>
             {/* Top nav bar — logo (home) + site nav + language switcher, so the
                 login page is connected to the rest of the site and easy to leave. */}
-            <header style={{ position: "relative", zIndex: 3, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 24, height: 80, padding: "0 64px", borderBottom: "1px solid #1F302614" }}>
+            <header style={{ position: "relative", zIndex: 3, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 24, height: 80, padding: "0 64px", background: "#F5F0E6", borderBottom: "1px solid #1F302614" }}>
                 <Link href="/" style={{ display: "flex", alignItems: "center", textDecoration: "none", flexShrink: 0 }}>
                     <img src="/logo.svg" alt="Colchis Food — home" style={{ height: 34, width: "auto", objectFit: "contain", display: "block" }} />
                 </Link>

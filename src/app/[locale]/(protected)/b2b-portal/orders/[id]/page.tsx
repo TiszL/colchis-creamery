@@ -76,6 +76,33 @@ export default async function PartnerOrderDetailPage({ params }: { params: Promi
                 </div>
             </section>
 
+            {/* Tier 2 — purchase-order metadata (only if the buyer supplied any) */}
+            {(order.poNumber || order.scheduledFor || order.shippingLine1 || order.notes) && (
+                <section className="bg-white border border-[#E8E6E1] shadow-sm rounded-xl p-5">
+                    <h2 className="text-[11px] font-mono uppercase tracking-wider text-gray-500 mb-3">Purchase order</h2>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
+                        {order.poNumber && (
+                            <div><p className="text-[10px] font-mono uppercase tracking-wider text-gray-400 mb-0.5">PO number</p><p className="text-[#2C2A29]">{order.poNumber}</p></div>
+                        )}
+                        {order.scheduledFor && (
+                            <div><p className="text-[10px] font-mono uppercase tracking-wider text-gray-400 mb-0.5">Requested delivery</p><p className="text-[#2C2A29]">{order.scheduledFor.toISOString().slice(0, 10)}</p></div>
+                        )}
+                        {order.shippingLine1 && (
+                            <div className="sm:col-span-2">
+                                <p className="text-[10px] font-mono uppercase tracking-wider text-gray-400 mb-0.5">Ship to</p>
+                                <p className="text-[#2C2A29]">
+                                    {order.shippingLine1}{order.shippingAddressLine2 ? `, ${order.shippingAddressLine2}` : ""}<br />
+                                    {[order.shippingCity, order.shippingState, order.shippingPostalCode].filter(Boolean).join(", ")}
+                                </p>
+                            </div>
+                        )}
+                        {order.notes && (
+                            <div className="sm:col-span-2"><p className="text-[10px] font-mono uppercase tracking-wider text-gray-400 mb-0.5">Notes</p><p className="text-[#2C2A29] whitespace-pre-wrap">{order.notes}</p></div>
+                        )}
+                    </div>
+                </section>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Fulfillment / shipping */}
                 <section className="bg-white border border-[#E8E6E1] shadow-sm rounded-xl p-5">

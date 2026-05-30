@@ -592,6 +592,7 @@ model Order {
   shippingBuildingName   String?
   shippingDeliveryNotes  String?
   notes                  String?
+  poNumber               String?     // B2B buyer's purchase-order reference (Tier 2)
   createdAt              DateTime    @default(now())
 
   user         User              @relation(fields: [userId], references: [id])

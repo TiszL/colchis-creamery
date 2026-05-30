@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ShieldCheck, Calculator } from 'lucide-react';
+import { ShieldCheck, Calculator, FileText, ChevronDown } from 'lucide-react';
 import { loadStripe, type Stripe as StripeJs, type StripeElementLocale } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 
@@ -32,6 +32,24 @@ interface BulkOrderClientProps {
 }
 
 type PaymentMethodChoice = 'STRIPE_CARD' | 'STRIPE_ACH' | 'RESOLVE_NET_7' | 'RESOLVE_NET_15' | 'RESOLVE_NET_30' | 'RESOLVE_NET_45';
+
+// Tier 2 — optional purchase-order metadata. Lives in the OUTER component so it
+// survives the BulkOrderInner remount that happens when the payment method
+// toggles between a Stripe (<Elements>-wrapped) and non-Stripe path.
+interface PoDetails {
+    poNumber: string;
+    requestedDeliveryDate: string;
+    shipLine1: string;
+    shipLine2: string;
+    shipCity: string;
+    shipState: string;
+    shipPostal: string;
+    notes: string;
+}
+const EMPTY_PO: PoDetails = {
+    poNumber: '', requestedDeliveryDate: '', shipLine1: '', shipLine2: '',
+    shipCity: '', shipState: '', shipPostal: '', notes: '',
+};
 
 const PAYMENT_OPTIONS: { value: PaymentMethodChoice; label: string; hint: string }[] = [
     { value: 'RESOLVE_NET_30', label: 'Resolve · Net 30',  hint: 'Pay in 30 days · credit check' },
@@ -67,6 +85,7 @@ export default function BulkOrderClient(props: BulkOrderClientProps) {
     // the <Elements> options on init).
     const [paymentMethod, setPaymentMethod] = useState<PaymentMethodChoice>('RESOLVE_NET_30');
     const [quantities, setQuantities] = useState<Record<string, number>>(props.initialQuantities ?? {});
+    const [po, setPo] = useState<PoDetails>(EMPTY_PO);
 
     const availableProducts = products.filter(p => p.isActive && (p.availableQty === null || p.availableQty > 0));
 
@@ -95,6 +114,8 @@ export default function BulkOrderClient(props: BulkOrderClientProps) {
             setPaymentMethod={setPaymentMethod}
             quantities={quantities}
             setQuantities={setQuantities}
+            po={po}
+            setPo={setPo}
             totalCents={totalCents}
         />
     );
@@ -135,6 +156,8 @@ interface InnerProps extends BulkOrderClientProps {
     setPaymentMethod: (m: PaymentMethodChoice) => void;
     quantities: Record<string, number>;
     setQuantities: React.Dispatch<React.SetStateAction<Record<string, number>>>;
+    po: PoDetails;
+    setPo: React.Dispatch<React.SetStateAction<PoDetails>>;
     totalCents: number;
 }
 
@@ -142,6 +165,7 @@ function BulkOrderInner({
     products, discount, locale,
     paymentMethod, setPaymentMethod,
     quantities, setQuantities,
+    po, setPo,
     totalCents,
 }: InnerProps) {
     const router = useRouter();
@@ -155,6 +179,9 @@ function BulkOrderInner({
 
     const availableProducts = products.filter(p => p.isActive && (p.availableQty === null || p.availableQty > 0));
     const prefix = locale === 'en' ? '' : `/${locale}`;
+
+    const updPo = (k: keyof PoDetails) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+        setPo(prev => ({ ...prev, [k]: e.target.value }));
 
     const handleQuantityChange = (productId: string, value: string, maxStock: number) => {
         let parsed = parseInt(value, 10);
@@ -210,7 +237,21 @@ function BulkOrderInner({
             const response = await fetch('/api/b2b/order', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ items: orderItems, paymentMethod }),
+                body: JSON.stringify({
+                    items: orderItems,
+                    paymentMethod,
+                    // Tier 2 — purchase-order metadata (server drops blanks).
+                    poNumber: po.poNumber || undefined,
+                    notes: po.notes || undefined,
+                    requestedDeliveryDate: po.requestedDeliveryDate || undefined,
+                    shipTo: {
+                        line1: po.shipLine1 || undefined,
+                        line2: po.shipLine2 || undefined,
+                        city: po.shipCity || undefined,
+                        state: po.shipState || undefined,
+                        postal: po.shipPostal || undefined,
+                    },
+                }),
             });
 
             if (!response.ok) {
@@ -270,6 +311,52 @@ function BulkOrderInner({
 
             {/* Products List */}
             <div className="lg:col-span-2 space-y-4">
+
+                {/* Tier 2 — Purchase-order details (optional, collapsible) */}
+                <details className="bg-white rounded-xl shadow-sm border border-[#E8E6E1] overflow-hidden group">
+                    <summary className="cursor-pointer select-none px-4 py-3 text-sm font-medium text-[#2C2A29] flex items-center justify-between">
+                        <span className="flex items-center gap-2">
+                            <FileText className="w-4 h-4 text-[#CBA153]" /> Purchase order details
+                            <span className="text-xs text-gray-400 font-normal">(optional)</span>
+                        </span>
+                        <ChevronDown className="w-4 h-4 text-gray-400 group-open:rotate-180 transition" />
+                    </summary>
+                    <div className="px-4 pb-4 pt-3 space-y-3 border-t border-[#E8E6E1]">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label className="block text-[10px] font-bold text-gray-500 mb-1 uppercase tracking-wider">PO number</label>
+                                <input value={po.poNumber} onChange={updPo('poNumber')} placeholder="e.g. PO-10482"
+                                    className="w-full bg-white border border-[#E8E6E1] text-[#2C2A29] py-2 px-3 text-sm rounded-md focus:outline-none focus:border-[#CBA153]" />
+                            </div>
+                            <div>
+                                <label className="block text-[10px] font-bold text-gray-500 mb-1 uppercase tracking-wider">Requested delivery date</label>
+                                <input type="date" value={po.requestedDeliveryDate} onChange={updPo('requestedDeliveryDate')}
+                                    className="w-full bg-white border border-[#E8E6E1] text-[#2C2A29] py-2 px-3 text-sm rounded-md focus:outline-none focus:border-[#CBA153]" />
+                            </div>
+                        </div>
+                        <div>
+                            <label className="block text-[10px] font-bold text-gray-500 mb-1 uppercase tracking-wider">Ship-to address</label>
+                            <input value={po.shipLine1} onChange={updPo('shipLine1')} placeholder="Street address"
+                                className="w-full bg-white border border-[#E8E6E1] text-[#2C2A29] py-2 px-3 text-sm rounded-md focus:outline-none focus:border-[#CBA153] mb-2" />
+                            <input value={po.shipLine2} onChange={updPo('shipLine2')} placeholder="Suite / unit (optional)"
+                                className="w-full bg-white border border-[#E8E6E1] text-[#2C2A29] py-2 px-3 text-sm rounded-md focus:outline-none focus:border-[#CBA153] mb-2" />
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                <input value={po.shipCity} onChange={updPo('shipCity')} placeholder="City"
+                                    className="w-full bg-white border border-[#E8E6E1] text-[#2C2A29] py-2 px-3 text-sm rounded-md focus:outline-none focus:border-[#CBA153]" />
+                                <input value={po.shipState} onChange={updPo('shipState')} placeholder="State"
+                                    className="w-full bg-white border border-[#E8E6E1] text-[#2C2A29] py-2 px-3 text-sm rounded-md focus:outline-none focus:border-[#CBA153]" />
+                                <input value={po.shipPostal} onChange={updPo('shipPostal')} placeholder="ZIP"
+                                    className="w-full bg-white border border-[#E8E6E1] text-[#2C2A29] py-2 px-3 text-sm rounded-md focus:outline-none focus:border-[#CBA153]" />
+                            </div>
+                        </div>
+                        <div>
+                            <label className="block text-[10px] font-bold text-gray-500 mb-1 uppercase tracking-wider">Order notes</label>
+                            <textarea value={po.notes} onChange={updPo('notes')} rows={2} placeholder="Delivery instructions, dock hours, etc."
+                                className="w-full bg-white border border-[#E8E6E1] text-[#2C2A29] py-2 px-3 text-sm rounded-md focus:outline-none focus:border-[#CBA153] resize-none" />
+                        </div>
+                    </div>
+                </details>
+
                 {availableProducts.map(product => {
                     const priceNum = parseFloat(product.priceB2b.replace(/[^0-9.-]+/g, "")) || 0;
                     const discountedPrice = priceNum * (1 - (discount / 100));

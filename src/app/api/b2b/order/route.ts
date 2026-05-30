@@ -23,6 +23,11 @@ const RESERVATION_TTL_MS = 15 * 60 * 1000;
 interface B2bOrderRequestBody {
     items: { id: string; quantity: number }[];
     paymentMethod?: B2bPaymentMethod;
+    // Tier 2 — optional purchase-order metadata.
+    poNumber?: string;
+    notes?: string;
+    requestedDeliveryDate?: string; // ISO date (yyyy-mm-dd)
+    shipTo?: { line1?: string; line2?: string; city?: string; state?: string; postal?: string };
 }
 
 export async function POST(req: NextRequest) {
@@ -45,6 +50,28 @@ export async function POST(req: NextRequest) {
 
         if (!items || items.length === 0) {
             return NextResponse.json({ error: "Empty order" }, { status: 400 });
+        }
+
+        // Tier 2 — sanitize optional PO metadata. Everything here is optional and
+        // must never block an order: a malformed value is dropped, not rejected.
+        // Ship-to / requested-date / notes reuse existing Order columns.
+        const clip = (v: unknown, max: number): string | undefined => {
+            if (typeof v !== "string") return undefined;
+            const t = v.trim();
+            return t ? t.slice(0, max) : undefined;
+        };
+        const poNumber = clip(body.poNumber, 64);
+        const orderNotes = clip(body.notes, 2000);
+        const shipTo = body.shipTo ?? {};
+        const shippingLine1 = clip(shipTo.line1, 200);
+        const shippingAddressLine2 = clip(shipTo.line2, 200);
+        const shippingCity = clip(shipTo.city, 120);
+        const shippingState = clip(shipTo.state, 120);
+        const shippingPostalCode = clip(shipTo.postal, 20);
+        let scheduledFor: Date | undefined;
+        if (typeof body.requestedDeliveryDate === "string" && body.requestedDeliveryDate) {
+            const d = new Date(body.requestedDeliveryDate);
+            if (!isNaN(d.getTime())) scheduledFor = d;
         }
 
         // 1. Verify contract is signed (existing gate; preserved)
@@ -142,6 +169,15 @@ export async function POST(req: NextRequest) {
                     // Store an unprefixed numeric string to match D2C — refunds and
                     // the admin order page parseFloat() this; a leading "$" → NaN → $0.
                     totalAmount: subtotal.toFixed(2),
+                    // Tier 2 — purchase-order metadata (all optional).
+                    poNumber,
+                    notes: orderNotes,
+                    scheduledFor,
+                    shippingLine1,
+                    shippingAddressLine2,
+                    shippingCity,
+                    shippingState,
+                    shippingPostalCode,
                     orderItems: { create: processedItems },
                 },
                 include: { orderItems: true },

@@ -149,6 +149,20 @@ export default async function B2bDispatchPage({ params }: { params: Promise<{ lo
                                             Tracking: {o.shipment.trackingNumber} ({o.shipment.carrierName})
                                         </p>
                                     )}
+                                    {/* Tier 2 — purchase-order metadata so freight ops know where + when to ship */}
+                                    {(o.poNumber || o.scheduledFor || o.shippingLine1 || o.notes) && (
+                                        <div className="mt-2 pt-2 border-t border-[#ffffff08] grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-[11px]">
+                                            {o.poNumber && <p className="text-gray-400">PO: <span className="text-white font-mono">{o.poNumber}</span></p>}
+                                            {o.scheduledFor && <p className="text-gray-400">Requested: <span className="text-white font-mono">{o.scheduledFor.toISOString().slice(0, 10)}</span></p>}
+                                            {o.shippingLine1 && (
+                                                <p className="text-gray-400 sm:col-span-2">Ship to: <span className="text-gray-200">
+                                                    {o.shippingLine1}{o.shippingAddressLine2 ? `, ${o.shippingAddressLine2}` : ""}
+                                                    {(o.shippingCity || o.shippingState || o.shippingPostalCode) ? `, ${[o.shippingCity, o.shippingState, o.shippingPostalCode].filter(Boolean).join(", ")}` : ""}
+                                                </span></p>
+                                            )}
+                                            {o.notes && <p className="text-gray-400 sm:col-span-2">Notes: <span className="text-gray-200">{o.notes}</span></p>}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 

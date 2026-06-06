@@ -1,0 +1,10 @@
+# CodeRabbit disabled — Vercel Agent is the code reviewer for this repo.
+#
+# This silences CodeRabbit's automatic PR reviews. To remove it ENTIRELY:
+#   GitHub → Settings → Integrations → Applications → CodeRabbit → Configure
+#   → remove this repository (or Uninstall).
+#
+# Config reference: https://docs.coderabbit.ai/reference/configuration
+reviews:
+  auto_review:
+    enabled: false

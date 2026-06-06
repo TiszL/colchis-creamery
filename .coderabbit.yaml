@@ -8,3 +8,5 @@
 reviews:
   auto_review:
     enabled: false
+  # Also suppress the "review skipped" status comment CodeRabbit posts on each PR.
+  review_status: false

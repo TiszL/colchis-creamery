@@ -4,6 +4,7 @@ import { getPartnerContext, getOwnerUserId, getOrgUserIds } from '@/lib/b2b-part
 import BulkOrderClient from '@/components/b2b/BulkOrderClient';
 import { PackagePlus } from 'lucide-react';
 import { redirect } from 'next/navigation';
+import { getTranslations } from 'next-intl/server';
 
 export const dynamic = 'force-dynamic';
 
@@ -84,15 +85,17 @@ export default async function B2BOrderPage({ params, searchParams }: { params: P
         return { ...p, availableQty: maxFree as number | null };
     });
 
+    const t = await getTranslations('b2bPortal.order');
+
     return (
         <div className="max-w-6xl mx-auto space-y-8">
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-3xl font-serif text-[#2C2A29] flex items-center gap-3">
                         <PackagePlus className="w-8 h-8 text-[#CBA153]" />
-                        Place Bulk Order
+                        {t('title')}
                     </h1>
-                    <p className="text-gray-500 mt-1">Review inventory and place your order. Your {activeContract.discountPercentage}% contract discount is automatically applied.</p>
+                    <p className="text-gray-500 mt-1">{t('subtitle', { discount: activeContract.discountPercentage })}</p>
                 </div>
             </div>
 

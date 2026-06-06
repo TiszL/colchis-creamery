@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { getPartnerContext } from "@/lib/b2b-partner";
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { Repeat } from "lucide-react";
 import B2BSchedulesClient from "@/components/b2b/B2BSchedulesClient";
 
@@ -13,6 +14,7 @@ export default async function PartnerSchedulesPage({
     params: Promise<{ locale: string }>;
 }) {
     const { locale } = await params;
+    const t = await getTranslations("b2bPortal.schedules");
     const session = await getSession();
     if (!session) redirect(`/${locale}/b2b/login`);
     if (session.role !== "B2B_PARTNER" && session.role !== "MASTER_ADMIN") redirect(`/${locale}/`);
@@ -71,16 +73,16 @@ export default async function PartnerSchedulesPage({
         <div className="max-w-4xl mx-auto space-y-8">
             <header>
                 <h1 className="text-3xl font-serif text-[#2C2A29] mb-1 flex items-center gap-2">
-                    <Repeat className="w-6 h-6 text-[#CBA153]" /> Recurring orders
+                    <Repeat className="w-6 h-6 text-[#CBA153]" /> {t("title")}
                 </h1>
                 <p className="text-sm text-gray-500">
-                    Set a cadence and we&apos;ll auto-place the order. Pause, edit, or delete any time.
+                    {t("subtitle")}
                 </p>
             </header>
 
             {!partnerId ? (
                 <div className="bg-amber-50 border border-amber-200 px-4 py-3 text-amber-800 text-sm rounded-lg">
-                    Place your first Resolve net-terms order to initialize your partner profile, then come back to set up recurring schedules.
+                    {t("noPartnerProfile")}
                 </div>
             ) : (
                 <B2BSchedulesClient schedules={schedules} products={products} locations={locations} shops={shops} lockedShopId={lockedShopId} />

@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
 import { ShieldCheck, Calculator, FileText, ChevronDown } from 'lucide-react';
 import { validateB2bQty, constraintHint, unitLabelOf } from '@/lib/b2b-moq';
@@ -58,13 +59,14 @@ const EMPTY_PO: PoDetails = {
     shipCity: '', shipState: '', shipPostal: '', notes: '',
 };
 
-const PAYMENT_OPTIONS: { value: PaymentMethodChoice; label: string; hint: string }[] = [
-    { value: 'RESOLVE_NET_30', label: 'Resolve · Net 30',  hint: 'Pay in 30 days · credit check' },
-    { value: 'RESOLVE_NET_15', label: 'Resolve · Net 15',  hint: 'Pay in 15 days' },
-    { value: 'RESOLVE_NET_7',  label: 'Resolve · Net 7',   hint: 'Pay in 7 days' },
-    { value: 'RESOLVE_NET_45', label: 'Resolve · Net 45',  hint: 'Pay in 45 days · subject to credit' },
-    { value: 'STRIPE_ACH',     label: 'Pay now · ACH',     hint: 'Bank transfer · 1-3 day settlement' },
-    { value: 'STRIPE_CARD',    label: 'Pay now · Card',    hint: 'Card · instant settlement, higher processing fee' },
+// label/hint are i18n keys (under b2bPortal.bulkOrder), resolved at render time.
+const PAYMENT_OPTIONS: { value: PaymentMethodChoice; labelKey: string; hintKey: string }[] = [
+    { value: 'RESOLVE_NET_30', labelKey: 'payResolveNet30Label', hintKey: 'payResolveNet30Hint' },
+    { value: 'RESOLVE_NET_15', labelKey: 'payResolveNet15Label', hintKey: 'payResolveNet15Hint' },
+    { value: 'RESOLVE_NET_7',  labelKey: 'payResolveNet7Label',  hintKey: 'payResolveNet7Hint' },
+    { value: 'RESOLVE_NET_45', labelKey: 'payResolveNet45Label', hintKey: 'payResolveNet45Hint' },
+    { value: 'STRIPE_ACH',     labelKey: 'payAchLabel',          hintKey: 'payAchHint' },
+    { value: 'STRIPE_CARD',    labelKey: 'payCardLabel',         hintKey: 'payCardHint' },
 ];
 
 const isStripePath = (m: PaymentMethodChoice): boolean => m === 'STRIPE_CARD' || m === 'STRIPE_ACH';
@@ -182,6 +184,7 @@ function BulkOrderInner({
     shopId, setShopId,
     totalCents,
 }: InnerProps) {
+    const t = useTranslations('b2bPortal.bulkOrder');
     const router = useRouter();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState<string | null>(null);
@@ -239,7 +242,7 @@ function BulkOrderInner({
         e.preventDefault();
         if (isOrderEmpty) return;
         if (hasLineErrors) {
-            setSubmitError('Some quantities don’t meet wholesale minimums or case sizes. Adjust the highlighted lines.');
+            setSubmitError(t('errorLineConstraints'));
             return;
         }
 
@@ -255,13 +258,13 @@ function BulkOrderInner({
             // the server. Errors from Elements render inline; we abort here.
             if (isStripePath(paymentMethod)) {
                 if (!stripe || !elements) {
-                    setSubmitError('Payment form is still loading. Please wait a moment and try again.');
+                    setSubmitError(t('errorPaymentFormLoading'));
                     setIsSubmitting(false);
                     return;
                 }
                 const { error: validateErr } = await elements.submit();
                 if (validateErr) {
-                    setSubmitError(validateErr.message ?? 'Please complete the payment details.');
+                    setSubmitError(validateErr.message ?? t('errorCompletePaymentDetails'));
                     setIsSubmitting(false);
                     return;
                 }
@@ -293,7 +296,7 @@ function BulkOrderInner({
 
             if (!response.ok) {
                 const errBody = await response.json().catch(() => ({}));
-                setSubmitError(errBody.error || 'Order failed. Please try again.');
+                setSubmitError(errBody.error || t('errorOrderFailed'));
                 setIsSubmitting(false);
                 return;
             }
@@ -304,12 +307,12 @@ function BulkOrderInner({
             // Stripe redirects to return_url on success (incl. 3DS).
             if (isStripePath(paymentMethod)) {
                 if (!data.clientSecret) {
-                    setSubmitError('Server did not return a payment session. Please contact sales.');
+                    setSubmitError(t('errorNoPaymentSession'));
                     setIsSubmitting(false);
                     return;
                 }
                 if (!stripe || !elements) {
-                    setSubmitError('Payment form lost its connection. Please refresh.');
+                    setSubmitError(t('errorPaymentConnectionLost'));
                     setIsSubmitting(false);
                     return;
                 }
@@ -321,7 +324,7 @@ function BulkOrderInner({
                     confirmParams: { return_url: returnUrl },
                 });
                 if (confirmErr) {
-                    setSubmitError(confirmErr.message ?? 'Payment failed. Check your card and try again.');
+                    setSubmitError(confirmErr.message ?? t('errorPaymentFailed'));
                     setIsSubmitting(false);
                 }
                 // On non-3DS success Stripe redirects to return_url and this
@@ -338,7 +341,7 @@ function BulkOrderInner({
             router.refresh();
         } catch (err) {
             console.error('Bulk order submit failed:', err);
-            setSubmitError('Network error. Please try again.');
+            setSubmitError(t('errorNetwork'));
             setIsSubmitting(false);
         }
     };
@@ -352,14 +355,14 @@ function BulkOrderInner({
                 {/* Tier 2 — Ship-to shop selector (partner's own locations) */}
                 {(shopList.length > 0 || lockedShop) && (
                     <div className="bg-white rounded-xl shadow-sm border border-[#E8E6E1] p-4">
-                        <label className="block text-[10px] font-bold text-gray-500 mb-1 uppercase tracking-wider">Ship to</label>
+                        <label className="block text-[10px] font-bold text-gray-500 mb-1 uppercase tracking-wider">{t('shipTo')}</label>
                         {lockedShopId ? (
-                            <p className="text-sm text-[#2C2A29]">{lockedShop?.label ?? 'Your shop'} <span className="text-xs text-gray-400">(your assigned shop)</span></p>
+                            <p className="text-sm text-[#2C2A29]">{lockedShop?.label ?? t('yourShop')} <span className="text-xs text-gray-400">{t('yourAssignedShop')}</span></p>
                         ) : (
                             <select value={shopId} onChange={e => setShopId(e.target.value)}
                                 className="w-full bg-white border border-[#E8E6E1] text-[#2C2A29] py-2 px-3 text-sm rounded-md focus:outline-none focus:border-[#CBA153]">
                                 {shopList.map(s => <option key={s.id} value={s.id}>{s.label} — {s.city}, {s.state}</option>)}
-                                <option value="">Enter address manually…</option>
+                                <option value="">{t('enterAddressManually')}</option>
                             </select>
                         )}
                         {selectedShop && (
@@ -374,44 +377,44 @@ function BulkOrderInner({
                 <details className="bg-white rounded-xl shadow-sm border border-[#E8E6E1] overflow-hidden group">
                     <summary className="cursor-pointer select-none px-4 py-3 text-sm font-medium text-[#2C2A29] flex items-center justify-between">
                         <span className="flex items-center gap-2">
-                            <FileText className="w-4 h-4 text-[#CBA153]" /> Purchase order details
-                            <span className="text-xs text-gray-400 font-normal">(optional)</span>
+                            <FileText className="w-4 h-4 text-[#CBA153]" /> {t('purchaseOrderDetails')}
+                            <span className="text-xs text-gray-400 font-normal">{t('optional')}</span>
                         </span>
                         <ChevronDown className="w-4 h-4 text-gray-400 group-open:rotate-180 transition" />
                     </summary>
                     <div className="px-4 pb-4 pt-3 space-y-3 border-t border-[#E8E6E1]">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
-                                <label className="block text-[10px] font-bold text-gray-500 mb-1 uppercase tracking-wider">PO number</label>
-                                <input value={po.poNumber} onChange={updPo('poNumber')} placeholder="e.g. PO-10482"
+                                <label className="block text-[10px] font-bold text-gray-500 mb-1 uppercase tracking-wider">{t('poNumber')}</label>
+                                <input value={po.poNumber} onChange={updPo('poNumber')} placeholder={t('poNumberPlaceholder')}
                                     className="w-full bg-white border border-[#E8E6E1] text-[#2C2A29] py-2 px-3 text-sm rounded-md focus:outline-none focus:border-[#CBA153]" />
                             </div>
                             <div>
-                                <label className="block text-[10px] font-bold text-gray-500 mb-1 uppercase tracking-wider">Requested delivery date</label>
+                                <label className="block text-[10px] font-bold text-gray-500 mb-1 uppercase tracking-wider">{t('requestedDeliveryDate')}</label>
                                 <input type="date" value={po.requestedDeliveryDate} onChange={updPo('requestedDeliveryDate')}
                                     className="w-full bg-white border border-[#E8E6E1] text-[#2C2A29] py-2 px-3 text-sm rounded-md focus:outline-none focus:border-[#CBA153]" />
                             </div>
                         </div>
                         {shopId === '' && (
                             <div>
-                                <label className="block text-[10px] font-bold text-gray-500 mb-1 uppercase tracking-wider">Ship-to address</label>
-                                <input value={po.shipLine1} onChange={updPo('shipLine1')} placeholder="Street address"
+                                <label className="block text-[10px] font-bold text-gray-500 mb-1 uppercase tracking-wider">{t('shipToAddress')}</label>
+                                <input value={po.shipLine1} onChange={updPo('shipLine1')} placeholder={t('streetAddress')}
                                     className="w-full bg-white border border-[#E8E6E1] text-[#2C2A29] py-2 px-3 text-sm rounded-md focus:outline-none focus:border-[#CBA153] mb-2" />
-                                <input value={po.shipLine2} onChange={updPo('shipLine2')} placeholder="Suite / unit (optional)"
+                                <input value={po.shipLine2} onChange={updPo('shipLine2')} placeholder={t('suiteUnit')}
                                     className="w-full bg-white border border-[#E8E6E1] text-[#2C2A29] py-2 px-3 text-sm rounded-md focus:outline-none focus:border-[#CBA153] mb-2" />
                                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                                    <input value={po.shipCity} onChange={updPo('shipCity')} placeholder="City"
+                                    <input value={po.shipCity} onChange={updPo('shipCity')} placeholder={t('city')}
                                         className="w-full bg-white border border-[#E8E6E1] text-[#2C2A29] py-2 px-3 text-sm rounded-md focus:outline-none focus:border-[#CBA153]" />
-                                    <input value={po.shipState} onChange={updPo('shipState')} placeholder="State"
+                                    <input value={po.shipState} onChange={updPo('shipState')} placeholder={t('state')}
                                         className="w-full bg-white border border-[#E8E6E1] text-[#2C2A29] py-2 px-3 text-sm rounded-md focus:outline-none focus:border-[#CBA153]" />
-                                    <input value={po.shipPostal} onChange={updPo('shipPostal')} placeholder="ZIP"
+                                    <input value={po.shipPostal} onChange={updPo('shipPostal')} placeholder={t('zip')}
                                         className="w-full bg-white border border-[#E8E6E1] text-[#2C2A29] py-2 px-3 text-sm rounded-md focus:outline-none focus:border-[#CBA153]" />
                                 </div>
                             </div>
                         )}
                         <div>
-                            <label className="block text-[10px] font-bold text-gray-500 mb-1 uppercase tracking-wider">Order notes</label>
-                            <textarea value={po.notes} onChange={updPo('notes')} rows={2} placeholder="Delivery instructions, dock hours, etc."
+                            <label className="block text-[10px] font-bold text-gray-500 mb-1 uppercase tracking-wider">{t('orderNotes')}</label>
+                            <textarea value={po.notes} onChange={updPo('notes')} rows={2} placeholder={t('orderNotesPlaceholder')}
                                 className="w-full bg-white border border-[#E8E6E1] text-[#2C2A29] py-2 px-3 text-sm rounded-md focus:outline-none focus:border-[#CBA153] resize-none" />
                         </div>
                     </div>
@@ -440,7 +443,7 @@ function BulkOrderInner({
                             </div>
 
                             <div className="flex flex-row sm:flex-col items-start sm:items-end gap-2 sm:border-l border-t sm:border-t-0 border-[#E8E6E1] pt-3 sm:pt-0 sm:pl-6 sm:ml-auto">
-                                <label className="text-xs text-gray-500 font-medium uppercase">Order Qty</label>
+                                <label className="text-xs text-gray-500 font-medium uppercase">{t('orderQty')}</label>
                                 <div className="flex items-center gap-2">
                                     <input
                                         type="number"
@@ -454,10 +457,10 @@ function BulkOrderInner({
                                     />
                                 </div>
                                 {product.availableQty === null ? (
-                                    <span className="text-[10px] font-medium text-[#CBA153]">Made to order</span>
+                                    <span className="text-[10px] font-medium text-[#CBA153]">{t('madeToOrder')}</span>
                                 ) : (
                                     <span className={`text-[10px] font-medium ${product.availableQty < 50 ? 'text-red-500' : 'text-green-600'}`}>
-                                        {product.availableQty} in stock
+                                        {t('inStock', { count: product.availableQty })}
                                     </span>
                                 )}
                                 {hint && <span className="text-[9px] text-gray-400 font-mono">{hint}</span>}
@@ -469,7 +472,7 @@ function BulkOrderInner({
 
                 {availableProducts.length === 0 && (
                     <div className="bg-white p-12 rounded-xl text-center text-gray-500 border border-[#E8E6E1] shadow-sm">
-                        No products are currently available for bulk order.
+                        {t('noProductsAvailable')}
                     </div>
                 )}
             </div>
@@ -480,27 +483,27 @@ function BulkOrderInner({
                     <div className="p-6 border-b border-gray-700">
                         <h2 className="text-xl font-serif text-white flex items-center gap-2">
                             <Calculator className="w-5 h-5 text-[#CBA153]" />
-                            Order Summary
+                            {t('orderSummary')}
                         </h2>
                     </div>
 
                     <div className="p-6 space-y-4 text-white">
                         <div className="flex justify-between text-gray-300">
-                            <span>Subtotal</span>
+                            <span>{t('subtotal')}</span>
                             <span>${totals.subtotal.toFixed(2)}</span>
                         </div>
                         <div className="flex justify-between text-[#CBA153]">
-                            <span>Contract Discount ({discount}%)</span>
+                            <span>{t('contractDiscount', { discount })}</span>
                             <span>-${totals.discountAmount.toFixed(2)}</span>
                         </div>
                         <div className="flex justify-between text-gray-300">
-                            <span>Logistics & Freight</span>
-                            <span className="text-xs mt-1">Calculated post-order</span>
+                            <span>{t('logisticsFreight')}</span>
+                            <span className="text-xs mt-1">{t('calculatedPostOrder')}</span>
                         </div>
 
                         <div className="pt-4 mt-4 border-t border-gray-700 flex justify-between items-end">
                             <div>
-                                <span className="block text-sm text-gray-400">Total Estimated</span>
+                                <span className="block text-sm text-gray-400">{t('totalEstimated')}</span>
                                 <span className="text-xs text-gray-500 line-through">${totals.subtotal.toFixed(2)}</span>
                             </div>
                             <span className="text-3xl font-serif text-white">${totals.total.toFixed(2)}</span>
@@ -510,7 +513,7 @@ function BulkOrderInner({
                     <div className="p-6 bg-gray-900 border-t border-gray-800 space-y-4">
                         {/* Phase 6 (6c) — payment method choice */}
                         <div>
-                            <label className="block text-[10px] font-bold text-gray-500 mb-2 uppercase tracking-wider">Payment method</label>
+                            <label className="block text-[10px] font-bold text-gray-500 mb-2 uppercase tracking-wider">{t('paymentMethod')}</label>
                             <select
                                 value={paymentMethod}
                                 onChange={e => setPaymentMethod(e.target.value as PaymentMethodChoice)}
@@ -518,11 +521,14 @@ function BulkOrderInner({
                                 disabled={isSubmitting}
                             >
                                 {PAYMENT_OPTIONS.map(opt => (
-                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                    <option key={opt.value} value={opt.value}>{t(opt.labelKey)}</option>
                                 ))}
                             </select>
                             <p className="text-[10px] text-gray-500 mt-1">
-                                {PAYMENT_OPTIONS.find(o => o.value === paymentMethod)?.hint}
+                                {(() => {
+                                    const sel = PAYMENT_OPTIONS.find(o => o.value === paymentMethod);
+                                    return sel ? t(sel.hintKey) : null;
+                                })()}
                             </p>
                         </div>
 
@@ -541,9 +547,7 @@ function BulkOrderInner({
                                     intent when using setup_future_usage. Required for SCA +
                                     helps partners understand recurring-order billing. */}
                                 <p className="text-[10px] text-gray-500 leading-relaxed">
-                                    By submitting, you authorize Colchis Food to save this payment method
-                                    and charge it for future recurring orders you set up. You can manage
-                                    saved methods or cancel recurring schedules anytime from your B2B portal.
+                                    {t('savePaymentDisclosure')}
                                 </p>
                             </div>
                         )}
@@ -561,16 +565,16 @@ function BulkOrderInner({
                                 }`}
                         >
                             {isSubmitting
-                                ? (isStripePath(paymentMethod) ? 'Charging…' : 'Processing…')
-                                : (isStripePath(paymentMethod) ? `Pay $${totals.total.toFixed(2)}` : 'Submit Bulk Order')}
+                                ? (isStripePath(paymentMethod) ? t('charging') : t('processing'))
+                                : (isStripePath(paymentMethod) ? t('payAmount', { amount: totals.total.toFixed(2) }) : t('submitBulkOrder'))}
                         </button>
 
                         <div className="text-[10px] text-gray-500 text-center flex flex-col items-center gap-1">
                             <ShieldCheck className="w-4 h-4 text-gray-400" />
                             <span>
                                 {paymentMethod.startsWith('RESOLVE_')
-                                    ? 'Resolve will issue an invoice with the selected net term.'
-                                    : 'Payment is processed by Stripe. Stock is reserved on submit and released if payment fails.'}
+                                    ? t('resolveNote')
+                                    : t('stripeNote')}
                             </span>
                         </div>
                     </div>

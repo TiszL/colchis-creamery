@@ -46,8 +46,9 @@ prisma/test-*.js
 /public/uploads/
 CLAUDE.local.md
 
-# Claude Code worktrees
+# Claude Code worktrees + machine-local settings (permission cache; rewritten per-session)
 .claude/worktrees/
+.claude/settings.local.json
 rebrandingmaterials
 
 # Local UX problem screenshots (do not commit)

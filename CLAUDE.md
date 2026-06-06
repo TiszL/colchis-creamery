@@ -248,6 +248,18 @@ BAKERY_NOTIFICATION_EMAIL=
 
 These files were in the working tree from earlier sessions and aren't part of any phase here: `JournalEditorClient.tsx`, `RecipeEditorClient.tsx`, `ReviewModerationClient.tsx`, `bakery/AddressManager.tsx`.
 
+## Review focus (automated PR review)
+
+When reviewing a diff, prioritize these project-specific risks (there are **no automated tests** — review is the safety net):
+
+- **Auth / RBAC**: server actions + API routes must gate via `getSession()` / `authorize()` / `requireMasterAdmin()` / `requireLocationAccess()` — **never** raw `verifyToken`/`jwtVerify` (those bypass the live `isActive` + `sessionVersion` check). In `/b2b-portal`, owner-vs-member scoping must hold via `getPartnerContext()`; a scoped member must not reach another shop's data/orders, and members order under the **owner's** contract + org `B2bPartner` (not their own).
+- **Stripe / webhooks**: payment-intent handling must stay idempotent (keyed on order id); no double-charge or double stock-commit; webhook signature verification must fail closed.
+- **Prisma**: never `prisma db push`; schema changes need a hand-written migration applied via `prisma migrate deploy` (see `prisma/migrations/README.md`). Flag writes to legacy/cached fields (`Product.stockQuantity`).
+- **Money**: amounts flow in **cents** through aggregations; `Order.totalAmount` is stored **unprefixed** — a leading `"$"` becomes `NaN` → `$0` in refunds + the admin order page.
+- **Secrets**: nothing from `.env*` committed; no keys leaked into client components or `NEXT_PUBLIC_` exposure.
+- **Channel/delivery model**: respect the `SalesChannel` × `Category` × `DeliveryMethod` orthogonality. Availability = `Product.salesChannel ∈ Location.allowsChannels` AND an enabled `Stock` row (or `isMadeToOrder`) AND a reachable `LocationDeliveryMethod`.
+- **Do NOT touch**: `/admin/analytics-control` + `AnalyticsMap`/`AnalyticsPinForm` (the B2B prospect map — owner-managed lead-gen tool). Flag any diff that modifies them.
+
 ---
 
 # Project Rules (12-rule template)

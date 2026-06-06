@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { Menu, X, LogOut, PackagePlus, LayoutDashboard, Repeat, FileText, History, UserCog, FolderOpen, Store, Users } from 'lucide-react';
 
 export default function B2BSidebar({
@@ -19,21 +20,22 @@ export default function B2BSidebar({
     isOwner?: boolean;
     canViewBilling?: boolean;
 }) {
+    const t = useTranslations('b2bPortal.sidebar');
     const [isOpen, setIsOpen] = useState(false);
     const closeSidebar = () => setIsOpen(false);
 
     // Owner sees the full org admin surface; members see ordering only (+ billing
     // when the owner granted it). Tier 2 multi-user gating.
     const navItems = [
-        { label: 'Partner Dashboard', href: `/${locale}/b2b-portal`, icon: LayoutDashboard, show: true },
-        { label: 'Place Bulk Order', href: `/${locale}/b2b-portal/order`, icon: PackagePlus, show: true },
-        { label: 'Order History', href: `/${locale}/b2b-portal/orders`, icon: History, show: true },
-        { label: 'Recurring Orders', href: `/${locale}/b2b-portal/schedules`, icon: Repeat, show: true },
-        { label: 'Invoices & Billing', href: `/${locale}/b2b-portal/invoices`, icon: FileText, show: isOwner || canViewBilling },
-        { label: 'Documents', href: `/${locale}/b2b-portal/documents`, icon: FolderOpen, show: isOwner },
-        { label: 'My Shops', href: `/${locale}/b2b-portal/locations`, icon: Store, show: isOwner },
-        { label: 'Team', href: `/${locale}/b2b-portal/team`, icon: Users, show: isOwner },
-        { label: 'Account & Company', href: `/${locale}/b2b-portal/account`, icon: UserCog, show: isOwner },
+        { label: t('partnerDashboard'), href: `/${locale}/b2b-portal`, icon: LayoutDashboard, show: true },
+        { label: t('placeBulkOrder'), href: `/${locale}/b2b-portal/order`, icon: PackagePlus, show: true },
+        { label: t('orderHistory'), href: `/${locale}/b2b-portal/orders`, icon: History, show: true },
+        { label: t('recurringOrders'), href: `/${locale}/b2b-portal/schedules`, icon: Repeat, show: true },
+        { label: t('invoicesBilling'), href: `/${locale}/b2b-portal/invoices`, icon: FileText, show: isOwner || canViewBilling },
+        { label: t('documents'), href: `/${locale}/b2b-portal/documents`, icon: FolderOpen, show: isOwner },
+        { label: t('myShops'), href: `/${locale}/b2b-portal/locations`, icon: Store, show: isOwner },
+        { label: t('team'), href: `/${locale}/b2b-portal/team`, icon: Users, show: isOwner },
+        { label: t('accountCompany'), href: `/${locale}/b2b-portal/account`, icon: UserCog, show: isOwner },
     ].filter(i => i.show);
 
     return (
@@ -64,7 +66,7 @@ export default function B2BSidebar({
                             Colchis B2B
                         </h2>
                         <p className="text-xs text-gray-500 mt-1 uppercase tracking-wider">
-                            Partner Portal
+                            {t('partnerPortal')}
                         </p>
                     </div>
                     {/* Close button for mobile inside drawer */}
@@ -104,7 +106,7 @@ export default function B2BSidebar({
                     <form action="/api/auth/logout" method="POST">
                         <button type="submit" className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-red-500 rounded-lg hover:bg-white transition-colors">
                             <LogOut className="w-5 h-5" />
-                            Sign Out
+                            {t('signOut')}
                         </button>
                     </form>
                 </div>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
+import { useTranslations } from 'next-intl';
 import { createShopLocationAction, updateShopLocationAction, setShopActiveAction } from '@/app/actions/b2b-org';
 import { Plus, Pencil, Store, Power } from 'lucide-react';
 
@@ -22,6 +23,7 @@ const input = 'w-full bg-white border border-[#E8E6E1] text-[#2C2A29] py-2 px-3 
 const lbl = 'block text-[10px] font-bold text-gray-500 mb-1 uppercase tracking-wider';
 
 export default function B2BShopsClient({ shops }: { shops: Shop[] }) {
+    const t = useTranslations('b2bPortal.shopsForm');
     const [mode, setMode] = useState<'closed' | 'create' | string>('closed');
     const [form, setForm] = useState<FormState>(EMPTY);
     const [error, setError] = useState<string | null>(null);
@@ -59,13 +61,13 @@ export default function B2BShopsClient({ shops }: { shops: Shop[] }) {
         <div className="space-y-6">
             <div className="flex justify-end">
                 <button onClick={openCreate} className="bg-[#CBA153] hover:bg-[#b08d47] text-white px-4 py-2 text-sm font-medium rounded-md transition inline-flex items-center gap-1.5">
-                    <Plus className="w-4 h-4" /> Add shop
+                    <Plus className="w-4 h-4" /> {t('addShop')}
                 </button>
             </div>
 
             {shops.length === 0 && mode === 'closed' && (
                 <div className="bg-white border border-[#E8E6E1] shadow-sm rounded-xl p-8 text-center text-gray-500 text-sm">
-                    No shops yet. Add one to start ordering per location.
+                    {t('emptyState')}
                 </div>
             )}
 
@@ -77,8 +79,8 @@ export default function B2BShopsClient({ shops }: { shops: Shop[] }) {
                                 <div className="flex items-center gap-2">
                                     <Store className="w-3.5 h-3.5 text-[#CBA153] shrink-0" />
                                     <p className="text-sm font-medium text-[#2C2A29]">{s.label}</p>
-                                    {s.separateBilling && <span className="text-[10px] font-mono text-[#CBA153] uppercase tracking-wider">Subcompany</span>}
-                                    {!s.isActive && <span className="text-[10px] font-mono text-amber-600 uppercase tracking-wider">Inactive</span>}
+                                    {s.separateBilling && <span className="text-[10px] font-mono text-[#CBA153] uppercase tracking-wider">{t('subcompanyBadge')}</span>}
+                                    {!s.isActive && <span className="text-[10px] font-mono text-amber-600 uppercase tracking-wider">{t('inactiveBadge')}</span>}
                                 </div>
                                 <p className="text-[11px] text-gray-500 mt-0.5">
                                     {s.line1}{s.line2 ? `, ${s.line2}` : ''}, {s.city}, {s.state} {s.postalCode}
@@ -88,8 +90,8 @@ export default function B2BShopsClient({ shops }: { shops: Shop[] }) {
                                 )}
                             </div>
                             <div className="flex items-center gap-1 shrink-0">
-                                <button onClick={() => openEdit(s)} className="p-2 text-gray-400 hover:text-[#2C2A29]" title="Edit"><Pencil className="w-3.5 h-3.5" /></button>
-                                <button onClick={() => toggleActive(s)} disabled={pending} className="p-2 text-gray-400 hover:text-[#2C2A29]" title={s.isActive ? 'Deactivate' : 'Activate'}><Power className="w-3.5 h-3.5" /></button>
+                                <button onClick={() => openEdit(s)} className="p-2 text-gray-400 hover:text-[#2C2A29]" title={t('edit')}><Pencil className="w-3.5 h-3.5" /></button>
+                                <button onClick={() => toggleActive(s)} disabled={pending} className="p-2 text-gray-400 hover:text-[#2C2A29]" title={s.isActive ? t('deactivate') : t('activate')}><Power className="w-3.5 h-3.5" /></button>
                             </div>
                         </div>
                         {mode === s.id && shopForm()}
@@ -99,7 +101,7 @@ export default function B2BShopsClient({ shops }: { shops: Shop[] }) {
 
             {mode === 'create' && (
                 <div className="bg-white border border-[#E8E6E1] shadow-sm rounded-xl p-5">
-                    <h2 className="text-lg font-serif text-[#2C2A29] mb-3">New shop</h2>
+                    <h2 className="text-lg font-serif text-[#2C2A29] mb-3">{t('newShop')}</h2>
                     {shopForm()}
                 </div>
             )}
@@ -111,41 +113,41 @@ export default function B2BShopsClient({ shops }: { shops: Shop[] }) {
             <div className="mt-3 pt-3 border-t border-[#E8E6E1] space-y-3">
                 {error && <div className="p-2 bg-red-50 text-red-700 border border-red-200 text-xs rounded">{error}</div>}
                 <div>
-                    <label className={lbl}>Shop name</label>
-                    <input value={form.label} onChange={set('label')} placeholder="Downtown Store" className={input} />
+                    <label className={lbl}>{t('shopNameLabel')}</label>
+                    <input value={form.label} onChange={set('label')} placeholder={t('shopNamePlaceholder')} className={input} />
                 </div>
                 <div>
-                    <label className={lbl}>Ship-to address</label>
-                    <input value={form.line1} onChange={set('line1')} placeholder="Street address" className={`${input} mb-2`} />
-                    <input value={form.line2} onChange={set('line2')} placeholder="Suite / unit (optional)" className={`${input} mb-2`} />
+                    <label className={lbl}>{t('shipToLabel')}</label>
+                    <input value={form.line1} onChange={set('line1')} placeholder={t('streetPlaceholder')} className={`${input} mb-2`} />
+                    <input value={form.line2} onChange={set('line2')} placeholder={t('suitePlaceholder')} className={`${input} mb-2`} />
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                        <input value={form.city} onChange={set('city')} placeholder="City" className={input} />
-                        <input value={form.state} onChange={set('state')} placeholder="State" className={input} />
-                        <input value={form.postalCode} onChange={set('postalCode')} placeholder="ZIP" className={input} />
+                        <input value={form.city} onChange={set('city')} placeholder={t('cityPlaceholder')} className={input} />
+                        <input value={form.state} onChange={set('state')} placeholder={t('statePlaceholder')} className={input} />
+                        <input value={form.postalCode} onChange={set('postalCode')} placeholder={t('zipPlaceholder')} className={input} />
                     </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div><label className={lbl}>Contact name</label><input value={form.contactName} onChange={set('contactName')} placeholder="Receiving manager" className={input} /></div>
-                    <div><label className={lbl}>Contact phone</label><input value={form.contactPhone} onChange={set('contactPhone')} placeholder="(555) 010-1234" className={input} /></div>
+                    <div><label className={lbl}>{t('contactNameLabel')}</label><input value={form.contactName} onChange={set('contactName')} placeholder={t('contactNamePlaceholder')} className={input} /></div>
+                    <div><label className={lbl}>{t('contactPhoneLabel')}</label><input value={form.contactPhone} onChange={set('contactPhone')} placeholder={t('contactPhonePlaceholder')} className={input} /></div>
                 </div>
 
                 <label className="flex items-center gap-2 text-sm text-[#2C2A29] pt-1 cursor-pointer">
                     <input type="checkbox" checked={form.separateBilling} onChange={e => setForm(p => ({ ...p, separateBilling: e.target.checked }))} className="accent-[#CBA153]" />
-                    Bill this shop as a separate company (its own invoices &amp; AR)
+                    {t('separateBillingLabel')}
                 </label>
 
                 {form.separateBilling && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-[#FDFBF7] border border-[#E8E6E1] rounded-md">
-                        <div><label className={lbl}>Legal company name</label><input value={form.billingCompanyName} onChange={set('billingCompanyName')} placeholder="Downtown Foods LLC" className={input} /></div>
-                        <div><label className={lbl}>Tax ID / EIN</label><input value={form.billingEin} onChange={set('billingEin')} placeholder="00-0000000" className={input} /></div>
-                        <div><label className={lbl}>Billing email</label><input value={form.billingEmail} onChange={set('billingEmail')} placeholder="ap@downtown.com" className={input} /></div>
-                        <div><label className={lbl}>Billing address</label><input value={form.billingAddress} onChange={set('billingAddress')} placeholder="Registered address" className={input} /></div>
+                        <div><label className={lbl}>{t('legalCompanyLabel')}</label><input value={form.billingCompanyName} onChange={set('billingCompanyName')} placeholder={t('legalCompanyPlaceholder')} className={input} /></div>
+                        <div><label className={lbl}>{t('taxIdLabel')}</label><input value={form.billingEin} onChange={set('billingEin')} placeholder={t('taxIdPlaceholder')} className={input} /></div>
+                        <div><label className={lbl}>{t('billingEmailLabel')}</label><input value={form.billingEmail} onChange={set('billingEmail')} placeholder={t('billingEmailPlaceholder')} className={input} /></div>
+                        <div><label className={lbl}>{t('billingAddressLabel')}</label><input value={form.billingAddress} onChange={set('billingAddress')} placeholder={t('billingAddressPlaceholder')} className={input} /></div>
                     </div>
                 )}
 
                 <div className="flex items-center gap-2">
-                    <button onClick={submit} disabled={pending} className="bg-[#CBA153] hover:bg-[#b08d47] text-white px-4 py-2 text-sm font-medium rounded-md transition disabled:opacity-60">{pending ? 'Saving…' : 'Save shop'}</button>
-                    <button onClick={() => { setMode('closed'); setError(null); }} className="text-sm text-gray-500 hover:text-[#2C2A29] px-2">Cancel</button>
+                    <button onClick={submit} disabled={pending} className="bg-[#CBA153] hover:bg-[#b08d47] text-white px-4 py-2 text-sm font-medium rounded-md transition disabled:opacity-60">{pending ? t('saving') : t('saveShop')}</button>
+                    <button onClick={() => { setMode('closed'); setError(null); }} className="text-sm text-gray-500 hover:text-[#2C2A29] px-2">{t('cancel')}</button>
                 </div>
             </div>
         );

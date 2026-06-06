@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
+import { useTranslations } from 'next-intl';
 import { createScheduleAction, updateScheduleAction, toggleScheduleActiveAction, deleteScheduleAction } from '@/app/actions/b2b-schedules';
 import { Play, Pause, Trash2, Plus, X, Pencil } from 'lucide-react';
 
@@ -28,6 +29,7 @@ const input = 'w-full bg-white border border-[#E8E6E1] text-[#2C2A29] py-2 px-3 
 const labelCls = 'block text-[10px] font-bold text-gray-500 mb-1 uppercase tracking-wider';
 
 export default function B2BSchedulesClient({ schedules, products, locations, shops, lockedShopId }: Props) {
+    const t = useTranslations('b2bPortal.schedulesForm');
     const [mode, setMode] = useState<'closed' | 'create' | string>('closed'); // 'create' | scheduleId | 'closed'
     const [name, setName] = useState('');
     const [intervalDays, setIntervalDays] = useState(7);
@@ -54,7 +56,7 @@ export default function B2BSchedulesClient({ schedules, products, locations, sho
     const submit = () => start(async () => {
         setError(null);
         const cleanItems = items.filter(i => i.productId && i.quantity >= 1);
-        if (cleanItems.length === 0) { setError('Add at least one product.'); return; }
+        if (cleanItems.length === 0) { setError(t('errorAtLeastOneProduct')); return; }
         const fd = new FormData();
         if (mode !== 'create') fd.set('id', mode);
         fd.set('name', name);
@@ -69,19 +71,19 @@ export default function B2BSchedulesClient({ schedules, products, locations, sho
     });
 
     const doToggle = (id: string) => start(async () => { const fd = new FormData(); fd.set('id', id); await toggleScheduleActiveAction(fd); window.location.reload(); });
-    const doDelete = (id: string) => start(async () => { if (!confirm('Delete this schedule?')) return; const fd = new FormData(); fd.set('id', id); await deleteScheduleAction(fd); window.location.reload(); });
+    const doDelete = (id: string) => start(async () => { if (!confirm(t('confirmDelete'))) return; const fd = new FormData(); fd.set('id', id); await deleteScheduleAction(fd); window.location.reload(); });
 
     return (
         <div className="space-y-6">
             <div className="flex justify-end">
                 <button onClick={openCreate} className="bg-[#CBA153] hover:bg-[#b08d47] text-white px-4 py-2 text-sm font-medium rounded-md transition inline-flex items-center gap-1.5">
-                    <Plus className="w-4 h-4" /> New schedule
+                    <Plus className="w-4 h-4" /> {t('newSchedule')}
                 </button>
             </div>
 
             {schedules.length === 0 && mode === 'closed' && (
                 <div className="bg-white border border-[#E8E6E1] shadow-sm rounded-xl p-8 text-center text-gray-500 text-sm">
-                    No schedules yet. Create one to auto-place a recurring wholesale order.
+                    {t('emptyState')}
                 </div>
             )}
 
@@ -94,18 +96,18 @@ export default function B2BSchedulesClient({ schedules, products, locations, sho
                                 <div className="flex items-center gap-2">
                                     <p className="text-sm font-medium text-[#2C2A29]">{s.name}</p>
                                     <span className="text-[10px] font-mono text-[#CBA153]">{s.paymentMethod.replace(/_/g, ' ')}</span>
-                                    {!s.active && <span className="text-[10px] font-mono text-amber-600 uppercase tracking-wider">Paused</span>}
+                                    {!s.active && <span className="text-[10px] font-mono text-amber-600 uppercase tracking-wider">{t('paused')}</span>}
                                 </div>
                                 <p className="text-[11px] text-gray-500 font-mono">
-                                    every {s.intervalDays}d · {s.items.reduce((n, i) => n + i.quantity, 0)} units · next {s.nextFireAt.slice(0, 10)}
+                                    {t('scheduleMeta', { days: s.intervalDays, units: s.items.reduce((n, i) => n + i.quantity, 0), next: s.nextFireAt.slice(0, 10) })}
                                     {shopName(s.partnerLocationId) ? ` · → ${shopName(s.partnerLocationId)}` : ''}
                                 </p>
                                 <p className="text-[11px] text-gray-400 truncate">{s.items.map(i => `${i.quantity}× ${productName(i.productId)}`).join(' · ')}</p>
                             </div>
                             <div className="flex items-center gap-1 shrink-0">
-                                <button onClick={() => openEdit(s)} className="p-2 text-gray-400 hover:text-[#2C2A29]" title="Edit"><Pencil className="w-3.5 h-3.5" /></button>
-                                <button onClick={() => doToggle(s.id)} disabled={pending} className="p-2 text-gray-400 hover:text-[#2C2A29]" title={s.active ? 'Pause' : 'Resume'}>{s.active ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}</button>
-                                <button onClick={() => doDelete(s.id)} disabled={pending} className="p-2 text-gray-400 hover:text-red-500" title="Delete"><Trash2 className="w-3.5 h-3.5" /></button>
+                                <button onClick={() => openEdit(s)} className="p-2 text-gray-400 hover:text-[#2C2A29]" title={t('edit')}><Pencil className="w-3.5 h-3.5" /></button>
+                                <button onClick={() => doToggle(s.id)} disabled={pending} className="p-2 text-gray-400 hover:text-[#2C2A29]" title={s.active ? t('pause') : t('resume')}>{s.active ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}</button>
+                                <button onClick={() => doDelete(s.id)} disabled={pending} className="p-2 text-gray-400 hover:text-red-500" title={t('delete')}><Trash2 className="w-3.5 h-3.5" /></button>
                             </div>
                         </div>
 
@@ -118,7 +120,7 @@ export default function B2BSchedulesClient({ schedules, products, locations, sho
             {/* Create form */}
             {mode === 'create' && (
                 <div className="bg-white border border-[#E8E6E1] shadow-sm rounded-xl p-5">
-                    <h2 className="text-lg font-serif text-[#2C2A29] mb-3">New schedule</h2>
+                    <h2 className="text-lg font-serif text-[#2C2A29] mb-3">{t('newSchedule')}</h2>
                     {ScheduleForm()}
                 </div>
             )}
@@ -130,26 +132,26 @@ export default function B2BSchedulesClient({ schedules, products, locations, sho
             <div className="mt-3 pt-3 border-t border-[#E8E6E1] space-y-3">
                 {error && <div className="p-2 bg-red-50 text-red-700 border border-red-200 text-xs rounded">{error}</div>}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div><label className={labelCls}>Name</label><input value={name} onChange={e => setName(e.target.value)} placeholder="Weekly sulguni" className={input} /></div>
-                    <div><label className={labelCls}>Every (days)</label><input type="number" min={1} value={intervalDays} onChange={e => setIntervalDays(parseInt(e.target.value, 10) || 1)} className={input} /></div>
-                    <div><label className={labelCls}>Payment</label>
+                    <div><label className={labelCls}>{t('labelName')}</label><input value={name} onChange={e => setName(e.target.value)} placeholder={t('placeholderName')} className={input} /></div>
+                    <div><label className={labelCls}>{t('labelInterval')}</label><input type="number" min={1} value={intervalDays} onChange={e => setIntervalDays(parseInt(e.target.value, 10) || 1)} className={input} /></div>
+                    <div><label className={labelCls}>{t('labelPayment')}</label>
                         <select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)} className={input}>
                             {NET_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                         </select>
                     </div>
-                    <div><label className={labelCls}>Ship from</label>
+                    <div><label className={labelCls}>{t('labelShipFrom')}</label>
                         <select value={locationId} onChange={e => setLocationId(e.target.value)} className={input}>
-                            <option value="">— Auto —</option>
+                            <option value="">{t('optionAuto')}</option>
                             {locations.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
                         </select>
                     </div>
                     {(shops.length > 0 || lockedShopId) && (
-                        <div><label className={labelCls}>Ship to shop</label>
+                        <div><label className={labelCls}>{t('labelShipToShop')}</label>
                             {lockedShopId ? (
-                                <p className="text-sm text-[#2C2A29] py-2">{shopName(lockedShopId) ?? 'Your shop'} <span className="text-xs text-gray-400">(assigned)</span></p>
+                                <p className="text-sm text-[#2C2A29] py-2">{shopName(lockedShopId) ?? t('yourShop')} <span className="text-xs text-gray-400">{t('assigned')}</span></p>
                             ) : (
                                 <select value={shopId} onChange={e => setShopId(e.target.value)} className={input}>
-                                    <option value="">— None —</option>
+                                    <option value="">{t('optionNone')}</option>
                                     {shops.map(s => <option key={s.id} value={s.id}>{s.label} — {s.city}, {s.state}</option>)}
                                 </select>
                             )}
@@ -157,7 +159,7 @@ export default function B2BSchedulesClient({ schedules, products, locations, sho
                     )}
                 </div>
                 <div>
-                    <label className={labelCls}>Products</label>
+                    <label className={labelCls}>{t('labelProducts')}</label>
                     <div className="space-y-2">
                         {items.map((it, idx) => (
                             <div key={idx} className="flex items-center gap-2">
@@ -169,11 +171,11 @@ export default function B2BSchedulesClient({ schedules, products, locations, sho
                             </div>
                         ))}
                     </div>
-                    <button type="button" onClick={() => setItems([...items, { productId: products[0]?.id ?? '', quantity: 1 }])} className="mt-2 text-xs text-[#CBA153] hover:text-[#2C2A29] inline-flex items-center gap-1"><Plus className="w-3 h-3" /> Add product</button>
+                    <button type="button" onClick={() => setItems([...items, { productId: products[0]?.id ?? '', quantity: 1 }])} className="mt-2 text-xs text-[#CBA153] hover:text-[#2C2A29] inline-flex items-center gap-1"><Plus className="w-3 h-3" /> {t('addProduct')}</button>
                 </div>
                 <div className="flex items-center gap-2">
-                    <button onClick={submit} disabled={pending} className="bg-[#CBA153] hover:bg-[#b08d47] text-white px-4 py-2 text-sm font-medium rounded-md transition disabled:opacity-60">{pending ? 'Saving…' : 'Save schedule'}</button>
-                    <button onClick={() => { setMode('closed'); setError(null); }} className="text-sm text-gray-500 hover:text-[#2C2A29] px-2">Cancel</button>
+                    <button onClick={submit} disabled={pending} className="bg-[#CBA153] hover:bg-[#b08d47] text-white px-4 py-2 text-sm font-medium rounded-md transition disabled:opacity-60">{pending ? t('saving') : t('saveSchedule')}</button>
+                    <button onClick={() => { setMode('closed'); setError(null); }} className="text-sm text-gray-500 hover:text-[#2C2A29] px-2">{t('cancel')}</button>
                 </div>
             </div>
         );

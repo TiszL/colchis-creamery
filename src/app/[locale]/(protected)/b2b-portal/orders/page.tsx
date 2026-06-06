@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { getPartnerContext, getOrgUserIds } from "@/lib/b2b-partner";
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { Package, ArrowRight } from "lucide-react";
 
@@ -14,6 +15,7 @@ function money(s: string | null | undefined): string {
 
 export default async function PartnerOrdersPage({ params }: { params: Promise<{ locale: string }> }) {
     const { locale } = await params;
+    const t = await getTranslations("b2bPortal.orders");
     const session = await getSession();
     if (!session) redirect(`/${locale}/b2b/login`);
     if (session.role !== "B2B_PARTNER" && session.role !== "MASTER_ADMIN") redirect(`/${locale}/`);
@@ -38,15 +40,15 @@ export default async function PartnerOrdersPage({ params }: { params: Promise<{ 
         <div className="max-w-5xl mx-auto space-y-8">
             <header>
                 <h1 className="text-3xl font-serif text-[#2C2A29] mb-1 flex items-center gap-2">
-                    <Package className="w-6 h-6 text-[#CBA153]" /> Order history
+                    <Package className="w-6 h-6 text-[#CBA153]" /> {t('title')}
                 </h1>
-                <p className="text-sm text-gray-500">Every wholesale order you&apos;ve placed.</p>
+                <p className="text-sm text-gray-500">{t('subtitle')}</p>
             </header>
 
             {orders.length === 0 ? (
                 <div className="bg-white border border-[#E8E6E1] shadow-sm rounded-xl p-10 text-center text-gray-500 text-sm">
-                    No orders yet.{" "}
-                    <Link href={`/${locale}/b2b-portal/order`} className="text-[#CBA153] underline">Place your first bulk order →</Link>
+                    {t('noOrdersYet')}{" "}
+                    <Link href={`/${locale}/b2b-portal/order`} className="text-[#CBA153] underline">{t('placeFirstOrder')}</Link>
                 </div>
             ) : (
                 <div className="bg-white border border-[#E8E6E1] shadow-sm rounded-xl divide-y divide-[#E8E6E1] overflow-hidden">
@@ -62,7 +64,7 @@ export default async function PartnerOrdersPage({ params }: { params: Promise<{ 
                                     {(o.partnerLocation || (isOwnerView && o.user?.name)) && (
                                         <p className="text-[10px] text-gray-400 truncate">
                                             {o.partnerLocation ? `→ ${o.partnerLocation.label}` : ""}
-                                            {isOwnerView && o.user?.name ? `${o.partnerLocation ? " · " : ""}by ${o.user.name}` : ""}
+                                            {isOwnerView && o.user?.name ? `${o.partnerLocation ? " · " : ""}${t('placedBy', { name: o.user.name })}` : ""}
                                         </p>
                                     )}
                                 </div>

@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { getPartnerContext } from "@/lib/b2b-partner";
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { stripe } from "@/lib/stripe";
 import B2BAccountClient from "@/components/b2b/B2BAccountClient";
 import { UserCog } from "lucide-react";
@@ -10,6 +11,7 @@ export const dynamic = "force-dynamic";
 
 export default async function PartnerAccountPage({ params }: { params: Promise<{ locale: string }> }) {
     const { locale } = await params;
+    const t = await getTranslations("b2bPortal.account");
     const session = await getSession();
     if (!session) redirect(`/${locale}/b2b/login`);
     if (session.role !== "B2B_PARTNER" && session.role !== "MASTER_ADMIN") redirect(`/${locale}/`);
@@ -26,9 +28,9 @@ export default async function PartnerAccountPage({ params }: { params: Promise<{
     if (!partner) {
         return (
             <div className="max-w-3xl mx-auto">
-                <h1 className="text-3xl font-serif text-[#2C2A29] mb-2 flex items-center gap-2"><UserCog className="w-6 h-6 text-[#CBA153]" /> Account &amp; company</h1>
+                <h1 className="text-3xl font-serif text-[#2C2A29] mb-2 flex items-center gap-2"><UserCog className="w-6 h-6 text-[#CBA153]" /> {t("title")}</h1>
                 <div className="bg-amber-50 border border-amber-200 px-4 py-3 text-amber-800 text-sm rounded-lg mt-4">
-                    Your partner profile isn&apos;t initialized yet. Place your first Resolve net-terms order and your account details will appear here.
+                    {t("notInitialized")}
                 </div>
             </div>
         );
@@ -42,7 +44,7 @@ export default async function PartnerAccountPage({ params }: { params: Promise<{
             paymentMethods = pms.data.map(pm => ({
                 id: pm.id,
                 label: pm.type === "card" && pm.card ? `${pm.card.brand.toUpperCase()} ···· ${pm.card.last4}`
-                    : pm.type === "us_bank_account" && pm.us_bank_account ? `Bank ···· ${pm.us_bank_account.last4}`
+                    : pm.type === "us_bank_account" && pm.us_bank_account ? `${t("bankLabel")} ···· ${pm.us_bank_account.last4}`
                     : pm.type,
             }));
         } catch (e) {
@@ -68,8 +70,8 @@ export default async function PartnerAccountPage({ params }: { params: Promise<{
     return (
         <div className="max-w-4xl mx-auto space-y-8">
             <header>
-                <h1 className="text-3xl font-serif text-[#2C2A29] mb-1 flex items-center gap-2"><UserCog className="w-6 h-6 text-[#CBA153]" /> Account &amp; company</h1>
-                <p className="text-sm text-gray-500">Manage your company profile, resale certificate, credit, and payment methods.</p>
+                <h1 className="text-3xl font-serif text-[#2C2A29] mb-1 flex items-center gap-2"><UserCog className="w-6 h-6 text-[#CBA153]" /> {t("title")}</h1>
+                <p className="text-sm text-gray-500">{t("subtitle")}</p>
             </header>
             <B2BAccountClient profile={profile} locations={locations} paymentMethods={paymentMethods} />
         </div>

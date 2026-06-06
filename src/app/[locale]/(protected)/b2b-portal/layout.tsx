@@ -1,5 +1,6 @@
 import { getSession } from '@/lib/session';
 import { redirect } from 'next/navigation';
+import { getTranslations } from 'next-intl/server';
 import { prisma as db } from '@/lib/db';
 import B2BSidebar from '@/components/b2b/B2BSidebar';
 import { getPartnerContext } from '@/lib/b2b-partner';
@@ -12,6 +13,7 @@ export default async function B2BLayout({
     params: any;
 }) {
     const { locale } = await params;
+    const t = await getTranslations('b2bPortal.layout');
     const session = await getSession();
 
     // Phase 11: replace the stale 'ADMIN' check (never matched — codebase
@@ -41,7 +43,7 @@ export default async function B2BLayout({
         if (membership) redirect(`/${locale}/b2b/login`);
     }
     const isOwner = !ctx || ctx.isOwner;
-    let companyName = user?.companyName || 'Partner';
+    let companyName = user?.companyName || t('partnerFallback');
     if (ctx && !ctx.isOwner) {
         const org = await db.b2bPartner.findUnique({ where: { id: ctx.partnerId }, select: { companyName: true } });
         companyName = org?.companyName || companyName;

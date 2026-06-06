@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
+import { useTranslations } from 'next-intl';
 import { updatePartnerProfileAction, submitResaleCertAction } from '@/app/actions/b2b-account';
 import { Building2, FileCheck, CreditCard, ShieldCheck } from 'lucide-react';
 
@@ -27,6 +28,7 @@ const input = "w-full bg-white border border-[#E8E6E1] text-[#2C2A29] py-2 px-3 
 const labelCls = "block text-[10px] font-bold text-gray-500 mb-1 uppercase tracking-wider";
 
 export default function B2BAccountClient({ profile, locations, paymentMethods }: Props) {
+    const t = useTranslations('b2bPortal.accountForm');
     const [profileMsg, setProfileMsg] = useState<{ ok: boolean; text: string } | null>(null);
     const [certMsg, setCertMsg] = useState<{ ok: boolean; text: string } | null>(null);
     const [savingProfile, startProfile] = useTransition();
@@ -34,33 +36,33 @@ export default function B2BAccountClient({ profile, locations, paymentMethods }:
 
     const onProfile = (fd: FormData) => startProfile(async () => {
         const r = await updatePartnerProfileAction(fd);
-        setProfileMsg(r.ok ? { ok: true, text: 'Saved.' } : { ok: false, text: r.error || 'Failed.' });
+        setProfileMsg(r.ok ? { ok: true, text: t('saved') } : { ok: false, text: r.error || t('failed') });
     });
     const onCert = (fd: FormData) => startCert(async () => {
         const r = await submitResaleCertAction(fd);
-        setCertMsg(r.ok ? { ok: true, text: 'Submitted — staff will review.' } : { ok: false, text: r.error || 'Failed.' });
+        setCertMsg(r.ok ? { ok: true, text: t('certSubmitted') } : { ok: false, text: r.error || t('failed') });
     });
 
     return (
         <div className="space-y-6">
             {/* Company profile */}
             <section className="bg-white border border-[#E8E6E1] shadow-sm rounded-xl p-5">
-                <h2 className="text-lg font-serif text-[#2C2A29] mb-4 flex items-center gap-2"><Building2 className="w-5 h-5 text-[#CBA153]" /> Company profile</h2>
+                <h2 className="text-lg font-serif text-[#2C2A29] mb-4 flex items-center gap-2"><Building2 className="w-5 h-5 text-[#CBA153]" /> {t('companyProfile')}</h2>
                 <form action={onProfile} className="space-y-3">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div><label className={labelCls}>Company name *</label><input name="companyName" required defaultValue={profile.companyName} className={input} /></div>
-                        <div><label className={labelCls}>Phone</label><input name="phone" defaultValue={profile.phone ?? ''} className={input} /></div>
-                        <div className="md:col-span-2"><label className={labelCls}>Business address</label><input name="businessAddress" defaultValue={profile.businessAddress ?? ''} className={input} /></div>
-                        <div><label className={labelCls}>EIN / Tax ID</label><input name="ein" defaultValue={profile.ein ?? ''} className={input} /></div>
-                        <div><label className={labelCls}>Default ship-from</label>
+                        <div><label className={labelCls}>{t('companyName')}</label><input name="companyName" required defaultValue={profile.companyName} className={input} /></div>
+                        <div><label className={labelCls}>{t('phone')}</label><input name="phone" defaultValue={profile.phone ?? ''} className={input} /></div>
+                        <div className="md:col-span-2"><label className={labelCls}>{t('businessAddress')}</label><input name="businessAddress" defaultValue={profile.businessAddress ?? ''} className={input} /></div>
+                        <div><label className={labelCls}>{t('einTaxId')}</label><input name="ein" defaultValue={profile.ein ?? ''} className={input} /></div>
+                        <div><label className={labelCls}>{t('defaultShipFrom')}</label>
                             <select name="defaultFulfillmentLocationId" defaultValue={profile.defaultFulfillmentLocationId ?? ''} className={input}>
-                                <option value="">— Auto (ops decides) —</option>
+                                <option value="">{t('autoOpsDecides')}</option>
                                 {locations.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
                             </select>
                         </div>
                     </div>
                     <div className="flex items-center gap-3">
-                        <button type="submit" disabled={savingProfile} className="bg-[#CBA153] hover:bg-[#b08d47] text-white px-4 py-2 text-sm font-medium rounded-md transition disabled:opacity-60">{savingProfile ? 'Saving…' : 'Save profile'}</button>
+                        <button type="submit" disabled={savingProfile} className="bg-[#CBA153] hover:bg-[#b08d47] text-white px-4 py-2 text-sm font-medium rounded-md transition disabled:opacity-60">{savingProfile ? t('saving') : t('saveProfile')}</button>
                         {profileMsg && <span className={`text-xs ${profileMsg.ok ? 'text-emerald-600' : 'text-red-600'}`}>{profileMsg.text}</span>}
                     </div>
                 </form>
@@ -68,21 +70,21 @@ export default function B2BAccountClient({ profile, locations, paymentMethods }:
 
             {/* Resale certificate */}
             <section className="bg-white border border-[#E8E6E1] shadow-sm rounded-xl p-5">
-                <h2 className="text-lg font-serif text-[#2C2A29] mb-1 flex items-center gap-2"><FileCheck className="w-5 h-5 text-[#CBA153]" /> Resale certificate</h2>
+                <h2 className="text-lg font-serif text-[#2C2A29] mb-1 flex items-center gap-2"><FileCheck className="w-5 h-5 text-[#CBA153]" /> {t('resaleCertificate')}</h2>
                 <p className="text-xs text-gray-500 mb-3">
                     {profile.taxExempt
-                        ? <span className="text-emerald-600 font-medium">✓ Tax-exempt status active.</span>
-                        : 'Submit your resale certificate so staff can grant tax-exempt wholesale pricing.'}
+                        ? <span className="text-emerald-600 font-medium">{t('taxExemptActive')}</span>
+                        : t('resaleCertPrompt')}
                 </p>
                 <form action={onCert} className="space-y-3">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                        <div><label className={labelCls}>Certificate #</label><input name="resaleCertificateNumber" defaultValue={profile.resaleCertificateNumber ?? ''} className={input} /></div>
-                        <div><label className={labelCls}>State</label><input name="resaleCertificateState" maxLength={2} defaultValue={profile.resaleCertificateState ?? ''} className={`${input} uppercase`} /></div>
-                        <div><label className={labelCls}>Expires</label><input type="date" name="resaleCertificateExpiresAt" defaultValue={profile.resaleCertificateExpiresAt ?? ''} className={input} /></div>
+                        <div><label className={labelCls}>{t('certificateNumber')}</label><input name="resaleCertificateNumber" defaultValue={profile.resaleCertificateNumber ?? ''} className={input} /></div>
+                        <div><label className={labelCls}>{t('state')}</label><input name="resaleCertificateState" maxLength={2} defaultValue={profile.resaleCertificateState ?? ''} className={`${input} uppercase`} /></div>
+                        <div><label className={labelCls}>{t('expires')}</label><input type="date" name="resaleCertificateExpiresAt" defaultValue={profile.resaleCertificateExpiresAt ?? ''} className={input} /></div>
                     </div>
-                    <div><label className={labelCls}>Document link (PDF/image URL)</label><input name="resaleCertificateUrl" placeholder="https://…" defaultValue={profile.resaleCertificateUrl ?? ''} className={input} /></div>
+                    <div><label className={labelCls}>{t('documentLink')}</label><input name="resaleCertificateUrl" placeholder="https://…" defaultValue={profile.resaleCertificateUrl ?? ''} className={input} /></div>
                     <div className="flex items-center gap-3">
-                        <button type="submit" disabled={savingCert} className="bg-[#CBA153] hover:bg-[#b08d47] text-white px-4 py-2 text-sm font-medium rounded-md transition disabled:opacity-60">{savingCert ? 'Submitting…' : 'Submit certificate'}</button>
+                        <button type="submit" disabled={savingCert} className="bg-[#CBA153] hover:bg-[#b08d47] text-white px-4 py-2 text-sm font-medium rounded-md transition disabled:opacity-60">{savingCert ? t('submitting') : t('submitCertificate')}</button>
                         {certMsg && <span className={`text-xs ${certMsg.ok ? 'text-emerald-600' : 'text-red-600'}`}>{certMsg.text}</span>}
                     </div>
                 </form>
@@ -91,22 +93,22 @@ export default function B2BAccountClient({ profile, locations, paymentMethods }:
             {/* Credit + payment methods (read-only) */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <section className="bg-white border border-[#E8E6E1] shadow-sm rounded-xl p-5">
-                    <h2 className="text-lg font-serif text-[#2C2A29] mb-3 flex items-center gap-2"><ShieldCheck className="w-5 h-5 text-[#CBA153]" /> Credit</h2>
+                    <h2 className="text-lg font-serif text-[#2C2A29] mb-3 flex items-center gap-2"><ShieldCheck className="w-5 h-5 text-[#CBA153]" /> {t('credit')}</h2>
                     {profile.creditLimitCents != null ? (
                         <div className="text-sm space-y-1">
-                            <div className="flex justify-between"><span className="text-gray-500">Approved limit</span><span className="font-mono text-[#2C2A29]">${(profile.creditLimitCents / 100).toFixed(2)}</span></div>
-                            <div className="flex justify-between"><span className="text-gray-500">Status</span><span className={profile.creditApproved ? 'text-emerald-600' : 'text-amber-600'}>{profile.creditApproved ? 'Approved' : 'Pending'}</span></div>
+                            <div className="flex justify-between"><span className="text-gray-500">{t('approvedLimit')}</span><span className="font-mono text-[#2C2A29]">${(profile.creditLimitCents / 100).toFixed(2)}</span></div>
+                            <div className="flex justify-between"><span className="text-gray-500">{t('status')}</span><span className={profile.creditApproved ? 'text-emerald-600' : 'text-amber-600'}>{profile.creditApproved ? t('approved') : t('pending')}</span></div>
                         </div>
-                    ) : <p className="text-sm text-gray-500">No credit line yet — set on your first net-terms order.</p>}
+                    ) : <p className="text-sm text-gray-500">{t('noCreditLine')}</p>}
                 </section>
                 <section className="bg-white border border-[#E8E6E1] shadow-sm rounded-xl p-5">
-                    <h2 className="text-lg font-serif text-[#2C2A29] mb-3 flex items-center gap-2"><CreditCard className="w-5 h-5 text-[#CBA153]" /> Saved payment methods</h2>
+                    <h2 className="text-lg font-serif text-[#2C2A29] mb-3 flex items-center gap-2"><CreditCard className="w-5 h-5 text-[#CBA153]" /> {t('savedPaymentMethods')}</h2>
                     {paymentMethods.length > 0 ? (
                         <ul className="text-sm space-y-1.5">
                             {paymentMethods.map(pm => <li key={pm.id} className="font-mono text-[#2C2A29]">{pm.label}</li>)}
                         </ul>
-                    ) : <p className="text-sm text-gray-500">No saved cards/bank accounts. Pay by card once to save one.</p>}
-                    <p className="text-[10px] text-gray-400 mt-3">To remove a method, contact sales.</p>
+                    ) : <p className="text-sm text-gray-500">{t('noSavedMethods')}</p>}
+                    <p className="text-[10px] text-gray-400 mt-3">{t('removeMethodHelp')}</p>
                 </section>
             </div>
         </div>

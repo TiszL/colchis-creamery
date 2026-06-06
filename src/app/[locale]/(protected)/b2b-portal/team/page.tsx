@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { getPartnerContext } from "@/lib/b2b-partner";
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { Users } from "lucide-react";
 import B2BTeamClient from "@/components/b2b/B2BTeamClient";
 
@@ -9,6 +10,7 @@ export const dynamic = "force-dynamic";
 
 export default async function PartnerTeamPage({ params }: { params: Promise<{ locale: string }> }) {
     const { locale } = await params;
+    const t = await getTranslations("b2bPortal.team");
     const session = await getSession();
     if (!session) redirect(`/${locale}/b2b/login`);
     const ctx = await getPartnerContext(session.userId);
@@ -32,11 +34,10 @@ export default async function PartnerTeamPage({ params }: { params: Promise<{ lo
         <div className="max-w-4xl mx-auto space-y-8">
             <header>
                 <h1 className="text-3xl font-serif text-[#2C2A29] mb-1 flex items-center gap-2">
-                    <Users className="w-6 h-6 text-[#CBA153]" /> Team
+                    <Users className="w-6 h-6 text-[#CBA153]" /> {t("title")}
                 </h1>
                 <p className="text-sm text-gray-500">
-                    Invite teammates to order on your account. Assign someone to a shop to limit them to that location,
-                    or leave them unassigned to order for any shop. Choose whether each person can see billing.
+                    {t("intro")}
                 </p>
             </header>
             <B2BTeamClient members={members} shops={shops} />

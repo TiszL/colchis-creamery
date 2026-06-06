@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { getPartnerContext } from "@/lib/b2b-partner";
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { Store } from "lucide-react";
 import B2BShopsClient from "@/components/b2b/B2BShopsClient";
 
@@ -9,6 +10,7 @@ export const dynamic = "force-dynamic";
 
 export default async function PartnerShopsPage({ params }: { params: Promise<{ locale: string }> }) {
     const { locale } = await params;
+    const t = await getTranslations("b2bPortal.locations");
     const session = await getSession();
     if (!session) redirect(`/${locale}/b2b/login`);
     const ctx = await getPartnerContext(session.userId);
@@ -30,11 +32,10 @@ export default async function PartnerShopsPage({ params }: { params: Promise<{ l
         <div className="max-w-4xl mx-auto space-y-8">
             <header>
                 <h1 className="text-3xl font-serif text-[#2C2A29] mb-1 flex items-center gap-2">
-                    <Store className="w-6 h-6 text-[#CBA153]" /> My shops
+                    <Store className="w-6 h-6 text-[#CBA153]" /> {t('title')}
                 </h1>
                 <p className="text-sm text-gray-500">
-                    Add the locations you order for. Pick a shop when placing an order or setting up a recurring schedule —
-                    its address fills the ship-to automatically. Mark a shop as a separate billing entity if you invoice it on its own.
+                    {t('intro')}
                 </p>
             </header>
             <B2BShopsClient shops={shops} />

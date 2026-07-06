@@ -298,22 +298,20 @@ export async function createCheckoutSession(input: CheckoutInput): Promise<Check
                 },
             });
 
-            // OrderItem rows (one per cart line), indexed by productId for fulfillment wiring
-            const orderItemByProductId = new Map<string, string>();
-            for (const item of input.items) {
-                const product = productMap.get(item.productId)!;
-                const oi = await tx.orderItem.create({
-                    data: {
-                        orderId: newOrder.id,
-                        productId: item.productId,
-                        quantity: item.quantity,
-                        unitPrice: product.priceB2c,
-                    },
-                });
-                orderItemByProductId.set(item.productId, oi.id);
-            }
+            // OrderItem rows batched into ONE statement (createManyAndReturn gives
+            // the ids back for fulfillment wiring) — fewer round-trips inside the
+            // transaction = less exposure to cold-Neon latency.
+            const orderItems = await tx.orderItem.createManyAndReturn({
+                data: input.items.map(item => ({
+                    orderId: newOrder.id,
+                    productId: item.productId,
+                    quantity: item.quantity,
+                    unitPrice: productMap.get(item.productId)!.priceB2c,
+                })),
+            });
+            const orderItemByProductId = new Map(orderItems.map(oi => [oi.productId, oi.id]));
 
-            // OrderFulfillment + OrderFulfillmentItem rows per group
+            // OrderFulfillment per group (needs its id), items batched per fulfillment.
             for (const group of plan.groups) {
                 const quote = finalQuotes.find(q => q.locationId === group.locationId)!;
                 const fulfillment = await tx.orderFulfillment.create({
@@ -326,21 +324,25 @@ export async function createCheckoutSession(input: CheckoutInput): Promise<Check
                         packagingType: quote.packagingType,
                     },
                 });
-                for (const item of group.items) {
-                    const orderItemId = orderItemByProductId.get(item.productId);
-                    if (!orderItemId) continue; // defensive — orderItem always exists by construction
-                    await tx.orderFulfillmentItem.create({
-                        data: {
-                            fulfillmentId: fulfillment.id,
-                            orderItemId,
-                            quantity: item.quantity,
-                        },
+                const fulfillmentItems = group.items
+                    .map(item => ({ orderItemId: orderItemByProductId.get(item.productId), quantity: item.quantity }))
+                    .filter((fi): fi is { orderItemId: string; quantity: number } => !!fi.orderItemId);
+                if (fulfillmentItems.length > 0) {
+                    await tx.orderFulfillmentItem.createMany({
+                        data: fulfillmentItems.map(fi => ({ fulfillmentId: fulfillment.id, ...fi })),
                     });
                 }
             }
 
             return { id: newOrder.id };
-        }, { timeout: 15_000 }); // cold-Neon-safe: default 5s isn't enough for multi-item orders
+        }, {
+            timeout: 30_000, // cold-Neon-safe: default 5s isn't enough for multi-item orders
+            // Prisma's DEFAULT maxWait is 2s — the time allowed to ACQUIRE the tx
+            // connection. On a cold Vercel lambda the pooler handshake alone can
+            // exceed that, throwing before the transaction even starts ("Could not
+            // create your order" with nothing wrong in the order itself).
+            maxWait: 10_000,
+        });
     } catch (e) {
         await releaseStock(reservationItems);
         console.error('[checkout] Order transaction failed:', e);

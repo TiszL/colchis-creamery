@@ -14,6 +14,10 @@ import { Prisma } from '@prisma/client';
 // few cart items doing sequential findUnique + update, that can exceed budget.
 // 15s is conservative — actual happy-path latency is sub-second once warm.
 const TX_TIMEOUT_MS = 15_000;
+// Prisma's default maxWait (time to ACQUIRE the tx connection) is only 2s — a
+// cold Vercel lambda's pooler handshake can exceed that and fail the checkout
+// before the transaction even starts. Shared by all transactions below.
+const TX_MAX_WAIT_MS = 10_000;
 
 export type ReservationItem = {
     productId: string;
@@ -76,7 +80,7 @@ export async function reserveStock(items: ReservationItem[]): Promise<ReserveRes
             // Serializable isolation makes the read-then-increment atomic across
             // concurrent checkouts so two shoppers can't both pass the availability
             // check and oversell. Postgres aborts the loser with P2034 (handled below).
-        }, { timeout: TX_TIMEOUT_MS, isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+        }, { timeout: TX_TIMEOUT_MS, maxWait: TX_MAX_WAIT_MS, isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
         return { ok: true };
     } catch (e) {
         if (e instanceof ReservationError) {
@@ -113,7 +117,7 @@ export async function releaseStock(items: ReservationItem[]): Promise<void> {
             }
             await tx.stock.update({ where: { id: stock.id }, data: { reservedQuantity: newReserved } });
         }
-    }, { timeout: TX_TIMEOUT_MS });
+    }, { timeout: TX_TIMEOUT_MS, maxWait: TX_MAX_WAIT_MS });
 }
 
 /**
@@ -162,7 +166,7 @@ export async function commitStock(
         // the window where a crash leaves stock committed but the order UNPAID
         // (a Stripe retry would then double-decrement).
         if (opts.onCommitted) await opts.onCommitted(tx);
-    }, { timeout: TX_TIMEOUT_MS });
+    }, { timeout: TX_TIMEOUT_MS, maxWait: TX_MAX_WAIT_MS });
 }
 
 class ReservationError extends Error {
@@ -232,5 +236,5 @@ export async function restoreStock(
                 },
             });
         }
-    }, { timeout: TX_TIMEOUT_MS });
+    }, { timeout: TX_TIMEOUT_MS, maxWait: TX_MAX_WAIT_MS });
 }

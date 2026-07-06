@@ -184,6 +184,26 @@ function cacheAndReturn(key: string, quote: ChannelQuote | null): ChannelQuote |
 
 /* ─── Single quote ──────────────────────────────────────────────────────── */
 
+/** Location fields getShippingQuote needs — lets planFulfillment pass its
+ *  already-loaded rows instead of re-querying per channel (a checkout with 4-5
+ *  candidate channels used to fire 4-5 extra findUniques; under a starved
+ *  connection pool those all threw and the customer saw ZERO delivery options). */
+export type PreloadedQuoteLocation = {
+    id: string; name: string;
+    latitude: number | null; longitude: number | null;
+    phone: string | null;
+    // Nullability mirrors the Location schema (addressLine1/city/state/postalCode/
+    // country are required columns; only line2 + phone are optional).
+    addressLine1: string; addressLine2: string | null;
+    city: string; state: string; postalCode: string; country: string;
+};
+export type PreloadedQuoteChannel = {
+    deliveryMethod: DeliveryMethod;
+    radiusMiles: number | null; maxDriveHours: number | null;
+    flatFee: string | null; perMileFee: string | null;
+    priceMultiplier: number;
+};
+
 /**
  * Compute a single (location, channel) quote for a customer.
  *
@@ -215,6 +235,10 @@ export async function getShippingQuote(opts: {
         fall back to LocationChannel.flatFee. Logged-in users' phone is plumbed
         through from the shipping-plan action via session. */
     customerPhone?: string;
+    /** Already-loaded location + channel rows (planFulfillment has them from its
+        own query). When provided, the per-channel findUnique is skipped entirely
+        — flat-fee/pickup quotes become pure computation that can't fail on DB. */
+    preloaded?: { location: PreloadedQuoteLocation; channel: PreloadedQuoteChannel };
 }): Promise<ChannelQuote | null> {
     // Phase 8.x perf fix: check the in-memory cache before doing any DB or
     // carrier work. Cached null IS a valid result (means "no quote possible").
@@ -224,21 +248,35 @@ export async function getShippingQuote(opts: {
         return cached.quote;
     }
 
-    const loc = await prisma.location.findUnique({
-        where: { id: opts.locationId },
-        include: { channels: { where: { deliveryMethod: opts.deliveryMethod, isActive: true } } },
-    });
-    if (!loc || loc.latitude === null || loc.longitude === null) {
-        quoteCache.set(cacheKey, { quote: null, expiresAt: Date.now() + QUOTE_CACHE_TTL_MS });
-        return null;
-    }
-    const lc = loc.channels[0];
-    if (!lc) {
-        quoteCache.set(cacheKey, { quote: null, expiresAt: Date.now() + QUOTE_CACHE_TTL_MS });
-        return null;
+    let loc: PreloadedQuoteLocation;
+    let lc: PreloadedQuoteChannel;
+    if (opts.preloaded) {
+        loc = opts.preloaded.location;
+        lc = opts.preloaded.channel;
+        if (loc.latitude === null || loc.longitude === null) {
+            quoteCache.set(cacheKey, { quote: null, expiresAt: Date.now() + QUOTE_CACHE_TTL_MS });
+            return null;
+        }
+    } else {
+        const dbLoc = await prisma.location.findUnique({
+            where: { id: opts.locationId },
+            include: { channels: { where: { deliveryMethod: opts.deliveryMethod, isActive: true } } },
+        });
+        if (!dbLoc || dbLoc.latitude === null || dbLoc.longitude === null) {
+            quoteCache.set(cacheKey, { quote: null, expiresAt: Date.now() + QUOTE_CACHE_TTL_MS });
+            return null;
+        }
+        const dbLc = dbLoc.channels[0];
+        if (!dbLc) {
+            quoteCache.set(cacheKey, { quote: null, expiresAt: Date.now() + QUOTE_CACHE_TTL_MS });
+            return null;
+        }
+        loc = dbLoc;
+        lc = dbLc;
     }
 
-    const distance = distanceMiles(opts.customerLat, opts.customerLng, loc.latitude, loc.longitude);
+    // Both branches above guarantee coords are non-null by this point.
+    const distance = distanceMiles(opts.customerLat, opts.customerLng, loc.latitude!, loc.longitude!);
 
     // In-store channels are zero-cost regardless of LocationChannel.flatFee config
     const isInStore = opts.deliveryMethod === 'IN_STORE_PICKUP' || opts.deliveryMethod === 'IN_STORE_DINE_IN';
@@ -512,6 +550,9 @@ export async function planFulfillment(
         items: FulfillmentGroup['items'];
         // Channels eligible for ALL items in this group + customer reachability
         candidateChannels: Set<DeliveryMethod>;
+        // Full loaded location row (incl. active channels) — passed into quotes
+        // as preloaded data so quoting never re-queries the DB per channel.
+        location: PreloadedQuoteLocation & { channels: (PreloadedQuoteChannel & { deliveryMethod: DeliveryMethod })[] };
     };
     const groups = new Map<string, GroupAccumulator>();
     const undeliverable: FulfillmentPlan['undeliverableItems'] = [];
@@ -582,6 +623,7 @@ export async function planFulfillment(
                     locationName: loc.name,
                     items: [],
                     candidateChannels: new Set(reachableHere),
+                    location: loc,
                 };
                 groups.set(groupKey, acc);
             } else {
@@ -642,23 +684,36 @@ export async function planFulfillment(
         // Phase 8.x perf fix: previously this loop awaited each carrier call
         // sequentially. With DoorDash (~2-4s) + Uber Direct OAuth+quote (~3-7s
         // cold) the total stacked to 10+ seconds per group. Promise.allSettled
-        // runs them concurrently and ignores failures.
+        // runs them concurrently. Preloaded location/channel rows mean the
+        // flat-fee + in-store paths are pure computation (no DB) — under a
+        // starved connection pool they used to ALL throw, leaving the checkout
+        // group with zero delivery options.
+        const channelList = Array.from(acc.candidateChannels);
         const settled = await Promise.allSettled(
-            Array.from(acc.candidateChannels).map(deliveryMethod => getShippingQuote({
-                locationId: acc.locationId,
-                deliveryMethod,
-                customerLat,
-                customerLng,
-                packagingMode: representativePackagingMode,
-                orderValueCents,
-                customerAddress,
-                customerAddressInfo,
-                customerPhone,
-            })),
+            channelList.map(deliveryMethod => {
+                const channelRow = acc.location.channels.find(c => c.deliveryMethod === deliveryMethod);
+                return getShippingQuote({
+                    locationId: acc.locationId,
+                    deliveryMethod,
+                    customerLat,
+                    customerLng,
+                    packagingMode: representativePackagingMode,
+                    orderValueCents,
+                    customerAddress,
+                    customerAddressInfo,
+                    customerPhone,
+                    preloaded: channelRow ? { location: acc.location, channel: channelRow } : undefined,
+                });
+            }),
         );
         const quotes: ChannelQuote[] = [];
-        for (const r of settled) {
+        settled.forEach((r, i) => {
             if (r.status === 'fulfilled' && r.value) quotes.push(r.value);
+            // Failures must not be invisible — they silently strip customer options.
+            else if (r.status === 'rejected') console.error(`[shipping] quote failed for ${channelList[i]} @ ${acc.locationName}:`, r.reason);
+        });
+        if (quotes.length === 0 && channelList.length > 0) {
+            console.error(`[shipping] ALL quotes failed for group ${acc.locationName} (candidates: ${channelList.join(', ')}) — checkout will show no delivery options for it`);
         }
         // Sort: cheapest first, then fastest ETA
         quotes.sort((a, b) => a.shippingCost - b.shippingCost || (a.etaMinutes ?? 9999) - (b.etaMinutes ?? 9999));

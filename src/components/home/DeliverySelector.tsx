@@ -45,22 +45,29 @@ type ParsedGeocode = {
   lat: number;
   lng: number;
   formatted: string;
+  /** Street line ("123 Main St") — empty for ZIP-centroid geocodes. */
+  addressLine1: string;
   city: string;
   state: string;
   postalCode: string;
+  googlePlaceId: string;
 };
 
 function parseGeocode(result: google.maps.GeocoderResult): ParsedGeocode {
   const comps = result.address_components || [];
   const get = (type: string) => comps.find((c) => c.types.includes(type))?.long_name || "";
   const getShort = (type: string) => comps.find((c) => c.types.includes(type))?.short_name || "";
+  const streetNumber = get("street_number");
+  const route = get("route");
   return {
     lat: result.geometry.location.lat(),
     lng: result.geometry.location.lng(),
     formatted: result.formatted_address || "",
+    addressLine1: [streetNumber, route].filter(Boolean).join(" "),
     city: get("locality") || get("postal_town") || get("sublocality") || get("administrative_area_level_2") || "",
     state: getShort("administrative_area_level_1") || "",
     postalCode: get("postal_code") || "",
+    googlePlaceId: result.place_id || "",
   };
 }
 
@@ -73,7 +80,11 @@ function writeGuestAddress(p: ParsedGeocode) {
         formatted: p.formatted,
         lat: p.lat,
         lng: p.lng,
-        googlePlaceId: "",
+        googlePlaceId: p.googlePlaceId,
+        // addressLine1 may be empty for a ZIP-centroid geocode — checkout's
+        // component validation will then prompt for a full street address,
+        // while availability (lat/lng-driven) works immediately.
+        ...(p.addressLine1 ? { addressLine1: p.addressLine1 } : {}),
         city: p.city,
         state: p.state,
         postalCode: p.postalCode,
@@ -158,7 +169,14 @@ function DeliveryBox({ linkPrefix }: { linkPrefix: string }) {
         return;
       }
       writeGuestAddress(p);
-      setSelectedLocationId(r.id); // writes cookie + localStorage → header LocationPicker updates
+      // Only flip the site-wide selected location when a bakery actually serves
+      // the address. For out-of-range customers, silently switching to the
+      // NATIONAL_SHIP warehouse would empty /bakery (its catalog is scoped to
+      // the selected location) — instead we show the ships-nationwide status
+      // below and let them opt into "Ship to home" via the header picker.
+      if (r.inServiceArea) {
+        setSelectedLocationId(r.id); // writes cookie + localStorage → header LocationPicker updates
+      }
       setResolved(r);
       setMessage(null);
     },

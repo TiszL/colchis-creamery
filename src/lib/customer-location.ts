@@ -48,7 +48,10 @@ export async function getSelectedLocation(): Promise<SelectedLocation | null> {
 export function productCatalogWhereForLocation(loc: SelectedLocation | null) {
     if (!loc) return {};
     return {
-        stocks: { some: { locationId: loc.id } },
+        // Phase 9c: respect the per-location menu toggle — a stock row the
+        // location manager disabled must not surface the product publicly
+        // (matches the *-availability actions, which filter isEnabled too).
+        stocks: { some: { locationId: loc.id, isEnabled: true } },
         salesChannel: { in: loc.allowsChannels },
     };
 }

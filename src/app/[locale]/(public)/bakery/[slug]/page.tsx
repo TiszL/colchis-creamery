@@ -8,7 +8,8 @@ import BakeryPdpClient from "@/components/bakery/BakeryPdpClient";
 import { getSession } from "@/lib/session";
 import { getMyAddresses } from "@/app/actions/addresses";
 import type { ActiveAddress } from "@/components/bakery/AddressManager";
-import { type DeliveryMethod } from "@prisma/client";
+import { DeliveryMethod, LocationType } from "@prisma/client";
+import { offeredChannelsForProduct } from "@/lib/offered-channels";
 
 // Phase 9b: bakery section identified via Category slug, not ProductKind.
 const HOT_CATEGORY_SLUG = 'hot-pastries';
@@ -73,9 +74,15 @@ export default async function BakeryPdp({ params }: BakeryPdpProps) {
   const allImages = [product.imageUrl, ...(product.images || [])].filter(Boolean);
   const allVideos = (product.videoUrls || []).filter(Boolean);
 
-  // All channels this product is configured for (server-rendered). BakeryPdpClient
-  // filters them against the customer's address once it loads on the client.
-  const offeredChannels = [] as DeliveryMethod[];
+  // All delivery methods this product can be fulfilled through (server-rendered),
+  // derived from the locations that carry it (post-Phase-8a: methods live on the
+  // location, not the product). BakeryPdpClient dims entries the customer's
+  // address can't reach once availability resolves client-side. UPS is excluded
+  // to mirror bakery-availability.ts — bakery never ships nationwide.
+  const offeredChannels = await offeredChannelsForProduct(
+    { id: product.id, salesChannel: product.salesChannel, isMadeToOrder: product.isMadeToOrder },
+    { locationType: LocationType.BAKERY, exclude: [DeliveryMethod.UPS_2DAY] },
+  );
 
   // Prime initial address for logged-in users so the client doesn't flicker.
   const session = await getSession();

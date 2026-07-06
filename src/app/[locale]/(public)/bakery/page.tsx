@@ -7,6 +7,8 @@ import { getTranslations } from "next-intl/server";
 import { getPrimaryLocation } from "@/lib/business-location";
 import { getSelectedLocation, productCatalogWhereForLocation } from "@/lib/customer-location";
 import { CategoryChips } from "@/components/shop/CategoryChips";
+import { offeredChannelsByProduct } from "@/lib/offered-channels";
+import { DeliveryMethod, LocationType } from "@prisma/client";
 
 // Phase 9b: was ProductKind.BAKERY_HOT / BAKERY_FROZEN. Now driven by Category slug.
 const HOT_CATEGORY_SLUG = 'hot-pastries';
@@ -129,6 +131,16 @@ export default async function BakeryPage({ params, searchParams }: BakeryPagePro
       orderBy: [{ productCategory: { sortOrder: 'asc' } }, { name: 'asc' }],
     });
 
+    // Server-known delivery methods per product (renders the dine-in-only /
+    // out-of-range card states before address-driven availability resolves).
+    // Derived from the locations that carry each product — post-Phase-8a the
+    // methods live on the location, not the product. UPS excluded to mirror
+    // bakery-availability.ts.
+    const offeredByProduct = await offeredChannelsByProduct(
+      bakeryProducts.map(p => ({ id: p.id, salesChannel: p.salesChannel, isMadeToOrder: p.isMadeToOrder })),
+      { locationType: LocationType.BAKERY, exclude: [DeliveryMethod.UPS_2DAY] },
+    );
+
     const mapped = bakeryProducts.map(p => ({
       id: p.id,
       sku: p.sku,
@@ -142,9 +154,7 @@ export default async function BakeryPage({ params, searchParams }: BakeryPagePro
       imageUrl: p.imageUrl,
       isMadeToOrder: p.isMadeToOrder,
       isCartOrderable: p.isCartOrderable,
-      // Server-known channels for the product (used to render dine-in-only state
-      // before address-driven availability resolves — kills the flicker).
-      offeredChannels: [],
+      offeredChannels: offeredByProduct.get(p.id) ?? [],
     }));
 
     if (activeCat) {

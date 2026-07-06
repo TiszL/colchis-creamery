@@ -9,7 +9,8 @@ import CreameryDeliveryOptions from "@/components/shop/CreameryDeliveryOptions";
 import { getSession } from "@/lib/session";
 import { getMyAddresses } from "@/app/actions/addresses";
 import type { ActiveAddress } from "@/components/bakery/AddressManager";
-import type { DeliveryMethod } from "@prisma/client";
+import { DeliveryMethod } from "@prisma/client";
+import { offeredChannelsForProduct } from "@/lib/offered-channels";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://colchisfood.com';
 
@@ -82,7 +83,15 @@ export default async function ProductPage({ params }: ProductPageProps) {
       };
     }
   }
-  const offeredChannels = [] as DeliveryMethod[];
+  // Delivery methods this product can be fulfilled through, derived from the
+  // locations that carry it (post-Phase-8a: methods live on the location).
+  // Dine-in excluded to mirror creamery-availability.ts — creamery is taken
+  // home, not eaten on premise. All active location types considered (the cold
+  // warehouse legitimately offers UPS 2-day for creamery SKUs).
+  const offeredChannels = await offeredChannelsForProduct(
+    { id: product.id, salesChannel: product.salesChannel, isMadeToOrder: product.isMadeToOrder },
+    { exclude: [DeliveryMethod.IN_STORE_DINE_IN] },
+  );
 
   // 301 redirect UUID URLs to slug URLs
   const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

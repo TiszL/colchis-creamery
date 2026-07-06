@@ -485,6 +485,23 @@ export default function CheckoutClient({
                                                 </div>
                                             )}
                                             <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                                {/* Quote round produced nothing (transient carrier/DB failure) —
+                                                    give the customer a visible retry instead of a silent dead-end
+                                                    with a permanently disabled Place Order. */}
+                                                {g.availableChannels.length === 0 && !planning && (
+                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', padding: '12px 14px', background: '#fff', border: '1px solid #B96A3D55' }}>
+                                                        <span style={{ fontFamily: 'var(--font-sans)', fontSize: 13, color: '#1F3026' }}>
+                                                            We couldn&apos;t load delivery options for this location just now.
+                                                        </span>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => refetchPlan()}
+                                                            style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.24em', textTransform: 'uppercase', background: '#1F3026', color: '#F5F0E6', border: 'none', padding: '10px 16px', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                                                        >
+                                                            Try again
+                                                        </button>
+                                                    </div>
+                                                )}
                                                 {g.availableChannels.map(quote => {
                                                     const selected = selectedChannels[g.locationId] === quote.deliveryMethod;
                                                     const eta =

@@ -1037,7 +1037,12 @@ enum DeliveryMethod {
   IN_STORE_DINE_IN       // customer eats at the bakery (e.g. hot khachapuri)
   MANUAL_DISPATCH        // B2B 3PL/freight booked manually by ops (Phase 6)
 
-  @@map("DeliveryMethod")
+  // Phase 1h renamed this enum in TS only — the Postgres type kept its original
+  // name for zero-data-migration compat, so the map MUST target that name.
+  // (It briefly said @@map("DeliveryMethod") — a self-referential no-op that made
+  // every WRITE cast to a nonexistent type: PG 42704 on all order creation.
+  // Reads never noticed because label translation doesn't cast the type name.)
+  @@map("FulfillmentChannel")
 }
 
 model Location {

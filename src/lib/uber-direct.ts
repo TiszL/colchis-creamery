@@ -211,6 +211,12 @@ export type UberCreateDeliveryRequest = {
     items: { name: string; quantity: number; description?: string }[];
     /** Optional quote_id from a prior uberCreateQuote() — locks in the price. */
     quoteId?: string;
+    /** KDS — when the kitchen will have the order handoff-ready
+     *  (`pickup_ready_dt`, RFC3339). Uber times courier arrival to this.
+     *  Omit = ASAP dispatch. */
+    pickupReadyAt?: Date;
+    /** What the courier does when the customer is unreachable at dropoff. */
+    undeliverableAction?: 'leave_at_door' | 'return';
 };
 
 export type UberCreateDeliveryResponse = {
@@ -243,6 +249,9 @@ export async function uberCreateDelivery(
             manifest_reference: req.externalOrderId,
             manifest_total_value: req.orderValueCents,
             quote_id: req.quoteId,
+            // KDS: kitchen-readiness time — courier arrival converges with this.
+            ...(req.pickupReadyAt ? { pickup_ready_dt: req.pickupReadyAt.toISOString() } : {}),
+            ...(req.undeliverableAction ? { undeliverable_action: req.undeliverableAction } : {}),
         };
         const res = await uberRequest('/deliveries', {
             method: 'POST',

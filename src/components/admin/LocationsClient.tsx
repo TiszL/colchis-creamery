@@ -33,6 +33,10 @@ type LocationRow = {
     hours: unknown;
     isActive: boolean;
     notes: string | null;
+    // Kitchen dispatch (KDS) — prep time drives courier pickup_ready timing;
+    // notificationEmail receives new-order alerts (falls back to global).
+    prepMinutes: number;
+    notificationEmail: string | null;
     // Phase 10 display fields — drive every public address surface
     isPrimary: boolean;
     showOnContactPage: boolean;
@@ -548,6 +552,10 @@ function LocationDrawer({
     const [isActive, setIsActive] = useState(location?.isActive ?? true);
     const [notes, setNotes] = useState(location?.notes || '');
 
+    // Kitchen dispatch settings (KDS)
+    const [prepMinutes, setPrepMinutes] = useState<string>(String(location?.prepMinutes ?? 25));
+    const [notificationEmail, setNotificationEmail] = useState(location?.notificationEmail || '');
+
     // Phase 10 display-on-public-site fields. Read by the homepage Visit block,
     // the public footer, the contact-page address card + map, and JSON-LD.
     const [showOnContactPage, setShowOnContactPage] = useState(location?.showOnContactPage ?? true);
@@ -656,6 +664,11 @@ function LocationDrawer({
             catch { setError('Hours JSON is invalid — fix or clear it'); return; }
         }
 
+        const prepMins = parseInt(prepMinutes, 10);
+        if (!Number.isFinite(prepMins) || prepMins < 5 || prepMins > 120) {
+            setError('Prep minutes must be between 5 and 120'); return;
+        }
+
         const fd = new FormData();
         if (location?.id) fd.set('id', location.id);
         fd.set('type', type);
@@ -673,6 +686,9 @@ function LocationDrawer({
         fd.set('hoursJson', hoursJson);
         if (isActive) fd.set('isActive', 'on');
         fd.set('notes', notes);
+        // Kitchen dispatch settings
+        fd.set('prepMinutes', String(prepMins));
+        fd.set('notificationEmail', notificationEmail);
         // Phase 10 display fields
         if (showOnContactPage) fd.set('showOnContactPage', 'on');
         fd.set('displayDescription', displayDescription);
@@ -842,6 +858,23 @@ function LocationDrawer({
                         <input type="checkbox" checked={isActive} onChange={e => setIsActive(e.target.checked)} className="accent-[#B96A3D]" />
                         Active (eligible for new orders)
                     </label>
+                </div>
+
+                {/* Kitchen dispatch settings */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                        <label className="block text-[10px] font-bold text-gray-500 mb-1 uppercase tracking-wider">Prep minutes</label>
+                        <input type="number" min={5} max={120} value={prepMinutes} onChange={e => setPrepMinutes(e.target.value)}
+                            className="w-full bg-[#161616] border border-[#B96A3D22] text-white py-2 px-3 focus:outline-none focus:border-[#B96A3D] text-sm" />
+                        <p className="text-[9px] text-gray-600 mt-1">Kitchen time from Accept to handoff-ready; drives courier pickup timing.</p>
+                    </div>
+                    <div>
+                        <label className="block text-[10px] font-bold text-gray-500 mb-1 uppercase tracking-wider">Notification email</label>
+                        <input type="email" value={notificationEmail} onChange={e => setNotificationEmail(e.target.value)}
+                            placeholder="orders@example.com"
+                            className="w-full bg-[#161616] border border-[#B96A3D22] text-white py-2 px-3 focus:outline-none focus:border-[#B96A3D] text-sm" />
+                        <p className="text-[9px] text-gray-600 mt-1">New-order alerts for this location; falls back to the global bakery email.</p>
+                    </div>
                 </div>
 
                 {/* Hours JSON */}

@@ -1,7 +1,7 @@
 import { getSession } from '@/lib/session';
 import { prisma } from '@/lib/db';
 import Link from 'next/link';
-import { Package, TrendingUp, Users, ShoppingCart, FileText, AlertCircle, Star, BookOpen, ArrowRight, MessageCircle } from 'lucide-react';
+import { Package, TrendingUp, Users, ShoppingCart, FileText, AlertCircle, Star, BookOpen, ArrowRight, MessageCircle, ChefHat } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
@@ -95,6 +95,21 @@ export default async function StaffPortalDashboard({ params }: { params: any }) 
 
     const visibleActions = quickActions.filter(a => a.roles.includes(session?.role || ''));
 
+    // KDS — per-location roles (UserLocation) are independent of the global
+    // role, so a staffer assigned to a bakery gets direct links to its live
+    // order queue here (previously the URL had to be shared out-of-band).
+    const locationRoles = session?.userId
+        ? await prisma.userLocation.findMany({
+            where: { userId: session.userId },
+            include: { location: { select: { id: true, name: true } } },
+            orderBy: { createdAt: 'asc' },
+        })
+        : [];
+    // Dedupe by location (a user can hold multiple roles at one location).
+    const locationLinks = Array.from(
+        new Map(locationRoles.map(lr => [lr.location.id, lr.location])).values(),
+    );
+
     return (
         <div className="space-y-8">
             {/* Welcome */}
@@ -122,6 +137,33 @@ export default async function StaffPortalDashboard({ params }: { params: any }) 
                     </div>
                 ))}
             </div>
+
+            {/* Your kitchen locations — live order queues (KDS) */}
+            {locationLinks.length > 0 && (
+                <div>
+                    <h2 className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-3">Your locations</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {locationLinks.map(loc => (
+                            <Link
+                                key={loc.id}
+                                href={`/${locale}/location-portal/${loc.id}/orders`}
+                                className="bg-[#161616] p-5 border border-[#B96A3D]/30 hover:border-[#B96A3D] transition-all group flex items-center justify-between gap-4"
+                            >
+                                <div className="flex items-center gap-3 min-w-0">
+                                    <div className="w-10 h-10 bg-[#B96A3D]/10 flex items-center justify-center shrink-0">
+                                        <ChefHat className="w-5 h-5 text-[#B96A3D]" />
+                                    </div>
+                                    <div className="min-w-0">
+                                        <h3 className="text-white font-bold truncate">{loc.name}</h3>
+                                        <p className="text-gray-500 text-xs">Live order queue →</p>
+                                    </div>
+                                </div>
+                                <ArrowRight className="w-4 h-4 text-gray-600 group-hover:text-[#B96A3D] transition-colors shrink-0" />
+                            </Link>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             {/* Quick Actions */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

@@ -1024,3 +1024,109 @@ export async function sendOrderConfirmation(order: OrderForEmail) {
     return { success: false, error: err instanceof Error ? err.message : 'unknown error' };
   }
 }
+
+// ─── 8. New-order kitchen alert (kitchen-driven dispatch) ───────────────────
+//
+// Sent from the Stripe webhook after stock commit — one email per location
+// carrying kitchen legs (DoorDash/Uber/own delivery/pickup/dine-in). Points
+// staff at the location portal's live order queue, where Accept books the
+// courier. Best-effort: the webhook catches send failures and continues.
+
+export async function sendNewOrderKitchenEmail(opts: {
+  to: string;
+  orderId: string;
+  locationId: string;
+  locationName: string;
+  items: { name: string; quantity: number }[];
+  deliveryMethods: string[];
+  customerName: string;
+  customerPhone: string | null;
+  scheduledFor: Date | null;
+}) {
+  const shortId = opts.orderId.slice(0, 8).toUpperCase();
+  const itemCount = opts.items.reduce((sum, it) => sum + it.quantity, 0);
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+  const queueUrl = `${siteUrl}/location-portal/${opts.locationId}/orders`;
+
+  const scheduledLine = opts.scheduledFor
+    ? opts.scheduledFor.toLocaleString('en-US', {
+        weekday: 'short', month: 'short', day: 'numeric',
+        hour: 'numeric', minute: '2-digit',
+        timeZone: 'America/New_York',
+      })
+    : null;
+
+  const itemRows = opts.items.map((it, i) => `
+                <tr>
+                  <td style="padding:10px 0;font-family:'Georgia',serif;font-size:15px;color:${C.forest};${i > 0 ? `border-top:1px solid ${C.forest}10;` : ''}">
+                    <span style="font-family:'Courier New',monospace;font-size:12px;letter-spacing:1px;color:${C.accent2};margin-right:8px;">${it.quantity} ×</span>
+                    ${escHtml(it.name)}
+                  </td>
+                </tr>`).join('');
+
+  try {
+    const { data, error } = await resend.emails.send({
+      from: getFrom(),
+      to: [opts.to],
+      subject: `New order #${shortId} — ${itemCount} item(s)`,
+      html: wrap(`
+          ${sealHead('New Order')}
+
+          <tr>
+            <td style="background:${C.cream2};padding:44px 48px 20px;">
+              <p style="margin:0 0 8px;font-family:'Courier New',monospace;font-size:10px;letter-spacing:3px;color:${C.accent2};text-transform:uppercase;">
+                Order #${shortId} · ${escHtml(opts.locationName)}
+              </p>
+              <h1 style="margin:0;font-family:'Georgia',serif;font-size:28px;font-weight:300;color:${C.forest};line-height:1.2;">
+                ${itemCount} item(s) awaiting <em style="color:${C.accent2};font-weight:400;">accept.</em>
+              </h1>
+              ${scheduledLine ? `
+              <p style="margin:14px 0 0;font-family:'Courier New',monospace;font-size:11px;letter-spacing:2px;color:${C.accent2};text-transform:uppercase;">
+                Scheduled: ${scheduledLine}
+              </p>` : ''}
+            </td>
+          </tr>
+
+          <tr>
+            <td style="background:${C.cream2};padding:0 48px 24px;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="background:${C.cream};border:1px solid ${C.forest}22;">
+                <tr><td style="padding:14px 20px 4px;font-family:'Courier New',monospace;font-size:9px;letter-spacing:3px;color:${C.muted};text-transform:uppercase;">Items</td></tr>
+                <tr><td style="padding:0 20px 14px;">
+                  <table width="100%" cellpadding="0" cellspacing="0">${itemRows}</table>
+                </td></tr>
+              </table>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="background:${C.cream2};padding:0 48px 28px;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="background:${C.cream};border:1px solid ${C.forest}22;">
+                <tr><td style="padding:14px 20px 2px;font-family:'Courier New',monospace;font-size:9px;letter-spacing:3px;color:${C.muted};text-transform:uppercase;">Delivery</td></tr>
+                <tr><td style="padding:0 20px 12px;font-family:'Georgia',serif;font-size:14px;color:${C.forest};">${escHtml(opts.deliveryMethods.map(fmtChannel).join(' · '))}</td></tr>
+                <tr><td style="padding:12px 20px 2px;border-top:1px solid ${C.forest}11;font-family:'Courier New',monospace;font-size:9px;letter-spacing:3px;color:${C.muted};text-transform:uppercase;">Customer</td></tr>
+                <tr><td style="padding:0 20px 14px;font-family:'Georgia',serif;font-size:14px;color:${C.forest};">${escHtml(opts.customerName)}${opts.customerPhone ? ` · ${escHtml(opts.customerPhone)}` : ''}</td></tr>
+              </table>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="background:${C.cream2};padding:0 48px 44px;text-align:center;">
+              <a href="${queueUrl}" style="display:inline-block;background:${C.forest};color:${C.cream};text-decoration:none;padding:16px 28px;font-family:'Courier New',monospace;font-size:11px;letter-spacing:3px;text-transform:uppercase;">Open order queue &rarr;</a>
+            </td>
+          </tr>
+
+          ${darkFoot()}
+      `),
+    });
+
+    if (error) {
+      console.error('[Resend] Failed to send kitchen alert:', error);
+      return { success: false, error: error.message };
+    }
+    console.log('[Resend] Kitchen alert sent to', opts.to, '| Order:', opts.orderId, '| ID:', data?.id);
+    return { success: true, id: data?.id };
+  } catch (err: unknown) {
+    console.error('[Resend] Error sending kitchen alert:', err);
+    return { success: false, error: err instanceof Error ? err.message : 'unknown error' };
+  }
+}

@@ -1063,6 +1063,14 @@ model Location {
   isActive      Boolean      @default(true)
   notes         String?
 
+  // Kitchen dispatch (KDS) — how many minutes this kitchen needs from Accept
+  // to handoff-ready. Drives the pickup-ready time sent to DoorDash/Uber when
+  // staff accept an order (courier arrival converges with food readiness).
+  prepMinutes       Int     @default(25)
+  // Per-location new-order alert recipient. Falls back to the global
+  // BAKERY_NOTIFICATION_EMAIL env var when null.
+  notificationEmail String?
+
   // Phase 10: display-layer fields. The Location table is the single source of
   // truth for both operational routing AND the brand-address shown across the
   // site (footer, homepage Visit, contact page, JSON-LD). Exactly one row is
@@ -1177,6 +1185,21 @@ model OrderFulfillment {
   // Phase 7a — packaging requirement, e.g. "INSULATED_COLD_CHAIN" for UPS creamery.
   // Helps the kitchen/warehouse pick the right packaging.
   packagingType     String?
+
+  // Kitchen dispatch (KDS) — the courier's lifecycle is tracked SEPARATELY from
+  // the kitchen's `status` so DoorDash/Uber webhooks never fight staff updates.
+  // Values: REQUESTED | CONFIRMED (driver assigned) | OUT_FOR_DELIVERY (picked
+  // up) | DELIVERED | CANCELLED | DISPATCH_FAILED. Null = no courier involved
+  // yet (or non-courier method).
+  courierStatus     String?
+  // Why the last courier dispatch attempt failed (shown in the portal with a
+  // Retry button). Cleared on successful dispatch.
+  dispatchError     String?
+  // Kitchen timing metrics: when staff accepted the order and when they marked
+  // it handoff-ready. Feed ops dashboards + prep-time tuning later.
+  acceptedAt        DateTime?
+  readyAt           DateTime?
+
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
 

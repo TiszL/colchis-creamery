@@ -14,19 +14,27 @@ import AdminRefundForm from '@/components/admin/AdminRefundForm';
 
 export const dynamic = 'force-dynamic';
 
-const FULFILLMENT_STATUSES = ['PENDING', 'CONFIRMED', 'PREPARING', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED'] as const;
+const FULFILLMENT_STATUSES = ['PENDING', 'CONFIRMED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED'] as const;
 type FulfillmentStatus = typeof FULFILLMENT_STATUSES[number];
 
-// Linear advance path. CANCELLED is reachable from any non-terminal state via
-// the cancel button, not via Advance.
-const NEXT_STATUS: Record<FulfillmentStatus, FulfillmentStatus | null> = {
-    PENDING: 'CONFIRMED',
-    CONFIRMED: 'PREPARING',
-    PREPARING: 'OUT_FOR_DELIVERY',
-    OUT_FOR_DELIVERY: 'DELIVERED',
-    DELIVERED: null,
-    CANCELLED: null,
-};
+// Method-aware advance path — mirrors the location portal's kitchen flow
+// (src/app/actions/location-orders.ts). Courier legs (DoorDash/Uber) END at
+// READY: the courier lifecycle continues in courierStatus via carrier
+// webhooks, so manual advance must not fight it. CANCELLED is reachable from
+// any non-terminal state via the cancel button, not via Advance.
+const COURIER_METHODS = ['DOORDASH_DRIVE', 'UBER_DIRECT'] as const;
+
+function nextStatusFor(method: string, current: string): FulfillmentStatus | null {
+    const base: Record<string, FulfillmentStatus> = { PENDING: 'CONFIRMED', CONFIRMED: 'PREPARING', PREPARING: 'READY' };
+    if (base[current]) return base[current];
+    if (current === 'READY') {
+        if ((COURIER_METHODS as readonly string[]).includes(method)) return null; // courier takes over
+        if (method === 'OWN_DELIVERY') return 'OUT_FOR_DELIVERY';
+        return 'DELIVERED'; // pickup / dine-in / other: handed over
+    }
+    if (current === 'OUT_FOR_DELIVERY') return 'DELIVERED';
+    return null;
+}
 
 async function updateFulfillmentStatus(formData: FormData) {
     'use server';
@@ -46,10 +54,10 @@ async function updateFulfillmentStatus(formData: FormData) {
     // arbitrary jump (e.g. DELIVERED → PENDING) from a forged nextStatus.
     const current = await db.orderFulfillment.findUnique({
         where: { id: fulfillmentId },
-        select: { status: true },
+        select: { status: true, deliveryMethod: true },
     });
     if (!current) return;
-    const legalNext = NEXT_STATUS[current.status as FulfillmentStatus];
+    const legalNext = nextStatusFor(current.deliveryMethod, current.status);
     if (nextStatus !== 'CANCELLED' && nextStatus !== legalNext) return;
 
     await db.orderFulfillment.update({
@@ -76,9 +84,11 @@ function statusBadgeClasses(status: string): string {
         case 'PENDING':          return 'bg-gray-100 text-gray-700 border-gray-200';
         case 'CONFIRMED':        return 'bg-blue-100 text-blue-800 border-blue-200';
         case 'PREPARING':        return 'bg-amber-100 text-amber-800 border-amber-200';
+        case 'READY':            return 'bg-teal-100 text-teal-800 border-teal-200';
         case 'OUT_FOR_DELIVERY': return 'bg-indigo-100 text-indigo-800 border-indigo-200';
         case 'DELIVERED':        return 'bg-green-100 text-green-800 border-green-200';
         case 'CANCELLED':        return 'bg-red-100 text-red-800 border-red-200';
+        case 'DISPATCH_FAILED':  return 'bg-red-100 text-red-800 border-red-200';
         default:                 return 'bg-gray-100 text-gray-700 border-gray-200';
     }
 }
@@ -215,7 +225,7 @@ export default async function AdminOrderDetailPage({ params }: PageProps) {
                         )}
 
                         {order.fulfillments.map((f, idx) => {
-                            const next = NEXT_STATUS[f.status as FulfillmentStatus] ?? null;
+                            const next = nextStatusFor(f.deliveryMethod, f.status);
                             const terminal = f.status === 'DELIVERED' || f.status === 'CANCELLED';
                             return (
                                 <div key={f.id} className="bg-white border border-gray-200 shadow-sm">
@@ -228,9 +238,18 @@ export default async function AdminOrderDetailPage({ params }: PageProps) {
                                                 {f.location.name} · <span className="text-gray-600">{fmtChannel(f.deliveryMethod)}</span>
                                             </div>
                                         </div>
-                                        <span className={`px-3 py-1 text-xs font-bold uppercase tracking-wider rounded-full border ${statusBadgeClasses(f.status)}`}>
-                                            {f.status.replace(/_/g, ' ')}
-                                        </span>
+                                        <div className="flex flex-col items-end gap-1.5">
+                                            <span className={`px-3 py-1 text-xs font-bold uppercase tracking-wider rounded-full border ${statusBadgeClasses(f.status)}`}>
+                                                {f.status.replace(/_/g, ' ')}
+                                            </span>
+                                            {/* Courier lifecycle (carrier webhooks) — tracked separately
+                                                from the kitchen status so the two never fight. */}
+                                            {f.courierStatus && (
+                                                <span className={`px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full border ${statusBadgeClasses(f.courierStatus)}`}>
+                                                    Courier · {f.courierStatus.replace(/_/g, ' ')}
+                                                </span>
+                                            )}
+                                        </div>
                                     </header>
                                     <div className="px-6 py-4 space-y-3">
                                         <ul className="text-sm text-gray-800 space-y-1">
@@ -249,6 +268,11 @@ export default async function AdminOrderDetailPage({ params }: PageProps) {
                                             <KV label="Scheduled" value={f.scheduledFor ? new Date(f.scheduledFor).toLocaleString() : 'ASAP'} />
                                             <KV label="Tracking" value={f.trackingNumber || '—'} />
                                         </div>
+                                        {f.dispatchError && (
+                                            <div className="p-2 bg-red-50 border border-red-200 rounded text-xs text-red-800">
+                                                <span className="font-bold uppercase tracking-wider">Dispatch error:</span> {f.dispatchError}
+                                            </div>
+                                        )}
                                     </div>
                                     {!terminal && (
                                         <footer className="px-6 py-3 bg-gray-50 border-t border-gray-100 flex flex-wrap gap-2">

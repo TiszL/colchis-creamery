@@ -18,13 +18,13 @@
 
 import { NextResponse } from 'next/server';
 import type Stripe from 'stripe';
+import type { DeliveryMethod } from '@prisma/client';
 import { stripe } from '@/lib/stripe';
 import { prisma } from '@/lib/db';
 import { commitStock, releaseStock } from '@/lib/stock-reservation';
-import { sendOrderConfirmation, type OrderForEmail } from '@/lib/email';
-import { doordashCreateDelivery, isDoorDashConfigured } from '@/lib/doordash';
-import { uberCreateDelivery, isUberDirectConfigured } from '@/lib/uber-direct';
+import { sendOrderConfirmation, sendNewOrderKitchenEmail, type OrderForEmail } from '@/lib/email';
 import { easypostBuyLabel, isEasyPostConfigured } from '@/lib/easypost';
+import { isOpenNow, nextOpenSlot } from '@/lib/location-hours';
 
 /**
  * Phase 5 — best-effort parser for Order.shippingAddress (free-text snapshot).
@@ -181,8 +181,15 @@ async function handlePaymentSucceeded(pi: Stripe.PaymentIntent) {
                     reservationExpiresAt: null,
                 },
             });
+            // Kitchen-driven dispatch: kitchen legs (DoorDash/Uber/own delivery/
+            // pickup/dine-in) stay PENDING until staff Accept them in the
+            // location portal (which books the courier via carrier-dispatch).
+            // Only warehouse/B2B legs auto-confirm on payment.
             await tx.orderFulfillment.updateMany({
-                where: { orderId: order.id },
+                where: {
+                    orderId: order.id,
+                    deliveryMethod: { in: ['UPS_2DAY', 'MANUAL_DISPATCH'] },
+                },
                 data: { status: 'CONFIRMED' },
             });
         },
@@ -213,32 +220,17 @@ async function handlePaymentSucceeded(pi: Stripe.PaymentIntent) {
         }
     }
 
-    // Phase 8.1: dispatch DoorDash deliveries for any DOORDASH_DRIVE fulfillments.
-    // Best-effort: if creation fails (DD outage, invalid address, etc.), log and
-    // continue. Admin sees the warning in logs and can manually arrange delivery
-    // until 7c+ retry tooling lands. Skips entirely if DD isn't configured.
-    if (isDoorDashConfigured()) {
-        try {
-            await dispatchDoorDashDeliveries(order.id);
-        } catch (e) {
-            console.warn(
-                '[stripe-webhook] DoorDash delivery dispatch failed for Order',
-                order.id, ':', e instanceof Error ? e.message : e,
-            );
-        }
-    }
-
-    // Phase 8.2: same shape for Uber Direct fulfillments. Independent of DD —
-    // an order can have both DD and Uber legs (different products/locations).
-    if (isUberDirectConfigured()) {
-        try {
-            await dispatchUberDirectDeliveries(order.id);
-        } catch (e) {
-            console.warn(
-                '[stripe-webhook] Uber Direct dispatch failed for Order',
-                order.id, ':', e instanceof Error ? e.message : e,
-            );
-        }
+    // Kitchen-driven dispatch: couriers are no longer booked here. Staff Accept
+    // in the location portal triggers dispatchCourierForFulfillment (see
+    // '@/lib/carrier-dispatch'). Here we only stamp after-hours legs with a
+    // scheduledFor display hint and alert the kitchen(s). Best-effort.
+    try {
+        await scheduleAndNotifyKitchenLegs(order.id);
+    } catch (e) {
+        console.warn(
+            '[stripe-webhook] Kitchen scheduling/notification failed for Order',
+            order.id, ':', e instanceof Error ? e.message : e,
+        );
     }
 
     // Phase 5 (5c): buy UPS labels for any NATIONAL_SHIP fulfillments via
@@ -315,23 +307,6 @@ async function handlePaymentFailed(pi: Stripe.PaymentIntent) {
 
 type OrderForWebhook = NonNullable<Awaited<ReturnType<typeof loadOrderForPI>>>;
 
-/** Phase B — compose driver-facing dropoff instructions from the order's
- *  optional snapshot fields. Returns undefined if none are set, in which case
- *  carriers receive no instructions field at all. */
-function combineDropoffInstructions(order: {
-    shippingAddressLine2:  string | null;
-    shippingAccessCode:    string | null;
-    shippingBuildingName:  string | null;
-    shippingDeliveryNotes: string | null;
-}): string | undefined {
-    const parts: string[] = [];
-    if (order.shippingAddressLine2)  parts.push(`Apt/Suite: ${order.shippingAddressLine2}`);
-    if (order.shippingBuildingName)  parts.push(`Building: ${order.shippingBuildingName}`);
-    if (order.shippingAccessCode)    parts.push(`Access code: ${order.shippingAccessCode}`);
-    if (order.shippingDeliveryNotes) parts.push(order.shippingDeliveryNotes);
-    return parts.length > 0 ? parts.join(' · ') : undefined;
-}
-
 async function loadOrderForPI(paymentIntentId: string) {
     return prisma.order.findUnique({
         where: { stripePaymentIntentId: paymentIntentId },
@@ -355,16 +330,32 @@ function reservationItemsFromOrder(order: OrderForWebhook) {
     );
 }
 
-/* ─── DoorDash delivery dispatch (Phase 8.1) ───────────────────────────── */
+/* ─── Kitchen-leg scheduling + notification (kitchen-driven dispatch) ───── */
 
-async function dispatchDoorDashDeliveries(orderId: string) {
-    // Load everything we need for DD's POST /drive/v2/deliveries body.
-    // Iterates fulfillments and only acts on channel=DOORDASH_DRIVE.
+// Delivery methods whose lifecycle is owned by kitchen staff in the location
+// portal. These stay PENDING on payment; staff Accept books couriers.
+const KITCHEN_DELIVERY_METHODS: DeliveryMethod[] = [
+    'DOORDASH_DRIVE',
+    'UBER_DIRECT',
+    'OWN_DELIVERY',
+    'IN_STORE_PICKUP',
+    'IN_STORE_DINE_IN',
+];
+
+/**
+ * After stock commit: (1) stamp scheduledFor on kitchen legs whose location is
+ * closed right now — display metadata for staff + customer (actual courier
+ * dispatch happens at Accept regardless); (2) send one new-order alert email
+ * per location to notificationEmail ?? BAKERY_NOTIFICATION_EMAIL. Best-effort
+ * throughout — a failure here never fails the webhook.
+ */
+async function scheduleAndNotifyKitchenLegs(orderId: string): Promise<void> {
     const order = await prisma.order.findUnique({
         where: { id: orderId },
         include: {
-            user: { select: { name: true, email: true, phone: true } },
+            user: { select: { name: true, phone: true } },
             fulfillments: {
+                where: { deliveryMethod: { in: KITCHEN_DELIVERY_METHODS } },
                 include: {
                     location: true,
                     items: {
@@ -376,238 +367,68 @@ async function dispatchDoorDashDeliveries(orderId: string) {
             },
         },
     });
-    if (!order) return;
+    if (!order || order.fulfillments.length === 0) return;
 
-    const recipientEmail = order.guestEmail || order.user.email;
-    const recipientPhone = order.guestPhone || order.user.phone || '';
-    const fullName = (order.user.name || '').trim();
-    const firstName = fullName.split(/\s+/)[0] || 'Customer';
-    const lastName = fullName.split(/\s+/).slice(1).join(' ') || undefined;
+    const customerName = (order.user.name || 'Customer').trim();
+    const customerPhone = order.guestPhone || order.user.phone || null;
 
-    // Phase 9c: prefer the structured shipping columns (formatted into DD's
-    // single-string address), falling back to the free-text snapshot for legacy
-    // pre-9c orders — matching the Uber path's preference.
-    const structuredDropoff = [order.shippingLine1, order.shippingCity, order.shippingState, order.shippingPostalCode];
-    const dropoffAddress = structuredDropoff.every(Boolean)
-        ? structuredDropoff.join(', ')
-        : (order.shippingAddress || '');
-
+    // (1) After-hours: stamp scheduledFor when the location is currently closed.
+    const scheduledByFulfillment = new Map<string, Date>();
     for (const f of order.fulfillments) {
-        if (f.deliveryMethod !== 'DOORDASH_DRIVE') continue;
-        if (f.externalOrderId) continue; // idempotency — already dispatched
-
-        const loc = f.location;
-
-        // Fail-loud on missing phones. DD's validator rejects any placeholder
-        // we'd substitute, and creating a doomed-to-fail delivery just wastes
-        // an API call + leaves admin to clean up. Skip + log; admin reconciles.
-        if (!loc.phone) {
-            console.warn(
-                '[doordash] Skipping dispatch for fulfillment', f.id,
-                '— pickup location', loc.name, 'has no phone configured. Set Location.phone in /admin/locations.',
-            );
-            continue;
-        }
-        if (!recipientPhone) {
-            console.warn(
-                '[doordash] Skipping dispatch for fulfillment', f.id,
-                '— Order', order.id, 'has no contact phone. (Should not happen — checkout validates.)',
-            );
-            continue;
-        }
-
-        const pickupAddress = [loc.addressLine1, loc.city, loc.state, loc.postalCode]
-            .filter(Boolean).join(', ');
-
-        // Per-fulfillment order value in cents. Items in this leg only.
-        const orderValueCents = f.items.reduce((sum, it) => {
-            const unit = parseFloat(it.orderItem.unitPrice);
-            if (isNaN(unit)) return sum;
-            return sum + Math.round(unit * 100) * it.quantity;
-        }, 0);
-
-        const result = await doordashCreateDelivery({
-            externalOrderId: order.id,
-            pickup: {
-                address: pickupAddress,
-                phone: loc.phone,
-                businessName: loc.name,
-                instructions: loc.notes || undefined,
-            },
-            dropoff: {
-                address: dropoffAddress,
-                phone: recipientPhone,
-                firstName,
-                lastName,
-                email: recipientEmail || undefined,
-                instructions: combineDropoffInstructions(order),
-            },
-            orderValueCents,
-            items: f.items.map(it => ({
-                name: it.orderItem.product.name,
-                quantity: it.quantity,
-            })),
-        });
-
-        if (result) {
+        try {
+            if (isOpenNow(f.location.hours as any)) continue;
+            const slot = nextOpenSlot(f.location.hours as any);
+            if (!slot) continue; // no hours configured — nothing to schedule
             await prisma.orderFulfillment.update({
                 where: { id: f.id },
-                data: {
-                    externalOrderId: result.externalDeliveryId,
-                    trackingNumber: result.trackingUrl || null,
-                },
+                data: { scheduledFor: slot },
             });
-            console.log('[doordash] Delivery created for fulfillment', f.id, ':', result.externalDeliveryId);
-        } else {
-            console.warn('[doordash] Delivery creation failed for fulfillment', f.id);
+            scheduledByFulfillment.set(f.id, slot);
+        } catch (e) {
+            console.warn(
+                '[stripe-webhook] scheduledFor stamp failed for fulfillment',
+                f.id, ':', e instanceof Error ? e.message : e,
+            );
         }
     }
-}
 
-/* ─── Uber Direct delivery dispatch (Phase 8.2) ────────────────────────── */
-
-async function dispatchUberDirectDeliveries(orderId: string) {
-    const order = await prisma.order.findUnique({
-        where: { id: orderId },
-        include: {
-            user: { select: { name: true, email: true, phone: true } },
-            fulfillments: {
-                include: {
-                    location: true,
-                    items: {
-                        include: {
-                            orderItem: { include: { product: { select: { name: true } } } },
-                        },
-                    },
-                },
-            },
-        },
-    });
-    if (!order) return;
-
-    const recipientEmail = order.guestEmail || order.user.email;
-    const recipientPhone = order.guestPhone || order.user.phone || '';
-    const fullName = (order.user.name || '').trim();
-    const firstName = fullName.split(/\s+/)[0] || 'Customer';
-    const lastName = fullName.split(/\s+/).slice(1).join(' ') || undefined;
-
-    // Phase 9c: prefer structured shipping columns when available; fall back
-    // to parsing the free-text shippingAddress for legacy orders (pre-9c) that
-    // only have the formatted snapshot. New orders always set the structured
-    // columns at checkout — see actions/checkout.ts.
-    const parsed =
-        order.shippingLine1 && order.shippingCity && order.shippingState && order.shippingPostalCode
-            ? {
-                line1: order.shippingLine1,
-                city: order.shippingCity,
-                state: order.shippingState,
-                postalCode: order.shippingPostalCode,
-                country: 'US', // checkout enforces US-only; UberAddressInput requires country
-            }
-            : parseShippingAddress(order.shippingAddress);
-    if (!parsed) {
-        console.warn(
-            '[uber-direct] Skipping dispatch — could not derive structured shipping address for Order',
-            order.id,
-        );
-        return;
-    }
-
+    // (2) One kitchen alert per location.
+    const byLocation = new Map<string, typeof order.fulfillments>();
     for (const f of order.fulfillments) {
-        if (f.deliveryMethod !== 'UBER_DIRECT') continue;
-        if (f.externalOrderId) continue; // idempotency
+        const legs = byLocation.get(f.locationId) ?? [];
+        legs.push(f);
+        byLocation.set(f.locationId, legs);
+    }
 
-        const loc = f.location;
-        if (!loc.addressLine1 || !loc.city || !loc.state || !loc.postalCode) {
-            console.warn('[uber-direct] Location missing address components for fulfillment', f.id);
-            continue;
-        }
+    for (const [locationId, legs] of byLocation) {
+        const location = legs[0].location;
+        const to = location.notificationEmail || process.env.BAKERY_NOTIFICATION_EMAIL;
+        if (!to) continue; // no recipient configured anywhere — skip
 
-        // Same fail-loud contract as DD: don't substitute a fake phone if the
-        // real one is missing. Skip + log; admin sets Location.phone in admin/UI.
-        if (!loc.phone) {
-            console.warn(
-                '[uber-direct] Skipping dispatch for fulfillment', f.id,
-                '— pickup location', loc.name, 'has no phone configured. Set Location.phone in /admin/locations.',
-            );
-            continue;
-        }
-        if (!recipientPhone) {
-            console.warn(
-                '[uber-direct] Skipping dispatch for fulfillment', f.id,
-                '— Order', order.id, 'has no contact phone. (Should not happen — checkout validates.)',
-            );
-            continue;
-        }
-
-        const orderValueCents = f.items.reduce((sum, it) => {
-            const unit = parseFloat(it.orderItem.unitPrice);
-            if (isNaN(unit)) return sum;
-            return sum + Math.round(unit * 100) * it.quantity;
-        }, 0);
-
-        const result = await uberCreateDelivery({
-            externalOrderId: order.id,
-            pickup: {
-                name: loc.name,
-                businessName: loc.name,
-                address: {
-                    line1: loc.addressLine1,
-                    line2: loc.addressLine2 || undefined,
-                    city: loc.city,
-                    state: loc.state,
-                    postalCode: loc.postalCode,
-                    country: loc.country || 'US',
-                },
-                phone: loc.phone,
-                instructions: loc.notes || undefined,
-            },
-            dropoff: {
-                firstName,
-                lastName,
-                address: parsed,
-                phone: recipientPhone,
-                email: recipientEmail || undefined,
-                instructions: combineDropoffInstructions(order),
-            },
-            orderValueCents,
-            items: f.items.map(it => ({
-                name: it.orderItem.product.name,
-                quantity: it.quantity,
-            })),
-        });
-
-        if (result) {
-            await prisma.orderFulfillment.update({
-                where: { id: f.id },
-                data: {
-                    externalOrderId: result.deliveryId,
-                    trackingNumber: result.trackingUrl || null,
-                },
+        try {
+            await sendNewOrderKitchenEmail({
+                to,
+                orderId: order.id,
+                locationId,
+                locationName: location.name,
+                items: legs.flatMap(f =>
+                    f.items.map(it => ({
+                        name: it.orderItem.product.name,
+                        quantity: it.quantity,
+                    })),
+                ),
+                deliveryMethods: [...new Set(legs.map(f => f.deliveryMethod))],
+                customerName,
+                customerPhone,
+                scheduledFor: legs.map(f => scheduledByFulfillment.get(f.id)).find(Boolean) ?? null,
             });
-            console.log('[uber-direct] Delivery created for fulfillment', f.id, ':', result.deliveryId);
-        } else {
-            console.warn('[uber-direct] Delivery creation failed for fulfillment', f.id);
+        } catch (e) {
+            console.warn(
+                '[stripe-webhook] Kitchen alert email failed for location',
+                locationId, 'Order', order.id, ':', e instanceof Error ? e.message : e,
+            );
         }
     }
-}
-
-/** Best-effort split of "line1, city, ST zip" formatted strings into components.
- *  Returns null if the format doesn't parse — caller logs + skips dispatch. */
-function parseShippingAddress(formatted: string | null): {
-    line1: string; city: string; state: string; postalCode: string; country: string;
-} | null {
-    if (!formatted) return null;
-    // Pattern: "<line1>, <city>, <STATE> <ZIP>" (US format from Google Places)
-    const m = formatted.match(/^(.+?),\s*(.+?),\s*([A-Z]{2})\s+(\d{5}(?:-\d{4})?)/);
-    if (!m) return null;
-    return {
-        line1: m[1].trim(),
-        city: m[2].trim(),
-        state: m[3].trim(),
-        postalCode: m[4].trim(),
-        country: 'US',
-    };
 }
 
 async function loadOrderForEmail(orderId: string): Promise<OrderForEmail | null> {

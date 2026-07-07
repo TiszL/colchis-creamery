@@ -29,6 +29,13 @@ async function saveLocationAction(formData: FormData) {
         catch { hours = undefined; } // silently skip malformed JSON; admin will see hours unchanged
     }
 
+    // Kitchen dispatch settings — prep time is clamped server-side (client
+    // validates too); notification email is optional, blank = fall back to
+    // the global BAKERY_NOTIFICATION_EMAIL.
+    const prepMinutesRaw = parseInt((formData.get('prepMinutes') as string) || '', 10);
+    const prepMinutes = Number.isFinite(prepMinutesRaw) ? Math.min(120, Math.max(5, prepMinutesRaw)) : 25;
+    const notificationEmail = ((formData.get('notificationEmail') as string) || '').trim() || null;
+
     const data = {
         name: formData.get('name') as string,
         type,
@@ -45,6 +52,8 @@ async function saveLocationAction(formData: FormData) {
         hours,
         isActive: formData.get('isActive') === 'on',
         notes: (formData.get('notes') as string) || null,
+        prepMinutes,
+        notificationEmail,
         // Phase 10: display-layer fields. Drives every public address surface
         // (footer, homepage Visit, contact page) via getPrimaryLocation().
         // isPrimary is NOT set here — use setPrimaryLocationAction for atomic flip.
@@ -227,6 +236,8 @@ export default async function AdminLocationsPage({ params }: { params: Promise<{
         hours: l.hours,
         isActive: l.isActive,
         notes: l.notes,
+        prepMinutes: l.prepMinutes,
+        notificationEmail: l.notificationEmail,
         // Phase 10 display fields
         isPrimary: l.isPrimary,
         showOnContactPage: l.showOnContactPage,

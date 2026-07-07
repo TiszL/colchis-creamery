@@ -33,6 +33,7 @@ export type OrderDetailViewData = {
         id: string;
         deliveryMethod: string;
         status: string;
+        courierStatus: string | null;
         shippingCost: string | null;
         trackingNumber: string | null;
         location: { name: string };
@@ -89,6 +90,20 @@ function statusColors(status: string): { bg: string; fg: string; border: string 
         case 'DELIVERED':        return { bg: '#DDE9DC', fg: '#1F3026', border: '#1F302655' };
         case 'CANCELLED':        return { bg: '#FBEAE9', fg: '#A8312C', border: '#A8312C55' };
         default:                 return { bg: '#EAE2D2', fg: '#7A8278', border: '#1F302622' };
+    }
+}
+
+// Customer-friendly courier progress label (courierStatus is carrier-driven,
+// separate from the kitchen's fulfillment status). DISPATCH_FAILED is internal
+// — staff sees it in the portal with a Retry button; customers never do.
+function courierCopy(courierStatus: string): string | null {
+    switch (courierStatus) {
+        case 'REQUESTED':        return 'Courier requested';
+        case 'CONFIRMED':        return 'Driver assigned';
+        case 'OUT_FOR_DELIVERY': return 'On the way';
+        case 'DELIVERED':        return 'Delivered';
+        case 'CANCELLED':        return 'Delivery issue — we will contact you';
+        default:                 return null; // DISPATCH_FAILED + unknowns: hidden
     }
 }
 
@@ -178,13 +193,27 @@ export default function OrderDetailView({
                                             {fmtChannel(f.deliveryMethod)}{f.shippingCost ? ` · ${fmtMoney(f.shippingCost)}` : ''}
                                         </div>
                                     </div>
-                                    <span style={{
-                                        fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.28em',
-                                        textTransform: 'uppercase', padding: '6px 12px',
-                                        background: colors.bg, color: colors.fg, border: `1px solid ${colors.border}`,
-                                    }}>
-                                        {f.status.replace(/_/g, ' ')}
-                                    </span>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
+                                        <span style={{
+                                            fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.28em',
+                                            textTransform: 'uppercase', padding: '6px 12px',
+                                            background: colors.bg, color: colors.fg, border: `1px solid ${colors.border}`,
+                                        }}>
+                                            {f.status.replace(/_/g, ' ')}
+                                        </span>
+                                        {f.courierStatus && courierCopy(f.courierStatus) && (() => {
+                                            const cColors = statusColors(f.courierStatus);
+                                            return (
+                                                <span style={{
+                                                    fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.22em',
+                                                    textTransform: 'uppercase', padding: '5px 10px',
+                                                    background: cColors.bg, color: cColors.fg, border: `1px solid ${cColors.border}`,
+                                                }}>
+                                                    {courierCopy(f.courierStatus)}
+                                                </span>
+                                            );
+                                        })()}
+                                    </div>
                                 </header>
                                 {statusCopy(f.status) && (
                                     <div style={{ padding: '14px 28px', background: '#F5F0E6', borderBottom: '1px solid #1F302614' }}>
@@ -213,29 +242,54 @@ export default function OrderDetailView({
                                 {f.trackingNumber && (
                                     <div style={{ padding: '20px 28px', borderTop: '1px solid #1F302614', background: '#EAE2D2' }}>
                                         <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.32em', color: '#B96A3D', textTransform: 'uppercase', marginBottom: 12 }}>
-                                            Live tracking
+                                            {f.trackingNumber.startsWith('http') ? 'Live tracking' : 'Tracking number'}
                                         </div>
-                                        <a
-                                            href={f.trackingNumber}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            style={{
-                                                display: 'inline-block',
-                                                background: '#1F3026',
-                                                color: '#F5F0E6',
-                                                padding: '13px 24px',
-                                                fontFamily: 'var(--font-mono)',
-                                                fontSize: 10,
-                                                letterSpacing: '0.32em',
-                                                textTransform: 'uppercase',
-                                                textDecoration: 'none',
-                                            }}
-                                        >
-                                            {trackingButtonLabel(f.deliveryMethod)} →
-                                        </a>
-                                        <div style={{ marginTop: 12, fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.22em', color: '#7A8278', textTransform: 'uppercase' }}>
-                                            Opens in new tab · Live updates from your driver
-                                        </div>
+                                        {/* Courier legs store a tracking URL; UPS stores a plain
+                                            tracking code. Only URLs are safe to render as links. */}
+                                        {f.trackingNumber.startsWith('http') ? (
+                                            <>
+                                                <a
+                                                    href={f.trackingNumber}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    style={{
+                                                        display: 'inline-block',
+                                                        background: '#1F3026',
+                                                        color: '#F5F0E6',
+                                                        padding: '13px 24px',
+                                                        fontFamily: 'var(--font-mono)',
+                                                        fontSize: 10,
+                                                        letterSpacing: '0.32em',
+                                                        textTransform: 'uppercase',
+                                                        textDecoration: 'none',
+                                                    }}
+                                                >
+                                                    {trackingButtonLabel(f.deliveryMethod)} →
+                                                </a>
+                                                <div style={{ marginTop: 12, fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.22em', color: '#7A8278', textTransform: 'uppercase' }}>
+                                                    Opens in new tab · Live updates from your driver
+                                                </div>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <div style={{
+                                                    display: 'inline-block',
+                                                    background: '#fff',
+                                                    border: '1px solid #1F302622',
+                                                    padding: '13px 24px',
+                                                    fontFamily: 'var(--font-mono)',
+                                                    fontSize: 14,
+                                                    letterSpacing: '0.12em',
+                                                    color: '#1F3026',
+                                                    userSelect: 'all',
+                                                }}>
+                                                    {f.trackingNumber}
+                                                </div>
+                                                <div style={{ marginTop: 12, fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.22em', color: '#7A8278', textTransform: 'uppercase' }}>
+                                                    {trackingButtonLabel(f.deliveryMethod)} — enter this code on the carrier&apos;s site
+                                                </div>
+                                            </>
+                                        )}
                                     </div>
                                 )}
                             </section>

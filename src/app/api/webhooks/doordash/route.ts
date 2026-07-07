@@ -3,11 +3,15 @@
 // DoorDash POSTs here on every delivery lifecycle event (created, dasher
 // confirmed, picked up, dropped off, cancelled). We verify the Authorization
 // header against the value we configured in DD's webhook dashboard, then
-// map their event to our OrderFulfillment.status enum and update the row.
+// map their event onto OrderFulfillment.courierStatus — NOT the kitchen
+// `status` field, which staff own via the location portal (Accept/Preparing/
+// Ready). Exception: a DELIVERED courier event also completes the kitchen
+// flow (status='DELIVERED') and rolls up Order.orderStatus when every
+// fulfillment on the order is delivered.
 //
-// Idempotency: state-machine checks ensure repeat deliveries are no-ops. The
-// fulfillment is matched via OrderFulfillment.externalOrderId (which we set
-// when creating the delivery in the Stripe webhook).
+// Idempotency: a monotonic courierStatus rank ignores out-of-order/repeat
+// deliveries. The fulfillment is matched via OrderFulfillment.externalOrderId
+// (set when staff Accept books the delivery via '@/lib/carrier-dispatch').
 //
 // Webhook setup: in DoorDash developer dashboard → Webhooks → Add endpoint
 // → URL = https://<your-public-host>/api/webhooks/doordash, Authentication
@@ -79,35 +83,65 @@ export async function POST(req: Request) {
         return new NextResponse('OK', { status: 200 });
     }
 
-    // Idempotency: skip if already at target. Never regress DELIVERED or
-    // re-open CANCELLED (terminal states).
-    if (fulfillment.status === targetStatus) {
+    // Monotonic courier-status rank: never move backwards. CANCELLED is
+    // allowed from any non-DELIVERED state; DELIVERED is terminal.
+    const COURIER_RANK: Record<string, number> = {
+        REQUESTED: 0, CONFIRMED: 1, OUT_FOR_DELIVERY: 2, DELIVERED: 3,
+    };
+    const current = fulfillment.courierStatus;
+    if (current === 'DELIVERED') {
         return new NextResponse('OK', { status: 200 });
     }
-    if (fulfillment.status === 'CANCELLED' && targetStatus !== 'CANCELLED') {
-        console.warn(
-            '[doordash-webhook] Late event for cancelled fulfillment',
-            fulfillment.id, 'event:', eventName, '— ignoring',
-        );
-        return new NextResponse('OK', { status: 200 });
-    }
-    if (fulfillment.status === 'DELIVERED' && targetStatus !== 'DELIVERED' && targetStatus !== 'CANCELLED') {
-        return new NextResponse('OK', { status: 200 });
+    if (targetStatus === 'CANCELLED') {
+        if (current === 'CANCELLED') return new NextResponse('OK', { status: 200 });
+    } else {
+        if (current === 'CANCELLED') {
+            console.warn(
+                '[doordash-webhook] Late event for cancelled delivery on fulfillment',
+                fulfillment.id, 'event:', eventName, '— ignoring',
+            );
+            return new NextResponse('OK', { status: 200 });
+        }
+        const targetRank = COURIER_RANK[targetStatus];
+        if (targetRank === undefined) {
+            // PENDING/PREPARING have no courier meaning — ignore.
+            return new NextResponse('OK', { status: 200 });
+        }
+        if (current !== null && targetRank <= (COURIER_RANK[current] ?? -1)) {
+            return new NextResponse('OK', { status: 200 }); // stale / out-of-order event
+        }
     }
 
     try {
         await prisma.orderFulfillment.update({
             where: { id: fulfillment.id },
             data: {
-                status: targetStatus,
+                courierStatus: targetStatus,
+                // Courier DELIVERED completes the kitchen flow too.
+                ...(targetStatus === 'DELIVERED' ? { status: 'DELIVERED' } : {}),
                 ...(payload.delivery?.tracking_url ? { trackingNumber: payload.delivery.tracking_url } : {}),
             },
         });
         console.log(
             '[doordash-webhook] Fulfillment', fulfillment.id,
-            `${fulfillment.status} → ${targetStatus}`,
+            `courierStatus ${current ?? '(none)'} → ${targetStatus}`,
             `(event: ${eventName})`,
         );
+
+        // Roll up: if every fulfillment on the order is now DELIVERED, the
+        // order itself is delivered.
+        if (targetStatus === 'DELIVERED') {
+            const remaining = await prisma.orderFulfillment.count({
+                where: { orderId: fulfillment.orderId, status: { not: 'DELIVERED' } },
+            });
+            if (remaining === 0) {
+                await prisma.order.update({
+                    where: { id: fulfillment.orderId },
+                    data: { orderStatus: 'DELIVERED' },
+                });
+                console.log('[doordash-webhook] All fulfillments delivered — Order', fulfillment.orderId, '→ DELIVERED');
+            }
+        }
     } catch (e) {
         console.error('[doordash-webhook] Update failed:', e instanceof Error ? e.message : e);
         return new NextResponse('Internal error', { status: 500 });

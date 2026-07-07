@@ -176,6 +176,12 @@ export type DoorDashCreateDeliveryRequest = {
     };
     orderValueCents: number;
     items?: { name: string; quantity: number; description?: string }[];
+    /** KDS — when the kitchen will have the order handoff-ready. DoorDash
+     *  schedules dasher assignment so arrival converges with this time
+     *  (`pickup_time`, RFC3339). Omit = ASAP dispatch. */
+    pickupReadyAt?: Date;
+    /** Leave-at-door dropoff (platform decision — sealed/insulated packaging). */
+    contactlessDropoff?: boolean;
 };
 
 export type DoorDashCreateDeliveryResponse = {
@@ -217,6 +223,10 @@ export async function doordashCreateDelivery(
             quantity: i.quantity,
             description: i.description,
         })),
+        // KDS: kitchen-readiness time — dasher arrival converges with this
+        // instead of racing to a kitchen that hasn't started cooking.
+        ...(req.pickupReadyAt ? { pickup_time: req.pickupReadyAt.toISOString() } : {}),
+        ...(req.contactlessDropoff ? { contactless_dropoff: true } : {}),
     };
     try {
         const res = await ddRequest('/drive/v2/deliveries', {

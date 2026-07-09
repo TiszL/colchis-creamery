@@ -525,7 +525,11 @@ async function getKitchenHome(user: { id: string; role: string }): Promise<strin
 
 export async function staffLoginAction(formData: FormData) {
     const loginInput = (formData.get("email") as string)?.trim();
-    const password = formData.get("password") as string;
+    // Trim to MATCH account creation, which trims the password before hashing.
+    // Without this, a trailing space — mobile keyboards auto-append one,
+    // copy-paste grabs one — fails bcrypt compare and reads as "Invalid
+    // credentials" no matter how carefully the password is re-entered.
+    const password = ((formData.get("password") as string) || "").trim();
 
     if (!loginInput || !password) {
         return { error: "Login ID and password are required." };
@@ -537,8 +541,10 @@ export async function staffLoginAction(formData: FormData) {
         const allowedRoles = [...STAFF_ROLES, "ANALYTICS_VIEWER"];
 
         // Support both email and username login (username @staff.local).
+        // Email matches are case-insensitive — legacy staff rows may be stored
+        // mixed-case, and users type emails with arbitrary capitalization.
         let user = await prisma.user.findFirst({
-            where: { email: loginInput, role: { in: allowedRoles } },
+            where: { email: { equals: loginInput, mode: "insensitive" }, role: { in: allowedRoles } },
         });
         if (!user && !loginInput.includes("@")) {
             user = await prisma.user.findFirst({
@@ -549,7 +555,7 @@ export async function staffLoginAction(formData: FormData) {
         // their access comes from UserLocation rows. They sign in here too.
         if (!user) {
             user = await prisma.user.findFirst({
-                where: { email: loginInput.toLowerCase(), locationRoles: { some: {} } },
+                where: { email: { equals: loginInput, mode: "insensitive" }, locationRoles: { some: {} } },
             });
         }
 
@@ -1075,12 +1081,29 @@ export async function createLocationStaffAction(formData: FormData) {
         });
         if (!location) return { error: "Location not found or inactive." };
 
-        // Never hijack an existing identity at this email.
+        // Never hijack an existing identity at this email — but DO reuse an
+        // orphaned kitchen account. "Orphaned" = B2C_CUSTOMER whose last
+        // location role was removed and who has no customer footprint (no
+        // orders, no addresses, no B2B links). Without reuse, removing a
+        // kitchen account permanently bricks its email for re-creation
+        // (the orphan is invisible in every admin list).
         const existing = await prisma.user.findMany({
-            where: { email },
-            select: { role: true, locationRoles: { select: { id: true }, take: 1 } },
+            where: { email: { equals: email, mode: "insensitive" } },
+            select: {
+                id: true,
+                role: true,
+                locationRoles: { select: { id: true }, take: 1 },
+                b2bPartner: { select: { id: true } },
+                partnerMembership: { select: { id: true } },
+                _count: { select: { orders: true, addresses: true } },
+            },
         });
-        if (existing.length > 0) {
+        const isOrphan = (u: (typeof existing)[number]) =>
+            u.role === "B2C_CUSTOMER" && u.locationRoles.length === 0 &&
+            !u.b2bPartner && !u.partnerMembership &&
+            u._count.orders === 0 && u._count.addresses === 0;
+        const orphan = existing.find(isOrphan);
+        if (existing.length > 0 && !orphan) {
             const taken = existing.some(u => u.locationRoles.length > 0 || u.role !== "B2C_CUSTOMER");
             if (taken) {
                 return { error: "An account with this email already exists — manage it below or in /admin/staff." };
@@ -1093,16 +1116,21 @@ export async function createLocationStaffAction(formData: FormData) {
         const passwordHash = await bcryptjs.hash(finalPassword, 12);
 
         await prisma.$transaction(async tx => {
-            const user = await tx.user.create({
-                data: {
-                    name,
-                    email,
-                    role: "B2C_CUSTOMER",
-                    passwordHash,
-                    emailVerified: true,
-                    isActive: true,
-                },
-            });
+            const user = orphan
+                ? await tx.user.update({
+                    where: { id: orphan.id },
+                    data: { name, passwordHash, emailVerified: true, isActive: true },
+                })
+                : await tx.user.create({
+                    data: {
+                        name,
+                        email,
+                        role: "B2C_CUSTOMER",
+                        passwordHash,
+                        emailVerified: true,
+                        isActive: true,
+                    },
+                });
             await tx.userLocation.create({
                 data: { userId: user.id, locationId: location.id, role: locationRole as any },
             });
@@ -1319,7 +1347,41 @@ export async function removeLocationRoleAction(userLocationId: string) {
     if (!userLocationId) return { error: "Missing id." };
 
     try {
+        const row = await prisma.userLocation.findUnique({
+            where: { id: userLocationId },
+            select: { userId: true },
+        });
         await prisma.userLocation.delete({ where: { id: userLocationId } });
+
+        // If that was the LAST location role of a pure kitchen account
+        // (B2C_CUSTOMER with no customer footprint), delete the User row too.
+        // Otherwise the "removed" account lives on invisibly — it appears in no
+        // admin list, blocks its email from re-creation, and reads to the admin
+        // as a delete that mysteriously didn't take.
+        if (row) {
+            const user = await prisma.user.findUnique({
+                where: { id: row.userId },
+                select: {
+                    id: true,
+                    role: true,
+                    locationRoles: { select: { id: true }, take: 1 },
+                    b2bPartner: { select: { id: true } },
+                    partnerMembership: { select: { id: true } },
+                    _count: { select: { orders: true, addresses: true } },
+                },
+            });
+            const pureKitchenAccount =
+                user &&
+                user.role === "B2C_CUSTOMER" &&
+                user.locationRoles.length === 0 &&
+                !user.b2bPartner && !user.partnerMembership &&
+                user._count.orders === 0 && user._count.addresses === 0;
+            if (pureKitchenAccount) {
+                await prisma.user.delete({ where: { id: user.id } });
+                console.log("[removeLocationRoleAction] Deleted orphaned kitchen account", user.id);
+            }
+        }
+
         revalidatePath("/admin/staff");
         revalidatePath("/admin/location-staff");
         return { success: true };

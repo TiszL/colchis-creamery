@@ -18,8 +18,11 @@
 // by dispatchCourierForFulfillment + the DD/Uber webhooks, never by staff.
 
 import { prisma } from '@/lib/db';
+import { getSession } from '@/lib/session';
 import { assertLocationRole } from '@/lib/location-rbac';
 import { dispatchCourierForFulfillment } from '@/lib/carrier-dispatch';
+import { refundOrderFullCore } from '@/lib/order-refund';
+import { sendOrderCancelledCustomerEmail } from '@/lib/email';
 
 const COURIER_METHODS = ['DOORDASH_DRIVE', 'UBER_DIRECT'] as const;
 
@@ -40,6 +43,7 @@ export type QueueItem = {
     orderId: string;
     orderShort: string;
     status: string;
+    paymentStatus: string;
     courierStatus: string | null;
     dispatchError: string | null;
     deliveryMethod: string;
@@ -74,7 +78,7 @@ export async function fetchLocationQueue(
         include: {
             order: {
                 select: {
-                    id: true, guestEmail: true, guestPhone: true, shippingDeliveryNotes: true,
+                    id: true, paymentStatus: true, guestEmail: true, guestPhone: true, shippingDeliveryNotes: true,
                     user: { select: { email: true, name: true, phone: true } },
                 },
             },
@@ -91,6 +95,7 @@ export async function fetchLocationQueue(
             orderId: f.order.id,
             orderShort: f.order.id.slice(0, 8).toUpperCase(),
             status: f.status,
+            paymentStatus: f.order.paymentStatus,
             courierStatus: f.courierStatus,
             dispatchError: f.dispatchError,
             deliveryMethod: f.deliveryMethod,
@@ -184,6 +189,98 @@ export async function retryCourierDispatch(fulfillmentId: string, locationId: st
         const pickupReadyAt = new Date(Date.now() + (f.location.prepMinutes || 25) * 60 * 1000);
         const result = await dispatchCourierForFulfillment(fulfillmentId, { pickupReadyAt });
         return result.ok ? { ok: true } : { ok: false, error: result.error };
+    } catch (e) {
+        return { ok: false, error: e instanceof Error ? e.message : 'Unknown error' };
+    }
+}
+
+/**
+ * Re-dispatch after the carrier cancelled (or dispatch failed) — books a FRESH
+ * delivery via force:true (overwrites externalOrderId + trackingNumber).
+ */
+export async function redispatchCourier(fulfillmentId: string, locationId: string): Promise<MutationResult> {
+    try {
+        await assertLocationRole(locationId, ['LOCATION_MANAGER', 'LOCATION_FULFILLMENT']);
+        const f = await prisma.orderFulfillment.findUnique({
+            where: { id: fulfillmentId },
+            select: { locationId: true, status: true, courierStatus: true, location: { select: { prepMinutes: true } } },
+        });
+        if (!f || f.locationId !== locationId) return { ok: false, error: 'Not found' };
+        if (f.status === 'CANCELLED') return { ok: false, error: 'Order is cancelled — cannot re-dispatch' };
+        if (f.courierStatus !== 'CANCELLED' && f.courierStatus !== 'DISPATCH_FAILED') {
+            return { ok: false, error: 'Courier is not cancelled — nothing to re-dispatch' };
+        }
+
+        const pickupReadyAt = new Date(Date.now() + (f.location.prepMinutes || 25) * 60 * 1000);
+        const result = await dispatchCourierForFulfillment(fulfillmentId, { pickupReadyAt, force: true });
+        return result.ok ? { ok: true } : { ok: false, error: result.error };
+    } catch (e) {
+        return { ok: false, error: e instanceof Error ? e.message : 'Unknown error' };
+    }
+}
+
+/**
+ * "Problem with order" — kitchen cancels the ENTIRE order: full Stripe refund,
+ * stock restore, courier recall (all inside refundOrderFullCore), then a
+ * best-effort cancellation email to the customer. LOCATION_MANAGER only —
+ * fulfillment staff cannot move money. Single-location orders only; anything
+ * spanning locations goes through the admin refund UI.
+ */
+export async function kitchenCancelOrder(
+    fulfillmentId: string,
+    locationId: string,
+    reason: string,
+): Promise<MutationResult> {
+    try {
+        await assertLocationRole(locationId, ['LOCATION_MANAGER']);
+        const f = await prisma.orderFulfillment.findUnique({
+            where: { id: fulfillmentId },
+            select: {
+                locationId: true,
+                order: {
+                    select: {
+                        id: true,
+                        paymentStatus: true,
+                        totalAmount: true,
+                        guestEmail: true,
+                        user: { select: { email: true, name: true } },
+                        fulfillments: { select: { locationId: true } },
+                    },
+                },
+            },
+        });
+        if (!f || f.locationId !== locationId) return { ok: false, error: 'Not found' };
+        if (f.order.paymentStatus !== 'PAID') {
+            return { ok: false, error: 'Order is not paid — nothing to refund' };
+        }
+        if (f.order.fulfillments.some(x => x.locationId !== locationId)) {
+            return { ok: false, error: 'Multi-location order — contact the admin to refund' };
+        }
+
+        const session = await getSession();
+        const result = await refundOrderFullCore(f.order.id, {
+            initiatedByUserId: session?.userId ?? null,
+            restoreStock: true,
+            reason: reason || 'Cancelled by kitchen',
+        });
+        if (!result.ok) return { ok: false, error: result.error };
+
+        // Best-effort customer notification — never fail the refund over email.
+        const to = f.order.guestEmail ?? f.order.user?.email;
+        if (to) {
+            try {
+                await sendOrderCancelledCustomerEmail({
+                    to,
+                    name: f.order.user?.name ?? null,
+                    orderId: f.order.id,
+                    amount: result.amountRefunded,
+                    reason: reason || null,
+                });
+            } catch (e) {
+                console.error('[kitchenCancelOrder] customer email failed:', e);
+            }
+        }
+        return { ok: true };
     } catch (e) {
         return { ok: false, error: e instanceof Error ? e.message : 'Unknown error' };
     }

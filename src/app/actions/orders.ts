@@ -19,45 +19,12 @@ import { prisma } from '@/lib/db';
 import { stripe } from '@/lib/stripe';
 import { getSession } from '@/lib/session';
 import { restoreStock } from '@/lib/stock-reservation';
-import { doordashCancelDelivery } from '@/lib/doordash';
-import { uberCancelDelivery } from '@/lib/uber-direct';
 import { CANCEL_WINDOW_MS, PAST_CONFIRMED_FULFILLMENT_STATUSES } from '@/lib/order-policy';
 import { revalidatePath } from 'next/cache';
-
-/* ─── Carrier cancel helper (private to this module) ───────────────────── */
-//
-// Used by both cancelOrder (customer) and refundOrder (admin, full first
-// refund only) to call the carrier's cancel API for any in-flight delivery.
-// Best-effort: failure (e.g., driver already picked up) is logged and ignored
-// — the customer's Stripe refund has already gone through. Skips fulfillments
-// without an externalOrderId, with terminal status, or on non-carrier channels.
-async function cancelActiveCarrierDeliveries(
-    fulfillments: ReadonlyArray<{
-        id: string;
-        deliveryMethod: string;
-        externalOrderId: string | null;
-        status: string;
-    }>,
-    logPrefix: string,
-): Promise<void> {
-    for (const f of fulfillments) {
-        if (!f.externalOrderId) continue;
-        if (f.status === 'DELIVERED' || f.status === 'CANCELLED') continue;
-        let cancelled = false;
-        if (f.deliveryMethod === 'DOORDASH_DRIVE') {
-            cancelled = await doordashCancelDelivery(f.externalOrderId);
-        } else if (f.deliveryMethod === 'UBER_DIRECT') {
-            cancelled = await uberCancelDelivery(f.externalOrderId);
-        } else {
-            continue; // non-carrier channels (pickup/dine-in/own-driver) have nothing to cancel
-        }
-        if (cancelled) {
-            console.log(`${logPrefix} Cancelled carrier delivery`, f.externalOrderId, '(', f.deliveryMethod, ')');
-        } else {
-            console.warn(`${logPrefix} Could not cancel carrier delivery`, f.externalOrderId, '(', f.deliveryMethod, ') — may have been picked up; reconcile in carrier dashboard');
-        }
-    }
-}
+// Shared refund core + carrier-cancel helper live in lib — NOT exported from
+// this 'use server' module, which would expose them as unauthenticated
+// server-action endpoints. See src/lib/order-refund.ts.
+import { cancelActiveCarrierDeliveries, refundOrderFullInternal } from '@/lib/order-refund';
 
 export type CancelOrderResult =
     | { ok: true }
@@ -242,6 +209,25 @@ export async function refundOrder(input: RefundOrderInput): Promise<RefundOrderR
     }
     if (!input.orderId) return { ok: false, error: 'Missing order id.' };
 
+    /* ─── Full refund (amountDollars <= 0): delegate to the shared core ── */
+
+    if (input.amountDollars <= 0) {
+        const result = await refundOrderFullInternal(input.orderId, {
+            initiatedByUserId: session.userId,
+            restoreStock: input.restoreStock,
+            reason: input.reason,
+            notes: input.notes,
+        });
+        if (!result.ok) return result;
+
+        revalidatePath(`/[locale]/admin/orders/${input.orderId}`, 'page');
+        revalidatePath('/[locale]/admin/orders', 'page');
+
+        return { ok: true, refundId: result.refundId, amountCents: result.amountCents, fullyRefunded: true };
+    }
+
+    /* ─── Partial refund ─────────────────────────────────────────────── */
+
     const order = await prisma.order.findUnique({
         where: { id: input.orderId },
         include: {
@@ -266,15 +252,10 @@ export async function refundOrder(input: RefundOrderInput): Promise<RefundOrderR
         return { ok: false, error: 'This order is already fully refunded.' };
     }
 
-    let amountCents: number;
-    if (input.amountDollars <= 0) {
-        amountCents = remainingCents;
-    } else {
-        amountCents = Math.round(input.amountDollars * 100);
-        if (amountCents > remainingCents) {
-            const max = (remainingCents / 100).toFixed(2);
-            return { ok: false, error: `Maximum refundable amount is $${max}.` };
-        }
+    const amountCents = Math.round(input.amountDollars * 100);
+    if (amountCents > remainingCents) {
+        const max = (remainingCents / 100).toFixed(2);
+        return { ok: false, error: `Maximum refundable amount is $${max}.` };
     }
     if (amountCents <= 0) return { ok: false, error: 'Refund amount must be positive.' };
 

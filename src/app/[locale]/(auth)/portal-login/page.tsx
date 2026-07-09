@@ -39,7 +39,10 @@ export default function StaffLoginPage() {
                 setMode("2fa");
                 setError(null);
             } else if (result?.success) {
-                if (result.role === "MASTER_ADMIN") {
+                if (result.kitchenHome) {
+                    // Kitchen account — land directly on their location's live queue.
+                    router.push(`/location-portal/${result.kitchenHome}/orders`);
+                } else if (result.role === "MASTER_ADMIN") {
                     router.push("/admin");
                 } else if (result.role === "ANALYTICS_VIEWER") {
                     router.push("/analytics");
@@ -114,8 +117,12 @@ export default function StaffLoginPage() {
             } else if (result?.success) {
                 setSuccess("Verified! Redirecting...");
                 const role = result.role || pendingRole;
+                const kitchenHome = result.kitchenHome;
                 setTimeout(() => {
-                    if (role === "MASTER_ADMIN") {
+                    if (kitchenHome) {
+                        // Kitchen account — land directly on their location's live queue.
+                        router.push(`/location-portal/${kitchenHome}/orders`);
+                    } else if (role === "MASTER_ADMIN") {
                         router.push("/admin");
                     } else if (role === "ANALYTICS_VIEWER") {
                         router.push("/analytics");
@@ -273,6 +280,7 @@ export default function StaffLoginPage() {
 
                 {/* Login Form */}
                 {mode === "login" && (
+                    <>
                     <form className="bg-[#161616] p-8 border border-[#B96A3D22] space-y-6" action={handleLogin}>
                         <div>
                             <label htmlFor="email" className="block text-[9px] text-[#D9A876] mb-2" style={mono}>Username or Email</label>
@@ -307,6 +315,10 @@ export default function StaffLoginPage() {
                             {isPending ? "Authenticating..." : (<>Access Portal <ArrowRight size={16} /></>)}
                         </button>
                     </form>
+                    <p className="text-center text-[11px] text-[#5A6158] mt-4" style={sans}>
+                        B2B partners sign in at <a href="/b2b/login" className="text-[#7A8278] hover:text-[#B96A3D] underline">/b2b/login</a> · customers at <a href="/login" className="text-[#7A8278] hover:text-[#B96A3D] underline">/login</a>
+                    </p>
+                    </>
                 )}
 
                 {/* Register Form */}

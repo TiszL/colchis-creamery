@@ -17,7 +17,7 @@ const NAV_ITEMS = [
     { label: 'Reviews', href: '/admin/reviews', icon: MessageSquare },
     { label: 'Contracts', href: '/admin/contracts', icon: FileText },
     { label: 'Staff Management', href: '/admin/staff', icon: Users },
-    { label: '  ↳ Location Staff', href: '/admin/location-staff', icon: Users },
+    { label: '  ↳ Kitchen Staff', href: '/admin/location-staff', icon: Users },
     { label: 'Access Codes', href: '/admin/access-codes', icon: KeyRound },
     { label: 'Website Content', href: '/admin/website', icon: Globe },
     { label: '  ↳ Recipes', href: '/admin/website/recipes', icon: FileText },

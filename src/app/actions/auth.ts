@@ -9,6 +9,7 @@ import { redirect } from "next/navigation";
 import {
     sendVerificationEmail, send2FAEmail, generateVerificationCode,
     sendB2bEmailChangeRequest, sendB2bEmailChangeUnlocked, sendPasswordResetEmail,
+    sendKitchenWelcomeEmail,
 } from "@/lib/email";
 import { normalizeUSPhone } from "@/lib/phone";
 
@@ -506,6 +507,22 @@ export async function confirmAccessCodeEmailChangeAction(token: string): Promise
 // Staff & Admin Actions
 // ──────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Kitchen (location-staff) accounts keep a B2C_CUSTOMER global role — their
+ * access comes from UserLocation rows. After a successful staff-portal login
+ * they should land on their first assigned location's live order queue, not
+ * /portal. Returns that locationId, or undefined for global-staff roles.
+ */
+async function getKitchenHome(user: { id: string; role: string }): Promise<string | undefined> {
+    if (STAFF_ROLES.includes(user.role) || user.role === "ANALYTICS_VIEWER") return undefined;
+    const home = await prisma.userLocation.findFirst({
+        where: { userId: user.id },
+        orderBy: { createdAt: "asc" },
+        select: { locationId: true },
+    });
+    return home?.locationId;
+}
+
 export async function staffLoginAction(formData: FormData) {
     const loginInput = (formData.get("email") as string)?.trim();
     const password = formData.get("password") as string;
@@ -526,6 +543,13 @@ export async function staffLoginAction(formData: FormData) {
         if (!user && !loginInput.includes("@")) {
             user = await prisma.user.findFirst({
                 where: { email: `${loginInput.toLowerCase()}@staff.local`, role: { in: allowedRoles } },
+            });
+        }
+        // Kitchen (location-staff) accounts: global role stays B2C_CUSTOMER;
+        // their access comes from UserLocation rows. They sign in here too.
+        if (!user) {
+            user = await prisma.user.findFirst({
+                where: { email: loginInput.toLowerCase(), locationRoles: { some: {} } },
             });
         }
 
@@ -591,7 +615,7 @@ export async function staffLoginAction(formData: FormData) {
 
         // 2FA not required — log in directly
         await setSession(user.id, user.role, user.email, user.name || undefined);
-        return { success: true, role: user.role };
+        return { success: true, role: user.role, kitchenHome: await getKitchenHome(user) };
     } catch (error) {
         console.error("Staff login error:", error);
         return { error: "An unexpected error occurred during login." };
@@ -605,10 +629,18 @@ export async function verify2FAAction(email: string, code: string) {
 
     try {
         // Phase 11: 2FA flow is staff-only; scope lookup so a same-email
-        // B2C account isn't surfaced here.
+        // B2C account isn't surfaced here. Kitchen (location-staff) accounts
+        // are the exception — they authenticate through the staff portal via
+        // their UserLocation rows.
         const staffRoles = ["MASTER_ADMIN", "PRODUCT_MANAGER", "CONTENT_MANAGER", "SALES"];
         const user = await prisma.user.findFirst({
-            where: { email, role: { in: staffRoles } },
+            where: {
+                email,
+                OR: [
+                    { role: { in: staffRoles } },
+                    { locationRoles: { some: {} } },
+                ],
+            },
         });
 
         if (!user) {
@@ -633,7 +665,7 @@ export async function verify2FAAction(email: string, code: string) {
             }
 
             await setSession(user.id, user.role, user.email, user.name || undefined);
-            return { success: true, role: user.role };
+            return { success: true, role: user.role, kitchenHome: await getKitchenHome(user) };
         }
 
         // Email-based 2FA verification
@@ -657,7 +689,7 @@ export async function verify2FAAction(email: string, code: string) {
 
         await setSession(user.id, user.role, user.email, user.name || undefined);
 
-        return { success: true, role: user.role };
+        return { success: true, role: user.role, kitchenHome: await getKitchenHome(user) };
     } catch (error) {
         console.error("2FA verification error:", error);
         return { error: "Verification failed. Please try again." };
@@ -1002,6 +1034,97 @@ export async function createStaffAccountAction(formData: FormData) {
     } catch (error) {
         console.error("Create staff account error:", error);
         return { error: "Failed to create account." };
+    }
+}
+
+/**
+ * Create a kitchen (location-staff) account in one step: a User with a REAL
+ * email (2FA codes are delivered there — no @staff.local placeholders) plus
+ * the UserLocation row that grants their portal access. Global role stays
+ * B2C_CUSTOMER; all authority is location-scoped.
+ */
+export async function createLocationStaffAction(formData: FormData) {
+    const session = await getSession();
+    if (!session || session.role !== "MASTER_ADMIN") {
+        return { error: "Unauthorized." };
+    }
+
+    const name = ((formData.get("name") as string) || "").trim();
+    const email = ((formData.get("email") as string) || "").trim().toLowerCase();
+    const password = ((formData.get("password") as string) || "").trim();
+    const locationId = formData.get("locationId") as string;
+    const locationRole = formData.get("locationRole") as string;
+
+    if (!name || !email || !locationId || !locationRole) {
+        return { error: "Name, email, location and role are required." };
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return { error: "Please enter a real email address — sign-in verification codes are delivered there." };
+    }
+    if (!["LOCATION_MANAGER", "LOCATION_FULFILLMENT"].includes(locationRole)) {
+        return { error: "Invalid location role." };
+    }
+    if (password && password.length < 8) {
+        return { error: "Password must be at least 8 characters (or leave blank to auto-generate one)." };
+    }
+
+    try {
+        const location = await prisma.location.findFirst({
+            where: { id: locationId, isActive: true },
+            select: { id: true, name: true },
+        });
+        if (!location) return { error: "Location not found or inactive." };
+
+        // Never hijack an existing identity at this email.
+        const existing = await prisma.user.findMany({
+            where: { email },
+            select: { role: true, locationRoles: { select: { id: true }, take: 1 } },
+        });
+        if (existing.length > 0) {
+            const taken = existing.some(u => u.locationRoles.length > 0 || u.role !== "B2C_CUSTOMER");
+            if (taken) {
+                return { error: "An account with this email already exists — manage it below or in /admin/staff." };
+            }
+            return { error: "This email belongs to an existing customer account. Assign them with the \"assign existing user\" form on their location below instead of creating a new account." };
+        }
+
+        const generated = !password;
+        const finalPassword = password || generateTempPassword();
+        const passwordHash = await bcryptjs.hash(finalPassword, 12);
+
+        await prisma.$transaction(async tx => {
+            const user = await tx.user.create({
+                data: {
+                    name,
+                    email,
+                    role: "B2C_CUSTOMER",
+                    passwordHash,
+                    emailVerified: true,
+                    isActive: true,
+                },
+            });
+            await tx.userLocation.create({
+                data: { userId: user.id, locationId: location.id, role: locationRole as any },
+            });
+        });
+
+        // Best-effort welcome email — account creation already succeeded.
+        try {
+            await sendKitchenWelcomeEmail({ to: email, name, locationName: location.name });
+        } catch (e) {
+            console.warn("[createLocationStaffAction] welcome email failed:", e instanceof Error ? e.message : e);
+        }
+
+        revalidatePath("/admin/staff");
+        revalidatePath("/admin/location-staff");
+        return {
+            success: true,
+            tempPassword: generated ? finalPassword : undefined,
+            createdUser: { name, email },
+        };
+    } catch (error) {
+        console.error("Create location staff error:", error);
+        return { error: "Failed to create kitchen account." };
     }
 }
 

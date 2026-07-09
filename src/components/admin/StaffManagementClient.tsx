@@ -479,6 +479,14 @@ export default function StaffManagementClient({
                 icon={MapPin} title="Location-only staff" count={locOnly.length}
                 hint="Bakery hires with no /portal access — their authority is scoped to assigned locations only."
             >
+                <div className="px-4 sm:px-6 py-3 border-b border-[#ffffff0A] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                    <p className="text-xs text-gray-500">
+                        Kitchen accounts — they sign in at <code className="text-[#B96A3D]">/portal-login</code> with their email and land on their location&apos;s live order queue.
+                    </p>
+                    <a href="/admin/location-staff" className="text-[10px] font-mono uppercase tracking-wider text-[#B96A3D] hover:text-white transition-colors shrink-0">
+                        Create kitchen account →
+                    </a>
+                </div>
                 {locOnly.length === 0 ? (
                     <EmptyRow message="No location-only staff. Assign existing customer accounts to a location to add them here." />
                 ) : (

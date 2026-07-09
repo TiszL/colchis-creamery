@@ -1130,3 +1130,181 @@ export async function sendNewOrderKitchenEmail(opts: {
     return { success: false, error: err instanceof Error ? err.message : 'unknown error' };
   }
 }
+
+// ─── KDS production (PR-B) — ops alerts + customer notices + kitchen welcome ─
+
+/** Ops alert: a courier delivery failed to dispatch OR was cancelled/returned
+ *  by the carrier. Sent to the location's notificationEmail (fallback global). */
+export async function sendCourierIssueOpsEmail(opts: {
+  to: string;
+  orderId: string;
+  locationId: string;
+  locationName: string;
+  carrier: string;             // "DoorDash" | "Uber Direct"
+  issue: string;               // e.g. "Delivery cancelled by carrier (no dasher available)" / dispatch error text
+  kind: 'DISPATCH_FAILED' | 'CANCELLED' | 'RETURNED';
+}) {
+  const shortId = opts.orderId.slice(0, 8).toUpperCase();
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+  const queueUrl = `${siteUrl}/location-portal/${opts.locationId}/orders`;
+  const heading =
+    opts.kind === 'DISPATCH_FAILED' ? 'Courier dispatch <em style="color:' + C.red + ';font-weight:400;">failed.</em>'
+    : opts.kind === 'RETURNED' ? 'Delivery <em style="color:' + C.red + ';font-weight:400;">returned to store.</em>'
+    : 'Courier <em style="color:' + C.red + ';font-weight:400;">cancelled.</em>';
+  try {
+    const { data, error } = await resend.emails.send({
+      from: getFrom(),
+      to: [opts.to],
+      subject: `⚠ Order #${shortId} — courier issue (${opts.carrier})`,
+      html: wrap(`
+          ${sealHead('Courier Issue')}
+          <tr>
+            <td style="background:${C.cream2};padding:44px 48px 20px;">
+              <p style="margin:0 0 8px;font-family:'Courier New',monospace;font-size:10px;letter-spacing:3px;color:${C.red};text-transform:uppercase;">Order #${shortId} · ${escHtml(opts.locationName)} · ${escHtml(opts.carrier)}</p>
+              <h1 style="margin:0;font-family:'Georgia',serif;font-size:28px;font-weight:300;color:${C.forest};line-height:1.2;">${heading}</h1>
+            </td>
+          </tr>
+          <tr>
+            <td style="background:${C.cream2};padding:0 48px 24px;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="background:${C.redBg};border:1px solid ${C.red}44;">
+                <tr><td style="padding:14px 20px;font-family:'Georgia',serif;font-size:14px;color:${C.forest};line-height:1.6;">${escHtml(opts.issue)}</td></tr>
+              </table>
+              <p style="margin:14px 0 0;font-family:'Georgia',serif;font-size:13px;color:${C.muted};line-height:1.6;">
+                The customer has ${opts.kind === 'DISPATCH_FAILED' ? 'NOT been notified (kitchen flow continues — use Retry in the queue)' : 'been notified that we are looking into it'}. Re-dispatch a courier from the order queue, or contact the customer to arrange an alternative.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="background:${C.cream2};padding:0 48px 44px;text-align:center;">
+              <a href="${queueUrl}" style="display:inline-block;background:${C.forest};color:${C.cream};text-decoration:none;padding:16px 28px;font-family:'Courier New',monospace;font-size:11px;letter-spacing:3px;text-transform:uppercase;">Open order queue &rarr;</a>
+            </td>
+          </tr>
+          ${darkFoot()}
+      `),
+    });
+    if (error) return { success: false, error: error.message };
+    return { success: true, id: data?.id };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'unknown error' };
+  }
+}
+
+/** Customer notice: their courier hit a snag; we're on it (no refund implied). */
+export async function sendDeliveryIssueCustomerEmail(opts: {
+  to: string;
+  name: string | null;
+  orderId: string;
+}) {
+  const shortId = opts.orderId.slice(0, 8).toUpperCase();
+  const greeting = opts.name || 'there';
+  try {
+    const { data, error } = await resend.emails.send({
+      from: getFrom(),
+      to: [opts.to],
+      subject: `A quick note about your order #${shortId}`,
+      html: wrap(`
+          ${sealHead('Delivery Update')}
+          <tr>
+            <td style="background:${C.cream2};padding:48px 48px 24px;">
+              <p style="margin:0 0 20px;font-family:'Courier New',monospace;font-size:10px;letter-spacing:3px;color:${C.accent2};text-transform:uppercase;">Order #${shortId}</p>
+              <h1 style="margin:0 0 20px;font-family:'Georgia',serif;font-size:28px;font-weight:300;color:${C.forest};line-height:1.2;">Hello, <em style="color:${C.accent2};font-weight:400;">${escHtml(greeting)}.</em></h1>
+              <p style="margin:0;font-family:'Georgia',serif;font-size:15px;color:${C.moss};line-height:1.75;font-style:italic;">
+                Our delivery partner ran into an issue with your order's courier. Your food is safe with us — we're already arranging another driver, and we'll reach out directly if anything needs your input. No action is needed on your side.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="background:${C.cream2};padding:0 48px 44px;">
+              <p style="margin:0;font-family:'Georgia',serif;font-size:13px;color:${C.muted};line-height:1.6;text-align:center;">Questions? Just reply to this email and our team will help.</p>
+            </td>
+          </tr>
+          ${darkFoot()}
+      `),
+    });
+    if (error) return { success: false, error: error.message };
+    return { success: true, id: data?.id };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'unknown error' };
+  }
+}
+
+/** Customer notice: order cancelled + refunded (kitchen/ops initiated). */
+export async function sendOrderCancelledCustomerEmail(opts: {
+  to: string;
+  name: string | null;
+  orderId: string;
+  amount: string;              // e.g. "45.00"
+  reason?: string | null;      // optional human-written reason shown to the customer
+}) {
+  const shortId = opts.orderId.slice(0, 8).toUpperCase();
+  const greeting = opts.name || 'there';
+  try {
+    const { data, error } = await resend.emails.send({
+      from: getFrom(),
+      to: [opts.to],
+      subject: `Your order #${shortId} has been cancelled & refunded`,
+      html: wrap(`
+          ${sealHead('Order Cancelled')}
+          <tr>
+            <td style="background:${C.cream2};padding:48px 48px 24px;">
+              <p style="margin:0 0 20px;font-family:'Courier New',monospace;font-size:10px;letter-spacing:3px;color:${C.accent2};text-transform:uppercase;">Order #${shortId}</p>
+              <h1 style="margin:0 0 20px;font-family:'Georgia',serif;font-size:28px;font-weight:300;color:${C.forest};line-height:1.2;">Hello, <em style="color:${C.accent2};font-weight:400;">${escHtml(greeting)}.</em></h1>
+              <p style="margin:0 0 16px;font-family:'Georgia',serif;font-size:15px;color:${C.moss};line-height:1.75;font-style:italic;">
+                We're sorry — we had to cancel your order and have issued a full refund of <strong style="color:${C.forest};">$${escHtml(opts.amount)}</strong>. Depending on your bank, it can take 5–10 business days to appear.
+              </p>
+              ${opts.reason ? `<p style="margin:0;font-family:'Georgia',serif;font-size:14px;color:${C.moss};line-height:1.7;">Note from our kitchen: ${escHtml(opts.reason)}</p>` : ''}
+            </td>
+          </tr>
+          <tr>
+            <td style="background:${C.cream2};padding:0 48px 44px;">
+              <p style="margin:0;font-family:'Georgia',serif;font-size:13px;color:${C.muted};line-height:1.6;text-align:center;">We'd love another chance to feed you — reply to this email and we'll make it right.</p>
+            </td>
+          </tr>
+          ${darkFoot()}
+      `),
+    });
+    if (error) return { success: false, error: error.message };
+    return { success: true, id: data?.id };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'unknown error' };
+  }
+}
+
+/** Welcome email for a newly-created kitchen (location-staff) account. */
+export async function sendKitchenWelcomeEmail(opts: {
+  to: string;
+  name: string;
+  locationName: string;
+}) {
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+  const loginUrl = `${siteUrl}/portal-login`;
+  try {
+    const { data, error } = await resend.emails.send({
+      from: getFrom(),
+      to: [opts.to],
+      subject: `Your Colchis Food kitchen account — ${opts.locationName}`,
+      html: wrap(`
+          ${sealHead('Kitchen Account')}
+          <tr>
+            <td style="background:${C.cream2};padding:48px 48px 24px;">
+              <p style="margin:0 0 20px;font-family:'Courier New',monospace;font-size:10px;letter-spacing:3px;color:${C.accent2};text-transform:uppercase;">${escHtml(opts.locationName)}</p>
+              <h1 style="margin:0 0 20px;font-family:'Georgia',serif;font-size:28px;font-weight:300;color:${C.forest};line-height:1.2;">Welcome, <em style="color:${C.accent2};font-weight:400;">${escHtml(opts.name)}.</em></h1>
+              <p style="margin:0;font-family:'Georgia',serif;font-size:15px;color:${C.moss};line-height:1.75;font-style:italic;">
+                Your kitchen account is ready. Sign in with this email and the password your manager gave you — you'll land directly on the live order queue for ${escHtml(opts.locationName)}, where new orders arrive with a chime and one tap accepts them.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="background:${C.cream2};padding:12px 48px 44px;text-align:center;">
+              <a href="${loginUrl}" style="display:inline-block;background:${C.forest};color:${C.cream};text-decoration:none;padding:16px 28px;font-family:'Courier New',monospace;font-size:11px;letter-spacing:3px;text-transform:uppercase;">Sign in to your queue &rarr;</a>
+            </td>
+          </tr>
+          ${darkFoot()}
+      `),
+    });
+    if (error) return { success: false, error: error.message };
+    return { success: true, id: data?.id };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'unknown error' };
+  }
+}

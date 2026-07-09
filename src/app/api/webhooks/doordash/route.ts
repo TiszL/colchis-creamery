@@ -21,6 +21,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { mapDoorDashEvent, verifyDoorDashAuth } from '@/lib/doordash';
+import { sendCourierIssueOpsEmail, sendDeliveryIssueCustomerEmail } from '@/lib/email';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -77,6 +78,10 @@ export async function POST(req: Request) {
 
     const fulfillment = await prisma.orderFulfillment.findFirst({
         where: { externalOrderId: externalDeliveryId },
+        include: {
+            location: { select: { name: true, notificationEmail: true } },
+            order: { select: { guestEmail: true, user: { select: { name: true, email: true } } } },
+        },
     });
     if (!fulfillment) {
         console.warn('[doordash-webhook] No fulfillment found for', externalDeliveryId);
@@ -127,6 +132,32 @@ export async function POST(req: Request) {
             `courierStatus ${current ?? '(none)'} → ${targetStatus}`,
             `(event: ${eventName})`,
         );
+
+        // First transition into CANCELLED (guaranteed by the guard above):
+        // alert ops + the customer. Fire-and-forget — email failures must
+        // never affect the 200 ack.
+        if (targetStatus === 'CANCELLED') {
+            const opsTo = fulfillment.location.notificationEmail ?? process.env.BAKERY_NOTIFICATION_EMAIL;
+            if (opsTo) {
+                sendCourierIssueOpsEmail({
+                    to: opsTo,
+                    orderId: fulfillment.orderId,
+                    locationId: fulfillment.locationId,
+                    locationName: fulfillment.location.name,
+                    carrier: 'DoorDash',
+                    issue: `DoorDash reported "${eventName}" — this delivery will not be completed.`,
+                    kind: eventName === 'delivery_returned' ? 'RETURNED' : 'CANCELLED',
+                }).catch(e => console.warn('[doordash-webhook] Ops email failed:', e instanceof Error ? e.message : e));
+            }
+            const customerTo = fulfillment.order.guestEmail ?? fulfillment.order.user.email;
+            if (customerTo) {
+                sendDeliveryIssueCustomerEmail({
+                    to: customerTo,
+                    name: fulfillment.order.user.name,
+                    orderId: fulfillment.orderId,
+                }).catch(e => console.warn('[doordash-webhook] Customer email failed:', e instanceof Error ? e.message : e));
+            }
+        }
 
         // Roll up: if every fulfillment on the order is now DELIVERED, the
         // order itself is delivered.

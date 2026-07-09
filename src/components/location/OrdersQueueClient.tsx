@@ -16,6 +16,8 @@ import {
     acceptFulfillment,
     advanceFulfillment,
     retryCourierDispatch,
+    redispatchCourier,
+    kitchenCancelOrder,
     type QueueItem,
     type QueueSnapshot,
     type MutationResult,
@@ -103,7 +105,15 @@ function sortQueue(items: QueueItem[]): QueueItem[] {
     });
 }
 
-export default function OrdersQueueClient({ locationId, initial }: { locationId: string; initial: QueueSnapshot }) {
+export default function OrdersQueueClient({
+    locationId,
+    initial,
+    canRefund,
+}: {
+    locationId: string;
+    initial: QueueSnapshot;
+    canRefund: boolean;
+}) {
     const [view, setView] = useState<'active' | 'done'>('active');
     const [snapshot, setSnapshot] = useState<QueueSnapshot>(initial);
     const [pollError, setPollError] = useState(false);
@@ -112,6 +122,12 @@ export default function OrdersQueueClient({ locationId, initial }: { locationId:
     const [cardErrors, setCardErrors] = useState<Record<string, string>>({});
     const [courierNotes, setCourierNotes] = useState<Record<string, string>>({});
     const [flashIds, setFlashIds] = useState<Set<string>>(new Set());
+    // "Problem with order" cancel-&-refund panel (manager-only, per card):
+    // open → optional reason → two-step confirm (armed → fire).
+    const [problemIds, setProblemIds] = useState<Set<string>>(new Set());
+    const [problemReasons, setProblemReasons] = useState<Record<string, string>>({});
+    const [armedIds, setArmedIds] = useState<Set<string>>(new Set());
+    const [cancelledNotes, setCancelledNotes] = useState<Set<string>>(new Set());
     const [pendingCount, setPendingCount] = useState(() => initial.items.filter(i => i.status === 'PENDING').length);
     const [, startTransition] = useTransition();
 
@@ -349,7 +365,17 @@ export default function OrdersQueueClient({ locationId, initial }: { locationId:
                         : 'text-gray-500';
                     const label = item.status === 'PENDING' ? null : advanceLabel(item.deliveryMethod, item.status);
                     const dispatchFailed = item.courierStatus === 'DISPATCH_FAILED';
+                    // Hide re-dispatch on kitchen-cancelled fulfillments (courier
+                    // recall on a refunded order also leaves courierStatus CANCELLED).
+                    const courierCancelled = item.courierStatus === 'CANCELLED' && item.status !== 'CANCELLED';
                     const isUrl = item.trackingUrl?.startsWith('http');
+                    const canProblem =
+                        canRefund &&
+                        item.paymentStatus === 'PAID' &&
+                        item.status !== 'DELIVERED' &&
+                        item.status !== 'CANCELLED';
+                    const problemOpen = problemIds.has(item.id);
+                    const armed = armedIds.has(item.id);
 
                     return (
                         <div
@@ -463,6 +489,101 @@ export default function OrdersQueueClient({ locationId, initial }: { locationId:
                                     >
                                         {busy ? 'Retrying…' : 'Retry courier'}
                                     </button>
+                                </div>
+                            )}
+
+                            {courierCancelled && (
+                                <div className="mt-3 px-3 py-2 bg-amber-900/20 border border-amber-800/40 flex items-center justify-between gap-3 flex-wrap">
+                                    <p className="text-[11px] font-mono text-amber-400">
+                                        The courier cancelled — book a new driver.
+                                    </p>
+                                    <button
+                                        type="button"
+                                        disabled={busy}
+                                        onClick={() => runAction(item.id, () => redispatchCourier(item.id, locationId))}
+                                        className="min-h-[44px] px-5 text-[11px] font-mono uppercase tracking-wider bg-amber-900/40 text-amber-300 border border-amber-800/60 hover:bg-amber-900/60 transition-colors disabled:opacity-50 disabled:cursor-wait"
+                                    >
+                                        {busy ? 'Dispatching…' : 'Re-dispatch courier'}
+                                    </button>
+                                </div>
+                            )}
+
+                            {canProblem && (
+                                <div className="mt-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setProblemIds(prev => {
+                                                const next = new Set(prev);
+                                                if (next.has(item.id)) next.delete(item.id);
+                                                else next.add(item.id);
+                                                return next;
+                                            });
+                                            setArmedIds(prev => {
+                                                const next = new Set(prev);
+                                                next.delete(item.id);
+                                                return next;
+                                            });
+                                        }}
+                                        className="py-1 text-[11px] font-mono text-gray-600 hover:text-gray-400 underline underline-offset-2 transition-colors"
+                                    >
+                                        {problemOpen ? 'Never mind' : 'Problem with order?'}
+                                    </button>
+
+                                    {problemOpen && (
+                                        <div className="mt-2 px-3 py-3 bg-[#1a1212] border border-red-900/40 space-y-3">
+                                            <textarea
+                                                value={problemReasons[item.id] ?? ''}
+                                                onChange={e => setProblemReasons(prev => ({ ...prev, [item.id]: e.target.value }))}
+                                                placeholder="What should we tell the customer? (optional)"
+                                                rows={2}
+                                                className="w-full bg-[#161616] border border-[#ffffff0A] px-3 py-2 text-[12px] font-mono text-white placeholder-gray-600 focus:outline-none focus:border-red-800/60"
+                                            />
+                                            <p className="text-[11px] font-mono text-amber-400">
+                                                ⚠ Cancels the ENTIRE order, refunds the customer in full, restores stock, and recalls any courier.
+                                            </p>
+                                            <button
+                                                type="button"
+                                                disabled={busy}
+                                                onClick={() => {
+                                                    if (!armed) {
+                                                        setArmedIds(prev => new Set(prev).add(item.id));
+                                                        return;
+                                                    }
+                                                    runAction(item.id, async () => {
+                                                        const res = await kitchenCancelOrder(item.id, locationId, problemReasons[item.id] ?? '');
+                                                        if (res.ok) {
+                                                            setCancelledNotes(prev => new Set(prev).add(item.id));
+                                                            setProblemIds(prev => {
+                                                                const next = new Set(prev);
+                                                                next.delete(item.id);
+                                                                return next;
+                                                            });
+                                                            setArmedIds(prev => {
+                                                                const next = new Set(prev);
+                                                                next.delete(item.id);
+                                                                return next;
+                                                            });
+                                                        }
+                                                        return res;
+                                                    }, 'CANCELLED');
+                                                }}
+                                                className={`min-h-[44px] px-5 text-[11px] font-mono uppercase tracking-wider border transition-colors disabled:opacity-50 disabled:cursor-wait ${
+                                                    armed
+                                                        ? 'bg-red-700 text-white border-red-700 hover:bg-red-600'
+                                                        : 'bg-red-900/40 text-red-300 border-red-800/60 hover:bg-red-900/60'
+                                                }`}
+                                            >
+                                                {busy ? 'Cancelling…' : armed ? 'Confirm cancel & refund' : 'Cancel & refund order'}
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {cancelledNotes.has(item.id) && (
+                                <div className="mt-3 px-3 py-2 bg-emerald-900/20 border border-emerald-800/40 text-emerald-400 text-[11px] font-mono">
+                                    Order cancelled — customer refunded in full.
                                 </div>
                             )}
 

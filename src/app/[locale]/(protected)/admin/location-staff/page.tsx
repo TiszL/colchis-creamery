@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { LocationRole } from "@prisma/client";
 import { Trash2, UserPlus } from "lucide-react";
+import CreateKitchenAccountForm from "@/components/admin/CreateKitchenAccountForm";
 
 export const dynamic = "force-dynamic";
 
@@ -78,6 +79,15 @@ export default async function LocationStaffAdminPage({
                     Existing global staff role (e.g. SALES) is unchanged; this layers location-scoped permissions on top.
                 </p>
             </header>
+
+            <div className="bg-[#B96A3D]/10 border border-[#B96A3D]/30 p-4 text-sm text-[#D9A876]">
+                Kitchen accounts process orders in the Location Portal order queue. Create one below; they sign in at{" "}
+                <code className="text-[#B96A3D]">/portal-login</code> with their email and land directly on their location&apos;s live queue.
+            </div>
+
+            <CreateKitchenAccountForm
+                locations={locations.map(l => ({ id: l.id, name: l.name, city: l.city, state: l.state }))}
+            />
 
             {locations.map(loc => (
                 <section key={loc.id} className="bg-[#161616] border border-[#ffffff0A] p-5">

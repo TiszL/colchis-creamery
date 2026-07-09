@@ -1,3 +1,5 @@
+import { prisma } from "@/lib/db";
+import { getSession } from "@/lib/session";
 import { assertLocationRole } from "@/lib/location-rbac";
 import { fetchLocationQueue } from "@/app/actions/location-orders";
 import OrdersQueueClient from "@/components/location/OrdersQueueClient";
@@ -15,5 +17,16 @@ export default async function LocationOrdersPage({
     await assertLocationRole(locationId, ["LOCATION_MANAGER", "LOCATION_FULFILLMENT"]);
     const initial = await fetchLocationQueue(locationId, "active");
 
-    return <OrdersQueueClient locationId={locationId} initial={initial} />;
+    // Cancel-&-refund is manager-only (fulfillment staff can't move money).
+    const session = await getSession();
+    const canRefund =
+        session?.role === "MASTER_ADMIN" ||
+        (session
+            ? !!(await prisma.userLocation.findFirst({
+                  where: { userId: session.userId, locationId, role: "LOCATION_MANAGER" },
+                  select: { id: true },
+              }))
+            : false);
+
+    return <OrdersQueueClient locationId={locationId} initial={initial} canRefund={canRefund} />;
 }

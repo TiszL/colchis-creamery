@@ -19,6 +19,7 @@
 import { prisma } from '@/lib/db';
 import { doordashCreateDelivery, isDoorDashConfigured } from '@/lib/doordash';
 import { uberCreateDelivery, isUberDirectConfigured } from '@/lib/uber-direct';
+import { sendCourierIssueOpsEmail } from '@/lib/email';
 
 export type DispatchResult =
     | { ok: true; trackingUrl: string | null; alreadyDispatched?: boolean }
@@ -56,10 +57,13 @@ export function combineDropoffInstructions(order: {
  *
  * @param opts.pickupReadyAt when the kitchen will have the order handoff-ready;
  *        callers compute it as acceptTime + Location.prepMinutes.
+ * @param opts.force skip the idempotency early-return and book a FRESH delivery
+ *        (overwrites externalOrderId/trackingNumber) — used to re-dispatch after
+ *        a courier-side cancellation. Callers must cancel the old delivery first.
  */
 export async function dispatchCourierForFulfillment(
     fulfillmentId: string,
-    opts: { pickupReadyAt?: Date } = {},
+    opts: { pickupReadyAt?: Date; force?: boolean } = {},
 ): Promise<DispatchResult> {
     const f = await prisma.orderFulfillment.findUnique({
         where: { id: fulfillmentId },
@@ -73,7 +77,7 @@ export async function dispatchCourierForFulfillment(
     if (f.deliveryMethod !== 'DOORDASH_DRIVE' && f.deliveryMethod !== 'UBER_DIRECT') {
         return { ok: false, error: `Not a courier fulfillment (${f.deliveryMethod})` };
     }
-    if (f.externalOrderId) {
+    if (f.externalOrderId && !opts.force) {
         return { ok: true, trackingUrl: f.trackingNumber, alreadyDispatched: true };
     }
 
@@ -84,10 +88,10 @@ export async function dispatchCourierForFulfillment(
     // a doomed create call just wastes the API hit.
     const recipientPhone = order.guestPhone || order.user.phone || '';
     if (!loc.phone) {
-        return await failDispatch(f.id, `Pickup location "${loc.name}" has no phone configured — set it in /admin/locations.`);
+        return await failDispatch(f, `Pickup location "${loc.name}" has no phone configured — set it in /admin/locations.`);
     }
     if (!recipientPhone) {
-        return await failDispatch(f.id, 'Order has no customer phone (checkout should have required one).');
+        return await failDispatch(f, 'Order has no customer phone (checkout should have required one).');
     }
 
     const recipientEmail = order.guestEmail || order.user.email || undefined;
@@ -104,11 +108,11 @@ export async function dispatchCourierForFulfillment(
     const items = f.items.map(it => ({ name: it.orderItem.product.name, quantity: it.quantity }));
 
     if (f.deliveryMethod === 'DOORDASH_DRIVE') {
-        if (!isDoorDashConfigured()) return await failDispatch(f.id, 'DoorDash is not configured (missing credentials).');
+        if (!isDoorDashConfigured()) return await failDispatch(f, 'DoorDash is not configured (missing credentials).');
 
         const structured = [order.shippingLine1, order.shippingCity, order.shippingState, order.shippingPostalCode];
         const dropoffAddress = structured.every(Boolean) ? structured.join(', ') : (order.shippingAddress || '');
-        if (!dropoffAddress) return await failDispatch(f.id, 'Order has no shipping address.');
+        if (!dropoffAddress) return await failDispatch(f, 'Order has no shipping address.');
         const pickupAddress = [loc.addressLine1, loc.city, loc.state, loc.postalCode].filter(Boolean).join(', ');
 
         const result = await doordashCreateDelivery({
@@ -120,7 +124,7 @@ export async function dispatchCourierForFulfillment(
             pickupReadyAt: opts.pickupReadyAt,
             contactlessDropoff: true, // platform decision: leave at door
         });
-        if (!result) return await failDispatch(f.id, 'DoorDash rejected the delivery request — see server logs.');
+        if (!result) return await failDispatch(f, 'DoorDash rejected the delivery request — see server logs.');
         await prisma.orderFulfillment.update({
             where: { id: f.id },
             data: { externalOrderId: result.externalDeliveryId, trackingNumber: result.trackingUrl || null, courierStatus: 'REQUESTED', dispatchError: null },
@@ -129,14 +133,14 @@ export async function dispatchCourierForFulfillment(
     }
 
     // UBER_DIRECT
-    if (!isUberDirectConfigured()) return await failDispatch(f.id, 'Uber Direct is not configured (missing credentials).');
+    if (!isUberDirectConfigured()) return await failDispatch(f, 'Uber Direct is not configured (missing credentials).');
     if (!loc.addressLine1 || !loc.city || !loc.state || !loc.postalCode) {
-        return await failDispatch(f.id, `Pickup location "${loc.name}" is missing address components.`);
+        return await failDispatch(f, `Pickup location "${loc.name}" is missing address components.`);
     }
     const parsed = order.shippingLine1 && order.shippingCity && order.shippingState && order.shippingPostalCode
         ? { line1: order.shippingLine1, city: order.shippingCity, state: order.shippingState, postalCode: order.shippingPostalCode, country: 'US' }
         : parseShippingAddress(order.shippingAddress);
-    if (!parsed) return await failDispatch(f.id, 'Could not derive a structured shipping address for this order.');
+    if (!parsed) return await failDispatch(f, 'Could not derive a structured shipping address for this order.');
 
     const result = await uberCreateDelivery({
         externalOrderId: order.id,
@@ -153,7 +157,7 @@ export async function dispatchCourierForFulfillment(
         pickupReadyAt: opts.pickupReadyAt,
         undeliverableAction: 'leave_at_door', // platform decision
     });
-    if (!result) return await failDispatch(f.id, 'Uber Direct rejected the delivery request — see server logs.');
+    if (!result) return await failDispatch(f, 'Uber Direct rejected the delivery request — see server logs.');
     await prisma.orderFulfillment.update({
         where: { id: f.id },
         data: { externalOrderId: result.deliveryId, trackingNumber: result.trackingUrl || null, courierStatus: 'REQUESTED', dispatchError: null },
@@ -161,12 +165,34 @@ export async function dispatchCourierForFulfillment(
     return { ok: true, trackingUrl: result.trackingUrl || null };
 }
 
-/** Record a failed attempt so the portal can show it + offer Retry. */
-async function failDispatch(fulfillmentId: string, error: string): Promise<DispatchResult> {
-    console.error('[carrier-dispatch]', fulfillmentId, '—', error);
+/** Record a failed attempt so the portal can show it + offer Retry, then
+ *  best-effort alert the location's ops inbox (fallback: global bakery inbox). */
+async function failDispatch(
+    f: {
+        id: string;
+        orderId: string;
+        deliveryMethod: string;
+        location: { id: string; name: string; notificationEmail: string | null };
+    },
+    error: string,
+): Promise<DispatchResult> {
+    console.error('[carrier-dispatch]', f.id, '—', error);
     await prisma.orderFulfillment.update({
-        where: { id: fulfillmentId },
+        where: { id: f.id },
         data: { courierStatus: 'DISPATCH_FAILED', dispatchError: error },
     }).catch(() => undefined);
+
+    const to = f.location.notificationEmail ?? process.env.BAKERY_NOTIFICATION_EMAIL;
+    if (to) {
+        await sendCourierIssueOpsEmail({
+            to,
+            orderId: f.orderId,
+            locationId: f.location.id,
+            locationName: f.location.name,
+            carrier: f.deliveryMethod === 'DOORDASH_DRIVE' ? 'DoorDash' : 'Uber Direct',
+            issue: error,
+            kind: 'DISPATCH_FAILED',
+        }).catch((e) => console.warn('[carrier-dispatch] Ops email failed:', e instanceof Error ? e.message : e));
+    }
     return { ok: false, error };
 }

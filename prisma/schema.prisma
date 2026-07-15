@@ -1214,9 +1214,34 @@ model OrderFulfillment {
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
 
-  items OrderFulfillmentItem[]
+  items          OrderFulfillmentItem[]
+  cancelRequests OrderCancelRequest[]
 
   @@index([orderId])
+}
+
+// KDS — kitchen staff (LOCATION_FULFILLMENT) cannot move money; instead they
+// file a cancel/refund request that a LOCATION_MANAGER approves (full refund
+// via the same core as "Problem with order?") or declines with a note.
+// Requester/resolver names are denormalized because kitchen accounts can be
+// deleted outright (removeLocationRoleAction) — the audit trail must survive.
+model OrderCancelRequest {
+  id              String           @id @default(uuid())
+  fulfillmentId   String
+  fulfillment     OrderFulfillment @relation(fields: [fulfillmentId], references: [id], onDelete: Cascade)
+  locationId      String
+  requestedById   String
+  requestedByName String
+  reason          String           // required — the kitchen's "why" (shown to the manager)
+  status          String           @default("PENDING") // PENDING|APPROVED|DECLINED
+  resolvedById    String?
+  resolvedByName  String?
+  resolutionNote  String?          // manager's note — shown to the kitchen on decline
+  resolvedAt      DateTime?
+  createdAt       DateTime         @default(now())
+
+  @@index([fulfillmentId])
+  @@index([locationId, status])
 }
 
 model OrderFulfillmentItem {

@@ -17,7 +17,8 @@ export default async function LocationOrdersPage({
     await assertLocationRole(locationId, ["LOCATION_MANAGER", "LOCATION_FULFILLMENT"]);
     const initial = await fetchLocationQueue(locationId, "active");
 
-    // Cancel-&-refund is manager-only (fulfillment staff can't move money).
+    // Cancel-&-refund + edit are manager-only (fulfillment staff can't move
+    // money — they file cancel REQUESTS the manager approves on this same page).
     const session = await getSession();
     const canRefund =
         session?.role === "MASTER_ADMIN" ||

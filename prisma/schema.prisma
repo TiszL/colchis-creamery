@@ -719,6 +719,10 @@ model OrderItem {
   quantity  Int
   unitPrice String
 
+  // KDS — quantity refunded via kitchen item-removal (partial refunds). The
+  // original quantity is never mutated; effective qty = quantity - refundedQuantity.
+  refundedQuantity Int @default(0)
+
   order            Order                  @relation(fields: [orderId], references: [id])
   product          Product                @relation(fields: [productId], references: [id])
   fulfillmentItems OrderFulfillmentItem[]
@@ -1195,6 +1199,13 @@ model OrderFulfillment {
   // Why the last courier dispatch attempt failed (shown in the portal with a
   // Retry button). Cleared on successful dispatch.
   dispatchError     String?
+  // Courier live info captured from DD/Uber webhook payloads (latest-wins).
+  courierName         String?
+  courierPhone        String?
+  courierPickupEtaAt  DateTime?
+  courierDropoffEtaAt DateTime?
+  // ARRIVED_AT_PICKUP | ARRIVED_AT_DROPOFF — cleared when status advances past.
+  courierSubstate     String?
   // Kitchen timing metrics: when staff accepted the order and when they marked
   // it handoff-ready. Feed ops dashboards + prep-time tuning later.
   acceptedAt        DateTime?

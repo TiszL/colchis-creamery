@@ -34,8 +34,34 @@ interface DoorDashWebhookPayload {
         external_delivery_id?: string;
         delivery_status?: string;
         tracking_url?: string;
+        dasher_name?: string;
+        dasher_phone_number_for_customer?: string;
+        pickup_time_estimated?: string;
+        dropoff_time_estimated?: string;
     };
 }
+
+/** Parse an ISO timestamp defensively — undefined when absent or unparseable. */
+function parseWebhookDate(value: string | undefined): Date | undefined {
+    if (!value) return undefined;
+    const d = new Date(value);
+    return isNaN(d.getTime()) ? undefined : d;
+}
+
+// Courier substate derived from the raw DD event (finer-grained than
+// courierStatus): set on arrival confirmations, cleared once the dasher moves
+// on (picked up / dropped off / completed) or the delivery dies.
+const DD_SUBSTATE_SET: Record<string, string> = {
+    dasher_confirmed_pickup_arrival: 'ARRIVED_AT_PICKUP',
+    dasher_confirmed_dropoff_arrival: 'ARRIVED_AT_DROPOFF',
+};
+const DD_SUBSTATE_CLEAR = new Set([
+    'dasher_picked_up',
+    'dasher_dropped_off',
+    'delivery_completed',
+    'delivery_cancelled',
+    'delivery_returned',
+]);
 
 export async function POST(req: Request) {
     const rawBody = await req.text();
@@ -88,45 +114,82 @@ export async function POST(req: Request) {
         return new NextResponse('OK', { status: 200 });
     }
 
-    // Monotonic courier-status rank: never move backwards. CANCELLED is
-    // allowed from any non-DELIVERED state; DELIVERED is terminal.
+    // (b) Latest-wins live-info capture — dasher identity, ETAs, arrival
+    // substate. Runs on EVERY mapped event for this fulfillment, even when the
+    // monotonic rank guard below skips the courierStatus write (repeat/late
+    // webhooks still carry the freshest ETA/dasher info).
+    const infoData: {
+        courierName?: string;
+        courierPhone?: string;
+        courierPickupEtaAt?: Date;
+        courierDropoffEtaAt?: Date;
+        courierSubstate?: string | null;
+    } = {};
+    if (payload.delivery?.dasher_name) infoData.courierName = payload.delivery.dasher_name;
+    if (payload.delivery?.dasher_phone_number_for_customer) {
+        infoData.courierPhone = payload.delivery.dasher_phone_number_for_customer;
+    }
+    const pickupEta = parseWebhookDate(payload.delivery?.pickup_time_estimated);
+    if (pickupEta) infoData.courierPickupEtaAt = pickupEta;
+    const dropoffEta = parseWebhookDate(payload.delivery?.dropoff_time_estimated);
+    if (dropoffEta) infoData.courierDropoffEtaAt = dropoffEta;
+    if (DD_SUBSTATE_SET[eventName]) {
+        infoData.courierSubstate = DD_SUBSTATE_SET[eventName];
+    } else if (DD_SUBSTATE_CLEAR.has(eventName)) {
+        infoData.courierSubstate = null;
+    }
+
+    // (a) Monotonic courier-status rank: never move backwards. CANCELLED is
+    // allowed from any non-DELIVERED state; DELIVERED is terminal. When the
+    // guard trips we skip ONLY the status write — info capture above still
+    // lands.
     const COURIER_RANK: Record<string, number> = {
         REQUESTED: 0, CONFIRMED: 1, OUT_FOR_DELIVERY: 2, DELIVERED: 3,
     };
     const current = fulfillment.courierStatus;
+    let advanceStatus = true;
     if (current === 'DELIVERED') {
-        return new NextResponse('OK', { status: 200 });
-    }
-    if (targetStatus === 'CANCELLED') {
-        if (current === 'CANCELLED') return new NextResponse('OK', { status: 200 });
+        advanceStatus = false;
+    } else if (targetStatus === 'CANCELLED') {
+        if (current === 'CANCELLED') advanceStatus = false;
     } else {
         if (current === 'CANCELLED') {
             console.warn(
                 '[doordash-webhook] Late event for cancelled delivery on fulfillment',
                 fulfillment.id, 'event:', eventName, '— ignoring',
             );
-            return new NextResponse('OK', { status: 200 });
-        }
-        const targetRank = COURIER_RANK[targetStatus];
-        if (targetRank === undefined) {
-            // PENDING/PREPARING have no courier meaning — ignore.
-            return new NextResponse('OK', { status: 200 });
-        }
-        if (current !== null && targetRank <= (COURIER_RANK[current] ?? -1)) {
-            return new NextResponse('OK', { status: 200 }); // stale / out-of-order event
+            advanceStatus = false;
+        } else {
+            const targetRank = COURIER_RANK[targetStatus];
+            if (targetRank === undefined) {
+                // PENDING/PREPARING have no courier meaning — ignore.
+                advanceStatus = false;
+            } else if (current !== null && targetRank <= (COURIER_RANK[current] ?? -1)) {
+                advanceStatus = false; // stale / out-of-order event
+            }
         }
     }
 
     try {
-        await prisma.orderFulfillment.update({
-            where: { id: fulfillment.id },
-            data: {
+        const data = {
+            ...(advanceStatus ? {
                 courierStatus: targetStatus,
                 // Courier DELIVERED completes the kitchen flow too.
-                ...(targetStatus === 'DELIVERED' ? { status: 'DELIVERED' } : {}),
+                ...(targetStatus === 'DELIVERED' ? { status: 'DELIVERED' as const } : {}),
                 ...(payload.delivery?.tracking_url ? { trackingNumber: payload.delivery.tracking_url } : {}),
-            },
+            } : {}),
+            ...infoData,
+        };
+        if (Object.keys(data).length === 0) {
+            return new NextResponse('OK', { status: 200 }); // nothing to write
+        }
+        await prisma.orderFulfillment.update({
+            where: { id: fulfillment.id },
+            data,
         });
+        if (!advanceStatus) {
+            return new NextResponse('OK', { status: 200 }); // info-only write
+        }
         console.log(
             '[doordash-webhook] Fulfillment', fulfillment.id,
             `courierStatus ${current ?? '(none)'} → ${targetStatus}`,

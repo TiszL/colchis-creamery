@@ -21,8 +21,8 @@ import { prisma } from '@/lib/db';
 import { getSession } from '@/lib/session';
 import { assertLocationRole } from '@/lib/location-rbac';
 import { dispatchCourierForFulfillment } from '@/lib/carrier-dispatch';
-import { refundOrderFullCore } from '@/lib/order-refund';
-import { sendOrderCancelledCustomerEmail } from '@/lib/email';
+import { refundOrderFullCore, kitchenRemoveItemsCore } from '@/lib/order-refund';
+import { sendOrderCancelledCustomerEmail, sendOrderItemsRemovedCustomerEmail } from '@/lib/email';
 
 const COURIER_METHODS = ['DOORDASH_DRIVE', 'UBER_DIRECT'] as const;
 
@@ -54,11 +54,31 @@ export type QueueItem = {
     createdAt: string;
     customerName: string;
     customerPhone: string | null;
-    items: { quantity: number; name: string; sku: string }[];
+    // Lines with effective (quantity - refundedQuantity) <= 0 are excluded.
+    items: {
+        orderItemId: string;
+        quantity: number;
+        refundedQuantity: number;
+        name: string;
+        sku: string;
+        imageUrl: string | null;
+        unitPrice: string;
+    }[];
     deliveryNotes: string | null;
+    orderTotal: string;
+    orderSubtotal: string | null;
+    orderTax: string | null;
+    orderNotes: string | null;
+    deliveryAddress: string | null;
+    accessNote: string | null;
+    courierName: string | null;
+    courierPhone: string | null;
+    courierPickupEtaAt: string | null;
+    courierDropoffEtaAt: string | null;
+    courierSubstate: string | null;
 };
 
-export type QueueSnapshot = { items: QueueItem[]; fetchedAt: string };
+export type QueueSnapshot = { items: QueueItem[]; fetchedAt: string; prepMinutes: number };
 
 const ACTIVE_STATUSES = ['PENDING', 'CONFIRMED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY'];
 
@@ -73,23 +93,31 @@ export async function fetchLocationQueue(
         : view === 'done' ? { locationId, status: { in: ['DELIVERED', 'CANCELLED'] } }
         : { locationId };
 
-    const rows = await prisma.orderFulfillment.findMany({
-        where,
-        include: {
-            order: {
-                select: {
-                    id: true, paymentStatus: true, guestEmail: true, guestPhone: true, shippingDeliveryNotes: true,
-                    user: { select: { email: true, name: true, phone: true } },
+    const [rows, location] = await Promise.all([
+        prisma.orderFulfillment.findMany({
+            where,
+            include: {
+                order: {
+                    select: {
+                        id: true, paymentStatus: true, guestEmail: true, guestPhone: true, shippingDeliveryNotes: true,
+                        totalAmount: true, subtotalAmount: true, taxAmount: true, notes: true,
+                        shippingAddress: true, shippingLine1: true, shippingAddressLine2: true,
+                        shippingCity: true, shippingState: true, shippingPostalCode: true,
+                        shippingBuildingName: true, shippingAccessCode: true,
+                        user: { select: { email: true, name: true, phone: true } },
+                    },
                 },
+                items: { include: { orderItem: { include: { product: { select: { name: true, sku: true, imageUrl: true } } } } } },
             },
-            items: { include: { orderItem: { include: { product: { select: { name: true, sku: true } } } } } },
-        },
-        orderBy: [{ createdAt: 'asc' }],
-        take: view === 'active' ? 100 : 50,
-    });
+            orderBy: [{ createdAt: 'asc' }],
+            take: view === 'active' ? 100 : 50,
+        }),
+        prisma.location.findUnique({ where: { id: locationId }, select: { prepMinutes: true } }),
+    ]);
 
     return {
         fetchedAt: new Date().toISOString(),
+        prepMinutes: location?.prepMinutes || 25,
         items: rows.map(f => ({
             id: f.id,
             orderId: f.order.id,
@@ -106,13 +134,54 @@ export async function fetchLocationQueue(
             createdAt: f.createdAt.toISOString(),
             customerName: f.order.user?.name ?? f.order.user?.email ?? f.order.guestEmail ?? 'Guest',
             customerPhone: f.order.guestPhone ?? f.order.user?.phone ?? null,
-            items: f.items.map(i => ({ quantity: i.quantity, name: i.orderItem.product.name, sku: i.orderItem.product.sku })),
+            items: f.items
+                .filter(i => i.quantity - i.orderItem.refundedQuantity > 0)
+                .map(i => ({
+                    orderItemId: i.orderItemId,
+                    quantity: i.quantity,
+                    refundedQuantity: i.orderItem.refundedQuantity,
+                    name: i.orderItem.product.name,
+                    sku: i.orderItem.product.sku,
+                    imageUrl: i.orderItem.product.imageUrl || null,
+                    unitPrice: i.orderItem.unitPrice,
+                })),
             deliveryNotes: f.order.shippingDeliveryNotes,
+            orderTotal: f.order.totalAmount,
+            orderSubtotal: f.order.subtotalAmount,
+            orderTax: f.order.taxAmount,
+            orderNotes: f.order.notes,
+            deliveryAddress: composeDeliveryAddress(f.order),
+            accessNote: [f.order.shippingBuildingName, f.order.shippingAccessCode ? `Access code: ${f.order.shippingAccessCode}` : null]
+                .filter(Boolean).join(' · ') || null,
+            courierName: f.courierName,
+            courierPhone: f.courierPhone,
+            courierPickupEtaAt: f.courierPickupEtaAt ? f.courierPickupEtaAt.toISOString() : null,
+            courierDropoffEtaAt: f.courierDropoffEtaAt ? f.courierDropoffEtaAt.toISOString() : null,
+            courierSubstate: f.courierSubstate,
         })),
     };
 }
 
-export type MutationResult = { ok: true; courierError?: string } | { ok: false; error: string };
+// Prefer the structured 9c columns; fall back to the free-text snapshot.
+function composeDeliveryAddress(o: {
+    shippingLine1: string | null;
+    shippingAddressLine2: string | null;
+    shippingCity: string | null;
+    shippingState: string | null;
+    shippingPostalCode: string | null;
+    shippingAddress: string | null;
+}): string | null {
+    if (o.shippingLine1) {
+        const street = [o.shippingLine1, o.shippingAddressLine2].filter(Boolean).join(', ');
+        const region = [o.shippingState, o.shippingPostalCode].filter(Boolean).join(' ');
+        return [street, o.shippingCity, region].filter(Boolean).join(', ');
+    }
+    return o.shippingAddress;
+}
+
+export type MutationResult =
+    | { ok: true; courierError?: string; amountRefunded?: string }
+    | { ok: false; error: string };
 
 /**
  * Staff ACCEPT — the kitchen commits to the order. Sets CONFIRMED + acceptedAt,
@@ -214,6 +283,95 @@ export async function redispatchCourier(fulfillmentId: string, locationId: strin
         const pickupReadyAt = new Date(Date.now() + (f.location.prepMinutes || 25) * 60 * 1000);
         const result = await dispatchCourierForFulfillment(fulfillmentId, { pickupReadyAt, force: true });
         return result.ok ? { ok: true } : { ok: false, error: result.error };
+    } catch (e) {
+        return { ok: false, error: e instanceof Error ? e.message : 'Unknown error' };
+    }
+}
+
+/**
+ * "Edit order" — kitchen removes SOME items from a paid order (out of stock,
+ * dropped the khachapuri, …): partial Stripe refund + stock restore via
+ * kitchenRemoveItemsCore, then a best-effort item-removal email to the
+ * customer. LOCATION_MANAGER only. Removing EVERYTHING is rejected — that's
+ * kitchenCancelOrder's job (it also recalls the courier).
+ */
+export async function kitchenRemoveOrderItems(
+    fulfillmentId: string,
+    locationId: string,
+    removals: { orderItemId: string; quantity: number }[],
+    reason: string,
+): Promise<MutationResult> {
+    try {
+        await assertLocationRole(locationId, ['LOCATION_MANAGER']);
+        if (removals.length === 0) return { ok: false, error: 'Nothing selected to remove' };
+
+        const f = await prisma.orderFulfillment.findUnique({
+            where: { id: fulfillmentId },
+            select: {
+                locationId: true,
+                status: true,
+                items: { select: { orderItemId: true, quantity: true, orderItem: { select: { refundedQuantity: true } } } },
+                order: {
+                    select: {
+                        id: true,
+                        paymentStatus: true,
+                        guestEmail: true,
+                        user: { select: { name: true, email: true } },
+                        fulfillments: { select: { locationId: true } },
+                    },
+                },
+            },
+        });
+        if (!f || f.locationId !== locationId) return { ok: false, error: 'Not found' };
+        if (f.order.paymentStatus !== 'PAID') {
+            return { ok: false, error: 'Order is not paid — nothing to refund' };
+        }
+        if (f.order.fulfillments.some(x => x.locationId !== locationId)) {
+            return { ok: false, error: 'Multi-location order — contact the admin to refund' };
+        }
+        if (!['PENDING', 'CONFIRMED', 'PREPARING'].includes(f.status)) {
+            return { ok: false, error: 'Too late to edit — the order is already past preparing' };
+        }
+
+        // Full-removal detection: if the removals cover every remaining
+        // effective unit, this is a cancellation in disguise — send the staff
+        // to the cancel flow (which also recalls the courier).
+        const removeByItem = new Map<string, number>();
+        for (const r of removals) {
+            removeByItem.set(r.orderItemId, (removeByItem.get(r.orderItemId) ?? 0) + r.quantity);
+        }
+        const coversEverything = f.items.every(i => {
+            const effective = i.quantity - i.orderItem.refundedQuantity;
+            return effective <= 0 || (removeByItem.get(i.orderItemId) ?? 0) >= effective;
+        });
+        if (coversEverything) {
+            return { ok: false, error: 'This removes every item — use "Cancel & refund order" instead.' };
+        }
+
+        const session = await getSession();
+        const result = await kitchenRemoveItemsCore(f.order.id, removals, {
+            initiatedByUserId: session?.userId ?? null,
+            reason: reason || 'Removed by kitchen',
+        });
+        if (!result.ok) return { ok: false, error: result.error };
+
+        // Best-effort customer notification — never fail the refund over email.
+        const to = f.order.guestEmail ?? f.order.user?.email;
+        if (to) {
+            try {
+                await sendOrderItemsRemovedCustomerEmail({
+                    to,
+                    name: f.order.user?.name ?? null,
+                    orderId: f.order.id,
+                    removed: result.removed,
+                    amountRefunded: result.amountRefunded,
+                    reason: reason || null,
+                });
+            } catch (e) {
+                console.error('[kitchenRemoveOrderItems] customer email failed:', e);
+            }
+        }
+        return { ok: true, amountRefunded: result.amountRefunded };
     } catch (e) {
         return { ok: false, error: e instanceof Error ? e.message : 'Unknown error' };
     }

@@ -11,6 +11,14 @@ import Link from 'next/link';
 import { formatCurrency } from '@/lib/utils';
 import ReorderButton from './ReorderButton';
 import CancelOrderButton from './CancelOrderButton';
+import { BUSINESS_TIMEZONE } from '@/lib/timezone';
+import {
+    customerOrderStage,
+    fulfillmentStage,
+    fulfillmentTimeline,
+    type CustomerStage,
+    type TimelineStep,
+} from '@/lib/customer-order-status';
 import type { Product } from '@/types';
 
 export type OrderDetailViewData = {
@@ -34,6 +42,8 @@ export type OrderDetailViewData = {
         deliveryMethod: string;
         status: string;
         courierStatus: string | null;
+        courierName: string | null;
+        courierDropoffEtaAt: Date | null;
         shippingCost: string | null;
         trackingNumber: string | null;
         location: { name: string };
@@ -93,6 +103,85 @@ function statusColors(status: string): { bg: string; fg: string; border: string 
     }
 }
 
+// Colors for the DERIVED customer stage (see src/lib/customer-order-status.ts).
+// RECEIVED amber, CONFIRMED blue, PREPARING purple, READY emerald, ON_THE_WAY
+// sky, DELIVERED green, CANCELLED red, REFUNDED gray.
+function stageColors(stage: CustomerStage): { bg: string; fg: string; border: string } {
+    switch (stage) {
+        case 'PAYMENT_PENDING': return { bg: '#EAE2D2', fg: '#7A8278', border: '#1F302622' };
+        case 'RECEIVED':        return { bg: '#FCEEDB', fg: '#B45309', border: '#B4530955' };
+        case 'CONFIRMED':       return { bg: '#E0EAF7', fg: '#1D4ED8', border: '#1D4ED855' };
+        case 'PREPARING':       return { bg: '#E3DDF0', fg: '#5C4A8C', border: '#5C4A8C55' };
+        case 'READY':           return { bg: '#D9F0E5', fg: '#047857', border: '#04785755' };
+        case 'ON_THE_WAY':      return { bg: '#DDEDF7', fg: '#0369A1', border: '#0369A155' };
+        case 'DELIVERED':       return { bg: '#DDE9DC', fg: '#1F3026', border: '#1F302655' };
+        case 'CANCELLED':       return { bg: '#FBEAE9', fg: '#A8312C', border: '#A8312C55' };
+        case 'REFUNDED':        return { bg: '#EAE2D2', fg: '#7A8278', border: '#1F302622' };
+    }
+}
+
+// Display label for a per-fulfillment stage (customerOrderStage returns its
+// own label; fulfillmentStage returns just the stage key).
+function stageLabel(stage: CustomerStage): string {
+    switch (stage) {
+        case 'PAYMENT_PENDING': return 'Processing payment';
+        case 'RECEIVED':        return 'Order received';
+        case 'CONFIRMED':       return 'Confirmed';
+        case 'PREPARING':       return 'Preparing';
+        case 'READY':           return 'Ready';
+        case 'ON_THE_WAY':      return 'On the way';
+        case 'DELIVERED':       return 'Delivered';
+        case 'CANCELLED':       return 'Cancelled';
+        case 'REFUNDED':        return 'Refunded';
+    }
+}
+
+function fmtEta(d: Date | string): string {
+    return new Date(d).toLocaleTimeString('en-US', {
+        hour: 'numeric', minute: '2-digit', timeZone: BUSINESS_TIMEZONE,
+    });
+}
+
+// Compact horizontal step row: done = filled dot + reached line, current =
+// accent ring + emphasized label, upcoming = muted. Tiny labels + flex-1
+// columns keep 4–6 steps legible on mobile.
+function StepTimeline({ steps }: { steps: TimelineStep[] }) {
+    const accent = '#B96A3D';
+    const done = '#1F3026';
+    const muted = '#C9C2B2';
+    return (
+        <div style={{ display: 'flex', padding: '18px 16px 14px', borderBottom: '1px solid #1F302614' }}>
+            {steps.map((s, i) => {
+                const isDone = s.state === 'done';
+                const isCurrent = s.state === 'current';
+                return (
+                    <div key={s.key} style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+                            <div style={{ flex: 1, height: 2, background: i === 0 ? 'transparent' : (isDone || isCurrent ? done : muted) }} />
+                            <div style={{
+                                width: 10, height: 10, borderRadius: '50%', flexShrink: 0,
+                                background: isDone ? done : isCurrent ? accent : '#fff',
+                                border: `2px solid ${isDone ? done : isCurrent ? accent : muted}`,
+                                boxShadow: isCurrent ? `0 0 0 3px ${accent}33` : 'none',
+                            }} />
+                            <div style={{ flex: 1, height: 2, background: i === steps.length - 1 ? 'transparent' : (isDone ? done : muted) }} />
+                        </div>
+                        <div style={{
+                            marginTop: 8, padding: '0 2px',
+                            fontFamily: 'var(--font-mono)', fontSize: 8, letterSpacing: '0.12em',
+                            textTransform: 'uppercase', textAlign: 'center', lineHeight: 1.4,
+                            color: isCurrent ? '#1F3026' : isDone ? '#2C3D33' : '#9AA096',
+                            fontWeight: isCurrent ? 700 : 400,
+                        }}>
+                            {s.label}
+                        </div>
+                    </div>
+                );
+            })}
+        </div>
+    );
+}
+
 // Customer-friendly courier progress label (courierStatus is carrier-driven,
 // separate from the kitchen's fulfillment status). DISPATCH_FAILED is internal
 // — staff sees it in the portal with a Retry button; customers never do.
@@ -132,7 +221,10 @@ export default function OrderDetailView({
         weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
         hour: 'numeric', minute: '2-digit',
     });
-    const orderColors = statusColors(order.orderStatus);
+    // Derived customer stage — honest across kitchen + courier progress
+    // (order.orderStatus 'CONFIRMED' only means "paid"; see customer-order-status).
+    const orderStage = customerOrderStage(order, order.fulfillments);
+    const orderColors = stageColors(orderStage.stage);
 
     return (
         <main style={{ background: '#F5F0E6', minHeight: '100vh' }}>
@@ -164,8 +256,13 @@ export default function OrderDetailView({
                                 background: orderColors.bg, color: orderColors.fg,
                                 border: `1px solid ${orderColors.border}`,
                             }}>
-                                {order.orderStatus}
+                                {orderStage.label}
                             </span>
+                            {orderStage.description && (
+                                <span style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: 13, color: '#F5F0E6', opacity: 0.78, textAlign: 'right', maxWidth: 280 }}>
+                                    {orderStage.description}
+                                </span>
+                            )}
                             <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.22em', color: '#F5F0E6', textTransform: 'uppercase', opacity: 0.7 }}>
                                 Payment · {order.paymentStatus}
                             </span>
@@ -178,7 +275,8 @@ export default function OrderDetailView({
                 {/* Left column: fulfillments + items */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
                     {order.fulfillments.length > 0 ? order.fulfillments.map((f, idx) => {
-                        const colors = statusColors(f.status);
+                        const fStage = fulfillmentStage(f);
+                        const colors = stageColors(fStage);
                         return (
                             <section key={f.id} style={{ background: '#fff', border: '1px solid #1F302622' }}>
                                 <header className="ch-od-card-header" style={{ padding: '20px 28px', borderBottom: '1px solid #1F302614', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
@@ -199,7 +297,7 @@ export default function OrderDetailView({
                                             textTransform: 'uppercase', padding: '6px 12px',
                                             background: colors.bg, color: colors.fg, border: `1px solid ${colors.border}`,
                                         }}>
-                                            {f.status.replace(/_/g, ' ')}
+                                            {stageLabel(fStage)}
                                         </span>
                                         {f.courierStatus && courierCopy(f.courierStatus) && (() => {
                                             const cColors = statusColors(f.courierStatus);
@@ -215,10 +313,20 @@ export default function OrderDetailView({
                                         })()}
                                     </div>
                                 </header>
+                                <StepTimeline steps={fulfillmentTimeline(f)} />
                                 {statusCopy(f.status) && (
                                     <div style={{ padding: '14px 28px', background: '#F5F0E6', borderBottom: '1px solid #1F302614' }}>
                                         <p style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: 15, color: '#2C3D33', margin: 0 }}>
                                             {statusCopy(f.status)}
+                                        </p>
+                                    </div>
+                                )}
+                                {(f.courierName || f.courierDropoffEtaAt) && (
+                                    <div style={{ padding: '12px 28px', borderBottom: '1px solid #1F302614' }}>
+                                        <p style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: 15, color: '#2C3D33', margin: 0 }}>
+                                            {f.courierName && <>Your courier: <span style={{ fontStyle: 'normal', fontWeight: 500 }}>{f.courierName}</span></>}
+                                            {f.courierName && f.courierDropoffEtaAt && ' · '}
+                                            {f.courierDropoffEtaAt && <>Arriving around {fmtEta(f.courierDropoffEtaAt)}</>}
                                         </p>
                                     </div>
                                 )}

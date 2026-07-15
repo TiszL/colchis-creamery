@@ -18,10 +18,13 @@ import {
     retryCourierDispatch,
     redispatchCourier,
     kitchenCancelOrder,
+    kitchenRemoveOrderItems,
     type QueueItem,
     type QueueSnapshot,
     type MutationResult,
 } from '@/app/actions/location-orders';
+import { BUSINESS_TIMEZONE } from '@/lib/timezone';
+import { getThumbUrl } from '@/lib/product-images';
 
 const COURIER_METHODS = ['DOORDASH_DRIVE', 'UBER_DIRECT'];
 
@@ -83,17 +86,81 @@ function courierChipClass(status: string): string {
     }
 }
 
+// Live MM:SS cook-timer — only shown while the kitchen is on the clock
+// (PENDING/CONFIRMED/PREPARING) and capped so a stale card can't render
+// nonsense like "73375:57".
 function formatAge(ms: number): string {
+    if (ms >= 60 * 60_000) return '60+ min';
     const total = Math.max(0, Math.floor(ms / 1000));
     const m = Math.floor(total / 60);
     const s = total % 60;
     return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
+// Wall-clock times in the BUSINESS timezone — a KDS tablet with a wrong local
+// TZ must still show kitchen-true times.
+const clockFmt = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', timeZone: BUSINESS_TIMEZONE });
+const dayKeyFmt = new Intl.DateTimeFormat('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: BUSINESS_TIMEZONE });
+const monthDayFmt = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: BUSINESS_TIMEZONE });
+
+/** '2:47 PM', or 'Jul 14, 2:47 PM' when the order is from another day. */
+function formatClock(iso: string): string {
+    const d = new Date(iso);
+    const time = clockFmt.format(d);
+    if (dayKeyFmt.format(d) !== dayKeyFmt.format(new Date())) {
+        return `${monthDayFmt.format(d)}, ${time}`;
+    }
+    return time;
+}
+
+function formatRelAge(ms: number): string {
+    const s = Math.max(0, Math.floor(ms / 1000));
+    if (s < 60) return 'just now';
+    const m = Math.floor(s / 60);
+    if (m < 60) return `${m} min ago`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `${h}h ${m % 60}m ago`;
+    return `${Math.floor(h / 24)}d ago`;
+}
+
 function formatScheduled(iso: string): string {
     return new Date(iso).toLocaleString(undefined, {
         weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
+        timeZone: BUSINESS_TIMEZONE,
     });
+}
+
+// Money strings are UNPREFIXED dollars ("12.40"); all math in cents.
+function toCents(s: string | null): number {
+    if (!s) return 0;
+    const n = Math.round(parseFloat(s) * 100);
+    return Number.isFinite(n) ? n : 0;
+}
+
+// 48×48 product thumbnail: -thumb.webp → full image → neutral letter tile.
+function ItemThumb({ imageUrl, name }: { imageUrl: string | null; name: string }) {
+    const [failed, setFailed] = useState<'thumb' | 'full' | null>(null);
+    const src = imageUrl && failed !== 'full'
+        ? (failed === 'thumb' ? imageUrl : getThumbUrl(imageUrl))
+        : null;
+    if (!src) {
+        return (
+            <div className="w-12 h-12 shrink-0 rounded bg-[#222222] flex items-center justify-center text-gray-500 font-mono text-lg">
+                {(name.charAt(0) || '?').toUpperCase()}
+            </div>
+        );
+    }
+    return (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+            src={src}
+            alt=""
+            width={48}
+            height={48}
+            className="w-12 h-12 shrink-0 rounded object-cover bg-[#222222]"
+            onError={() => setFailed(prev => (prev === null ? 'thumb' : 'full'))}
+        />
+    );
 }
 
 function sortQueue(items: QueueItem[]): QueueItem[] {
@@ -128,6 +195,14 @@ export default function OrdersQueueClient({
     const [problemReasons, setProblemReasons] = useState<Record<string, string>>({});
     const [armedIds, setArmedIds] = useState<Set<string>>(new Set());
     const [cancelledNotes, setCancelledNotes] = useState<Set<string>>(new Set());
+    // "Edit order" item-removal panel (manager-only, per card): steppers pick
+    // how many of each item to remove → two-step confirm → partial refund.
+    const [editIds, setEditIds] = useState<Set<string>>(new Set());
+    const [editSelections, setEditSelections] = useState<Record<string, Record<string, number>>>({});
+    const [editReasons, setEditReasons] = useState<Record<string, string>>({});
+    const [editArmedIds, setEditArmedIds] = useState<Set<string>>(new Set());
+    const [editSuccess, setEditSuccess] = useState<Record<string, string>>({});
+    const [explainerOpen, setExplainerOpen] = useState(false);
     const [pendingCount, setPendingCount] = useState(() => initial.items.filter(i => i.status === 'PENDING').length);
     const [, startTransition] = useTransition();
 
@@ -316,7 +391,21 @@ export default function OrdersQueueClient({
 
             <header className="flex items-end justify-between gap-4 flex-wrap">
                 <div>
-                    <h1 className="text-2xl font-serif mb-1">Order queue</h1>
+                    <div className="flex items-center gap-2 mb-1">
+                        <h1 className="text-2xl font-serif">Order queue</h1>
+                        <button
+                            type="button"
+                            onClick={() => setExplainerOpen(o => !o)}
+                            aria-label="How courier delivery works"
+                            className={`w-6 h-6 rounded-full border text-[12px] font-mono transition-colors ${
+                                explainerOpen
+                                    ? 'bg-[#B96A3D] text-black border-[#B96A3D]'
+                                    : 'bg-[#161616] text-gray-500 border-[#ffffff1A] hover:text-white'
+                            }`}
+                        >
+                            ?
+                        </button>
+                    </div>
                     <p className="text-sm text-gray-500">
                         {items.length} {view === 'active' ? 'active' : 'completed'} fulfillment{items.length === 1 ? '' : 's'}
                     </p>
@@ -344,6 +433,20 @@ export default function OrdersQueueClient({
                     </p>
                 </div>
             </header>
+
+            {explainerOpen && (
+                <div className="bg-[#161616] border border-[#ffffff0A] px-4 py-4">
+                    <p className="text-[11px] font-mono uppercase tracking-wider text-gray-400 mb-2">How courier delivery works</p>
+                    <ol className="space-y-1.5 text-[12px] text-gray-400 list-decimal list-inside">
+                        <li>Customer pays → order appears here as <span className="text-amber-400 font-mono">NEW</span> (chime + email).</li>
+                        <li>You tap <span className="text-white font-mono">ACCEPT</span> → we book a DoorDash/Uber driver timed to your prep window ({snapshot.prepMinutes} min, set in Admin → Locations).</li>
+                        <li>Cook. Tap <span className="text-white font-mono">PREPARING → READY</span> as you go — the customer sees each step live.</li>
+                        <li>The driver arrives around your ready time; when they pick up, tracking flips to &quot;on the way&quot; automatically.</li>
+                        <li>Driver cancelled/no-show? You + the customer are emailed; use <span className="text-white font-mono">RE-DISPATCH</span> to book another.</li>
+                        <li>Problem with an item? <span className="text-white font-mono">EDIT ORDER</span> removes it + auto-refunds. Whole order? <span className="text-white font-mono">CANCEL &amp; REFUND</span> recalls the driver too.</li>
+                    </ol>
+                </div>
+            )}
 
             {items.length === 0 && (
                 <div className="bg-[#161616] border border-[#ffffff0A] p-10 text-center text-gray-500 text-sm">
@@ -377,11 +480,40 @@ export default function OrdersQueueClient({
                     const problemOpen = problemIds.has(item.id);
                     const armed = armedIds.has(item.id);
 
+                    // Live cook-timer only while the kitchen is on the clock.
+                    const isCooking = item.status === 'PENDING' || item.status === 'CONFIRMED' || item.status === 'PREPARING';
+                    const itemCount = item.items.reduce((n, l) => n + (l.quantity - l.refundedQuantity), 0);
+                    // Before pickup the useful ETA is "when the driver reaches
+                    // the counter"; after pickup, the customer dropoff.
+                    const courierPickedUp = item.courierStatus === 'OUT_FOR_DELIVERY' || item.courierStatus === 'DELIVERED';
+                    const courierEta = courierPickedUp ? item.courierDropoffEtaAt : item.courierPickupEtaAt;
+                    const driverWaiting = item.courierSubstate === 'ARRIVED_AT_PICKUP' && item.status !== 'DELIVERED';
+
+                    // "Edit order" (partial item removal) — same money gate as
+                    // cancel, but only while the kitchen can still change course.
+                    const canEdit = canRefund && item.paymentStatus === 'PAID' && isCooking;
+                    const editOpen = editIds.has(item.id);
+                    const editArmed = editArmedIds.has(item.id);
+                    const sel = editSelections[item.id] ?? {};
+                    const removeCount = item.items.reduce((n, l) => n + (sel[l.orderItemId] ?? 0), 0);
+                    const removedCents = item.items.reduce((c, l) => c + toCents(l.unitPrice) * (sel[l.orderItemId] ?? 0), 0);
+                    const subtotalCents = toCents(item.orderSubtotal);
+                    const estRefundCents = removedCents + (subtotalCents > 0 ? Math.round(toCents(item.orderTax) * removedCents / subtotalCents) : 0);
+                    const removesEverything =
+                        item.items.length > 0 &&
+                        item.items.every(l => (sel[l.orderItemId] ?? 0) >= l.quantity - l.refundedQuantity);
+
                     return (
                         <div
                             key={item.id}
                             className={`bg-[#161616] border border-[#ffffff0A] p-5 ${flashIds.has(item.id) ? 'kds-flash' : ''}`}
                         >
+                            {driverWaiting && (
+                                <div className="mb-4 px-3 py-3 bg-amber-500/20 border-2 border-amber-500 text-amber-300 text-[13px] font-mono font-bold uppercase tracking-wider text-center">
+                                    Driver waiting at counter — hand off the order
+                                </div>
+                            )}
+
                             <div className="flex items-start justify-between gap-4 flex-wrap">
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-3 mb-2 flex-wrap">
@@ -395,13 +527,30 @@ export default function OrdersQueueClient({
                                         )}
                                         <span className="text-[10px] text-gray-600 font-mono">{item.deliveryMethod.replace(/_/g, ' ')}</span>
                                         <span className="text-[10px] text-gray-600 font-mono">#{item.orderShort}</span>
-                                        <span className={`text-[10px] font-mono tabular-nums ${ageClass}`}>{formatAge(ageMs)}</span>
+                                        {isCooking && (
+                                            <span className={`text-[10px] font-mono tabular-nums ${ageClass}`}>{formatAge(ageMs)}</span>
+                                        )}
                                         {item.scheduledFor && (
                                             <span className="text-[10px] font-mono px-2 py-0.5 bg-indigo-900/30 text-indigo-400">
                                                 ⌛ Scheduled — {formatScheduled(item.scheduledFor)}
                                             </span>
                                         )}
                                     </div>
+
+                                    {item.courierName && (
+                                        <p className="mb-2 text-[12px] font-mono text-teal-300/90">
+                                            Driver {item.courierName}
+                                            {item.courierPhone && (
+                                                <>
+                                                    {' · '}
+                                                    <a href={`tel:${item.courierPhone}`} className="text-[#B96A3D] hover:underline">
+                                                        {item.courierPhone}
+                                                    </a>
+                                                </>
+                                            )}
+                                            {courierEta && <> · arriving {formatClock(courierEta)}</>}
+                                        </p>
+                                    )}
 
                                     <p className="text-sm text-white">
                                         {item.customerName}
@@ -415,16 +564,42 @@ export default function OrdersQueueClient({
                                         )}
                                     </p>
 
-                                    <ul className="mt-2 space-y-0.5">
-                                        {item.items.map((line, idx) => (
-                                            <li key={idx} className="text-[12px] text-gray-400 font-mono">
-                                                {line.quantity}× {line.name} <span className="text-gray-600">({line.sku})</span>
-                                            </li>
-                                        ))}
-                                    </ul>
+                                    <div className="mt-3 border border-[#ffffff0A] divide-y divide-[#ffffff0A]">
+                                        {item.items.map(line => {
+                                            const eff = line.quantity - line.refundedQuantity;
+                                            return (
+                                                <div key={line.orderItemId} className="min-h-[56px] flex items-center gap-3 px-3 py-1.5">
+                                                    <ItemThumb imageUrl={line.imageUrl} name={line.name} />
+                                                    <span className={`font-bold font-mono text-sm tabular-nums ${eff > 1 ? 'text-amber-400' : 'text-white'}`}>
+                                                        {eff}×
+                                                    </span>
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-[14px] text-white truncate">{line.name}</p>
+                                                        <p className="text-[10px] text-gray-600 font-mono">{line.sku}</p>
+                                                    </div>
+                                                    <span className="text-[12px] text-gray-500 font-mono shrink-0">${line.unitPrice}</span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                    <p className="mt-1.5 text-[11px] font-mono text-gray-500">
+                                        {itemCount} item{itemCount === 1 ? '' : 's'} · ${item.orderTotal}
+                                    </p>
 
-                                    {item.deliveryNotes && (
-                                        <p className="mt-2 text-[12px] text-amber-200/80 font-mono">📝 {item.deliveryNotes}</p>
+                                    {item.deliveryMethod === 'OWN_DELIVERY' && item.deliveryAddress && (
+                                        <div className="mt-2 px-3 py-2 bg-sky-900/20 border border-sky-800/40 text-[12px] font-mono text-sky-300">
+                                            📍 {item.deliveryAddress}
+                                            {item.accessNote && (
+                                                <span className="block mt-0.5 text-sky-400/80">{item.accessNote}</span>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {(item.orderNotes || item.deliveryNotes) && (
+                                        <div className="mt-2 px-3 py-2 bg-amber-900/20 border border-amber-800/40 text-[12px] font-mono text-amber-200/80 space-y-0.5">
+                                            {item.orderNotes && <p>📝 {item.orderNotes}</p>}
+                                            {item.deliveryNotes && <p>📝 {item.deliveryNotes}</p>}
+                                        </div>
                                     )}
                                     {item.trackingUrl && (
                                         isUrl ? (
@@ -443,6 +618,10 @@ export default function OrdersQueueClient({
                                 </div>
 
                                 <div className="shrink-0 flex flex-col items-end gap-2">
+                                    <div className="text-right">
+                                        <div className="text-sm text-white font-mono">{formatClock(item.createdAt)}</div>
+                                        <div className={`text-[10px] font-mono ${ageClass}`}>{formatRelAge(ageMs)}</div>
+                                    </div>
                                     {item.status === 'PENDING' && (
                                         <button
                                             type="button"
@@ -508,27 +687,189 @@ export default function OrdersQueueClient({
                                 </div>
                             )}
 
-                            {canProblem && (
+                            {(canEdit || canProblem) && (
                                 <div className="mt-3">
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            setProblemIds(prev => {
-                                                const next = new Set(prev);
-                                                if (next.has(item.id)) next.delete(item.id);
-                                                else next.add(item.id);
-                                                return next;
-                                            });
-                                            setArmedIds(prev => {
-                                                const next = new Set(prev);
-                                                next.delete(item.id);
-                                                return next;
-                                            });
-                                        }}
-                                        className="py-1 text-[11px] font-mono text-gray-600 hover:text-gray-400 underline underline-offset-2 transition-colors"
-                                    >
-                                        {problemOpen ? 'Never mind' : 'Problem with order?'}
-                                    </button>
+                                    <div className="flex items-center gap-5">
+                                        {canEdit && (
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setEditIds(prev => {
+                                                        const next = new Set(prev);
+                                                        if (next.has(item.id)) next.delete(item.id);
+                                                        else next.add(item.id);
+                                                        return next;
+                                                    });
+                                                    setEditArmedIds(prev => {
+                                                        const next = new Set(prev);
+                                                        next.delete(item.id);
+                                                        return next;
+                                                    });
+                                                    // Only one destructive panel open per card.
+                                                    setProblemIds(prev => {
+                                                        const next = new Set(prev);
+                                                        next.delete(item.id);
+                                                        return next;
+                                                    });
+                                                }}
+                                                className="py-1 text-[11px] font-mono text-gray-600 hover:text-gray-400 underline underline-offset-2 transition-colors"
+                                            >
+                                                {editOpen ? 'Close editor' : 'Edit order'}
+                                            </button>
+                                        )}
+                                        {canProblem && (
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setProblemIds(prev => {
+                                                        const next = new Set(prev);
+                                                        if (next.has(item.id)) next.delete(item.id);
+                                                        else next.add(item.id);
+                                                        return next;
+                                                    });
+                                                    setArmedIds(prev => {
+                                                        const next = new Set(prev);
+                                                        next.delete(item.id);
+                                                        return next;
+                                                    });
+                                                    setEditIds(prev => {
+                                                        const next = new Set(prev);
+                                                        next.delete(item.id);
+                                                        return next;
+                                                    });
+                                                }}
+                                                className="py-1 text-[11px] font-mono text-gray-600 hover:text-gray-400 underline underline-offset-2 transition-colors"
+                                            >
+                                                {problemOpen ? 'Never mind' : 'Problem with order?'}
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    {canEdit && editOpen && (
+                                        <div className="mt-2 px-3 py-3 bg-[#17130e] border border-amber-900/40 space-y-3">
+                                            <p className="text-[11px] font-mono uppercase tracking-wider text-gray-500">
+                                                Select how many of each item to remove
+                                            </p>
+                                            <div className="divide-y divide-[#ffffff0A]">
+                                                {item.items.map(line => {
+                                                    const eff = line.quantity - line.refundedQuantity;
+                                                    const removeQty = sel[line.orderItemId] ?? 0;
+                                                    const setQty = (qty: number) => {
+                                                        setEditSelections(prev => ({
+                                                            ...prev,
+                                                            [item.id]: { ...(prev[item.id] ?? {}), [line.orderItemId]: qty },
+                                                        }));
+                                                        // Any change disarms the confirm.
+                                                        setEditArmedIds(prev => {
+                                                            const next = new Set(prev);
+                                                            next.delete(item.id);
+                                                            return next;
+                                                        });
+                                                    };
+                                                    return (
+                                                        <div key={line.orderItemId} className="py-2 flex items-center gap-3">
+                                                            <div className="flex-1 min-w-0">
+                                                                <p className="text-[13px] text-white truncate">{line.name}</p>
+                                                                <p className="text-[10px] text-gray-600 font-mono">
+                                                                    {eff} in order · ${line.unitPrice} each
+                                                                </p>
+                                                            </div>
+                                                            <div className="flex items-center gap-1 shrink-0">
+                                                                <button
+                                                                    type="button"
+                                                                    disabled={busy || removeQty <= 0}
+                                                                    onClick={() => setQty(Math.max(0, removeQty - 1))}
+                                                                    className="min-h-[44px] min-w-[44px] text-lg font-mono bg-[#161616] text-gray-300 border border-[#ffffff1A] hover:text-white transition-colors disabled:opacity-30"
+                                                                >
+                                                                    −
+                                                                </button>
+                                                                <span className={`w-10 text-center font-mono text-[13px] tabular-nums ${removeQty > 0 ? 'text-red-400 font-bold' : 'text-gray-500'}`}>
+                                                                    {removeQty}
+                                                                </span>
+                                                                <button
+                                                                    type="button"
+                                                                    disabled={busy || removeQty >= eff}
+                                                                    onClick={() => setQty(Math.min(eff, removeQty + 1))}
+                                                                    className="min-h-[44px] min-w-[44px] text-lg font-mono bg-[#161616] text-gray-300 border border-[#ffffff1A] hover:text-white transition-colors disabled:opacity-30"
+                                                                >
+                                                                    +
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                            <p className="text-[12px] font-mono text-white">
+                                                Refund ≈ ${(estRefundCents / 100).toFixed(2)}
+                                            </p>
+                                            <input
+                                                type="text"
+                                                value={editReasons[item.id] ?? ''}
+                                                onChange={e => setEditReasons(prev => ({ ...prev, [item.id]: e.target.value }))}
+                                                placeholder="What should we tell the customer? (optional)"
+                                                className="w-full bg-[#161616] border border-[#ffffff0A] px-3 py-2 text-[12px] font-mono text-white placeholder-gray-600 focus:outline-none focus:border-amber-800/60"
+                                            />
+                                            <p className="text-[11px] font-mono text-amber-400">
+                                                ⚠ Removed items are refunded to the customer automatically. Stock is restored.
+                                            </p>
+                                            {item.courierStatus && (
+                                                <p className="text-[11px] font-mono text-gray-500">
+                                                    Driver already booked — packing list sent to the courier still shows the original items.
+                                                </p>
+                                            )}
+                                            {removesEverything && (
+                                                <p className="text-[11px] font-mono text-red-400">
+                                                    Use &quot;Cancel &amp; refund order&quot; below instead.
+                                                </p>
+                                            )}
+                                            <button
+                                                type="button"
+                                                disabled={busy || removeCount === 0 || removesEverything}
+                                                onClick={() => {
+                                                    if (!editArmed) {
+                                                        setEditArmedIds(prev => new Set(prev).add(item.id));
+                                                        return;
+                                                    }
+                                                    const removals = item.items
+                                                        .map(l => ({ orderItemId: l.orderItemId, quantity: sel[l.orderItemId] ?? 0 }))
+                                                        .filter(r => r.quantity > 0);
+                                                    runAction(item.id, async () => {
+                                                        const res = await kitchenRemoveOrderItems(item.id, locationId, removals, editReasons[item.id] ?? '');
+                                                        if (res.ok) {
+                                                            setEditSuccess(prev => ({ ...prev, [item.id]: res.amountRefunded ?? '' }));
+                                                            setEditIds(prev => {
+                                                                const next = new Set(prev);
+                                                                next.delete(item.id);
+                                                                return next;
+                                                            });
+                                                            setEditArmedIds(prev => {
+                                                                const next = new Set(prev);
+                                                                next.delete(item.id);
+                                                                return next;
+                                                            });
+                                                            setEditSelections(prev => {
+                                                                const next = { ...prev };
+                                                                delete next[item.id];
+                                                                return next;
+                                                            });
+                                                        }
+                                                        return res;
+                                                    });
+                                                }}
+                                                className={`min-h-[44px] px-5 text-[11px] font-mono uppercase tracking-wider border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                                                    editArmed
+                                                        ? 'bg-amber-600 text-black border-amber-600 hover:bg-amber-500'
+                                                        : 'bg-amber-900/40 text-amber-300 border-amber-800/60 hover:bg-amber-900/60'
+                                                }`}
+                                            >
+                                                {busy
+                                                    ? 'Removing…'
+                                                    : editArmed
+                                                    ? 'Confirm removal & refund'
+                                                    : `Remove ${removeCount} item${removeCount === 1 ? '' : 's'} & refund`}
+                                            </button>
+                                        </div>
+                                    )}
 
                                     {problemOpen && (
                                         <div className="mt-2 px-3 py-3 bg-[#1a1212] border border-red-900/40 space-y-3">
@@ -584,6 +925,12 @@ export default function OrdersQueueClient({
                             {cancelledNotes.has(item.id) && (
                                 <div className="mt-3 px-3 py-2 bg-emerald-900/20 border border-emerald-800/40 text-emerald-400 text-[11px] font-mono">
                                     Order cancelled — customer refunded in full.
+                                </div>
+                            )}
+
+                            {editSuccess[item.id] !== undefined && (
+                                <div className="mt-3 px-3 py-2 bg-emerald-900/20 border border-emerald-800/40 text-emerald-400 text-[11px] font-mono">
+                                    Items removed — customer refunded{editSuccess[item.id] ? ` $${editSuccess[item.id]}` : ''}.
                                 </div>
                             )}
 

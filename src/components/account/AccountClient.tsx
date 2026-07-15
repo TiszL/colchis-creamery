@@ -7,9 +7,10 @@ import { AccountPasswordForm } from "./AccountPasswordForm";
 import AddressManager, { type ActiveAddress } from "@/components/bakery/AddressManager";
 import type { UserAddressDto } from "@/app/actions/addresses";
 import { formatCurrency } from "@/lib/utils";
+import { customerOrderStage, type CustomerStage, type FulfillmentLike } from "@/lib/customer-order-status";
 
 interface OrderItem { product: { name: string }; quantity: number }
-interface Order { id: string; createdAt: string; orderStatus: string; totalAmount: number; orderItems: OrderItem[] }
+interface Order { id: string; createdAt: string; orderStatus: string; paymentStatus: string; totalAmount: number; orderItems: OrderItem[]; fulfillments: FulfillmentLike[] }
 interface UserData { id: string; name: string | null; email: string; phone: string | null; createdAt: string }
 
 interface Props {
@@ -122,7 +123,7 @@ function Card({ number, title, subtitle, action, children }: { number: string; t
 function OverviewTab({ orders, prefix, setTab }: { orders: Order[]; prefix: string; setTab: (t: TabId) => void }) {
     const summary = [
         { label: "Total orders", value: String(orders.length), note: "all time" },
-        { label: "Latest status", value: orders[0]?.orderStatus || "—", note: orders[0] ? new Date(orders[0].createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "" },
+        { label: "Latest status", value: orders[0] ? customerOrderStage(orders[0], orders[0].fulfillments).label : "—", note: orders[0] ? new Date(orders[0].createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "" },
     ];
 
     return (
@@ -183,11 +184,21 @@ function OrdersTab({ orders, prefix }: { orders: Order[]; prefix: string }) {
 function OrderRow({ order, last, prefix }: { order: Order; last: boolean; prefix: string }) {
     const items = order.orderItems.map(i => `${i.quantity}× ${i.product.name}`).join(" · ");
     const date = new Date(order.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-    const statusColor =
-        order.orderStatus === "CONFIRMED" || order.orderStatus === "DELIVERED" ? "#1F3026"
-        : order.orderStatus === "PROCESSING" ? "#B96A3D"
-        : order.orderStatus === "CANCELLED" ? "#A8312C"
-        : "#7A8278";
+    // Derived customer stage — honest across kitchen + courier progress (raw
+    // orderStatus 'CONFIRMED' only means "paid").
+    const stage = customerOrderStage(order, order.fulfillments);
+    const stageColor: Record<CustomerStage, string> = {
+        PAYMENT_PENDING: "#7A8278",
+        RECEIVED: "#B45309",
+        CONFIRMED: "#1D4ED8",
+        PREPARING: "#5C4A8C",
+        READY: "#047857",
+        ON_THE_WAY: "#0369A1",
+        DELIVERED: "#1F3026",
+        CANCELLED: "#A8312C",
+        REFUNDED: "#7A8278",
+    };
+    const statusColor = stageColor[stage.stage];
 
     return (
         <Link
@@ -208,7 +219,7 @@ function OrderRow({ order, last, prefix }: { order: Order; last: boolean; prefix
                 <div style={{ fontFamily: "var(--font-serif)", fontStyle: "italic", fontSize: 17, color: "#1F3026", lineHeight: 1.3 }}>{items || "Order"}</div>
                 <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.24em", color: "#7A8278", textTransform: "uppercase", marginTop: 4 }}>{date}</div>
             </div>
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.28em", color: statusColor, textTransform: "uppercase", border: `1px solid ${statusColor}55`, padding: "5px 10px" }}>{order.orderStatus}</span>
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.28em", color: statusColor, textTransform: "uppercase", border: `1px solid ${statusColor}55`, padding: "5px 10px" }}>{stage.label}</span>
             <span style={{ fontFamily: "var(--font-serif)", fontSize: 20, color: "#1F3026", fontWeight: 500 }}>{formatCurrency(order.totalAmount)}</span>
             <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.24em", color: "#B96A3D", textTransform: "uppercase" }}>View →</span>
         </Link>

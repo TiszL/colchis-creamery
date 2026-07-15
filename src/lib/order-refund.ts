@@ -200,3 +200,171 @@ export async function refundOrderFullCore(
     if (!result.ok) return result;
     return { ok: true, amountRefunded: (result.amountCents / 100).toFixed(2) };
 }
+
+/* ─── Kitchen partial refund (item removal) ────────────────────────────── */
+
+/** Dollar-string → integer cents. Order money fields are unprefixed dollar strings. */
+function toCents(s: string | null | undefined): number {
+    return Math.round((parseFloat(s ?? '') || 0) * 100);
+}
+
+/**
+ * Kitchen removes item(s) from a paid order and refunds the customer their
+ * price + proportional tax share. Shipping is NEVER refunded (the delivery
+ * still happens). The order continues — paymentStatus stays PAID, kitchen
+ * flow untouched. Refunding the entire remaining balance is rejected: that's
+ * the full cancel flow's job (which also cancels the courier).
+ *
+ * Callers gate auth (kitchen role / master admin) before calling.
+ */
+export async function kitchenRemoveItemsCore(
+    orderId: string,
+    removals: { orderItemId: string; quantity: number }[],
+    opts: { initiatedByUserId: string | null; reason: string },
+): Promise<
+    | { ok: true; amountRefunded: string; removed: { name: string; quantity: number }[] }
+    | { ok: false; error: string }
+> {
+    if (!orderId) return { ok: false, error: 'Missing order id.' };
+    if (removals.length === 0) return { ok: false, error: 'No items selected for removal.' };
+
+    const order = await prisma.order.findUnique({
+        where: { id: orderId },
+        include: {
+            refunds: true,
+            orderItems: { include: { product: { select: { name: true } } } },
+            fulfillments: {
+                select: { locationId: true, items: { select: { orderItemId: true, quantity: true } } },
+            },
+        },
+    });
+    if (!order) return { ok: false, error: 'Order not found.' };
+    if (order.paymentStatus !== 'PAID') {
+        return { ok: false, error: 'Only paid orders can have items refunded.' };
+    }
+    if (!order.stripePaymentIntentId) {
+        return { ok: false, error: 'This order has no payment intent — nothing to refund.' };
+    }
+
+    // Merge duplicate removals per orderItem so the removable-quantity cap
+    // can't be bypassed by splitting one item across entries.
+    const removalByItem = new Map<string, number>();
+    for (const r of removals) {
+        removalByItem.set(r.orderItemId, (removalByItem.get(r.orderItemId) ?? 0) + r.quantity);
+    }
+
+    const itemById = new Map(order.orderItems.map(it => [it.id, it]));
+    for (const [orderItemId, qty] of removalByItem) {
+        const item = itemById.get(orderItemId);
+        if (!item) return { ok: false, error: 'One of the selected items does not belong to this order.' };
+        if (!Number.isInteger(qty) || qty < 1) {
+            return { ok: false, error: 'Removal quantities must be whole numbers of at least 1.' };
+        }
+        const removable = item.quantity - item.refundedQuantity;
+        if (qty > removable) {
+            return { ok: false, error: `Cannot remove ${qty} × ${item.product.name} — only ${removable} left on the order.` };
+        }
+    }
+
+    /* ─── Cents math ──────────────────────────────────────────────────── */
+    // Each removed unit refunds its price + a proportional share of the
+    // order's tax (itemCents / subtotalCents). Shipping is never refunded.
+    const subtotalCents = toCents(order.subtotalAmount)
+        || order.orderItems.reduce((sum, it) => sum + toCents(it.unitPrice) * it.quantity, 0);
+    const taxCents = toCents(order.taxAmount);
+
+    let refundCents = 0;
+    for (const [orderItemId, qty] of removalByItem) {
+        const item = itemById.get(orderItemId)!;
+        const itemCents = toCents(item.unitPrice) * qty;
+        const taxShare = subtotalCents > 0 ? Math.round(taxCents * itemCents / subtotalCents) : 0;
+        refundCents += itemCents + taxShare;
+    }
+    if (refundCents <= 0) {
+        return { ok: false, error: 'Nothing to refund for the selected items.' };
+    }
+    const alreadyRefundedCents = order.refunds.reduce((sum, r) => sum + r.amountCents, 0);
+    const remainingCents = toCents(order.totalAmount) - alreadyRefundedCents;
+    if (refundCents >= remainingCents) {
+        return { ok: false, error: 'This would refund the entire remaining balance — use the full cancel flow instead.' };
+    }
+
+    /* ─── Stripe partial refund ───────────────────────────────────────── */
+    // NOTE: no Stripe Tax transaction reversal here — line-item tax reversal
+    // is out of scope for the kitchen flow; the accountant tooling reconciles
+    // partial-refund tax from the Refund rows (reversedTax stays false).
+    let stripeRefundId: string;
+    try {
+        const refund = await stripe.refunds.create({
+            payment_intent: order.stripePaymentIntentId,
+            amount: refundCents,
+            // Connect destination charges: reverse the transfer too (safe no-op
+            // on plain platform charges).
+            reverse_transfer: true,
+            metadata: {
+                orderId: order.id,
+                reason: 'kitchen_item_removed',
+                ...(opts.initiatedByUserId ? { initiatedByUserId: opts.initiatedByUserId } : {}),
+            },
+        });
+        stripeRefundId = refund.id;
+    } catch (e) {
+        console.error('[kitchenRemoveItemsCore] Stripe refund failed:', e);
+        return { ok: false, error: `Refund failed: ${e instanceof Error ? e.message : 'unknown error'}` };
+    }
+
+    /* ─── Audit: refundedQuantity increments + Refund row (one tx) ─────── */
+
+    await prisma.$transaction([
+        ...[...removalByItem].map(([orderItemId, qty]) =>
+            prisma.orderItem.update({
+                where: { id: orderItemId },
+                data: { refundedQuantity: { increment: qty } },
+            }),
+        ),
+        prisma.refund.create({
+            data: {
+                orderId: order.id,
+                initiatedByUserId: opts.initiatedByUserId,
+                amountCents: refundCents,
+                reason: 'kitchen_item_removed',
+                notes: opts.reason || null,
+                stripeRefundId,
+                restoredStock: true,
+                reversedTax: false,
+            },
+        }),
+    ]);
+
+    /* ─── Stock restore (outside the tx, mirrors refundOrderFullInternal) ── */
+    // Map each orderItem to its fulfillment's location so restoreStock gets
+    // (productId, locationId) pairs.
+    const locationByOrderItem = new Map<string, string>();
+    for (const f of order.fulfillments) {
+        for (const fi of f.items) {
+            if (!locationByOrderItem.has(fi.orderItemId)) {
+                locationByOrderItem.set(fi.orderItemId, f.locationId);
+            }
+        }
+    }
+    const restoreItems = [...removalByItem].flatMap(([orderItemId, qty]) => {
+        const locationId = locationByOrderItem.get(orderItemId);
+        if (!locationId) {
+            console.warn('[kitchenRemoveItemsCore] No fulfillment location for orderItem', orderItemId, '— skipping stock restore for it');
+            return [];
+        }
+        return [{ productId: itemById.get(orderItemId)!.productId, locationId, quantity: qty }];
+    });
+    await restoreStock(restoreItems, {
+        orderId: order.id,
+        ...(opts.initiatedByUserId ? { initiatedByUserId: opts.initiatedByUserId } : {}),
+    });
+
+    const removed = [...removalByItem].map(([orderItemId, qty]) => ({
+        name: itemById.get(orderItemId)!.product.name,
+        quantity: qty,
+    }));
+    console.log(`[kitchenRemoveItemsCore] $${(refundCents / 100).toFixed(2)} refunded on Order ${order.id} (${removed.length} item line(s) removed)`);
+
+    return { ok: true, amountRefunded: (refundCents / 100).toFixed(2), removed };
+}

@@ -138,7 +138,10 @@ export async function GET(req: Request) {
                     const basePrice = parseFloat(product.priceB2b.replace(/[^0-9.-]+/g, "")) || 0;
                     const finalPrice = basePrice * (1 - discountPct / 100);
                     subtotal += finalPrice * item.quantity;
-                    processed.push({ productId: product.id, quantity: item.quantity, unitPrice: `$${finalPrice.toFixed(2)}` });
+                    // Unprefixed numeric string (matches D2C + b2b/order) — a
+                    // leading '$' makes parseFloat NaN in every downstream money
+                    // consumer (refund math, admin display, emails, dispatch).
+                    processed.push({ productId: product.id, quantity: item.quantity, unitPrice: finalPrice.toFixed(2) });
                 }
 
                 // Tier 2 — if the schedule targets one of the partner's shops,

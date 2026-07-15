@@ -212,6 +212,13 @@ export default function BakeryPdpClient({
                 </div>
             )}
 
+            {/* Allergen disclosure — always shown (food business; ingredients alone
+                aren't a substitute for an allergen statement) */}
+            <p style={{ fontFamily: "var(--font-sans)", fontSize: 12, lineHeight: 1.55, color: "#7A8278", marginTop: product.ingredients ? 10 : 24 }}>
+                <strong style={{ color: "#2C3D33" }}>Allergens:</strong> made in a kitchen that handles milk, wheat (gluten) and eggs.
+                Questions about allergens? Contact us before ordering.
+            </p>
+
             {/* Address-aware delivery options */}
             <div style={{ marginTop: 32, paddingTop: 24, borderTop: "1px solid #1F302622" }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>

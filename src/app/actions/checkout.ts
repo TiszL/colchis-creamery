@@ -54,10 +54,80 @@ export type CheckoutInput = {
 };
 
 export type CheckoutResult =
-    | { ok: true; clientSecret: string; orderId: string }
+    | {
+          ok: true;
+          clientSecret: string;
+          orderId: string;
+          // Launch polish: exact charge breakdown (dollars, unprefixed). The
+          // client shows these BEFORE confirming payment — customers must see
+          // the tax-inclusive total they'll actually be charged.
+          totals: { subtotal: string; shipping: string; tax: string; total: string };
+      }
     | { ok: false; error: string; failingItem?: { productId: string } };
 
 const RESERVATION_TTL_MS = 15 * 60 * 1000;
+
+/**
+ * Release an abandoned two-step checkout. "Place order" reserves stock +
+ * creates an UNPAID Order + PaymentIntent, then the customer reviews the
+ * tax-inclusive total; if they go back or change the cart, that reservation
+ * must be freed IMMEDIATELY — otherwise their own held stock blocks their
+ * retry until the reservation cron sweeps it ~20 min later (the customer
+ * ordering more than half of a low-stock SKU hits this every time).
+ *
+ * Safe to call with a stale/paid/unknown id: it only ever cancels an order
+ * whose PaymentIntent is still cancelable (not succeeded/processing), so a
+ * payment that raced through is never disturbed. State-guarded + release-only-
+ * if-flip-winner, mirroring the reservation cron, so it can't double-release
+ * (which would corrupt other orders' reservations on shared stock rows).
+ */
+export async function abandonCheckoutOrder(orderId: string): Promise<{ ok: boolean }> {
+    if (!orderId) return { ok: false };
+    try {
+        const order = await prisma.order.findUnique({
+            where: { id: orderId },
+            select: {
+                id: true, paymentStatus: true, orderStatus: true, stripePaymentIntentId: true,
+                fulfillments: { include: { items: { include: { orderItem: true } } } },
+            },
+        });
+        if (!order || order.paymentStatus !== 'UNPAID' || order.orderStatus === 'CANCELLED') {
+            return { ok: false };
+        }
+
+        // Never disturb a payment that actually went through in the meantime.
+        if (order.stripePaymentIntentId) {
+            let pi: Stripe.PaymentIntent | null = null;
+            try {
+                pi = await stripe.paymentIntents.retrieve(order.stripePaymentIntentId);
+            } catch {
+                pi = null; // unknown/deleted PI — treat as cancelable
+            }
+            if (pi && (pi.status === 'succeeded' || pi.status === 'processing')) return { ok: false };
+            if (pi && pi.status !== 'canceled') {
+                await stripe.paymentIntents.cancel(pi.id, { cancellation_reason: 'abandoned' }).catch(() => undefined);
+            }
+        }
+
+        // Atomic guarded flip — release stock only if WE won the flip.
+        const flipped = await prisma.order.updateMany({
+            where: { id: order.id, paymentStatus: 'UNPAID', orderStatus: { not: 'CANCELLED' } },
+            data: { orderStatus: 'CANCELLED', paymentStatus: 'FAILED', reservationExpiresAt: null },
+        });
+        if (flipped.count === 0) return { ok: false };
+        await prisma.orderFulfillment.updateMany({ where: { orderId: order.id }, data: { status: 'CANCELLED' } });
+
+        const reservationItems = order.fulfillments.flatMap(f =>
+            f.items.map(it => ({ productId: it.orderItem.productId, locationId: f.locationId, quantity: it.quantity })),
+        );
+        await releaseStock(reservationItems);
+        return { ok: true };
+    } catch (e) {
+        // Best-effort: the reservation cron is the backstop if this fails.
+        console.error('[checkout] abandonCheckoutOrder failed for', orderId, ':', e instanceof Error ? e.message : e);
+        return { ok: false };
+    }
+}
 
 export async function createCheckoutSession(input: CheckoutInput): Promise<CheckoutResult> {
     /* ─── 1. Basic input validation ────────────────────────────────────── */
@@ -557,5 +627,11 @@ export async function createCheckoutSession(input: CheckoutInput): Promise<Check
         ok: true,
         clientSecret: paymentIntent.client_secret,
         orderId: order.id,
+        totals: {
+            subtotal: subtotal.toFixed(2),
+            shipping: shippingTotal.toFixed(2),
+            tax: taxAmount.toFixed(2),
+            total: totalWithTax.toFixed(2),
+        },
     };
 }

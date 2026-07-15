@@ -179,7 +179,7 @@ export default function ContactClient({ email, phone, primary, hero: heroProp, d
                             ["Phone", phone],
                             ["Hours", hero.hoursLabel],
                             ["Address", heroAddressLabel],
-                        ].map(([k, v]) => (
+                        ].filter(([, v]) => !!v).map(([k, v]) => (
                             <div key={k} style={{ display: "grid", gridTemplateColumns: "90px 1fr", gap: 16, paddingBottom: 12, borderBottom: "1px solid #F5F0E61A" }}>
                                 <span style={{ color: "#F5F0E6", opacity: 0.5 }}>{k}</span>
                                 <span style={{ color: "#F5F0E6", opacity: 0.95 }}>{v}</span>
@@ -314,7 +314,9 @@ export default function ContactClient({ email, phone, primary, hero: heroProp, d
                         </div>
                         <div style={{ display: "flex", gap: 10, marginTop: 18, flexWrap: "wrap" }}>
                             <a href="#map" style={{ background: "transparent", color: "#1F3026", border: "1px solid #1F3026", padding: "10px 14px", fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.28em", textTransform: "uppercase", textDecoration: "none" }}>Directions →</a>
-                            <a href={`tel:${phone.replace(/[^+\d]/g, '')}`} style={{ background: "transparent", color: "#1F3026", border: "1px solid #1F302633", padding: "10px 14px", fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.28em", textTransform: "uppercase", textDecoration: "none" }}>Call</a>
+                            {phone && (
+                                <a href={`tel:${phone.replace(/[^+\d]/g, '')}`} style={{ background: "transparent", color: "#1F3026", border: "1px solid #1F302633", padding: "10px 14px", fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.28em", textTransform: "uppercase", textDecoration: "none" }}>Call</a>
+                            )}
                         </div>
                     </div>
 

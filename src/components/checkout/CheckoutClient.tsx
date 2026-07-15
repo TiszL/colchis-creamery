@@ -10,7 +10,7 @@ import AddressManager, { type ActiveAddress, readGuestAddress, getActiveAddressC
 import type { UserAddressDto } from '@/app/actions/addresses';
 import { applyFreeShippingRule, type FulfillmentPlan, type ChannelQuote } from '@/lib/shipping';
 import { planFulfillment } from '@/app/actions/shipping-plan';
-import { createCheckoutSession, type CheckoutInput } from '@/app/actions/checkout';
+import { createCheckoutSession, abandonCheckoutOrder, type CheckoutInput } from '@/app/actions/checkout';
 import { isValidUSPhone } from '@/lib/phone';
 import { isOpenNow, nextOpenSlot } from '@/lib/location-hours';
 import { BUSINESS_TIMEZONE } from '@/lib/timezone';
@@ -160,6 +160,28 @@ export default function CheckoutClient({
     const touchedChannels = useRef<Set<string>>(new Set());
     const [placingOrder, setPlacingOrder] = useState(false);
     const [submitError, setSubmitError] = useState<string | null>(null);
+    // Launch polish — two-step pay: "Place order" creates the PaymentIntent and
+    // returns the EXACT charge (incl. tax); the customer sees that total and
+    // explicitly clicks "Pay $X" before any money moves. Cleared whenever the
+    // cart/address/method changes (the abandoned intent is swept by the
+    // reservation cron).
+    const [pendingPayment, setPendingPayment] = useState<{
+        clientSecret: string;
+        orderId: string;
+        totals: { subtotal: string; shipping: string; tax: string; total: string };
+    } | null>(null);
+    // Mirror of pendingPayment so the value-keyed invalidation effect can read
+    // the current order id WITHOUT taking pendingPayment as a dependency (which
+    // would re-run the effect the moment we set it). Whenever we drop a pending
+    // quote we release its server-side stock reservation so the customer's own
+    // held stock never blocks their retry.
+    const pendingPaymentRef = useRef<typeof pendingPayment>(null);
+    const discardPendingPayment = useCallback(() => {
+        const prev = pendingPaymentRef.current;
+        pendingPaymentRef.current = null;
+        setPendingPayment(null);
+        if (prev) void abandonCheckoutOrder(prev.orderId);
+    }, []);
 
     const stripePromise = useMemo(() => getStripePromise(stripePublishableKey), [stripePublishableKey]);
 
@@ -303,12 +325,46 @@ export default function CheckoutClient({
                 return;
             }
 
-            // 3. Confirm payment with Stripe — redirects to success page on
-            // success (or after 3DS). Errors come back here for card decline etc.
-            const returnUrl = `${window.location.origin}${prefix}/checkout/success?order_id=${result.orderId}`;
+            // 3. STOP — show the exact tax-inclusive total. The customer must
+            // see what they'll actually be charged and click "Pay $X" before
+            // any money moves (launch polish: the old flow charged a total the
+            // customer never saw).
+            // If a prior pending quote somehow survived (double-submit), release
+            // it before replacing so we don't leak its reservation.
+            const superseded = pendingPaymentRef.current;
+            if (superseded && superseded.orderId !== result.orderId) void abandonCheckoutOrder(superseded.orderId);
+            const next = { clientSecret: result.clientSecret, orderId: result.orderId, totals: result.totals };
+            pendingPaymentRef.current = next;
+            setPendingPayment(next);
+            setPlacingOrder(false);
+        } catch (e) {
+            console.error('handlePlaceOrder threw:', e);
+            setSubmitError('Could not reach the payment server. Please try again.');
+            setPlacingOrder(false);
+        }
+    };
+
+    /** Step 2 of 2 — the explicit "Pay $X" click. */
+    const handleConfirmPayment = async (
+        stripe: import('@stripe/stripe-js').Stripe,
+        elements: import('@stripe/stripe-js').StripeElements,
+    ) => {
+        if (!pendingPayment || placingOrder) return;
+        setPlacingOrder(true);
+        setSubmitError(null);
+        try {
+            // Revalidate the card form (the customer may have edited it while
+            // reviewing the total).
+            const { error: submitError } = await elements.submit();
+            if (submitError) {
+                setSubmitError(submitError.message ?? 'Please complete the card details.');
+                setPlacingOrder(false);
+                return;
+            }
+            const returnUrl = `${window.location.origin}${prefix}/checkout/success?order_id=${pendingPayment.orderId}`;
             const { error: confirmError } = await stripe.confirmPayment({
                 elements,
-                clientSecret: result.clientSecret,
+                clientSecret: pendingPayment.clientSecret,
                 confirmParams: { return_url: returnUrl },
             });
             if (confirmError) {
@@ -318,11 +374,29 @@ export default function CheckoutClient({
             // On non-3DS success Stripe still redirects to return_url, so we
             // don't reset placingOrder there — the page unmounts.
         } catch (e) {
-            console.error('handlePlaceOrder threw:', e);
+            console.error('handleConfirmPayment threw:', e);
             setSubmitError('Could not reach the payment server. Please try again.');
             setPlacingOrder(false);
         }
     };
+
+    // Any change to what's being bought invalidates the quoted total. Keyed on
+    // VALUES, not object identity — providers re-emit identical objects on
+    // unrelated renders, which must not wipe the pending confirmation.
+    const pendingInvalidationKey = useMemo(
+        () =>
+            JSON.stringify({
+                items: items.map(i => [i.product.id, i.quantity]),
+                addr: activeAddress?.formatted ?? null,
+                channels: selectedChannels,
+            }),
+        [items, activeAddress, selectedChannels],
+    );
+    useEffect(() => {
+        // Cart/address/method changed — the quoted total is stale; drop it AND
+        // release the reservation the abandoned quote is holding.
+        discardPendingPayment();
+    }, [pendingInvalidationKey, discardPendingPayment]);
 
     /* ─── Empty state ────────────────────────────────────────────────── */
 
@@ -575,38 +649,66 @@ export default function CheckoutClient({
                         </div>
 
                         <div style={{ padding: '14px 28px 18px', borderTop: '1px solid #1F302614', display: 'flex', flexDirection: 'column', gap: 10 }}>
-                            <SumRow label="Subtotal" value={formatCurrency(subtotal)} />
+                            <SumRow label="Subtotal" value={pendingPayment ? `$${pendingPayment.totals.subtotal}` : formatCurrency(subtotal)} />
                             <SumRow
                                 label="Shipping"
-                                value={!activeAddress ? 'Add address'
+                                value={pendingPayment ? `$${pendingPayment.totals.shipping}`
+                                    : !activeAddress ? 'Add address'
                                     : selectedQuotes.length === 0 ? '—'
                                     : hasFreeShipping ? 'Free (UPS over $100)'
                                     : formatCurrency(shippingTotal)}
-                                muted={!activeAddress || selectedQuotes.length === 0}
+                                muted={!pendingPayment && (!activeAddress || selectedQuotes.length === 0)}
                             />
-                            <SumRow label="Sales tax" value="Computed at payment" muted />
+                            <SumRow
+                                label="Sales tax"
+                                value={pendingPayment ? `$${pendingPayment.totals.tax}` : 'Shown before you pay'}
+                                muted={!pendingPayment}
+                            />
                         </div>
 
                         <div style={{ padding: '18px 28px', borderTop: '1px solid #1F302622', background: '#F5F0E6', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
                             <div>
-                                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.32em', color: '#7A8278', textTransform: 'uppercase' }}>Estimated total</div>
-                                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.24em', color: '#7A8278', marginTop: 4, textTransform: 'uppercase' }}>USD · tax added at payment</div>
+                                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.32em', color: pendingPayment ? '#1F3026' : '#7A8278', textTransform: 'uppercase' }}>
+                                    {pendingPayment ? 'Total — you will be charged' : 'Estimated total'}
+                                </div>
+                                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.24em', color: '#7A8278', marginTop: 4, textTransform: 'uppercase' }}>
+                                    {pendingPayment ? 'USD · tax included' : 'USD · tax shown before you pay'}
+                                </div>
                             </div>
                             <div style={{ fontFamily: 'var(--font-serif)', fontWeight: 400, fontSize: 40, color: '#1F3026', letterSpacing: '-0.02em', lineHeight: 1 }}>
-                                {formatCurrency(estimatedTotal)}
+                                {pendingPayment ? `$${pendingPayment.totals.total}` : formatCurrency(estimatedTotal)}
                             </div>
                         </div>
 
                         <div style={{ padding: 28, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                            {/* Single button — deferred Elements mode. Click runs:
-                                elements.submit() → createCheckoutSession → stripe.confirmPayment
-                                in one flow. PaymentElement is always mounted above so the user can
-                                fill the card upfront without a separate "reserve" step. */}
+                            {/* Two-step pay (launch polish): "Place order" locks in the
+                                exact tax-inclusive total; "Pay $X" is the explicit charge
+                                confirmation. PaymentElement is mounted upfront either way. */}
                             <PlaceOrderButton
-                                canPlaceOrder={canPlaceOrder}
+                                canPlaceOrder={pendingPayment ? true : canPlaceOrder}
                                 placingOrder={placingOrder}
-                                onPlaceOrder={handlePlaceOrder}
+                                onPlaceOrder={pendingPayment ? handleConfirmPayment : handlePlaceOrder}
+                                label={
+                                    placingOrder ? 'Processing…'
+                                    : pendingPayment ? `Pay $${pendingPayment.totals.total} →`
+                                    : 'Place order →'
+                                }
                             />
+                            {pendingPayment && !placingOrder && (
+                                <button
+                                    type="button"
+                                    onClick={discardPendingPayment}
+                                    style={{ background: 'transparent', color: '#7A8278', border: 'none', padding: '4px 0', fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.22em', textTransform: 'uppercase', cursor: 'pointer' }}
+                                >
+                                    ← Change something first
+                                </button>
+                            )}
+                            <div style={{ fontFamily: 'var(--font-sans)', fontSize: 11, color: '#7A8278', textAlign: 'center', lineHeight: 1.5 }}>
+                                By placing your order you agree to our{' '}
+                                <Link href={`${prefix}/legal/terms`} style={{ color: '#1F3026' }}>Terms</Link>,{' '}
+                                <Link href={`${prefix}/legal/privacy`} style={{ color: '#1F3026' }}>Privacy Policy</Link> and{' '}
+                                <Link href={`${prefix}/legal/returns`} style={{ color: '#1F3026' }}>Refund Policy</Link>.
+                            </div>
                             {submitError && (
                                 <div style={{ padding: 12, background: '#FFF7E6', border: '1px solid #D9A87688', fontFamily: 'var(--font-sans)', fontSize: 12.5, color: '#2C3D33', lineHeight: 1.5 }}>
                                     {submitError}
@@ -679,6 +781,7 @@ function PlaceOrderButton({
     canPlaceOrder,
     placingOrder,
     onPlaceOrder,
+    label,
 }: {
     canPlaceOrder: boolean;
     placingOrder: boolean;
@@ -686,6 +789,7 @@ function PlaceOrderButton({
         stripe: import('@stripe/stripe-js').Stripe,
         elements: import('@stripe/stripe-js').StripeElements,
     ) => void;
+    label: string;
 }) {
     const stripe = useStripe();
     const elements = useElements();
@@ -713,7 +817,7 @@ function PlaceOrderButton({
                 opacity: ready ? 1 : 0.7,
             }}
         >
-            {placingOrder ? 'Processing…' : 'Place order →'}
+            {label}
         </button>
     );
 }

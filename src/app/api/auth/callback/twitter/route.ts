@@ -23,7 +23,9 @@ export async function GET(req: NextRequest) {
 
     const clientId = process.env.TWITTER_CLIENT_ID;
     // Twitter PKCE often works with just client ID (public client), but we can pass secret if needed
-    const clientSecret = process.env.TWITTER_CLIENT_SECRET || "";
+    // Optional: Twitter PKCE public clients have no secret. undefined (not "")
+    // keeps the downstream `if (clientSecret)` guard meaningful.
+    const clientSecret = process.env.TWITTER_CLIENT_SECRET || undefined;
     const redirectUri = `${siteUrl}/api/auth/callback/twitter`;
 
     if (!clientId) {

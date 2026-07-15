@@ -212,7 +212,9 @@ export async function POST(req: NextRequest) {
                 processedItems.push({
                     productId: product.id,
                     quantity: item.quantity,
-                    unitPrice: `$${finalPrice.toFixed(2)}`,
+                    // Unprefixed, matching D2C — a leading '$' turns parseFloat into NaN
+                    // in every downstream money consumer.
+                    unitPrice: finalPrice.toFixed(2),
                 });
             }
 

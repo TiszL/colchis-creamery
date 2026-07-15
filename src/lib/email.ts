@@ -3,6 +3,15 @@ import { randomInt } from 'crypto';
 
 const resend = new Resend(process.env.RESEND_API_KEY || 're_dummy_string_for_build_time');
 
+// Launch polish: several templates say "reply to this email" but mail went out
+// from a no-reply mailbox with no reply-to — replies bounced. Every send now
+// carries a reply-to that reaches a human.
+const REPLY_TO = process.env.EMAIL_REPLY_TO || process.env.BAKERY_NOTIFICATION_EMAIL || undefined;
+type ResendSendOptions = Parameters<typeof resend.emails.send>[0];
+function sendViaResend(opts: ResendSendOptions) {
+  return resend.emails.send({ replyTo: REPLY_TO, ...(opts as object) } as ResendSendOptions);
+}
+
 function getFrom(): string {
   const email = process.env.EMAIL_FROM || 'hello@noreply.colchisfood.com';
   return `Colchis Food <${email}>`;
@@ -93,7 +102,8 @@ function darkFoot(): string {
         <tr>
           <td style="background:${C.forest};padding:28px 48px;text-align:center;">
             <p style="margin:0 0 2px;font-family:'Courier New',monospace;font-size:9px;letter-spacing:3px;color:rgba(245,240,230,0.25);text-transform:uppercase;">© ${new Date().getFullYear()} Colchis Food</p>
-            <p style="margin:0;font-family:'Georgia',serif;font-size:10px;color:rgba(245,240,230,0.18);font-style:italic;">Heritage in every bite</p>
+            <p style="margin:0 0 6px;font-family:'Georgia',serif;font-size:10px;color:rgba(245,240,230,0.18);font-style:italic;">Heritage in every bite</p>
+            <p style="margin:0;font-family:'Courier New',monospace;font-size:9px;letter-spacing:1px;color:rgba(245,240,230,0.25);">${escHtml(process.env.BUSINESS_POSTAL_ADDRESS || '84 N High St, Dublin, OH 43017')}</p>
           </td>
         </tr>`;
 }
@@ -108,7 +118,7 @@ export async function sendVerificationEmail(to: string, code: string, name?: str
   const greeting = name || 'there';
 
   try {
-    const { data, error } = await resend.emails.send({
+    const { data, error } = await sendViaResend({
       from: getFrom(),
       to: [to],
       subject: `${code} is your Colchis Food verification code`,
@@ -179,7 +189,7 @@ export function generateVerificationCode(): string {
 export async function sendPasswordResetEmail(to: string, resetLink: string, name?: string) {
   const greeting = name || 'there';
   try {
-    const { data, error } = await resend.emails.send({
+    const { data, error } = await sendViaResend({
       from: getFrom(),
       to: [to],
       subject: 'Reset your Colchis Food B2B password',
@@ -218,7 +228,7 @@ export async function sendPartnerInviteEmail(opts: {
   const { to, acceptLink, inviterCompany, name, shopLabel } = opts;
   const greeting = name || 'there';
   try {
-    const { data, error } = await resend.emails.send({
+    const { data, error } = await sendViaResend({
       from: getFrom(),
       to: [to],
       subject: `You're invited to ${inviterCompany}'s wholesale account`,
@@ -254,7 +264,7 @@ export async function send2FAEmail(to: string, code: string, name?: string) {
   const greeting = name || 'Admin';
 
   try {
-    const { data, error } = await resend.emails.send({
+    const { data, error } = await sendViaResend({
       from: getFrom(),
       to: [to],
       subject: `${code} — Colchis Food Admin Login Verification`,
@@ -338,7 +348,7 @@ export async function sendContactFormEmail(data: {
   message: string;
 }) {
   try {
-    const { data: result, error } = await resend.emails.send({
+    const { data: result, error } = await sendViaResend({
       from: getFrom(),
       to: CONTACT_RECIPIENTS,
       replyTo: data.email,
@@ -416,7 +426,7 @@ export async function sendB2bApprovalEmail(
   const greeting = contactName || 'Partner';
 
   try {
-    const { data, error } = await resend.emails.send({
+    const { data, error } = await sendViaResend({
       from: getFrom(),
       to: [to],
       subject: `Your B2B Partnership Application Has Been Approved!`,
@@ -517,7 +527,7 @@ export async function sendB2bRejectionEmail(
   const greeting = contactName || 'there';
 
   try {
-    const { data, error } = await resend.emails.send({
+    const { data, error } = await sendViaResend({
       from: getFrom(),
       to: [to],
       subject: `Update on Your Colchis Food Partnership Application`,
@@ -594,7 +604,7 @@ export async function sendB2bEmailChangeRequest({
   const confirmUrl = `https://colchisfood.com/b2b/confirm-email?token=${encodeURIComponent(confirmToken)}`;
 
   try {
-    const { data, error } = await resend.emails.send({
+    const { data, error } = await sendViaResend({
       from: getFrom(),
       to: [to],
       subject: `Confirm account transfer for ${companyName} — Colchis Food`,
@@ -680,7 +690,7 @@ export async function sendB2bEmailChangeUnlocked({
   const registerUrl = `https://colchisfood.com/b2b/register?code=${encodeURIComponent(accessCode)}&email=${encodeURIComponent(to)}`;
 
   try {
-    const { data, error } = await resend.emails.send({
+    const { data, error } = await sendViaResend({
       from: getFrom(),
       to: [to],
       subject: `Your B2B registration is unlocked — Colchis Food`,
@@ -861,7 +871,7 @@ export async function sendOrderConfirmation(order: OrderForEmail) {
   }).join('');
 
   try {
-    const { data, error } = await resend.emails.send({
+    const { data, error } = await sendViaResend({
       from: getFrom(),
       to: recipient,
       bcc,
@@ -1068,7 +1078,7 @@ export async function sendNewOrderKitchenEmail(opts: {
                 </tr>`).join('');
 
   try {
-    const { data, error } = await resend.emails.send({
+    const { data, error } = await sendViaResend({
       from: getFrom(),
       to: [opts.to],
       subject: `New order #${shortId} — ${itemCount} item(s)`,
@@ -1155,7 +1165,7 @@ export async function sendCourierIssueOpsEmail(opts: {
     : opts.kind === 'RETURNED' ? 'Delivery <em style="color:' + C.red + ';font-weight:400;">returned to store.</em>'
     : 'Courier <em style="color:' + C.red + ';font-weight:400;">cancelled.</em>';
   try {
-    const { data, error } = await resend.emails.send({
+    const { data, error } = await sendViaResend({
       from: getFrom(),
       to: [opts.to],
       subject: `⚠ Order #${shortId} — courier issue (${opts.carrier})`,
@@ -1201,7 +1211,7 @@ export async function sendDeliveryIssueCustomerEmail(opts: {
   const shortId = opts.orderId.slice(0, 8).toUpperCase();
   const greeting = opts.name || 'there';
   try {
-    const { data, error } = await resend.emails.send({
+    const { data, error } = await sendViaResend({
       from: getFrom(),
       to: [opts.to],
       subject: `A quick note about your order #${shortId}`,
@@ -1242,7 +1252,7 @@ export async function sendOrderCancelledCustomerEmail(opts: {
   const shortId = opts.orderId.slice(0, 8).toUpperCase();
   const greeting = opts.name || 'there';
   try {
-    const { data, error } = await resend.emails.send({
+    const { data, error } = await sendViaResend({
       from: getFrom(),
       to: [opts.to],
       subject: `Your order #${shortId} has been cancelled & refunded`,
@@ -1282,7 +1292,7 @@ export async function sendKitchenWelcomeEmail(opts: {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
   const loginUrl = `${siteUrl}/portal-login`;
   try {
-    const { data, error } = await resend.emails.send({
+    const { data, error } = await sendViaResend({
       from: getFrom(),
       to: [opts.to],
       subject: `Your Colchis Food kitchen account — ${opts.locationName}`,
@@ -1332,7 +1342,7 @@ export async function sendOrderItemsRemovedCustomerEmail(opts: {
                   </td>
                 </tr>`).join('');
   try {
-    const { data, error } = await resend.emails.send({
+    const { data, error } = await sendViaResend({
       from: getFrom(),
       to: [opts.to],
       subject: `A change to your order #${shortId} — $${opts.amountRefunded} refunded`,
@@ -1395,7 +1405,7 @@ export async function sendOpsAlertEmail(opts: {
     .map(l => `<p style="margin:0 0 10px;font-family:'Georgia',serif;font-size:14px;color:${C.forest};line-height:1.6;">${escHtml(l)}</p>`)
     .join('');
   try {
-    const { data, error } = await resend.emails.send({
+    const { data, error } = await sendViaResend({
       from: getFrom(),
       to: [...new Set([to, ...(opts.alsoTo ?? [])].filter((x): x is string => !!x))],
       subject: `⚠ OPS ALERT — ${opts.subject}${shortId ? ` (order #${shortId})` : ''}`,

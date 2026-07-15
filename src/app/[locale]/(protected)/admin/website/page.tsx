@@ -108,7 +108,7 @@ export default async function AdminWebsitePage({ params }: { params: any }) {
                         </div>
                         <div>
                             <label className="block text-[9px] text-[#D9A876] mb-2" style={mono}>Phone</label>
-                            <input name="config.contact.phone" defaultValue={getVal(configs, "contact.phone", "+1 (614) 555-0123")} className={inputCls} />
+                            <input name="config.contact.phone" defaultValue={getVal(configs, "contact.phone", "")} placeholder="+1 (614) …" className={inputCls} />
                         </div>
                         <div>
                             <label className="block text-[9px] text-[#D9A876] mb-2" style={mono}>Working Hours</label>

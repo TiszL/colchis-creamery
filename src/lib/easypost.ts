@@ -283,8 +283,10 @@ export function verifyEasyPostSignature(rawBody: string, headerValue: string | n
     const digest = createHmac('sha256', WEBHOOK_SECRET).update(rawBody).digest();
     // EasyPost's X-Hmac-Signature may be hex- or base64-encoded depending on the
     // account/era — accept either (decoding hex-only would reject a valid
-    // base64 signature). Compare as raw strings, timing-safe per candidate.
-    const header = headerValue.trim();
+    // base64 signature). LAUNCH FIX: production events arrive PREFIXED
+    // ("hmac-sha256-hex=<hex>" per EasyPost's docs) — without stripping it,
+    // every genuine event failed verification. Compare timing-safe per candidate.
+    const header = headerValue.trim().replace(/^hmac-sha256-(hex|base64)=/i, '');
     return [digest.toString('hex'), digest.toString('base64')].some(expected => {
         if (expected.length !== header.length) return false;
         try {

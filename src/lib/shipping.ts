@@ -26,6 +26,7 @@ import { cartEligibleChannels } from './fulfillment';
 import { doordashCreateQuote, isDoorDashConfigured, UNDELIVERABLE as DD_UNDELIVERABLE } from './doordash';
 import { uberCreateQuote, isUberDirectConfigured, UNDELIVERABLE as UBER_UNDELIVERABLE } from './uber-direct';
 import { easypostGetRate, isEasyPostConfigured } from './easypost';
+import { isNationalShipEnabled } from './feature-flags';
 import { DeliveryMethod } from '@prisma/client';
 
 /** Phase 8.2: customer address bundle passed into planFulfillment. All fields
@@ -688,7 +689,11 @@ export async function planFulfillment(
         // flat-fee + in-store paths are pure computation (no DB) — under a
         // starved connection pool they used to ALL throw, leaving the checkout
         // group with zero delivery options.
-        const channelList = Array.from(acc.candidateChannels);
+        // Launch gate: NATIONAL_SHIP is withheld until its label pipeline is
+        // hardened — see src/lib/feature-flags.ts.
+        const channelList = Array.from(acc.candidateChannels).filter(
+            ch => ch !== 'UPS_2DAY' || isNationalShipEnabled(),
+        );
         const settled = await Promise.allSettled(
             channelList.map(deliveryMethod => {
                 const channelRow = acc.location.channels.find(c => c.deliveryMethod === deliveryMethod);

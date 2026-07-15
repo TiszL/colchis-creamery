@@ -1382,9 +1382,11 @@ export async function sendOpsAlertEmail(opts: {
   subject: string;          // short, prefixed in the email subject line
   lines: string[];          // plain sentences; rendered as separate paragraphs
   orderId?: string | null;
+  /** Extra recipients beyond the ops inbox (e.g. the location's kitchen). */
+  alsoTo?: string[];
 }) {
   const to = process.env.BAKERY_NOTIFICATION_EMAIL;
-  if (!to) {
+  if (!to && !opts.alsoTo?.length) {
     console.error('[ops-alert] BAKERY_NOTIFICATION_EMAIL unset — dropping alert:', opts.subject, opts.lines.join(' | '));
     return { success: false, error: 'no recipient configured' };
   }
@@ -1395,7 +1397,7 @@ export async function sendOpsAlertEmail(opts: {
   try {
     const { data, error } = await resend.emails.send({
       from: getFrom(),
-      to: [to],
+      to: [...new Set([to, ...(opts.alsoTo ?? [])].filter((x): x is string => !!x))],
       subject: `⚠ OPS ALERT — ${opts.subject}${shortId ? ` (order #${shortId})` : ''}`,
       html: wrap(`
           ${sealHead('Ops Alert')}

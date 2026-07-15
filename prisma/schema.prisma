@@ -1218,6 +1218,9 @@ model OrderFulfillment {
   // it handoff-ready. Feed ops dashboards + prep-time tuning later.
   acceptedAt        DateTime?
   readyAt           DateTime?
+  // Launch hardening: when the "paid order sitting unaccepted" escalation
+  // email was sent (once per fulfillment; null = not alerted).
+  unacceptedAlertAt DateTime?
 
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt

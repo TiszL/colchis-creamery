@@ -103,14 +103,18 @@ export default function HomepageEditor({ initialData }: HomepageEditorProps) {
     });
 
     // ─── Visit State ─────────────────────────────────────────────────────────────
-    const [visit, setVisit] = useState(initialData.visit || {
-        address: '84 N High St',
-        city: 'Dublin, OH',
-        description: 'The bakery is open daily, 7 AM to 10 PM. The creamery is by appointment — we\'d love to show you the cheese cellar.',
-        bakery_hours: 'Open daily · 7am–10pm',
-        phone: '(614) 555-0142',
-        map_url: 'https://maps.google.com/?q=84+N+High+St+Dublin+OH',
-        image: '',
+    // The live "Visit Us" section reads address / city / hours / phone / the
+    // directions map link from the PRIMARY LOCATION row (Admin → Locations),
+    // NOT from here — only `description` and `image` are set on this page. The
+    // old editor exposed address/phone/map fields that silently did nothing;
+    // we now persist only the two fields that actually render, so stale values
+    // (e.g. a leftover map URL) can't linger or mislead.
+    const [visit, setVisit] = useState(() => {
+        const v = (initialData.visit || {}) as { description?: string; image?: string };
+        return {
+            description: v.description ?? 'The bakery is open daily, 7 AM to 10 PM. The creamery is by appointment — we\'d love to show you the cheese cellar.',
+            image: v.image ?? '',
+        };
     });
 
     // ─── Ticker State ────────────────────────────────────────────────────────────
@@ -359,35 +363,15 @@ export default function HomepageEditor({ initialData }: HomepageEditorProps) {
             </Section>
 
             {/* Visit */}
-            <Section title="Visit Us Section" subtitle="Address, hours, contact">
+            <Section title="Visit Us Section" subtitle="Description + photo (address, hours, phone & map come from Admin → Locations)">
                 <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className={labelCls} style={mono}>Street Address</label>
-                            <input value={visit.address} onChange={e => setVisit({ ...visit, address: e.target.value })} className={inputCls} />
-                        </div>
-                        <div>
-                            <label className={labelCls} style={mono}>City, State</label>
-                            <input value={visit.city} onChange={e => setVisit({ ...visit, city: e.target.value })} className={inputCls} />
-                        </div>
+                    <div className="rounded border border-[#B96A3D]/40 bg-[#B96A3D]/10 px-3 py-2.5 text-[12px] leading-relaxed text-[#1F3026]/80">
+                        The <strong>address, hours, phone, and “Get directions” map link</strong> shown in this section come from your primary location — edit them in{' '}
+                        <a href="/admin/locations" className="underline font-medium">Admin → Locations</a>. Only the description and photo below are set here.
                     </div>
                     <div>
                         <label className={labelCls} style={mono}>Description</label>
                         <textarea value={visit.description} onChange={e => setVisit({ ...visit, description: e.target.value })} rows={2} className={inputCls + ' resize-none'} />
-                    </div>
-                    <div className="grid grid-cols-3 gap-4">
-                        <div>
-                            <label className={labelCls} style={mono}>Bakery Hours</label>
-                            <input value={visit.bakery_hours} onChange={e => setVisit({ ...visit, bakery_hours: e.target.value })} className={inputCls} />
-                        </div>
-                        <div>
-                            <label className={labelCls} style={mono}>Phone</label>
-                            <input value={visit.phone} onChange={e => setVisit({ ...visit, phone: e.target.value })} className={inputCls} />
-                        </div>
-                        <div>
-                            <label className={labelCls} style={mono}>Google Maps URL</label>
-                            <input value={visit.map_url} onChange={e => setVisit({ ...visit, map_url: e.target.value })} className={inputCls} />
-                        </div>
                     </div>
                     <div>
                         <label className={labelCls} style={mono}>Visit Image (Portrait)</label>

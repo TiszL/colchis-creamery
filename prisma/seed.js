@@ -1,10 +1,23 @@
 // Comprehensive seed script for all 7 roles
+//
+// ⚠ DEV ONLY. Creates well-known accounts with the password 'password123' —
+// running this against the production database is a full-compromise vector
+// (a seeded MASTER_ADMIN with a public password). Guarded below: refuses to
+// run unless ALLOW_SEED=1 is explicitly set in the environment.
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcryptjs');
 
 const prisma = new PrismaClient();
 
 async function main() {
+    if (process.env.ALLOW_SEED !== '1') {
+        console.error(
+            'REFUSING TO SEED: this script creates weak-credential demo accounts (password123).\n' +
+            'It must never touch a production database. If you are on a disposable dev DB,\n' +
+            'run it as: ALLOW_SEED=1 node prisma/seed.js',
+        );
+        process.exit(1);
+    }
     console.log('🧀 Seeding Colchis Creamery Platform...\n');
 
     const hash = await bcrypt.hash('password123', 12);

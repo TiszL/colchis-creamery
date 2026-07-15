@@ -21,6 +21,7 @@
 import { prisma } from '@/lib/db';
 import { stripe } from '@/lib/stripe';
 import { getSession } from '@/lib/session';
+import { rateLimit, callerIp, rateLimitMessage } from '@/lib/rate-limit';
 import { reserveStock, releaseStock } from '@/lib/stock-reservation';
 import { applyFreeShippingRule, planFulfillment } from '@/lib/shipping';
 import { normalizeUSPhone } from '@/lib/phone';
@@ -65,6 +66,20 @@ export async function createCheckoutSession(input: CheckoutInput): Promise<Check
     }
     if (!input.contact?.email || !input.contact?.phone || !input.contact?.name) {
         return { ok: false, error: 'Please fill in your contact details.' };
+    }
+
+    // Card-testing protection — the #1 launch-week attack on new stores:
+    // criminals validate stolen cards against an unprotected checkout, and
+    // every attempt costs real dispute fees. Each call here creates a
+    // PaymentIntent, so cap creation per IP and per email. Limits are far
+    // above any real customer's behavior.
+    const ip = await callerIp();
+    for (const [key, max] of [
+        [`checkout:ip:${ip}`, 10],
+        [`checkout:email:${input.contact.email.trim().toLowerCase()}`, 6],
+    ] as const) {
+        const rl = await rateLimit(key, max, 600);
+        if (!rl.ok) return { ok: false, error: rateLimitMessage(rl) };
     }
     // Normalize + validate US phone server-side (client-side hint is best-effort).
     // Dispatch APIs (DoorDash / Uber Direct) reject non-US-E.164 formats; we want

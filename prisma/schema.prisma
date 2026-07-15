@@ -1282,3 +1282,17 @@ model Refund {
   @@index([initiatedByUserId])
 }
 
+
+// ─── Launch hardening — DB-backed rate limiting ──────────────────────────────
+// Fixed-window counters for auth/checkout abuse protection (card testing,
+// credential stuffing, 2FA brute force). No Redis in the stack; at this
+// store's traffic a single indexed upsert per guarded request is cheap.
+// Rows expire naturally — the limiter opportunistically deletes windows
+// older than a day.
+model RateLimit {
+  key         String   // e.g. "login:ip:1.2.3.4" or "checkout:email:x@y.z"
+  windowStart DateTime
+  count       Int      @default(1)
+
+  @@id([key, windowStart])
+}

@@ -1,7 +1,8 @@
 "use server";
 
 import bcryptjs from "bcryptjs";
-import { randomBytes } from "crypto";
+import { randomBytes, randomInt } from "crypto";
+import { rateLimit, callerIp, rateLimitMessage } from "@/lib/rate-limit";
 import { prisma } from "@/lib/db";
 import { setSession, clearSession, getSession } from "@/lib/session";
 import { revalidatePath } from "next/cache";
@@ -33,6 +34,14 @@ export async function loginAction(formData: FormData) {
 
     if (!email || !password) {
         return { error: "Email and password are required." };
+    }
+
+    // Credential stuffing / password spraying protection: per-IP and per-email
+    // fixed windows. Generous enough that a fumbled password never hits it.
+    const ip = await callerIp();
+    for (const [key, max] of [[`login:ip:${ip}`, 20], [`login:email:${email}`, 8]] as const) {
+        const rl = await rateLimit(key, max, 300);
+        if (!rl.ok) return { error: rateLimitMessage(rl) };
     }
 
     try {
@@ -117,6 +126,10 @@ export async function loginAction(formData: FormData) {
 // partner matches, we mint a single-use token (1h) and email a reset link.
 export async function requestB2bPasswordResetAction(formData: FormData): Promise<{ ok: true }> {
     const email = ((formData.get("email") as string) || "").trim().toLowerCase();
+    // Email-bomb protection: silently drop over-limit requests (this action
+    // never reveals outcomes anyway).
+    const resetRl = await rateLimit(`pwreset:ip:${await callerIp()}`, 5, 3600);
+    if (!resetRl.ok) return { ok: true };
     if (email) {
         const user = await prisma.user.findFirst({ where: { email, role: "B2B_PARTNER" }, select: { id: true, email: true, name: true } });
         if (user) {
@@ -165,6 +178,10 @@ export async function registerB2CAction(formData: FormData) {
     if (!name || !email || !password || password.length < 8) {
         return { error: "Please provide a valid name, email, and password (min 8 characters)." };
     }
+
+    // Bulk fake-account protection.
+    const regRl = await rateLimit(`register:ip:${await callerIp()}`, 5, 3600);
+    if (!regRl.ok) return { error: rateLimitMessage(regRl) };
 
     try {
         // Phase 11: only block duplicates within the SAME role bucket.
@@ -228,6 +245,10 @@ export async function verifyEmailAction(email: string, code: string) {
         return { error: "Please enter a valid 6-digit code." };
     }
 
+    // 6-digit codes are brute-forceable at bot speed — cap attempts per email.
+    const verifyRl = await rateLimit(`verify:email:${email.toLowerCase()}`, 8, 600);
+    if (!verifyRl.ok) return { error: rateLimitMessage(verifyRl) };
+
     try {
         // Phase 11: scope to B2C — this flow is only called from the retail
         // verify-email page. A B2B partner with the same email shouldn't be
@@ -280,6 +301,10 @@ export async function resendVerificationAction(email: string) {
     if (!email) {
         return { error: "Email is required." };
     }
+
+    // Email-bomb protection.
+    const resendRl = await rateLimit(`resend:email:${email.toLowerCase()}`, 3, 600);
+    if (!resendRl.ok) return { error: rateLimitMessage(resendRl) };
 
     try {
         // Phase 11: B2C-only resend flow.
@@ -535,6 +560,13 @@ export async function staffLoginAction(formData: FormData) {
         return { error: "Login ID and password are required." };
     }
 
+    // Staff portal is a high-value target — same stuffing protection as retail.
+    const staffIp = await callerIp();
+    for (const [key, max] of [[`stafflogin:ip:${staffIp}`, 20], [`stafflogin:id:${loginInput.toLowerCase()}`, 8]] as const) {
+        const rl = await rateLimit(key, max, 300);
+        if (!rl.ok) return { error: rateLimitMessage(rl) };
+    }
+
     try {
         // Phase 11: staff login is scoped to staff roles only. A person who
         // ALSO has a B2C identity at this address shouldn't get picked here.
@@ -632,6 +664,10 @@ export async function verify2FAAction(email: string, code: string) {
     if (!email || !code || code.length !== 6) {
         return { error: "Please enter a valid 6-digit code." };
     }
+
+    // A 6-digit code space is only 1M — unbounded tries make 2FA decorative.
+    const tfaRl = await rateLimit(`2fa:email:${email.toLowerCase()}`, 6, 600);
+    if (!tfaRl.ok) return { error: rateLimitMessage(tfaRl) };
 
     try {
         // Phase 11: 2FA flow is staff-only; scope lookup so a same-email
@@ -964,7 +1000,9 @@ function generateTempPassword(): string {
     const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
     let password = "";
     for (let i = 0; i < 12; i++) {
-        password += chars.charAt(Math.floor(Math.random() * chars.length));
+        // crypto.randomInt — Math.random() is predictable enough to matter for
+        // credentials that gate staff/admin surfaces.
+        password += chars.charAt(randomInt(chars.length));
     }
     return password;
 }

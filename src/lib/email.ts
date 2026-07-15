@@ -1,4 +1,5 @@
 import { Resend } from 'resend';
+import { randomInt } from 'crypto';
 
 const resend = new Resend(process.env.RESEND_API_KEY || 're_dummy_string_for_build_time');
 
@@ -168,7 +169,9 @@ export async function sendVerificationEmail(to: string, code: string, name?: str
 }
 
 export function generateVerificationCode(): string {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+  // crypto.randomInt — these codes gate email verification AND staff 2FA;
+  // Math.random() is statistically predictable and not acceptable for either.
+  return randomInt(100000, 1000000).toString();
 }
 
 // ─── 2. Admin 2FA ───────────────────────────────────────────────────────────

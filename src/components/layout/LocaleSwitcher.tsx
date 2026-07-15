@@ -3,7 +3,7 @@
 import { useLocale } from "next-intl";
 import { useRouter, usePathname } from "next/navigation";
 import { routing } from "@/i18n/routing";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useLayoutEffect } from "react";
 
 const localeCodes: Record<string, string> = {
   en: "EN",
@@ -24,7 +24,12 @@ export function LocaleSwitcher() {
   const router = useRouter();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  // Open direction: near the bottom of the page (footer) a downward menu hangs
+  // past the document edge and extends the scrollable area — the page visibly
+  // "grows". Measured per open: flip upward when there isn't room below.
+  const [dropUp, setDropUp] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -32,9 +37,29 @@ export function LocaleSwitcher() {
         setOpen(false);
       }
     }
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKey);
+    };
   }, []);
+
+  // Before paint on each open: measure the real menu height against the space
+  // below the trigger; open upward if it would overflow the viewport bottom
+  // (and there is room above). Runs pre-paint so there is no flicker.
+  useLayoutEffect(() => {
+    if (!open) return;
+    const trigger = ref.current;
+    const menu = menuRef.current;
+    if (!trigger || !menu) return;
+    const t = trigger.getBoundingClientRect();
+    const menuH = menu.offsetHeight + 8; // + margin
+    setDropUp(t.bottom + menuH > window.innerHeight && t.top - menuH > 0);
+  }, [open]);
 
   function switchLocale(newLocale: string) {
     const segments = pathname.split("/");
@@ -67,14 +92,18 @@ export function LocaleSwitcher() {
       </button>
 
       {open && (
-        <div style={{
-          position: "absolute", right: 0, top: "100%", marginTop: 8,
+        <div ref={menuRef} role="listbox" aria-label="Language" style={{
+          position: "absolute", right: 0,
+          ...(dropUp ? { bottom: "100%", marginBottom: 8 } : { top: "100%", marginTop: 8 }),
           background: "#FFFFFF", border: "1px solid #1F302622",
           minWidth: 80, zIndex: 50, display: "flex", flexDirection: "column",
+          boxShadow: "0 4px 16px #1F302626",
         }}>
           {routing.locales.filter((loc) => ENABLED_LOCALES.includes(loc)).map((loc) => (
             <button
               key={loc}
+              role="option"
+              aria-selected={loc === locale}
               onClick={() => switchLocale(loc)}
               style={{
                 display: "block", width: "100%", textAlign: "left",

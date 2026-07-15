@@ -24,6 +24,11 @@ import { sendCourierIssueOpsEmail, sendDeliveryIssueCustomerEmail } from '@/lib/
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
+interface UberCourierInfo {
+    name?: string;
+    phone_number?: string;
+}
+
 interface UberWebhookPayload {
     // Uber's webhook shape has varied across API versions. Accept both common shapes:
     //   { kind: "event.delivery_status", delivery_id, status, ... }
@@ -32,12 +37,33 @@ interface UberWebhookPayload {
     event_type?: string;
     delivery_id?: string;
     status?: string;
+    courier?: UberCourierInfo | null;
+    pickup_eta?: string;
+    dropoff_eta?: string;
     delivery?: {
         id?: string;
         status?: string;
         tracking_url?: string;
+        courier?: UberCourierInfo | null;
+        pickup_eta?: string;
+        dropoff_eta?: string;
     };
 }
+
+/** Parse an ISO timestamp defensively — undefined when absent or unparseable. */
+function parseWebhookDate(value: string | undefined): Date | undefined {
+    if (!value) return undefined;
+    const d = new Date(value);
+    return isNaN(d.getTime()) ? undefined : d;
+}
+
+// Courier substate derived from the raw Uber status (finer-grained than
+// courierStatus): set on dropoff arrival, cleared once the delivery ends.
+// (Uber has no distinct pickup-arrival status — 'pickup' maps to CONFIRMED.)
+const UBER_SUBSTATE_SET: Record<string, string> = {
+    dropoff_arrived: 'ARRIVED_AT_DROPOFF',
+};
+const UBER_SUBSTATE_CLEAR = new Set(['delivered', 'canceled', 'cancelled', 'returned']);
 
 export async function POST(req: Request) {
     const rawBody = await req.text();
@@ -88,46 +114,82 @@ export async function POST(req: Request) {
         return new NextResponse('OK', { status: 200 });
     }
 
-    // Monotonic courier-status rank (same as DoorDash webhook): never move
+    // (b) Latest-wins live-info capture — courier identity, ETAs, arrival
+    // substate. Runs on EVERY mapped event for this fulfillment, even when the
+    // monotonic rank guard below skips the courierStatus write (repeat/late
+    // webhooks still carry the freshest ETA/courier info). Reads both payload
+    // shapes, nested-delivery preferred, mirroring the id/status normalization.
+    const courier = payload.delivery?.courier ?? payload.courier;
+    const infoData: {
+        courierName?: string;
+        courierPhone?: string;
+        courierPickupEtaAt?: Date;
+        courierDropoffEtaAt?: Date;
+        courierSubstate?: string | null;
+    } = {};
+    if (courier?.name) infoData.courierName = courier.name;
+    if (courier?.phone_number) infoData.courierPhone = courier.phone_number;
+    const pickupEta = parseWebhookDate(payload.delivery?.pickup_eta ?? payload.pickup_eta);
+    if (pickupEta) infoData.courierPickupEtaAt = pickupEta;
+    const dropoffEta = parseWebhookDate(payload.delivery?.dropoff_eta ?? payload.dropoff_eta);
+    if (dropoffEta) infoData.courierDropoffEtaAt = dropoffEta;
+    if (UBER_SUBSTATE_SET[status]) {
+        infoData.courierSubstate = UBER_SUBSTATE_SET[status];
+    } else if (UBER_SUBSTATE_CLEAR.has(status)) {
+        infoData.courierSubstate = null;
+    }
+
+    // (a) Monotonic courier-status rank (same as DoorDash webhook): never move
     // backwards. CANCELLED is allowed from any non-DELIVERED state; DELIVERED
-    // is terminal.
+    // is terminal. When the guard trips we skip ONLY the status write — info
+    // capture above still lands.
     const COURIER_RANK: Record<string, number> = {
         REQUESTED: 0, CONFIRMED: 1, OUT_FOR_DELIVERY: 2, DELIVERED: 3,
     };
     const current = fulfillment.courierStatus;
+    let advanceStatus = true;
     if (current === 'DELIVERED') {
-        return new NextResponse('OK', { status: 200 });
-    }
-    if (targetStatus === 'CANCELLED') {
-        if (current === 'CANCELLED') return new NextResponse('OK', { status: 200 });
+        advanceStatus = false;
+    } else if (targetStatus === 'CANCELLED') {
+        if (current === 'CANCELLED') advanceStatus = false;
     } else {
         if (current === 'CANCELLED') {
             console.warn(
                 '[uber-direct-webhook] Late event for cancelled delivery on fulfillment',
                 fulfillment.id, 'status:', status, '— ignoring',
             );
-            return new NextResponse('OK', { status: 200 });
-        }
-        const targetRank = COURIER_RANK[targetStatus];
-        if (targetRank === undefined) {
-            // PENDING/PREPARING have no courier meaning — ignore.
-            return new NextResponse('OK', { status: 200 });
-        }
-        if (current !== null && targetRank <= (COURIER_RANK[current] ?? -1)) {
-            return new NextResponse('OK', { status: 200 }); // stale / out-of-order event
+            advanceStatus = false;
+        } else {
+            const targetRank = COURIER_RANK[targetStatus];
+            if (targetRank === undefined) {
+                // PENDING/PREPARING have no courier meaning — ignore.
+                advanceStatus = false;
+            } else if (current !== null && targetRank <= (COURIER_RANK[current] ?? -1)) {
+                advanceStatus = false; // stale / out-of-order event
+            }
         }
     }
 
     try {
-        await prisma.orderFulfillment.update({
-            where: { id: fulfillment.id },
-            data: {
+        const data = {
+            ...(advanceStatus ? {
                 courierStatus: targetStatus,
                 // Courier DELIVERED completes the kitchen flow too.
-                ...(targetStatus === 'DELIVERED' ? { status: 'DELIVERED' } : {}),
+                ...(targetStatus === 'DELIVERED' ? { status: 'DELIVERED' as const } : {}),
                 ...(payload.delivery?.tracking_url ? { trackingNumber: payload.delivery.tracking_url } : {}),
-            },
+            } : {}),
+            ...infoData,
+        };
+        if (Object.keys(data).length === 0) {
+            return new NextResponse('OK', { status: 200 }); // nothing to write
+        }
+        await prisma.orderFulfillment.update({
+            where: { id: fulfillment.id },
+            data,
         });
+        if (!advanceStatus) {
+            return new NextResponse('OK', { status: 200 }); // info-only write
+        }
         console.log(
             '[uber-direct-webhook] Fulfillment', fulfillment.id,
             `courierStatus ${current ?? '(none)'} → ${targetStatus}`,

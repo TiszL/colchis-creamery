@@ -34,7 +34,7 @@ export default function SuccessClient({ locale, status, paymentIntentId, orderId
         <main style={{ background: '#F5F0E6', minHeight: '70vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 24px' }}>
             <div style={{ textAlign: 'center', maxWidth: 580 }}>
                 <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.32em', color: '#B96A3D', textTransform: 'uppercase' }}>
-                    № 04 — {isSucceeded ? 'Confirmation' : isProcessing ? 'Processing' : 'Try again'}
+                    № 04 — {isSucceeded ? 'Order received' : isProcessing ? 'Processing' : 'Try again'}
                 </div>
                 <h1 style={{ fontFamily: 'var(--font-serif)', fontWeight: 300, fontSize: 64, color: '#1F3026', margin: '16px 0 14px', lineHeight: 0.95, letterSpacing: '-0.02em' }}>
                     {isSucceeded ? (
@@ -47,7 +47,7 @@ export default function SuccessClient({ locale, status, paymentIntentId, orderId
                 </h1>
                 <p style={{ fontFamily: 'var(--font-serif)', fontSize: 18, fontStyle: 'italic', color: '#2C3D33', opacity: 0.85, marginBottom: 22, lineHeight: 1.5 }}>
                     {isSucceeded
-                        ? "We'll email you a confirmation shortly. Hot food and frozen items will be scheduled per fulfillment."
+                        ? "We received your order — the kitchen will confirm it shortly. We'll email you a link to track it."
                         : isProcessing
                             ? "Your bank is reviewing the payment. We'll email you once it clears."
                             : "Your card wasn't charged. You can retry from your cart."}

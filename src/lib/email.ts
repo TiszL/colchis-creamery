@@ -870,13 +870,13 @@ export async function sendOrderConfirmation(order: OrderForEmail) {
           <tr>
             <td style="background:${C.cream2};padding:44px 48px 18px;">
               <p style="margin:0 0 8px;font-family:'Courier New',monospace;font-size:10px;letter-spacing:3px;color:${C.accent2};text-transform:uppercase;">
-                ✓ Confirmed · Order #${shortId}
+                ✓ Order received · #${shortId}
               </p>
               <h1 style="margin:0;font-family:'Georgia',serif;font-size:38px;font-weight:300;color:${C.forest};letter-spacing:-1px;line-height:1.05;">
                 Thank you, <em style="color:${C.accent};">${escHtml(customerName)}.</em>
               </h1>
               <p style="margin:16px 0 0;font-family:'Georgia',serif;font-size:14px;color:${C.muted};font-style:italic;line-height:1.55;">
-                We received your order on ${placedOn}. Here&rsquo;s everything that&rsquo;s on its way.
+                We received your order on ${placedOn} &mdash; the kitchen will confirm it shortly.
               </p>
             </td>
           </tr>
@@ -1297,6 +1297,65 @@ export async function sendKitchenWelcomeEmail(opts: {
           <tr>
             <td style="background:${C.cream2};padding:12px 48px 44px;text-align:center;">
               <a href="${loginUrl}" style="display:inline-block;background:${C.forest};color:${C.cream};text-decoration:none;padding:16px 28px;font-family:'Courier New',monospace;font-size:11px;letter-spacing:3px;text-transform:uppercase;">Sign in to your queue &rarr;</a>
+            </td>
+          </tr>
+          ${darkFoot()}
+      `),
+    });
+    if (error) return { success: false, error: error.message };
+    return { success: true, id: data?.id };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'unknown error' };
+  }
+}
+
+/** Customer notice: item(s) removed from their order by the kitchen, with a
+ *  partial refund. Used by the KDS edit-order flow. */
+export async function sendOrderItemsRemovedCustomerEmail(opts: {
+  to: string;
+  name: string | null;
+  orderId: string;
+  removed: { name: string; quantity: number }[];
+  amountRefunded: string;      // dollars string, e.g. "12.40"
+  reason?: string | null;
+}) {
+  const shortId = opts.orderId.slice(0, 8).toUpperCase();
+  const greeting = opts.name || 'there';
+  const removedRows = opts.removed.map((r, i) => `
+                <tr>
+                  <td style="padding:10px 0;font-family:'Georgia',serif;font-size:15px;color:${C.forest};${i > 0 ? `border-top:1px solid ${C.forest}10;` : ''}">
+                    <span style="font-family:'Courier New',monospace;font-size:12px;letter-spacing:1px;color:${C.accent2};margin-right:8px;">${r.quantity} ×</span>
+                    ${escHtml(r.name)}
+                  </td>
+                </tr>`).join('');
+  try {
+    const { data, error } = await resend.emails.send({
+      from: getFrom(),
+      to: [opts.to],
+      subject: `A change to your order #${shortId} — $${opts.amountRefunded} refunded`,
+      html: wrap(`
+          ${sealHead('Order Update')}
+          <tr>
+            <td style="background:${C.cream2};padding:48px 48px 20px;">
+              <p style="margin:0 0 20px;font-family:'Courier New',monospace;font-size:10px;letter-spacing:3px;color:${C.accent2};text-transform:uppercase;">Order #${shortId}</p>
+              <h1 style="margin:0 0 20px;font-family:'Georgia',serif;font-size:28px;font-weight:300;color:${C.forest};line-height:1.2;">Hello, <em style="color:${C.accent2};font-weight:400;">${escHtml(greeting)}.</em></h1>
+              <p style="margin:0;font-family:'Georgia',serif;font-size:15px;color:${C.moss};line-height:1.75;font-style:italic;">
+                We're sorry — our kitchen couldn't include the following item(s) in your order. The rest of your order is unaffected and on its way as planned. We've refunded <strong style="color:${C.forest};">$${escHtml(opts.amountRefunded)}</strong> for the removed items (5–10 business days to appear, depending on your bank).
+              </p>
+              ${opts.reason ? `<p style="margin:16px 0 0;font-family:'Georgia',serif;font-size:14px;color:${C.moss};line-height:1.7;">Note from our kitchen: ${escHtml(opts.reason)}</p>` : ''}
+            </td>
+          </tr>
+          <tr>
+            <td style="background:${C.cream2};padding:8px 48px 28px;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="background:${C.cream};border:1px solid ${C.forest}22;">
+                <tr><td style="padding:14px 20px 4px;font-family:'Courier New',monospace;font-size:9px;letter-spacing:3px;color:${C.muted};text-transform:uppercase;">Removed &amp; refunded</td></tr>
+                <tr><td style="padding:0 20px 14px;"><table width="100%" cellpadding="0" cellspacing="0">${removedRows}</table></td></tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="background:${C.cream2};padding:0 48px 44px;">
+              <p style="margin:0;font-family:'Georgia',serif;font-size:13px;color:${C.muted};line-height:1.6;text-align:center;">Questions? Reply to this email and our team will help.</p>
             </td>
           </tr>
           ${darkFoot()}

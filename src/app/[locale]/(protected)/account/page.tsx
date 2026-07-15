@@ -19,7 +19,12 @@ export default async function CustomerAccountPage({ params }: { params: Promise<
         prisma.order.findMany({
             where: { userId: session.userId },
             orderBy: { createdAt: 'desc' },
-            include: { orderItems: { include: { product: true } } },
+            include: {
+                orderItems: { include: { product: true } },
+                // Derived customer stage (customerOrderStage) needs the honest
+                // per-fulfillment kitchen + courier progress.
+                fulfillments: { select: { status: true, courierStatus: true, deliveryMethod: true } },
+            },
         }),
         // Phase 7b: addresses come from the new UserAddress[] table that
         // AddressManager writes to on /shop, /bakery, /cart, /checkout.
@@ -40,10 +45,16 @@ export default async function CustomerAccountPage({ params }: { params: Promise<
         id: o.id,
         createdAt: o.createdAt.toISOString(),
         orderStatus: o.orderStatus,
+        paymentStatus: o.paymentStatus,
         totalAmount: Number(o.totalAmount),
         orderItems: o.orderItems.map(item => ({
             product: { name: item.product.name },
             quantity: item.quantity,
+        })),
+        fulfillments: o.fulfillments.map(f => ({
+            status: f.status,
+            courierStatus: f.courierStatus,
+            deliveryMethod: f.deliveryMethod,
         })),
     }));
 

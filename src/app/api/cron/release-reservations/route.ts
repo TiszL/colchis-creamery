@@ -17,8 +17,11 @@
 // .env.local and curl with `Authorization: Bearer <value>` to test.
 
 import { NextResponse } from 'next/server';
+import type Stripe from 'stripe';
 import { prisma } from '@/lib/db';
+import { stripe } from '@/lib/stripe';
 import { releaseStock } from '@/lib/stock-reservation';
+import { processPaymentSucceeded, markPaymentProcessing } from '@/lib/stripe-payment-sync';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -61,11 +64,54 @@ export async function GET(req: Request) {
     });
 
     let released = 0;
+    let rescued = 0;
+    let deferred = 0;
     let errors = 0;
     const releasedIds: string[] = [];
 
     for (const order of expiredOrders) {
         try {
+            // Launch hardening — NEVER cancel on our clock alone. Ask Stripe what
+            // actually happened first: if the webhook is broken/delayed, the
+            // payment may have succeeded (rescue → mark PAID via the shared
+            // payment-sync path) or be settling (ACH 'processing' → defer). Only
+            // genuinely unpaid orders get cancelled — and their PaymentIntent is
+            // cancelled at Stripe too, so a late customer confirm can't charge a
+            // card for an order we already killed.
+            if (order.stripePaymentIntentId) {
+                let pi: Stripe.PaymentIntent | null = null;
+                try {
+                    pi = await stripe.paymentIntents.retrieve(order.stripePaymentIntentId);
+                } catch (e) {
+                    const code = (e as { code?: string })?.code;
+                    if (code !== 'resource_missing') {
+                        // Stripe unreachable — do NOT cancel blind; retry next sweep.
+                        console.error(`[cron/release-reservations] PI lookup failed for order ${order.id} — deferring:`, e instanceof Error ? e.message : e);
+                        errors++;
+                        continue;
+                    }
+                    // resource_missing: PI id is bogus/mode-mismatched — safe to cancel.
+                }
+                if (pi?.status === 'succeeded') {
+                    await processPaymentSucceeded(pi);
+                    console.warn(`[cron/release-reservations] RESCUED paid order the webhook missed: ${order.id}`);
+                    rescued++;
+                    continue;
+                }
+                if (pi?.status === 'processing') {
+                    await markPaymentProcessing(pi);
+                    deferred++;
+                    continue;
+                }
+                if (pi && pi.status !== 'canceled') {
+                    // requires_payment_method / requires_confirmation / requires_action:
+                    // kill the intent so it can't succeed after we cancel the order.
+                    await stripe.paymentIntents.cancel(pi.id, { cancellation_reason: 'abandoned' }).catch(e => {
+                        console.warn(`[cron/release-reservations] PI cancel failed for ${pi.id} (continuing):`, e instanceof Error ? e.message : e);
+                    });
+                }
+            }
+
             const reservationItems = order.fulfillments.flatMap(f =>
                 f.items.map(it => ({
                     productId: it.orderItem.productId,
@@ -106,9 +152,9 @@ export async function GET(req: Request) {
         }
     }
 
-    if (released > 0 || errors > 0) {
+    if (released > 0 || rescued > 0 || deferred > 0 || errors > 0) {
         console.log(
-            `[cron/release-reservations] Sweep complete: scanned=${expiredOrders.length} released=${released} errors=${errors}`,
+            `[cron/release-reservations] Sweep complete: scanned=${expiredOrders.length} released=${released} rescued=${rescued} deferred=${deferred} errors=${errors}`,
         );
     }
 
@@ -117,6 +163,8 @@ export async function GET(req: Request) {
         timestamp: now.toISOString(),
         scanned: expiredOrders.length,
         released,
+        rescued,
+        deferred,
         errors,
         releasedIds,
     });

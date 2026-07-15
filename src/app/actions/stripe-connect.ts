@@ -10,6 +10,7 @@
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { getSession } from "@/lib/session";
+import { isStripeLiveMode } from "@/lib/stripe";
 import {
     createConnectAccountWithOnboardingLink,
     createOnboardingLink,
@@ -79,13 +80,16 @@ export async function createOrRefreshOnboardingLinkAction(
             onboardingUrl = created.onboardingUrl;
 
             // Persist the account ID + initial status BEFORE returning so an
-            // interrupted onboarding never orphans the Stripe account.
+            // interrupted onboarding never orphans the Stripe account. The
+            // key mode is stamped so checkout never routes a live charge at a
+            // test-mode account (or vice versa).
             await prisma.location.update({
                 where: { id: location.id },
                 data: {
                     stripeConnectAccountId: accountId,
                     stripeOnboardingStatus: "pending",
                     stripeOnboardingUpdatedAt: new Date(),
+                    stripeAccountLivemode: isStripeLiveMode(),
                 },
             });
         } else {

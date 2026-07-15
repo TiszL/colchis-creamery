@@ -1367,3 +1367,54 @@ export async function sendOrderItemsRemovedCustomerEmail(opts: {
     return { success: false, error: err instanceof Error ? err.message : 'unknown error' };
   }
 }
+
+/**
+ * Launch hardening — generic ops alert for money-path failures that must not
+ * stay buried in server logs (tax calc fell back to $0, auto-refund failed,
+ * dashboard dispute opened, shipping label purchase failed, …). Goes to
+ * BAKERY_NOTIFICATION_EMAIL (the ops inbox). Best-effort like every other
+ * email here — callers must never let an alert failure break the money path.
+ */
+export async function sendOpsAlertEmail(opts: {
+  subject: string;          // short, prefixed in the email subject line
+  lines: string[];          // plain sentences; rendered as separate paragraphs
+  orderId?: string | null;
+}) {
+  const to = process.env.BAKERY_NOTIFICATION_EMAIL;
+  if (!to) {
+    console.error('[ops-alert] BAKERY_NOTIFICATION_EMAIL unset — dropping alert:', opts.subject, opts.lines.join(' | '));
+    return { success: false, error: 'no recipient configured' };
+  }
+  const shortId = opts.orderId ? opts.orderId.slice(0, 8).toUpperCase() : null;
+  const body = opts.lines
+    .map(l => `<p style="margin:0 0 10px;font-family:'Georgia',serif;font-size:14px;color:${C.forest};line-height:1.6;">${escHtml(l)}</p>`)
+    .join('');
+  try {
+    const { data, error } = await resend.emails.send({
+      from: getFrom(),
+      to: [to],
+      subject: `⚠ OPS ALERT — ${opts.subject}${shortId ? ` (order #${shortId})` : ''}`,
+      html: wrap(`
+          ${sealHead('Ops Alert')}
+          <tr>
+            <td style="background:${C.cream2};padding:44px 48px 20px;">
+              <p style="margin:0 0 8px;font-family:'Courier New',monospace;font-size:10px;letter-spacing:3px;color:${C.red};text-transform:uppercase;">Needs attention${shortId ? ` · Order #${shortId}` : ''}</p>
+              <h1 style="margin:0;font-family:'Georgia',serif;font-size:26px;font-weight:300;color:${C.forest};line-height:1.2;">${escHtml(opts.subject)}</h1>
+            </td>
+          </tr>
+          <tr>
+            <td style="background:${C.cream2};padding:0 48px 44px;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="background:${C.redBg};border:1px solid ${C.red}44;">
+                <tr><td style="padding:16px 20px;">${body}</td></tr>
+              </table>
+            </td>
+          </tr>
+          ${darkFoot()}
+      `),
+    });
+    if (error) return { success: false, error: error.message };
+    return { success: true, id: data?.id };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'unknown error' };
+  }
+}

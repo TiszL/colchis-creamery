@@ -106,8 +106,8 @@ export default function HomepageEditor({ initialData }: HomepageEditorProps) {
     const [visit, setVisit] = useState(initialData.visit || {
         address: '84 N High St',
         city: 'Dublin, OH',
-        description: 'The bakery is open Wednesday through Sunday, 8 AM to 9 PM. The creamery is by appointment — we\'d love to show you the cheese cellar.',
-        bakery_hours: 'Wed–Sun · 8a–9p',
+        description: 'The bakery is open daily, 7 AM to 10 PM. The creamery is by appointment — we\'d love to show you the cheese cellar.',
+        bakery_hours: 'Open daily · 7am–10pm',
         phone: '(614) 555-0142',
         map_url: 'https://maps.google.com/?q=84+N+High+St+Dublin+OH',
         image: '',
@@ -116,7 +116,7 @@ export default function HomepageEditor({ initialData }: HomepageEditorProps) {
     // ─── Ticker State ────────────────────────────────────────────────────────────
     const [ticker, setTicker] = useState(initialData.ticker || {
         items: [
-            '◐ The Bakery — open until 9 PM',
+            '◐ The Bakery — open until 10 PM',
             '▸ Free UPS over $75',
             '● Made in Dublin, Ohio',
                 ],

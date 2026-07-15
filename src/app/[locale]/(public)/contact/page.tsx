@@ -79,7 +79,7 @@ export default async function ContactPage() {
         ...(primary.latitude !== null && primary.longitude !== null
             ? { geo: { '@type': 'GeoCoordinates', latitude: primary.latitude, longitude: primary.longitude } }
             : {}),
-        openingHours: ['Tu-Th 09:00-18:00', 'Fr 09:00-20:00', 'Sa 10:00-19:00', 'Su 11:00-16:00'],
+        openingHours: ['Mo-Su 07:00-22:00'],
         priceRange: '$$',
         servesCuisine: 'Georgian',
     };

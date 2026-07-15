@@ -30,6 +30,13 @@ export function Header({ primaryAddressShort }: HeaderProps = {}) {
   const [cartOpen, setCartOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const cartRef = useRef<HTMLDivElement>(null);
+  // Measurement-driven nav collapse (see the effect below). null = not yet
+  // measured → the CSS media-query fallback decides on first paint.
+  const [navCollapsed, setNavCollapsed] = useState<boolean | null>(null);
+  const innerRef = useRef<HTMLDivElement>(null);
+  const probeRef = useRef<HTMLDivElement>(null);
+  const logoRef = useRef<HTMLAnchorElement>(null);
+  const rightRef = useRef<HTMLDivElement>(null);
   const prefix = locale === "en" ? "" : `/${locale}`;
 
   // Nav label "Creamery" (per messages/en.json "shop": "Creamery") routes to
@@ -78,6 +85,57 @@ export function Header({ primaryAddressShort }: HeaderProps = {}) {
     return () => document.removeEventListener("mousedown", onDoc);
   }, [cartOpen]);
 
+  // ── Measurement-driven nav collapse ──────────────────────────────────────
+  // The old fixed 1200px breakpoint was hand-tuned for one set of label widths
+  // and silently broke when labels changed (longer i18n labels pushed the CART
+  // off-screen at mid widths — the exact regression this replaces). Instead of
+  // guessing a breakpoint, measure: a hidden probe carries the full nav at its
+  // natural width (measurable even while the real nav is display:none), and the
+  // nav collapses into the burger exactly when logo + nav + right-cluster
+  // genuinely don't fit. Re-runs on every container resize (ResizeObserver) and
+  // when labels/locale change, so it holds for every screen size, window
+  // resize, device, and language.
+  useEffect(() => {
+    const measure = () => {
+      const inner = innerRef.current;
+      const probe = probeRef.current;
+      const logo = logoRef.current;
+      const right = rightRef.current;
+      if (!inner || !probe || !logo || !right) return;
+      const styles = window.getComputedStyle(inner);
+      const available =
+        inner.clientWidth -
+        parseFloat(styles.paddingLeft) - parseFloat(styles.paddingRight);
+      const GAPS = 2 * 24 + 8; // two flex gaps between the three clusters + slack
+      // Measure the right cluster as it would be when EXPANDED: the burger only
+      // renders while collapsed, and counting its width creates hysteresis —
+      // once collapsed, the extra ~52px keeps `needed` above `available` at
+      // widths where the expanded layout would fit, so the nav never returns.
+      const burger = right.querySelector<HTMLElement>(".ch-burger");
+      const rightGap = parseFloat(window.getComputedStyle(right).columnGap) || 0;
+      const burgerW = burger && burger.offsetWidth > 0 ? burger.offsetWidth + rightGap : 0;
+      const needed = logo.offsetWidth + probe.offsetWidth + (right.offsetWidth - burgerW) + GAPS;
+      setNavCollapsed(needed > available);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    if (innerRef.current) ro.observe(innerRef.current);
+    // right cluster width changes too (login state, location name, cart badge)
+    if (rightRef.current) ro.observe(rightRef.current);
+    // inner is width-capped at 1440, so also watch the viewport itself
+    ro.observe(document.documentElement);
+    window.addEventListener("resize", measure);
+    window.visualViewport?.addEventListener("resize", measure);
+    window.addEventListener("orientationchange", measure);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", measure);
+      window.visualViewport?.removeEventListener("resize", measure);
+      window.removeEventListener("orientationchange", measure);
+    };
+    // Re-measure when labels change (locale switch re-renders with new text).
+  }, [locale]);
+
   const handleLogout = async () => { setMenuOpen(false); setDrawerOpen(false); await logout(); };
 
   const menuItemStyle: React.CSSProperties = {
@@ -91,11 +149,22 @@ export function Header({ primaryAddressShort }: HeaderProps = {}) {
   return (
     <>
       <header style={{ position: "sticky", top: 0, zIndex: 50, background: "#F5F0E6F2", backdropFilter: "blur(12px)", borderBottom: "1px solid #1F302614" }}>
-        <div className="ch-header-inner" style={{ maxWidth: 1440, margin: "0 auto", padding: "20px 40px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 24 }}>
+        <div
+          ref={innerRef}
+          className="ch-header-inner"
+          data-nav-collapsed={navCollapsed === null ? undefined : String(navCollapsed)}
+          style={{ maxWidth: 1440, margin: "0 auto", padding: "20px 40px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 24, position: "relative" }}
+        >
+          {/* Invisible probe — the nav at its natural width, always measurable
+              (even while the real nav is display:none). Shares the .ch-nav class
+              so responsive font/gap tweaks apply to the measurement too. */}
+          <div ref={probeRef} aria-hidden="true" className="ch-nav" style={{ position: "absolute", visibility: "hidden", height: 0, overflow: "hidden", display: "flex", gap: 12, fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.16em", textTransform: "uppercase", whiteSpace: "nowrap", pointerEvents: "none" }}>
+            {links.map(l => <span key={l.href}>{l.label}</span>)}
+          </div>
           {/* Logo — seal scales down on mobile via .ch-logo-seal in globals.css;
               wordmark hides on mobile via .ch-logo-wordmark (the CF seal already
               conveys identity, no need to duplicate). */}
-          <Link href={`${prefix}/`} style={{ display: "flex", alignItems: "center", gap: 12, textDecoration: "none", flexShrink: 0 }}>
+          <Link ref={logoRef} href={`${prefix}/`} style={{ display: "flex", alignItems: "center", gap: 12, textDecoration: "none", flexShrink: 0 }}>
             <img className="ch-logo-seal" src="/brand/seal-primary.svg" alt="Colchis Food" width={88} height={88} style={{ display: "block", flexShrink: 0 }} />
             <div className="ch-logo-wordmark" style={{ fontFamily: "var(--font-serif)", fontWeight: 500, fontSize: 15, letterSpacing: "0.18em", textTransform: "uppercase", color: "#1F3026", whiteSpace: "nowrap" }}>Colchis Food</div>
           </Link>
@@ -104,7 +173,7 @@ export function Header({ primaryAddressShort }: HeaderProps = {}) {
               wrapped; the compact location chip (no "Ordering from" prose) keeps
               the row within budget. Below 900px the whole nav collapses into the
               burger (globals.css .ch-nav-desktop). */}
-          <nav className="ch-nav ch-nav-desktop" style={{ display: "flex", gap: 18, fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", alignItems: "center", flexShrink: 0, whiteSpace: "nowrap" }}>
+          <nav className="ch-nav ch-nav-desktop" style={{ display: "flex", gap: 12, fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.16em", textTransform: "uppercase", alignItems: "center", flexShrink: 0, whiteSpace: "nowrap" }}>
             {links.map(l => (
               <Link key={l.href} href={l.href} style={{ color: "#1F3026", textDecoration: "none", whiteSpace: "nowrap" }}>{l.label}</Link>
             ))}
@@ -113,7 +182,7 @@ export function Header({ primaryAddressShort }: HeaderProps = {}) {
           {/* Right cluster — wrapping CTA + Cart + Burger in one tight flex
               group keeps the cart visually adjacent to the rest instead of
               floating off to the viewport edge under justify-content: space-between. */}
-          <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+          <div ref={rightRef} style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
 
           {/* Phase 1 — sticky location picker. Outside ch-header-cta so it
               shows on mobile too (the catalog filter scopes to this choice). */}

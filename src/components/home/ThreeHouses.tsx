@@ -38,9 +38,9 @@ export function ThreeHouses({ content }: ThreeHousesProps) {
             <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.32em", color: "#B96A3D", textTransform: "uppercase" }}>№ 03</div>
             <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.24em", color: "#7A8278", textTransform: "uppercase", marginTop: 8 }}>Two Houses</div>
           </div>
-          <div className="ch-h2" style={{ fontFamily: "var(--font-serif)", fontWeight: 300, fontSize: 56, lineHeight: 1.05, letterSpacing: "-0.02em", color: "#1F3026", maxWidth: 900 }}>
+          <h2 className="ch-h2" style={{ fontFamily: "var(--font-serif)", fontWeight: 300, fontSize: 56, lineHeight: 1.05, letterSpacing: "-0.02em", color: "#1F3026", maxWidth: 900 }}>
             {renderHeading()}
-          </div>
+          </h2>
         </div>
       </div>
       <div className="ch-houses" style={{ display: "grid", gridTemplateColumns: "1fr 1fr" }}>

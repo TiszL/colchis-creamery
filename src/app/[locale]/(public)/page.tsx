@@ -26,7 +26,9 @@ export async function generateMetadata({ params }: HomePageProps) {
   const canonicalPath = locale === 'en' ? '' : `/${locale}`;
 
   return {
-    title,
+    // Complete brand title — opt out of the "%s | Colchis Food" template so the
+    // brand isn't appended twice.
+    title: { absolute: title },
     description,
     alternates: {
       canonical: `${SITE_URL}${canonicalPath}`,

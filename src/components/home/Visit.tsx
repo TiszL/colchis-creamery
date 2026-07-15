@@ -39,9 +39,9 @@ export function Visit({ primary, content }: VisitProps) {
         </div>
         <div>
           <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.32em", color: "#B96A3D", textTransform: "uppercase" }}>№ 07 — Visit us</div>
-          <div className="ch-h2-large" style={{ fontFamily: "var(--font-serif)", fontWeight: 300, fontSize: 64, lineHeight: 1.0, letterSpacing: "-0.02em", color: "#1F3026", marginTop: 16 }}>
+          <h2 className="ch-h2-large" style={{ fontFamily: "var(--font-serif)", fontWeight: 300, fontSize: 64, lineHeight: 1.0, letterSpacing: "-0.02em", color: "#1F3026", marginTop: 16 }}>
             {streetLine}<br /><em style={{ color: "#B96A3D", fontWeight: 400 }}>{cityLine}</em>
-          </div>
+          </h2>
           <div style={{ fontFamily: "var(--font-serif)", fontSize: 18, lineHeight: 1.6, color: "#2C3D33", marginTop: 28, maxWidth: 480 }}>
             {description}
           </div>

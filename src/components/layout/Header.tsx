@@ -37,12 +37,12 @@ export function Header({ primaryAddressShort }: HeaderProps = {}) {
   // separately points to /shop (the unified all-products index).
   const links = [
     { href: `${prefix}/creamery`, label: t("shop") },
-    { href: `${prefix}/bakery`, label: "Bakery" },
-    { href: `${prefix}/journal`, label: "Journal" },
-    { href: `${prefix}/recipes`, label: "Recipes" },
+    { href: `${prefix}/bakery`, label: t("bakery") },
+    { href: `${prefix}/journal`, label: t("journal") },
+    { href: `${prefix}/recipes`, label: t("recipes") },
     { href: `${prefix}/heritage`, label: t("heritage") },
-    { href: `${prefix}/wholesale`, label: "Wholesale" },
-    { href: `${prefix}/contact`, label: "Contact" },
+    { href: `${prefix}/wholesale`, label: t("wholesale") },
+    { href: `${prefix}/contact`, label: t("contact") },
   ];
 
   useEffect(() => {

@@ -665,3 +665,14 @@ body { max-width: 100vw; position: relative; }
   .ch-od-h1 { font-size: 34px !important; }
   .ch-od-loc-h2 { font-size: 20px !important; }
 }
+
+/* Launch polish — the homepage section titles became semantic <h2> (SEO +
+   screen-reader outline). Neutralize the UA-agent margin/weight so the visual
+   design is byte-for-byte unchanged (all sizing/weight is set inline). */
+.ch-h2,
+.ch-h2-large,
+.ch-hero-h1,
+.ch-bakery-h1 {
+  margin: 0;
+  font-weight: inherit;
+}

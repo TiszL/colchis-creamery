@@ -12,6 +12,13 @@ const localeCodes: Record<string, string> = {
   es: "ES",
 };
 
+// Only offer locales whose customer-facing translation is complete. ru/es
+// still have untranslated surfaces (B2B portal, some checkout strings), and
+// offering a half-translated language reads worse than not offering it. Their
+// URLs still resolve if visited directly — this only controls the switcher.
+// Re-add here once ru/es are finished.
+const ENABLED_LOCALES = ["en", "ka"];
+
 export function LocaleSwitcher() {
   const locale = useLocale();
   const router = useRouter();
@@ -65,7 +72,7 @@ export function LocaleSwitcher() {
           background: "#FFFFFF", border: "1px solid #1F302622",
           minWidth: 80, zIndex: 50, display: "flex", flexDirection: "column",
         }}>
-          {routing.locales.map((loc) => (
+          {routing.locales.filter((loc) => ENABLED_LOCALES.includes(loc)).map((loc) => (
             <button
               key={loc}
               onClick={() => switchLocale(loc)}

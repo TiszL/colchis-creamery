@@ -12,6 +12,23 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "**.public.blob.vercel-storage.com" },
     ],
   },
+  // Launch polish — baseline security headers. Deliberately NO
+  // Content-Security-Policy yet: a wrong CSP silently breaks Stripe Elements /
+  // Google Maps / Vercel Blob at checkout, which is worse than none at launch.
+  // Add one post-launch with report-only staging first.
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "Permissions-Policy", value: "camera=(), microphone=(), payment=(self)" },
+        ],
+      },
+    ];
+  },
   async redirects() {
     // Phase 10: /shop is now the unified all-products index. The dedicated
     // creamery shop moved to /creamery. Old /shop/<creamery-slug> URLs (which

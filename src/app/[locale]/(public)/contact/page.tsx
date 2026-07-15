@@ -51,7 +51,9 @@ export default async function ContactPage() {
     }
 
     const email = g('contact.email', 'hello@colchisfood.com');
-    const phone = g('contact.phone', primary.phone || '+1 (614) 555 0142');
+    // Launch polish: NEVER show a fabricated number (it also flowed into the
+    // JSON-LD structured data). Empty = the phone row is hidden entirely.
+    const phone = g('contact.phone', primary.phone || '');
 
     // JSON-LD — every address field comes from the primary Location row so the
     // structured data matches what customers actually see on the page.
@@ -64,7 +66,7 @@ export default async function ContactPage() {
         name: 'Colchis Food',
         description: 'Authentic Georgian artisanal cheese, handcrafted in Ohio with premium local milk.',
         url: SITE_URL,
-        telephone: phone,
+        ...(phone ? { telephone: phone } : {}),
         email: email,
         address: {
             '@type': 'PostalAddress',

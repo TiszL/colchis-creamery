@@ -76,7 +76,21 @@ export async function Footer() {
           ))}
         </div>
 
-        <div className="ch-footer-bottom" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 36, fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.24em", color: "rgba(245,240,230,0.55)", textTransform: "uppercase" }}>
+        {/* Legal links — Terms/Privacy/Returns existed but nothing linked to
+            them; a consumer store must surface these (launch polish). */}
+        <div style={{ display: "flex", gap: 22, flexWrap: "wrap", marginTop: 32, fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.24em", textTransform: "uppercase" }}>
+          {[
+            { href: "/legal/terms", label: "Terms of Service" },
+            { href: "/legal/privacy", label: "Privacy Policy" },
+            { href: "/legal/returns", label: "Refunds & Returns" },
+          ].map(l => (
+            <Link key={l.href} href={l.href} style={{ color: "rgba(245,240,230,0.65)", textDecoration: "none" }}>
+              {l.label}
+            </Link>
+          ))}
+        </div>
+
+        <div className="ch-footer-bottom" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 20, fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.24em", color: "rgba(245,240,230,0.55)", textTransform: "uppercase" }}>
           <span>© {new Date().getFullYear()} Colchis Food LLC · Dublin OH</span>
           <LocaleSwitcher />
           <span>colchisfood.com</span>

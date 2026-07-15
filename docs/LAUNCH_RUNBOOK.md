@@ -32,7 +32,10 @@ confirmed) and the four hardening PRs (#20 payments, #21 timezone, #22 anti-abus
    - `prepMinutes` realistic (drives courier pickup timing).
    - `notificationEmail` = the kitchen's real inbox (also gets escalation emails).
    - Stock rows / `isEnabled` per SKU; low-stock thresholds.
-8. **Env hygiene** — generate fresh values for prod (do NOT reuse dev):
+8. 🖥 **Social OAuth consoles** — add the production domain redirect URIs
+   (Google / Facebook / Twitter developer consoles) or social sign-in breaks
+   on colchisfood.com. Twitter works secret-less (PKCE) if configured so.
+9. **Env hygiene** — generate fresh values for prod (do NOT reuse dev):
    `JWT_SECRET`, `CRON_SECRET`, `ORDER_LOOKUP_SECRET`. Rotating JWT_SECRET logs
    everyone out — do it at a quiet hour.
 
@@ -54,14 +57,20 @@ confirmed) and the four hardening PRs (#20 payments, #21 timezone, #22 anti-abus
      "stripeOnboardingStatus" = NULL, "stripeAccountLivemode" = NULL
    WHERE "stripeConnectAccountId" IS NOT NULL;
    ```
-4. Redeploy production (env changes need a deploy).
-5. 🖥 Re-run **Connect onboarding in live mode** from /admin/locations for each
+4. **Wipe test-era orders** so the books start clean (dry-run first):
+   ```bash
+   node scripts/cleanup-test-orders.mjs                    # dry run
+   CONFIRM_CLEANUP=1 node scripts/cleanup-test-orders.mjs  # delete
+   ```
+   Then re-count physical Stock quantities per location in admin.
+5. Redeploy production (env changes need a deploy).
+6. 🖥 Re-run **Connect onboarding in live mode** from /admin/locations for each
    location (optional at launch — platform charges are a safe interim).
-6. **Carrier live keys** (only if production access approved): DoorDash
+7. **Carrier live keys** (only if production access approved): DoorDash
    `DOORDASH_*`, Uber `UBER_DIRECT_*` (+ webhook URLs registered in their
    dashboards), EasyPost `EZAK…` key — but leave `NATIONAL_SHIP_ENABLED` UNSET
    in prod (PR #23 gate) until the UPS pipeline is hardened.
-7. **Delayed payment methods**: in Stripe Dashboard → Settings → Payment
+8. **Delayed payment methods**: in Stripe Dashboard → Settings → Payment
    methods, decide on ACH debit. The code now handles `processing` correctly
    (PR #20), but for launch week card-only is simplest.
 
@@ -103,7 +112,8 @@ confirmed) and the four hardening PRs (#20 payments, #21 timezone, #22 anti-abus
   verification, label persistence) — gated off in prod meanwhile.
 - Resolve B2B net-terms — spec unverified, no credentials; keep B2B card-only.
 - Recurring-order cron off-session card charging (Phase 10 follow-up).
-- Error tracking (Sentry) — recommended within launch week; ops-alert emails
-  cover the money paths meanwhile.
+- Error tracking: Sentry is WIRED but dormant — create a free Sentry project
+  and set SENTRY_DSN + NEXT_PUBLIC_SENTRY_DSN in Vercel env to activate.
+  Ops-alert emails cover the money paths either way.
 - Tax-inclusive total display at checkout + footer legal links (polish PR).
 - B2B `OrderItem.unitPrice` stored with `$` prefix (cosmetic, cleanup pass).

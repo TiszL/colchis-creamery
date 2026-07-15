@@ -54,7 +54,15 @@ export type CheckoutInput = {
 };
 
 export type CheckoutResult =
-    | { ok: true; clientSecret: string; orderId: string }
+    | {
+          ok: true;
+          clientSecret: string;
+          orderId: string;
+          // Launch polish: exact charge breakdown (dollars, unprefixed). The
+          // client shows these BEFORE confirming payment — customers must see
+          // the tax-inclusive total they'll actually be charged.
+          totals: { subtotal: string; shipping: string; tax: string; total: string };
+      }
     | { ok: false; error: string; failingItem?: { productId: string } };
 
 const RESERVATION_TTL_MS = 15 * 60 * 1000;
@@ -557,5 +565,11 @@ export async function createCheckoutSession(input: CheckoutInput): Promise<Check
         ok: true,
         clientSecret: paymentIntent.client_secret,
         orderId: order.id,
+        totals: {
+            subtotal: subtotal.toFixed(2),
+            shipping: shippingTotal.toFixed(2),
+            tax: taxAmount.toFixed(2),
+            total: totalWithTax.toFixed(2),
+        },
     };
 }

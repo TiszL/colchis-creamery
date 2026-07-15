@@ -165,6 +165,12 @@ export function InfoPanel({ product }: { product: ProductForPanel }) {
   if (product.flavorProfile) specs.push({ label: "Tasting Notes", value: product.flavorProfile });
   if (product.weight) specs.push({ label: "Weight", value: product.weight });
   if (product.ingredients) specs.push({ label: "Ingredients", value: product.ingredients });
+  // Allergen disclosure — always present (food business; an ingredients list
+  // alone isn't a substitute for an allergen statement).
+  specs.push({
+    label: "Allergens",
+    value: "Made in a creamery that handles milk, wheat (gluten) and eggs. Questions? Contact us before ordering.",
+  });
   if (product.pairsWith) specs.push({ label: "Pairs With", value: product.pairsWith });
 
   return (

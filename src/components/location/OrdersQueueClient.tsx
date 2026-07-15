@@ -19,6 +19,7 @@ import {
     redispatchCourier,
     kitchenCancelOrder,
     kitchenRemoveOrderItems,
+    clearStaleFulfillment,
     type QueueItem,
     type QueueSnapshot,
     type MutationResult,
@@ -163,13 +164,10 @@ function ItemThumb({ imageUrl, name }: { imageUrl: string | null; name: string }
     );
 }
 
+// Newest orders on top, oldest sink to the bottom (owner's preference — a new
+// order is always the one that needs eyes; stale leftovers shouldn't lead).
 function sortQueue(items: QueueItem[]): QueueItem[] {
-    return [...items].sort((a, b) => {
-        const aPending = a.status === 'PENDING' ? 0 : 1;
-        const bPending = b.status === 'PENDING' ? 0 : 1;
-        if (aPending !== bPending) return aPending - bPending;
-        return a.createdAt.localeCompare(b.createdAt);
-    });
+    return [...items].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
 export default function OrdersQueueClient({
@@ -189,19 +187,21 @@ export default function OrdersQueueClient({
     const [cardErrors, setCardErrors] = useState<Record<string, string>>({});
     const [courierNotes, setCourierNotes] = useState<Record<string, string>>({});
     const [flashIds, setFlashIds] = useState<Set<string>>(new Set());
-    // "Problem with order" cancel-&-refund panel (manager-only, per card):
+    // "Problem with order" cancel-&-refund panel (both kitchen roles, per card):
     // open → optional reason → two-step confirm (armed → fire).
     const [problemIds, setProblemIds] = useState<Set<string>>(new Set());
     const [problemReasons, setProblemReasons] = useState<Record<string, string>>({});
     const [armedIds, setArmedIds] = useState<Set<string>>(new Set());
     const [cancelledNotes, setCancelledNotes] = useState<Set<string>>(new Set());
-    // "Edit order" item-removal panel (manager-only, per card): steppers pick
+    // "Edit order" item-removal panel (both kitchen roles, per card): steppers pick
     // how many of each item to remove → two-step confirm → partial refund.
     const [editIds, setEditIds] = useState<Set<string>>(new Set());
     const [editSelections, setEditSelections] = useState<Record<string, Record<string, number>>>({});
     const [editReasons, setEditReasons] = useState<Record<string, string>>({});
     const [editArmedIds, setEditArmedIds] = useState<Set<string>>(new Set());
     const [editSuccess, setEditSuccess] = useState<Record<string, string>>({});
+    // "Remove stale order" (previous-day leftovers, no refund): armed → fire.
+    const [staleArmedIds, setStaleArmedIds] = useState<Set<string>>(new Set());
     const [explainerOpen, setExplainerOpen] = useState(false);
     const [pendingCount, setPendingCount] = useState(() => initial.items.filter(i => i.status === 'PENDING').length);
     const [, startTransition] = useTransition();
@@ -503,6 +503,16 @@ export default function OrdersQueueClient({
                         item.items.length > 0 &&
                         item.items.every(l => (sel[l.orderItemId] ?? 0) >= l.quantity - l.refundedQuantity);
 
+                    // Previous-day leftover (business TZ) that isn't scheduled
+                    // ahead — offer the no-refund "clear off the board" action.
+                    // The server re-validates all three conditions.
+                    const isStale =
+                        item.status !== 'DELIVERED' &&
+                        item.status !== 'CANCELLED' &&
+                        dayKeyFmt.format(new Date(item.createdAt)) !== dayKeyFmt.format(new Date(now)) &&
+                        (!item.scheduledFor || new Date(item.scheduledFor).getTime() <= now);
+                    const staleArmed = staleArmedIds.has(item.id);
+
                     return (
                         <div
                             key={item.id}
@@ -687,9 +697,9 @@ export default function OrdersQueueClient({
                                 </div>
                             )}
 
-                            {(canEdit || canProblem) && (
+                            {(canEdit || canProblem || isStale) && (
                                 <div className="mt-3">
-                                    <div className="flex items-center gap-5">
+                                    <div className="flex items-center gap-5 flex-wrap">
                                         {canEdit && (
                                             <button
                                                 type="button"
@@ -743,7 +753,37 @@ export default function OrdersQueueClient({
                                                 {problemOpen ? 'Never mind' : 'Problem with order?'}
                                             </button>
                                         )}
+                                        {isStale && (
+                                            <button
+                                                type="button"
+                                                disabled={busy}
+                                                onClick={() => {
+                                                    if (!staleArmed) {
+                                                        setStaleArmedIds(prev => new Set(prev).add(item.id));
+                                                        return;
+                                                    }
+                                                    setStaleArmedIds(prev => {
+                                                        const next = new Set(prev);
+                                                        next.delete(item.id);
+                                                        return next;
+                                                    });
+                                                    runAction(item.id, () => clearStaleFulfillment(item.id, locationId), 'CANCELLED');
+                                                }}
+                                                className={`py-1 text-[11px] font-mono underline underline-offset-2 transition-colors disabled:opacity-50 ${
+                                                    staleArmed ? 'text-red-400 hover:text-red-300 font-bold' : 'text-gray-600 hover:text-gray-400'
+                                                }`}
+                                            >
+                                                {staleArmed ? 'Confirm — remove without refund' : 'Remove stale order'}
+                                            </button>
+                                        )}
                                     </div>
+
+                                    {isStale && staleArmed && (
+                                        <p className="mt-1.5 text-[11px] font-mono text-amber-400">
+                                            ⚠ Clears this old order off the board — NO refund, no customer email.
+                                            If the customer should get their money back, use &quot;Problem with order?&quot; instead.
+                                        </p>
+                                    )}
 
                                     {canEdit && editOpen && (
                                         <div className="mt-2 px-3 py-3 bg-[#17130e] border border-amber-900/40 space-y-3">

@@ -21,8 +21,9 @@ import { prisma } from '@/lib/db';
 import { getSession } from '@/lib/session';
 import { assertLocationRole } from '@/lib/location-rbac';
 import { dispatchCourierForFulfillment } from '@/lib/carrier-dispatch';
-import { refundOrderFullCore, kitchenRemoveItemsCore } from '@/lib/order-refund';
+import { refundOrderFullCore, kitchenRemoveItemsCore, cancelActiveCarrierDeliveries } from '@/lib/order-refund';
 import { sendOrderCancelledCustomerEmail, sendOrderItemsRemovedCustomerEmail } from '@/lib/email';
+import { BUSINESS_TIMEZONE } from '@/lib/timezone';
 
 const COURIER_METHODS = ['DOORDASH_DRIVE', 'UBER_DIRECT'] as const;
 
@@ -109,7 +110,7 @@ export async function fetchLocationQueue(
                 },
                 items: { include: { orderItem: { include: { product: { select: { name: true, sku: true, imageUrl: true } } } } } },
             },
-            orderBy: [{ createdAt: 'asc' }],
+            orderBy: [{ createdAt: 'desc' }],
             take: view === 'active' ? 100 : 50,
         }),
         prisma.location.findUnique({ where: { id: locationId }, select: { prepMinutes: true } }),
@@ -288,11 +289,59 @@ export async function redispatchCourier(fulfillmentId: string, locationId: strin
     }
 }
 
+// 'YYYY-MM-DD' in the business timezone — lexicographically comparable, so a
+// wrong tablet-local TZ can't misjudge what "yesterday" means.
+const businessDayFmt = new Intl.DateTimeFormat('en-CA', {
+    year: 'numeric', month: '2-digit', day: '2-digit', timeZone: BUSINESS_TIMEZONE,
+});
+
+/**
+ * Queue hygiene — clear a STALE fulfillment (created before today in the
+ * business timezone, not scheduled for the future) off the board. NO refund,
+ * NO stock restore, NO customer email: this is for abandoned/test orders left
+ * over from previous days. A real order that deserves money back goes through
+ * kitchenCancelOrder instead. Any still-live courier is recalled best-effort
+ * so a driver isn't sent for a dead order.
+ */
+export async function clearStaleFulfillment(fulfillmentId: string, locationId: string): Promise<MutationResult> {
+    try {
+        await assertLocationRole(locationId, ['LOCATION_MANAGER', 'LOCATION_FULFILLMENT']);
+        const f = await prisma.orderFulfillment.findUnique({
+            where: { id: fulfillmentId },
+            select: {
+                locationId: true, status: true, createdAt: true, scheduledFor: true,
+                deliveryMethod: true, externalOrderId: true,
+            },
+        });
+        if (!f || f.locationId !== locationId) return { ok: false, error: 'Not found' };
+        if (!ACTIVE_STATUSES.includes(f.status)) return { ok: false, error: `Already ${f.status.toLowerCase()}` };
+        if (f.scheduledFor && f.scheduledFor.getTime() > Date.now()) {
+            return { ok: false, error: 'Scheduled for the future — not stale' };
+        }
+        if (businessDayFmt.format(f.createdAt) >= businessDayFmt.format(new Date())) {
+            return { ok: false, error: 'Order is from today — use Accept, or Cancel & refund' };
+        }
+
+        try {
+            await cancelActiveCarrierDeliveries(
+                [{ id: fulfillmentId, deliveryMethod: f.deliveryMethod, externalOrderId: f.externalOrderId, status: f.status }],
+                '[clearStaleFulfillment]',
+            );
+        } catch (e) {
+            console.error('[clearStaleFulfillment] courier recall failed:', e);
+        }
+        await prisma.orderFulfillment.update({ where: { id: fulfillmentId }, data: { status: 'CANCELLED' } });
+        return { ok: true };
+    } catch (e) {
+        return { ok: false, error: e instanceof Error ? e.message : 'Unknown error' };
+    }
+}
+
 /**
  * "Edit order" — kitchen removes SOME items from a paid order (out of stock,
  * dropped the khachapuri, …): partial Stripe refund + stock restore via
  * kitchenRemoveItemsCore, then a best-effort item-removal email to the
- * customer. LOCATION_MANAGER only. Removing EVERYTHING is rejected — that's
+ * customer. Both kitchen roles. Removing EVERYTHING is rejected — that's
  * kitchenCancelOrder's job (it also recalls the courier).
  */
 export async function kitchenRemoveOrderItems(
@@ -302,7 +351,7 @@ export async function kitchenRemoveOrderItems(
     reason: string,
 ): Promise<MutationResult> {
     try {
-        await assertLocationRole(locationId, ['LOCATION_MANAGER']);
+        await assertLocationRole(locationId, ['LOCATION_MANAGER', 'LOCATION_FULFILLMENT']);
         if (removals.length === 0) return { ok: false, error: 'Nothing selected to remove' };
 
         const f = await prisma.orderFulfillment.findUnique({
@@ -380,9 +429,9 @@ export async function kitchenRemoveOrderItems(
 /**
  * "Problem with order" — kitchen cancels the ENTIRE order: full Stripe refund,
  * stock restore, courier recall (all inside refundOrderFullCore), then a
- * best-effort cancellation email to the customer. LOCATION_MANAGER only —
- * fulfillment staff cannot move money. Single-location orders only; anything
- * spanning locations goes through the admin refund UI.
+ * best-effort cancellation email to the customer. Both kitchen roles (the
+ * owner wants every kitchen account able to cancel + refund). Single-location
+ * orders only; anything spanning locations goes through the admin refund UI.
  */
 export async function kitchenCancelOrder(
     fulfillmentId: string,
@@ -390,7 +439,7 @@ export async function kitchenCancelOrder(
     reason: string,
 ): Promise<MutationResult> {
     try {
-        await assertLocationRole(locationId, ['LOCATION_MANAGER']);
+        await assertLocationRole(locationId, ['LOCATION_MANAGER', 'LOCATION_FULFILLMENT']);
         const f = await prisma.orderFulfillment.findUnique({
             where: { id: fulfillmentId },
             select: {

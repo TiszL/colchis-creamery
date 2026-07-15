@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/db';
+import { isNationalShipEnabled } from '@/lib/feature-flags';
 import { DeliveryMethod, LocationType, type SalesChannel } from '@prisma/client';
 
 /**
@@ -60,6 +61,8 @@ export async function offeredChannelsByProduct(
                 (p.isMadeToOrder && loc.allowsChannels.includes(p.salesChannel));
             if (!carries) continue;
             for (const ch of loc.channels) {
+                // Launch gate: NATIONAL_SHIP withheld until hardened (feature-flags.ts).
+                if (ch.deliveryMethod === 'UPS_2DAY' && !isNationalShipEnabled()) continue;
                 if (!excluded.has(ch.deliveryMethod)) set.add(ch.deliveryMethod);
             }
         }

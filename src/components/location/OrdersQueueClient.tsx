@@ -184,6 +184,14 @@ export default function OrdersQueueClient({
     const [view, setView] = useState<'active' | 'done'>('active');
     const [snapshot, setSnapshot] = useState<QueueSnapshot>(initial);
     const [pollError, setPollError] = useState(false);
+    // Consecutive poll failures — 1-2 is a network blip (small note), a streak
+    // usually means the 7-day staff JWT expired and every action will fail
+    // until re-login. Surface that loudly instead of a dying queue.
+    const [pollFailStreak, setPollFailStreak] = useState(0);
+    // Kitchen-tablet audio: browsers block WebAudio until a user gesture. When
+    // the context is suspended the chime is SILENT — show a tap-to-enable chip
+    // so staff know sound isn't armed yet.
+    const [soundArmed, setSoundArmed] = useState(true);
     const [now, setNow] = useState(() => Date.now());
     const [busyIds, setBusyIds] = useState<Set<string>>(new Set());
     const [cardErrors, setCardErrors] = useState<Record<string, string>>({});
@@ -249,10 +257,45 @@ export default function OrdersQueueClient({
 
     useEffect(() => {
         const resume = () => {
-            try { void audioCtxRef.current?.resume(); } catch { /* noop */ }
+            try {
+                if (!audioCtxRef.current) audioCtxRef.current = new AudioContext();
+                void audioCtxRef.current.resume().then(() => setSoundArmed(true));
+            } catch { /* noop */ }
         };
         window.addEventListener('click', resume, { once: true });
+        // Detect the blocked-audio state so the tap-to-enable chip can render.
+        try {
+            if (!audioCtxRef.current) audioCtxRef.current = new AudioContext();
+            setSoundArmed(audioCtxRef.current.state === 'running');
+        } catch {
+            setSoundArmed(false);
+        }
         return () => window.removeEventListener('click', resume);
+    }, []);
+
+    // Kitchen-tablet screen wake lock: polling stops when the tablet sleeps and
+    // orders arrive to nobody. Best-effort (Safari < 16.4 lacks the API; the
+    // 5-minute unaccepted-order email escalation is the backstop). Re-acquired
+    // on tab re-focus because the lock is released when the page hides.
+    useEffect(() => {
+        let lock: { release?: () => Promise<void> } | null = null;
+        const acquire = async () => {
+            try {
+                const nav = navigator as Navigator & { wakeLock?: { request: (t: 'screen') => Promise<{ release?: () => Promise<void> }> } };
+                if (nav.wakeLock && document.visibilityState === 'visible') {
+                    lock = await nav.wakeLock.request('screen');
+                }
+            } catch { /* denied/unsupported — escalation email covers it */ }
+        };
+        void acquire();
+        const onVisible = () => {
+            if (document.visibilityState === 'visible') void acquire();
+        };
+        document.addEventListener('visibilitychange', onVisible);
+        return () => {
+            document.removeEventListener('visibilitychange', onVisible);
+            try { void lock?.release?.(); } catch { /* noop */ }
+        };
     }, []);
 
     // ── Polling (guarded against overlap; also fired on tab-visible + after mutations)
@@ -283,8 +326,10 @@ export default function OrdersQueueClient({
             }
             setSnapshot(snap);
             setPollError(false);
+            setPollFailStreak(0);
         } catch {
             setPollError(true); // transient — keep showing the last good queue
+            setPollFailStreak(n => n + 1);
         } finally {
             inflightRef.current = false;
         }
@@ -442,6 +487,35 @@ export default function OrdersQueueClient({
                     </p>
                 </div>
             </header>
+
+            {pollFailStreak >= 3 && (
+                <div className="px-4 py-3 bg-red-900/30 border-2 border-red-700 flex items-center justify-between gap-3 flex-wrap">
+                    <p className="text-[12px] font-mono font-bold uppercase tracking-wider text-red-300">
+                        Queue not updating — your session may have expired
+                    </p>
+                    <a
+                        href="/portal-login"
+                        className="min-h-[44px] px-5 flex items-center text-[11px] font-mono uppercase tracking-wider bg-red-700 text-white hover:bg-red-600 transition-colors"
+                    >
+                        Log in again
+                    </a>
+                </div>
+            )}
+
+            {!soundArmed && (
+                <button
+                    type="button"
+                    onClick={() => {
+                        try {
+                            if (!audioCtxRef.current) audioCtxRef.current = new AudioContext();
+                            void audioCtxRef.current.resume().then(() => setSoundArmed(true));
+                        } catch { /* noop */ }
+                    }}
+                    className="w-full px-4 py-3 bg-amber-900/30 border-2 border-amber-600 text-amber-300 text-[12px] font-mono font-bold uppercase tracking-wider hover:bg-amber-900/50 transition-colors"
+                >
+                    🔇 Tap once to enable the new-order chime
+                </button>
+            )}
 
             {explainerOpen && (
                 <div className="bg-[#161616] border border-[#ffffff0A] px-4 py-4">

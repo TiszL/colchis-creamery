@@ -1,8 +1,16 @@
+import type { Metadata } from "next";
 import { getSession } from "@/lib/session";
 import { getMyAddresses } from "@/app/actions/addresses";
 import CartClient from "@/components/cart/CartClient";
 
 export const dynamic = 'force-dynamic';
+
+// A cart is user-specific, transient, and has no search value — keep it out of
+// the index (without this it inherited the homepage title/description).
+export const metadata: Metadata = {
+    title: 'Your cart',
+    robots: { index: false, follow: true },
+};
 
 interface CartPageProps {
     params: Promise<{ locale: string }>;

@@ -11,7 +11,7 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
     const ogImage = await getOgImage('journal');
 
     return {
-        title: 'The Journal | Colchis Food',
+        title: 'The Journal',
         description: 'Heritage essays, field notes from the creamery and the bakery, news from the road. We publish when we have something worth saying.',
         keywords: ['Georgian cheese blog', 'artisanal cheese journal', 'Colchis Food news', 'cheesemaking stories', 'Georgian heritage'],
         alternates: {
@@ -26,7 +26,7 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
         },
         openGraph: {
             type: 'website',
-            title: 'The Journal | Colchis Food',
+            title: 'The Journal',
             description: 'Heritage essays, field notes, and news from Colchis Food.',
             url: `${SITE_URL}${canonicalPath}`,
             siteName: 'Colchis Food',

@@ -7,7 +7,7 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
     const { locale } = await params;
     const canonicalPath = locale === 'en' ? '/legal/returns' : `/${locale}/legal/returns`;
     return {
-        title: 'Return Policy | Colchis Food',
+        title: 'Return Policy',
         description: 'Read the return and refund policy for Colchis Food artisanal cheese. Learn about our quality guarantee and how to file a claim.',
         keywords: ['Colchis Food returns', 'return policy', 'cheese refund', 'quality guarantee', 'wholesale returns'],
         alternates: {
@@ -15,11 +15,11 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
             languages: { 'en': `${SITE_URL}/legal/returns`, 'ka': `${SITE_URL}/ka/legal/returns`, 'ru': `${SITE_URL}/ru/legal/returns`, 'es': `${SITE_URL}/es/legal/returns`, 'x-default': `${SITE_URL}/legal/returns` },
         },
         openGraph: {
-            type: 'website', title: 'Return Policy | Colchis Food',
+            type: 'website', title: 'Return Policy',
             description: 'Our return and quality guarantee policy.',
             url: `${SITE_URL}${canonicalPath}`, siteName: 'Colchis Food',
         },
-        twitter: { card: 'summary', title: 'Return Policy | Colchis Food', description: 'Our return policy and quality guarantee.' },
+        twitter: { card: 'summary', title: 'Return Policy', description: 'Our return policy and quality guarantee.' },
     };
 }
 

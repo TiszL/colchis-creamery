@@ -92,7 +92,7 @@ export default function HeritageEditor({ configs }: HeritageEditorProps) {
             {
                 id: uuid(),
                 heading: emptyLocale('Georgian Cheesemaking Tradition'),
-                text: emptyLocale('Georgia is one of the oldest cheesemaking regions in the world. For over 8,000 years, Georgian cheesemakers have perfected the art of crafting unique cheeses that are unlike anything found elsewhere.'),
+                text: emptyLocale('Georgia is one of the oldest cheesemaking regions in the world. For over 6,000 years, Georgian cheesemakers have perfected the art of crafting unique cheeses that are unlike anything found elsewhere.'),
                 images: [],
                 videos: [],
                 layout: 'image-right',

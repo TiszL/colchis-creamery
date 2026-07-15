@@ -1,10 +1,10 @@
 const DEFAULTS = {
-  heading: 'Two thousand years ago, Colchis was the kingdom Greek sailors called the edge of the known world — a black-sea coast of vine and wheat, of cheese aged in clay and bread baked in earth ovens.',
+  heading: 'Six thousand years ago, Colchis was the kingdom Greek sailors called the edge of the known world — a black-sea coast of vine and wheat, of cheese aged in clay and bread baked in earth ovens.',
   heading_accent: 'the edge of the known world',
   subheading: 'We make those foods, here, with milk from Ohio dairies and the same recipes our grandmothers taught.',
   image: '',
   stats: [
-    { val: '2,000', label: 'Years of recipe' },
+    { val: '6,000', label: 'Years of recipe' },
     { val: '04', label: 'Generations' },
     { val: '1', label: 'Bakery in Dublin OH' },
     { val: '50', label: 'States we ship' },
@@ -46,9 +46,9 @@ export function Story({ content }: StoryProps) {
                 <img src={d.image} alt="Our Story" style={{ width: "100%", aspectRatio: "16/9", objectFit: "cover", display: "block" }} />
               </div>
             )}
-            <div className="ch-h2-large" style={{ fontFamily: "var(--font-serif)", fontWeight: 300, fontSize: 64, lineHeight: 1.05, letterSpacing: "-0.02em", color: "#1F3026", maxWidth: 980 }}>
+            <h2 className="ch-h2-large" style={{ fontFamily: "var(--font-serif)", fontWeight: 300, fontSize: 64, lineHeight: 1.05, letterSpacing: "-0.02em", color: "#1F3026", maxWidth: 980 }}>
               {renderHeading()}
-            </div>
+            </h2>
             <div className="ch-lede" style={{ fontFamily: "var(--font-serif)", fontStyle: "italic", fontWeight: 300, fontSize: 36, lineHeight: 1.2, color: "#2C3D33", marginTop: 40, maxWidth: 880 }}>
               {d.subheading}
             </div>

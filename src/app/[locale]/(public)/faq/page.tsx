@@ -9,7 +9,7 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
     const canonicalPath = locale === 'en' ? '/faq' : `/${locale}/faq`;
     const ogImage = await getOgImage('faq');
     return {
-        title: 'Frequently Asked Questions | Colchis Food',
+        title: 'Frequently Asked Questions',
         description: 'Find answers to common questions about Colchis Food — Georgian cheese ordering, shipping, wholesale accounts, storage, and more.',
         keywords: ['Colchis Food FAQ', 'Georgian cheese questions', 'cheese shipping', 'wholesale cheese', 'Sulguni storage'],
         alternates: {
@@ -17,12 +17,12 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
             languages: { 'en': `${SITE_URL}/faq`, 'ka': `${SITE_URL}/ka/faq`, 'ru': `${SITE_URL}/ru/faq`, 'es': `${SITE_URL}/es/faq`, 'x-default': `${SITE_URL}/faq` },
         },
         openGraph: {
-            type: 'website', title: 'FAQ | Colchis Food',
+            type: 'website', title: 'FAQ',
             description: 'Find answers to common questions about Colchis Food.',
             url: `${SITE_URL}${canonicalPath}`, siteName: 'Colchis Food',
             ...(ogImage ? { images: buildOgImages(ogImage, 'FAQ') } : {}),
         },
-        twitter: { card: 'summary', title: 'FAQ | Colchis Food', description: 'Frequently asked questions about Georgian artisanal cheese.',
+        twitter: { card: 'summary', title: 'FAQ', description: 'Frequently asked questions about Georgian artisanal cheese.',
             ...(ogImage ? { images: [ogImage] } : {}),
         },
     };

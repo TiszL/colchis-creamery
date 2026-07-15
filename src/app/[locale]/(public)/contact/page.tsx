@@ -19,7 +19,7 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
     const canonicalPath = locale === 'en' ? '/contact' : `/${locale}/contact`;
     const ogImage = await getOgImage('contact');
     return {
-        title: 'Contact Us | Colchis Food',
+        title: 'Contact Us',
         description: 'Get in touch with the Colchis Food team for inquiries, support, wholesale partnerships, or feedback. Based in Dublin, Ohio.',
         keywords: ['contact Colchis Food', 'Georgian cheese support', 'wholesale inquiry', 'cheese order help', 'Dublin Ohio cheese'],
         alternates: {
@@ -27,12 +27,12 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
             languages: { 'en': `${SITE_URL}/contact`, 'ka': `${SITE_URL}/ka/contact`, 'ru': `${SITE_URL}/ru/contact`, 'es': `${SITE_URL}/es/contact`, 'x-default': `${SITE_URL}/contact` },
         },
         openGraph: {
-            type: 'website', title: 'Contact Us | Colchis Food',
+            type: 'website', title: 'Contact Us',
             description: 'Get in touch with the Colchis Food team.',
             url: `${SITE_URL}${canonicalPath}`, siteName: 'Colchis Food',
             ...(ogImage ? { images: buildOgImages(ogImage, 'Contact Colchis Food') } : {}),
         },
-        twitter: { card: 'summary', title: 'Contact Us | Colchis Food', description: 'Get in touch with the Colchis Food team.',
+        twitter: { card: 'summary', title: 'Contact Us', description: 'Get in touch with the Colchis Food team.',
             ...(ogImage ? { images: [ogImage] } : {}),
         },
     };

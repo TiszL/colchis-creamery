@@ -56,8 +56,11 @@ export async function JsonLdProduct({ product, url, productId }: JsonLdProductPr
         url,
         priceCurrency: "USD",
         price: product.priceB2c,
+        // Cached stockQuantity is unreliable (truth is per-location Stock);
+        // made-to-order items carry 0 cached stock yet are orderable, so don't
+        // publish them as OutOfStock and suppress them from Shopping results.
         availability:
-          product.stockQuantity > 0
+          product.stockQuantity > 0 || product.isMadeToOrder
             ? "https://schema.org/InStock"
             : "https://schema.org/OutOfStock",
         itemCondition: "https://schema.org/NewCondition",
@@ -114,7 +117,7 @@ export async function JsonLdProduct({ product, url, productId }: JsonLdProductPr
       url: "https://colchisfood.com",
       address: {
         "@type": "PostalAddress",
-        addressLocality: "Columbus",
+        addressLocality: "Dublin",
         addressRegion: "OH",
         addressCountry: "US",
       },

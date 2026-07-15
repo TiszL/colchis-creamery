@@ -88,9 +88,9 @@ export async function EditorialStrip({ locale }: { locale: string }) {
         <div className="ch-section-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 56 }}>
           <div>
             <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.32em", color: "#B96A3D", textTransform: "uppercase" }}>№ 06 — Read · cook · know</div>
-            <div className="ch-h2" style={{ fontFamily: "var(--font-serif)", fontWeight: 300, fontSize: 64, lineHeight: 1.05, letterSpacing: "-0.02em", color: "#1F3026", marginTop: 14 }}>
+            <h2 className="ch-h2" style={{ fontFamily: "var(--font-serif)", fontWeight: 300, fontSize: 64, lineHeight: 1.05, letterSpacing: "-0.02em", color: "#1F3026", marginTop: 14 }}>
               The journal & <em style={{ color: "#B96A3D", fontWeight: 400 }}>the kitchen.</em>
-            </div>
+            </h2>
             <p style={{ fontFamily: "var(--font-serif)", fontStyle: "italic", fontSize: 19, lineHeight: 1.55, color: "#2C3D33", maxWidth: 560, marginTop: 18 }}>
               We write about Georgian food and the people who make it. We publish recipes you can actually make tonight. Both, all in one place.
             </p>

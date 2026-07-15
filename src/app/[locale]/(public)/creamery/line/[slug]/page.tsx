@@ -16,10 +16,10 @@ export async function generateMetadata({ params }: LinePageProps): Promise<Metad
     where: { slug },
     select: { name: true, tagline: true, description: true, isActive: true },
   });
-  if (!line || !line.isActive) return { title: 'Line Not Found | Colchis Food' };
+  if (!line || !line.isActive) return { title: 'Line Not Found' };
 
   const canonicalPath = locale === 'en' ? `/creamery/line/${slug}` : `/${locale}/creamery/line/${slug}`;
-  const title = `${line.name} | Colchis Food Creamery`;
+  const title = `${line.name} Creamery`;
   const baseDescription = line.tagline || line.description || `${line.name} from Colchis Food, hand-pulled in salted whey from the milk of three small Ohio dairies.`;
 
   return {

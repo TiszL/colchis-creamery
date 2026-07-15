@@ -1,7 +1,15 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { submitB2bApplicationAction } from "@/app/actions/b2b-leads";
 
 export const dynamic = "force-dynamic";
+
+// Distinct from /wholesale (the marketing page) so the two don't compete for
+// the same query with an identical title/description.
+export const metadata: Metadata = {
+    title: "Wholesale application",
+    description: "Apply for a Colchis Food wholesale account — Georgian cheese for restaurants, grocers, and hospitality across the Midwest.",
+};
 
 export default async function WholesaleApplyPage({
     params,

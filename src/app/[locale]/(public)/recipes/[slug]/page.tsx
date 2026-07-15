@@ -42,10 +42,10 @@ export const dynamic = 'force-dynamic';
 export async function generateMetadata({ params }: RecipePageProps): Promise<Metadata> {
     const { locale, slug } = await params;
     const recipe = await prisma.recipe.findFirst({ where: { slug, isPublished: true } });
-    if (!recipe) return { title: 'Recipe Not Found | Colchis Food' };
+    if (!recipe) return { title: 'Recipe Not Found' };
     const canonicalPath = locale === 'en' ? `/recipes/${slug}` : `/${locale}/recipes/${slug}`;
     return {
-        title: `${recipe.title} | Recipes | Colchis Food`,
+        title: `${recipe.title} | Recipes`,
         description: recipe.description,
         openGraph: {
             title: recipe.title,

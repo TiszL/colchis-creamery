@@ -61,7 +61,7 @@ export async function generateMetadata({ params, searchParams }: ShopPageProps):
     },
     openGraph: {
       type: 'website',
-      title: `${title} | Colchis Food`,
+      title: `${title}`,
       description,
       url: `${SITE_URL}${canonicalPath}`,
       siteName: 'Colchis Food',
@@ -202,7 +202,7 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
           eyebrow: 'House No 01 · The Creamery · ყველის სახლი',
           headline: 'Cheese made',
           headline_accent: 'this morning.',
-          subheadline: 'Sulguni and Imeruli, hand-pulled in salted whey from the milk of three small Ohio dairies. The recipe is two thousand years old; the cheese is six hours old.',
+          subheadline: 'Sulguni and Imeruli, hand-pulled in salted whey from the milk of three small Ohio dairies. The recipe is six thousand years old; the cheese is six hours old.',
           stats: [
             { num: '6h', text: 'From milk truck to brine bath. No cheese sits overnight.' },
             { num: '3', text: 'Family dairies in Ohio, within four hours of milking.' },
@@ -264,7 +264,7 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
           heading_suffix: 'and a brine bath.',
           steps: [
             { n: '01', t: 'Milk arrives · 6 AM', d: 'Three Ohio dairies, within four hours of milking. We taste every churn — sweet, balanced, never sour.', time: '06:00–07:00' },
-            { n: '02', t: 'Curds, cut by hand', d: 'Warmed to 86°F. We cut, pull, and knead in salted whey — the same motions for two thousand years.', time: '07:30–09:30' },
+            { n: '02', t: 'Curds, cut by hand', d: 'Warmed to 86°F. We cut, pull, and knead in salted whey — the same motions for six thousand years.', time: '07:30–09:30' },
             { n: '03', t: 'Salt brine · 24 hours', d: 'Cold brine, just under 5% salinity. Fresh Sulguni ships at hour 24. Aged rests seven days with raw Ohio honey.', time: '09:30 → next day' },
             { n: '04', t: 'Out the door · 5 PM', d: 'Wheels weighed, packed cold, labelled with the batch number, off to UPS or onto a Doordash for Dublin.', time: '16:30–17:30' },
           ],
@@ -336,26 +336,13 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
       })()}
 
       {/* ─── SUBSCRIPTION (cheese club) ───────────────────────────────── */}
+      {/* Only renders when the owner has configured it in admin. There is no
+          subscription checkout yet, so the placeholder default (a priced
+          "$48/mo" box whose CTAs loop back to this page) must NOT ship — that's
+          a broken conversion path. Enable + wire real CTAs before showing. */}
       {(() => {
-        const sub = subContent || {
-          eyebrow: '№ 04 — The cheese club',
-          heading: 'One box,',
-          heading_accent: 'every month.',
-          description: 'Three rotating cheeses, a printed recipe card, and a postcard from whichever dairy our milk came from this month. Pause anytime.',
-          cta_primary: 'Start subscription',
-          cta_secondary: 'One-time gift box',
-          box_name: 'The Brine Box',
-          box_price: '$48',
-          box_period: '/mo',
-          box_features: [
-            'Three hand-cut cheeses · ~900g total',
-            'One feature: aged Sulguni or seasonal',
-            'Recipe card from our test kitchen',
-            'Postcard from the dairy of the month',
-            'Free cold shipping in the US',
-            'Skip, pause, or cancel any month',
-          ],
-        };
+        const sub = subContent;
+        if (!sub) return null;
         return (
           <section className="ch-section" style={{ background: "#1F3026", color: "#F5F0E6", padding: "120px 56px" }}>
             <div className="ch-cm-sub-grid" style={{ maxWidth: 1280, margin: "0 auto", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 56, alignItems: "center" }}>

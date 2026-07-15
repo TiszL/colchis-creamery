@@ -16,7 +16,7 @@ export const dynamic = 'force-dynamic';
 export async function generateMetadata({ params }: SuccessPageProps) {
     const { locale } = await params;
     return {
-        title: locale === 'en' ? 'Order placed — Colchis Food' : 'Pedido confirmado — Colchis Food',
+        title: ({ en: 'Order placed', ka: 'შეკვეთა განთავსდა', ru: 'Заказ размещён', es: 'Pedido confirmado' } as Record<string, string>)[locale] ?? 'Order placed',
         robots: { index: false, follow: false },
     };
 }

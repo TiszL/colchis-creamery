@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useLocale } from "next-intl";
@@ -384,7 +385,7 @@ export default function CreameryClient({ products, locale, apiKey, isLoggedIn, u
                     <div style={{ aspectRatio: "4/3", position: "relative", borderBottom: "1px solid #1F302614" }}>
                       {p.imageUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={p.imageUrl} alt={p.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                        <Image src={p.imageUrl} alt={p.name} fill sizes="(max-width: 768px) 100vw, 33vw" style={{ objectFit: "cover" }} />
                       ) : (
                         <CheeseVisual kind={kind} />
                       )}

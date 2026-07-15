@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import type { Product } from "@/types";
 
 interface FeaturedProductsProps {
@@ -58,7 +59,7 @@ export function FeaturedProducts({ products, locale }: FeaturedProductsProps) {
               {/* Image area */}
               <div style={{ aspectRatio: "4/3", background: "#EAE2D2", position: "relative", display: "flex", alignItems: "center", justifyContent: "center", borderBottom: "1px solid #1F302614" }}>
                 {p.imageUrl ? (
-                  <img src={p.imageUrl} alt={p.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  <Image src={p.imageUrl} alt={p.name} fill sizes="(max-width: 768px) 100vw, 33vw" style={{ objectFit: "cover" }} />
                 ) : (
                   <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.24em", color: "#7A8278", opacity: 0.6, textTransform: "uppercase" }}>[ {p.name} photo ]</div>
                 )}

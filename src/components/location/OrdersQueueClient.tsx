@@ -20,6 +20,8 @@ import {
     kitchenCancelOrder,
     kitchenRemoveOrderItems,
     clearStaleFulfillment,
+    requestCancelOrder,
+    resolveCancelRequest,
     type QueueItem,
     type QueueSnapshot,
     type MutationResult,
@@ -187,13 +189,13 @@ export default function OrdersQueueClient({
     const [cardErrors, setCardErrors] = useState<Record<string, string>>({});
     const [courierNotes, setCourierNotes] = useState<Record<string, string>>({});
     const [flashIds, setFlashIds] = useState<Set<string>>(new Set());
-    // "Problem with order" cancel-&-refund panel (both kitchen roles, per card):
+    // "Problem with order" cancel-&-refund panel (manager-only, per card):
     // open → optional reason → two-step confirm (armed → fire).
     const [problemIds, setProblemIds] = useState<Set<string>>(new Set());
     const [problemReasons, setProblemReasons] = useState<Record<string, string>>({});
     const [armedIds, setArmedIds] = useState<Set<string>>(new Set());
     const [cancelledNotes, setCancelledNotes] = useState<Set<string>>(new Set());
-    // "Edit order" item-removal panel (both kitchen roles, per card): steppers pick
+    // "Edit order" item-removal panel (manager-only, per card): steppers pick
     // how many of each item to remove → two-step confirm → partial refund.
     const [editIds, setEditIds] = useState<Set<string>>(new Set());
     const [editSelections, setEditSelections] = useState<Record<string, Record<string, number>>>({});
@@ -202,6 +204,13 @@ export default function OrdersQueueClient({
     const [editSuccess, setEditSuccess] = useState<Record<string, string>>({});
     // "Remove stale order" (previous-day leftovers, no refund): armed → fire.
     const [staleArmedIds, setStaleArmedIds] = useState<Set<string>>(new Set());
+    // Kitchen "Request cancel/refund" panel (fulfillment staff can't move
+    // money — they ask, with a required reason; managers approve/decline).
+    const [requestOpenIds, setRequestOpenIds] = useState<Set<string>>(new Set());
+    const [requestReasons, setRequestReasons] = useState<Record<string, string>>({});
+    // Manager resolution of a pending request: optional note + two-step approve.
+    const [resolveNotes, setResolveNotes] = useState<Record<string, string>>({});
+    const [approveArmedIds, setApproveArmedIds] = useState<Set<string>>(new Set());
     const [explainerOpen, setExplainerOpen] = useState(false);
     const [pendingCount, setPendingCount] = useState(() => initial.items.filter(i => i.status === 'PENDING').length);
     const [, startTransition] = useTransition();
@@ -443,7 +452,7 @@ export default function OrdersQueueClient({
                         <li>Cook. Tap <span className="text-white font-mono">PREPARING → READY</span> as you go — the customer sees each step live.</li>
                         <li>The driver arrives around your ready time; when they pick up, tracking flips to &quot;on the way&quot; automatically.</li>
                         <li>Driver cancelled/no-show? You + the customer are emailed; use <span className="text-white font-mono">RE-DISPATCH</span> to book another.</li>
-                        <li>Problem with an item? <span className="text-white font-mono">EDIT ORDER</span> removes it + auto-refunds. Whole order? <span className="text-white font-mono">CANCEL &amp; REFUND</span> recalls the driver too.</li>
+                        <li>Problem with an item? <span className="text-white font-mono">EDIT ORDER</span> removes it + auto-refunds. Whole order? <span className="text-white font-mono">CANCEL &amp; REFUND</span> recalls the driver too. (Managers only — kitchen accounts send a <span className="text-white font-mono">CANCEL REQUEST</span> a manager approves right on this screen.)</li>
                     </ol>
                 </div>
             )}
@@ -512,6 +521,19 @@ export default function OrdersQueueClient({
                         dayKeyFmt.format(new Date(item.createdAt)) !== dayKeyFmt.format(new Date(now)) &&
                         (!item.scheduledFor || new Date(item.scheduledFor).getTime() <= now);
                     const staleArmed = staleArmedIds.has(item.id);
+
+                    // Kitchen cancel/refund request state (latest request wins).
+                    const cr = item.cancelRequest;
+                    const crPending = cr?.status === 'PENDING';
+                    const canRequest =
+                        !canRefund &&
+                        !crPending &&
+                        item.paymentStatus === 'PAID' &&
+                        item.status !== 'DELIVERED' &&
+                        item.status !== 'CANCELLED';
+                    const requestOpen = requestOpenIds.has(item.id);
+                    const requestReason = requestReasons[item.id] ?? '';
+                    const approveArmed = approveArmedIds.has(item.id);
 
                     return (
                         <div
@@ -697,7 +719,87 @@ export default function OrdersQueueClient({
                                 </div>
                             )}
 
-                            {(canEdit || canProblem || isStale) && (
+                            {/* ── Kitchen cancel/refund request — manager resolves it here */}
+                            {cr && crPending && canRefund && (
+                                <div className="mt-3 px-3 py-3 bg-red-900/20 border-2 border-red-700/60 space-y-2">
+                                    <p className="text-[12px] font-mono font-bold uppercase tracking-wider text-red-300">
+                                        ⚠ Kitchen requests cancel &amp; refund
+                                    </p>
+                                    <p className="text-[12px] font-mono text-gray-300">
+                                        {cr.requestedByName}: &ldquo;{cr.reason}&rdquo;
+                                    </p>
+                                    <input
+                                        type="text"
+                                        value={resolveNotes[item.id] ?? ''}
+                                        onChange={e => setResolveNotes(prev => ({ ...prev, [item.id]: e.target.value }))}
+                                        placeholder="Optional note (shown to the kitchen; on approve, also tells the customer why)"
+                                        className="w-full bg-[#161616] border border-[#ffffff0A] px-3 py-2 text-[12px] font-mono text-white placeholder-gray-600 focus:outline-none focus:border-red-800/60"
+                                    />
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        <button
+                                            type="button"
+                                            disabled={busy}
+                                            onClick={() => {
+                                                if (!approveArmed) {
+                                                    setApproveArmedIds(prev => new Set(prev).add(item.id));
+                                                    return;
+                                                }
+                                                setApproveArmedIds(prev => {
+                                                    const next = new Set(prev);
+                                                    next.delete(item.id);
+                                                    return next;
+                                                });
+                                                runAction(item.id, () => resolveCancelRequest(cr.id, locationId, true, resolveNotes[item.id] ?? ''), 'CANCELLED');
+                                            }}
+                                            className={`min-h-[44px] px-5 text-[11px] font-mono uppercase tracking-wider border transition-colors disabled:opacity-50 disabled:cursor-wait ${
+                                                approveArmed
+                                                    ? 'bg-red-700 text-white border-red-700 hover:bg-red-600'
+                                                    : 'bg-red-900/40 text-red-300 border-red-800/60 hover:bg-red-900/60'
+                                            }`}
+                                        >
+                                            {busy ? 'Working…' : approveArmed ? 'Confirm — cancel & refund' : 'Approve & refund'}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            disabled={busy}
+                                            onClick={() => {
+                                                setApproveArmedIds(prev => {
+                                                    const next = new Set(prev);
+                                                    next.delete(item.id);
+                                                    return next;
+                                                });
+                                                runAction(item.id, () => resolveCancelRequest(cr.id, locationId, false, resolveNotes[item.id] ?? ''));
+                                            }}
+                                            className="min-h-[44px] px-5 text-[11px] font-mono uppercase tracking-wider bg-[#161616] text-gray-300 border border-[#ffffff1A] hover:text-white transition-colors disabled:opacity-50 disabled:cursor-wait"
+                                        >
+                                            Decline
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {cr && crPending && !canRefund && (
+                                <div className="mt-3 px-3 py-2 bg-amber-900/20 border border-amber-800/40 text-[11px] font-mono text-amber-300">
+                                    ⏳ Cancel/refund requested — waiting for a manager.
+                                    <span className="block mt-0.5 text-amber-400/70">Reason sent: &ldquo;{cr.reason}&rdquo;</span>
+                                </div>
+                            )}
+
+                            {cr && cr.status === 'DECLINED' && item.status !== 'CANCELLED' && (
+                                <div className="mt-3 px-3 py-2 bg-[#161616] border border-[#ffffff1A] text-[11px] font-mono text-gray-400">
+                                    ✕ Manager declined the cancel request
+                                    {cr.resolutionNote ? <>: &ldquo;{cr.resolutionNote}&rdquo;</> : '.'}
+                                    {canRequest && <span className="text-gray-600"> You can send a new request below.</span>}
+                                </div>
+                            )}
+
+                            {cr && cr.status === 'APPROVED' && item.status === 'CANCELLED' && (
+                                <div className="mt-3 px-3 py-2 bg-emerald-900/20 border border-emerald-800/40 text-[11px] font-mono text-emerald-400">
+                                    ✓ Cancel request approved — customer refunded in full.
+                                </div>
+                            )}
+
+                            {(canEdit || canProblem || isStale || canRequest) && (
                                 <div className="mt-3">
                                     <div className="flex items-center gap-5 flex-wrap">
                                         {canEdit && (
@@ -753,6 +855,22 @@ export default function OrdersQueueClient({
                                                 {problemOpen ? 'Never mind' : 'Problem with order?'}
                                             </button>
                                         )}
+                                        {canRequest && (
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setRequestOpenIds(prev => {
+                                                        const next = new Set(prev);
+                                                        if (next.has(item.id)) next.delete(item.id);
+                                                        else next.add(item.id);
+                                                        return next;
+                                                    });
+                                                }}
+                                                className="py-1 text-[11px] font-mono text-gray-600 hover:text-gray-400 underline underline-offset-2 transition-colors"
+                                            >
+                                                {requestOpen ? 'Never mind' : 'Request cancel/refund'}
+                                            </button>
+                                        )}
                                         {isStale && (
                                             <button
                                                 type="button"
@@ -783,6 +901,49 @@ export default function OrdersQueueClient({
                                             ⚠ Clears this old order off the board — NO refund, no customer email.
                                             If the customer should get their money back, use &quot;Problem with order?&quot; instead.
                                         </p>
+                                    )}
+
+                                    {canRequest && requestOpen && (
+                                        <div className="mt-2 px-3 py-3 bg-[#17130e] border border-amber-900/40 space-y-3">
+                                            <p className="text-[11px] font-mono uppercase tracking-wider text-gray-500">
+                                                Ask a manager to cancel &amp; refund this order
+                                            </p>
+                                            <textarea
+                                                value={requestReason}
+                                                onChange={e => setRequestReasons(prev => ({ ...prev, [item.id]: e.target.value }))}
+                                                placeholder="Why should this order be cancelled? (required — the manager sees this)"
+                                                rows={2}
+                                                className="w-full bg-[#161616] border border-[#ffffff0A] px-3 py-2 text-[12px] font-mono text-white placeholder-gray-600 focus:outline-none focus:border-amber-800/60"
+                                            />
+                                            <p className="text-[11px] font-mono text-gray-500">
+                                                A manager reviews it on this screen — you&apos;ll see the status here.
+                                            </p>
+                                            <button
+                                                type="button"
+                                                disabled={busy || requestReason.trim().length === 0}
+                                                onClick={() =>
+                                                    runAction(item.id, async () => {
+                                                        const res = await requestCancelOrder(item.id, locationId, requestReason);
+                                                        if (res.ok) {
+                                                            setRequestOpenIds(prev => {
+                                                                const next = new Set(prev);
+                                                                next.delete(item.id);
+                                                                return next;
+                                                            });
+                                                            setRequestReasons(prev => {
+                                                                const next = { ...prev };
+                                                                delete next[item.id];
+                                                                return next;
+                                                            });
+                                                        }
+                                                        return res;
+                                                    })
+                                                }
+                                                className="min-h-[44px] px-5 text-[11px] font-mono uppercase tracking-wider bg-amber-900/40 text-amber-300 border border-amber-800/60 hover:bg-amber-900/60 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                            >
+                                                {busy ? 'Sending…' : 'Send request to manager'}
+                                            </button>
+                                        </div>
                                     )}
 
                                     {canEdit && editOpen && (

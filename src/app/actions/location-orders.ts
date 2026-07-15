@@ -77,6 +77,16 @@ export type QueueItem = {
     courierPickupEtaAt: string | null;
     courierDropoffEtaAt: string | null;
     courierSubstate: string | null;
+    // Latest kitchen cancel/refund request (null = none). PENDING renders the
+    // manager's approve/decline banner + the requester's "waiting" state.
+    cancelRequest: {
+        id: string;
+        status: string; // PENDING|APPROVED|DECLINED
+        reason: string;
+        requestedByName: string;
+        resolutionNote: string | null;
+        createdAt: string;
+    } | null;
 };
 
 export type QueueSnapshot = { items: QueueItem[]; fetchedAt: string; prepMinutes: number };
@@ -109,6 +119,14 @@ export async function fetchLocationQueue(
                     },
                 },
                 items: { include: { orderItem: { include: { product: { select: { name: true, sku: true, imageUrl: true } } } } } },
+                cancelRequests: {
+                    orderBy: { createdAt: 'desc' },
+                    take: 1,
+                    select: {
+                        id: true, status: true, reason: true, requestedByName: true,
+                        resolutionNote: true, createdAt: true,
+                    },
+                },
             },
             orderBy: [{ createdAt: 'desc' }],
             take: view === 'active' ? 100 : 50,
@@ -159,6 +177,16 @@ export async function fetchLocationQueue(
             courierPickupEtaAt: f.courierPickupEtaAt ? f.courierPickupEtaAt.toISOString() : null,
             courierDropoffEtaAt: f.courierDropoffEtaAt ? f.courierDropoffEtaAt.toISOString() : null,
             courierSubstate: f.courierSubstate,
+            cancelRequest: f.cancelRequests[0]
+                ? {
+                      id: f.cancelRequests[0].id,
+                      status: f.cancelRequests[0].status,
+                      reason: f.cancelRequests[0].reason,
+                      requestedByName: f.cancelRequests[0].requestedByName,
+                      resolutionNote: f.cancelRequests[0].resolutionNote,
+                      createdAt: f.cancelRequests[0].createdAt.toISOString(),
+                  }
+                : null,
         })),
     };
 }
@@ -341,8 +369,9 @@ export async function clearStaleFulfillment(fulfillmentId: string, locationId: s
  * "Edit order" — kitchen removes SOME items from a paid order (out of stock,
  * dropped the khachapuri, …): partial Stripe refund + stock restore via
  * kitchenRemoveItemsCore, then a best-effort item-removal email to the
- * customer. Both kitchen roles. Removing EVERYTHING is rejected — that's
- * kitchenCancelOrder's job (it also recalls the courier).
+ * customer. LOCATION_MANAGER only — fulfillment staff cannot move money.
+ * Removing EVERYTHING is rejected — that's kitchenCancelOrder's job (it also
+ * recalls the courier).
  */
 export async function kitchenRemoveOrderItems(
     fulfillmentId: string,
@@ -351,7 +380,7 @@ export async function kitchenRemoveOrderItems(
     reason: string,
 ): Promise<MutationResult> {
     try {
-        await assertLocationRole(locationId, ['LOCATION_MANAGER', 'LOCATION_FULFILLMENT']);
+        await assertLocationRole(locationId, ['LOCATION_MANAGER']);
         if (removals.length === 0) return { ok: false, error: 'Nothing selected to remove' };
 
         const f = await prisma.orderFulfillment.findUnique({
@@ -426,12 +455,70 @@ export async function kitchenRemoveOrderItems(
     }
 }
 
+// Shared cancel-&-refund core: full Stripe refund, stock restore, courier
+// recall (all inside refundOrderFullCore), then a best-effort cancellation
+// email to the customer. NOT exported — 'use server' exports become public
+// endpoints; callers below gate the role first. Single-location orders only;
+// anything spanning locations goes through the admin refund UI.
+async function cancelOrderWithRefund(
+    fulfillmentId: string,
+    locationId: string,
+    reason: string,
+    initiatedByUserId: string | null,
+): Promise<MutationResult> {
+    const f = await prisma.orderFulfillment.findUnique({
+        where: { id: fulfillmentId },
+        select: {
+            locationId: true,
+            order: {
+                select: {
+                    id: true,
+                    paymentStatus: true,
+                    totalAmount: true,
+                    guestEmail: true,
+                    user: { select: { email: true, name: true } },
+                    fulfillments: { select: { locationId: true } },
+                },
+            },
+        },
+    });
+    if (!f || f.locationId !== locationId) return { ok: false, error: 'Not found' };
+    if (f.order.paymentStatus !== 'PAID') {
+        return { ok: false, error: 'Order is not paid — nothing to refund' };
+    }
+    if (f.order.fulfillments.some(x => x.locationId !== locationId)) {
+        return { ok: false, error: 'Multi-location order — contact the admin to refund' };
+    }
+
+    const result = await refundOrderFullCore(f.order.id, {
+        initiatedByUserId,
+        restoreStock: true,
+        reason: reason || 'Cancelled by kitchen',
+    });
+    if (!result.ok) return { ok: false, error: result.error };
+
+    // Best-effort customer notification — never fail the refund over email.
+    const to = f.order.guestEmail ?? f.order.user?.email;
+    if (to) {
+        try {
+            await sendOrderCancelledCustomerEmail({
+                to,
+                name: f.order.user?.name ?? null,
+                orderId: f.order.id,
+                amount: result.amountRefunded,
+                reason: reason || null,
+            });
+        } catch (e) {
+            console.error('[cancelOrderWithRefund] customer email failed:', e);
+        }
+    }
+    return { ok: true };
+}
+
 /**
- * "Problem with order" — kitchen cancels the ENTIRE order: full Stripe refund,
- * stock restore, courier recall (all inside refundOrderFullCore), then a
- * best-effort cancellation email to the customer. Both kitchen roles (the
- * owner wants every kitchen account able to cancel + refund). Single-location
- * orders only; anything spanning locations goes through the admin refund UI.
+ * "Problem with order" — the manager cancels the ENTIRE order (full refund via
+ * cancelOrderWithRefund). LOCATION_MANAGER only — fulfillment staff cannot
+ * move money; they file a request via requestCancelOrder instead.
  */
 export async function kitchenCancelOrder(
     fulfillmentId: string,
@@ -439,54 +526,115 @@ export async function kitchenCancelOrder(
     reason: string,
 ): Promise<MutationResult> {
     try {
+        await assertLocationRole(locationId, ['LOCATION_MANAGER']);
+        const session = await getSession();
+        return await cancelOrderWithRefund(fulfillmentId, locationId, reason, session?.userId ?? null);
+    } catch (e) {
+        return { ok: false, error: e instanceof Error ? e.message : 'Unknown error' };
+    }
+}
+
+/**
+ * Kitchen staff can't refund — they ASK. Creates a PENDING OrderCancelRequest
+ * (reason required) that managers see inline on the same order card; the
+ * requester tracks its status there too. One pending request per fulfillment.
+ */
+export async function requestCancelOrder(
+    fulfillmentId: string,
+    locationId: string,
+    reason: string,
+): Promise<MutationResult> {
+    try {
         await assertLocationRole(locationId, ['LOCATION_MANAGER', 'LOCATION_FULFILLMENT']);
+        const why = reason.trim();
+        if (!why) return { ok: false, error: 'Please write why this order should be cancelled' };
+
         const f = await prisma.orderFulfillment.findUnique({
             where: { id: fulfillmentId },
-            select: {
-                locationId: true,
-                order: {
-                    select: {
-                        id: true,
-                        paymentStatus: true,
-                        totalAmount: true,
-                        guestEmail: true,
-                        user: { select: { email: true, name: true } },
-                        fulfillments: { select: { locationId: true } },
-                    },
-                },
-            },
+            select: { locationId: true, status: true, order: { select: { paymentStatus: true } } },
         });
         if (!f || f.locationId !== locationId) return { ok: false, error: 'Not found' };
+        if (f.status === 'DELIVERED' || f.status === 'CANCELLED') {
+            return { ok: false, error: `Already ${f.status.toLowerCase()}` };
+        }
         if (f.order.paymentStatus !== 'PAID') {
             return { ok: false, error: 'Order is not paid — nothing to refund' };
         }
-        if (f.order.fulfillments.some(x => x.locationId !== locationId)) {
-            return { ok: false, error: 'Multi-location order — contact the admin to refund' };
-        }
+
+        const pending = await prisma.orderCancelRequest.findFirst({
+            where: { fulfillmentId, status: 'PENDING' },
+            select: { id: true },
+        });
+        if (pending) return { ok: false, error: 'A cancel request is already waiting for a manager' };
 
         const session = await getSession();
-        const result = await refundOrderFullCore(f.order.id, {
-            initiatedByUserId: session?.userId ?? null,
-            restoreStock: true,
-            reason: reason || 'Cancelled by kitchen',
+        await prisma.orderCancelRequest.create({
+            data: {
+                fulfillmentId,
+                locationId,
+                requestedById: session?.userId ?? '',
+                requestedByName: session?.name || session?.email || 'Kitchen staff',
+                reason: why,
+            },
         });
-        if (!result.ok) return { ok: false, error: result.error };
+        return { ok: true };
+    } catch (e) {
+        return { ok: false, error: e instanceof Error ? e.message : 'Unknown error' };
+    }
+}
 
-        // Best-effort customer notification — never fail the refund over email.
-        const to = f.order.guestEmail ?? f.order.user?.email;
-        if (to) {
-            try {
-                await sendOrderCancelledCustomerEmail({
-                    to,
-                    name: f.order.user?.name ?? null,
-                    orderId: f.order.id,
-                    amount: result.amountRefunded,
-                    reason: reason || null,
-                });
-            } catch (e) {
-                console.error('[kitchenCancelOrder] customer email failed:', e);
-            }
+/**
+ * Manager resolves a kitchen cancel request. Approve = the SAME full
+ * cancel-&-refund as "Problem with order?" (the request is only marked
+ * APPROVED after the refund succeeds — a failed refund leaves it PENDING so
+ * the manager can retry). Decline = mark DECLINED with an optional note the
+ * kitchen sees on the card. LOCATION_MANAGER only.
+ */
+export async function resolveCancelRequest(
+    requestId: string,
+    locationId: string,
+    approve: boolean,
+    note: string,
+): Promise<MutationResult> {
+    try {
+        await assertLocationRole(locationId, ['LOCATION_MANAGER']);
+        const req = await prisma.orderCancelRequest.findUnique({
+            where: { id: requestId },
+            select: { locationId: true, status: true, fulfillmentId: true, reason: true },
+        });
+        if (!req || req.locationId !== locationId) return { ok: false, error: 'Not found' };
+        if (req.status !== 'PENDING') return { ok: false, error: `Already ${req.status.toLowerCase()}` };
+
+        const session = await getSession();
+        const resolution = {
+            resolvedById: session?.userId ?? null,
+            resolvedByName: session?.name || session?.email || null,
+            resolutionNote: note.trim() || null,
+            resolvedAt: new Date(),
+        };
+
+        if (!approve) {
+            await prisma.orderCancelRequest.update({
+                where: { id: requestId },
+                data: { status: 'DECLINED', ...resolution },
+            });
+            return { ok: true };
         }
+
+        // The customer email prefers the manager's note; falls back to the
+        // kitchen's reason so the customer always learns why.
+        const result = await cancelOrderWithRefund(
+            req.fulfillmentId,
+            locationId,
+            note.trim() || req.reason,
+            session?.userId ?? null,
+        );
+        if (!result.ok) return result;
+
+        await prisma.orderCancelRequest.update({
+            where: { id: requestId },
+            data: { status: 'APPROVED', ...resolution },
+        });
         return { ok: true };
     } catch (e) {
         return { ok: false, error: e instanceof Error ? e.message : 'Unknown error' };

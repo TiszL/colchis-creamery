@@ -56,8 +56,9 @@ export async function cancelActiveCarrierDeliveries(
 // hit on pre-Connect orders), so it must only be sent when a transfer exists.
 // On lookup failure default to false: the refund still goes through from the
 // platform balance; a missed reversal is reconciled manually, a hard-failed
-// refund helps nobody.
-async function chargeHasTransfer(paymentIntentId: string): Promise<boolean> {
+// refund helps nobody. (Exported: the payment-sync late-success auto-refund
+// needs the same check.)
+export async function chargeHasTransfer(paymentIntentId: string): Promise<boolean> {
     try {
         const pi = await stripe.paymentIntents.retrieve(paymentIntentId, { expand: ['latest_charge'] });
         const charge = pi.latest_charge;
@@ -65,6 +66,65 @@ async function chargeHasTransfer(paymentIntentId: string): Promise<boolean> {
     } catch (e) {
         console.warn('[chargeHasTransfer] lookup failed — refunding without transfer reversal:', e);
         return false;
+    }
+}
+
+/**
+ * Atomic once-only claim for restoring an order's FULL stock after a refund.
+ * The app refund flow and the charge.refunded webhook can race (the app's own
+ * Stripe refund triggers the webhook within seconds); both paths must acquire
+ * this claim before calling restoreStock, so the restore happens exactly once
+ * no matter the interleaving. Claims are never released — restock is a
+ * one-way door per order. Exported for stripe-payment-sync.
+ */
+export async function claimFullRestock(orderId: string): Promise<boolean> {
+    try {
+        await prisma.processedStripeEvent.create({
+            data: { id: `refund-restock:${orderId}`, type: 'internal.refund-restock' },
+        });
+        return true;
+    } catch (e) {
+        if ((e as { code?: string })?.code === 'P2002') return false;
+        throw e;
+    }
+}
+
+/**
+ * Race-tolerant Refund audit insert. The charge.refunded webhook may record
+ * the same Stripe refund id first (it fires seconds after our refunds.create).
+ * On conflict, ADOPT the webhook's row — overwrite its generic fields with the
+ * app's richer attribution — instead of crashing the refund flow after the
+ * money already moved.
+ */
+async function upsertRefundRecord(data: {
+    orderId: string;
+    initiatedByUserId: string | null;
+    amountCents: number;
+    reason: string;
+    notes: string | null;
+    stripeRefundId: string | null;
+    restoredStock: boolean;
+    reversedTax: boolean;
+}) {
+    try {
+        return await prisma.refund.create({ data });
+    } catch (e) {
+        if ((e as { code?: string })?.code === 'P2002' && data.stripeRefundId) {
+            const existing = await prisma.refund.findUnique({ where: { stripeRefundId: data.stripeRefundId } });
+            if (existing) {
+                return await prisma.refund.update({
+                    where: { id: existing.id },
+                    data: {
+                        initiatedByUserId: data.initiatedByUserId,
+                        reason: data.reason,
+                        notes: data.notes,
+                        restoredStock: existing.restoredStock || data.restoredStock,
+                        reversedTax: existing.reversedTax || data.reversedTax,
+                    },
+                });
+            }
+        }
+        throw e;
     }
 }
 
@@ -156,8 +216,10 @@ export async function refundOrderFullInternal(
     /* ─── Optional stock restore (at most once per order) ─────────────── */
 
     let stockRestored = false;
-    const alreadyRestored = order.refunds.some(r => r.restoredStock);
-    if (opts.restoreStock && !alreadyRestored) {
+    // Once-only across BOTH the app flow and the charge.refunded webhook (which
+    // our own refunds.create above triggers within seconds) — atomic claim, not
+    // a read of possibly-stale Refund rows.
+    if (opts.restoreStock && (await claimFullRestock(order.id))) {
         const restoreItems = order.fulfillments.flatMap(f =>
             f.items.map(it => ({
                 productId: it.orderItem.productId,
@@ -178,17 +240,15 @@ export async function refundOrderFullInternal(
 
     /* ─── Audit + status flips ────────────────────────────────────────── */
 
-    const refundRecord = await prisma.refund.create({
-        data: {
-            orderId: order.id,
-            initiatedByUserId: opts.initiatedByUserId,
-            amountCents,
-            reason: opts.reason,
-            notes: opts.notes?.trim() || null,
-            stripeRefundId,
-            restoredStock: stockRestored,
-            reversedTax: taxReversed,
-        },
+    const refundRecord = await upsertRefundRecord({
+        orderId: order.id,
+        initiatedByUserId: opts.initiatedByUserId,
+        amountCents,
+        reason: opts.reason,
+        notes: opts.notes?.trim() || null,
+        stripeRefundId,
+        restoredStock: stockRestored,
+        reversedTax: taxReversed,
     });
 
     await prisma.order.update({
@@ -342,6 +402,11 @@ export async function kitchenRemoveItemsCore(
                 data: { refundedQuantity: { increment: qty } },
             }),
         ),
+        // The charge.refunded webhook fires within seconds of our refunds.create
+        // above and may have recorded this refund id first with generic
+        // attribution — replace its row with ours atomically instead of
+        // crashing the whole edit on the unique constraint.
+        prisma.refund.deleteMany({ where: { stripeRefundId } }),
         prisma.refund.create({
             data: {
                 orderId: order.id,

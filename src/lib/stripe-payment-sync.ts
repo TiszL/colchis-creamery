@@ -27,7 +27,7 @@ import type { DeliveryMethod } from '@prisma/client';
 import { stripe } from '@/lib/stripe';
 import { prisma } from '@/lib/db';
 import { commitStock, releaseStock, restoreStock } from '@/lib/stock-reservation';
-import { cancelActiveCarrierDeliveries } from '@/lib/order-refund';
+import { cancelActiveCarrierDeliveries, chargeHasTransfer, claimFullRestock } from '@/lib/order-refund';
 import {
     sendOrderConfirmation,
     sendNewOrderKitchenEmail,
@@ -44,7 +44,50 @@ const PROCESSING_RESERVATION_MS = 7 * 24 * 60 * 60 * 1000;
 
 /* ─── Per-order paid-processing claim (see header) ─────────────────────── */
 
+// A claim is a LEASE, not a permanent lock: if the process died between claim
+// and commit (lambda timeout, deploy, OOM), the order would otherwise stay
+// UNPAID forever while every recovery path no-ops against the orphaned claim.
+// A claim older than this on a still-unpaid order is considered dead and is
+// stolen by the next caller. Must comfortably exceed the longest possible
+// commit (commitStock tx timeout is 15s).
+const PAID_SYNC_LEASE_MS = 10 * 60 * 1000;
+
 async function claimPaidSync(orderId: string): Promise<boolean> {
+    try {
+        await prisma.processedStripeEvent.create({
+            data: { id: `paid-sync:${orderId}`, type: 'internal.paid-sync' },
+        });
+        return true;
+    } catch (e) {
+        if ((e as { code?: string })?.code !== 'P2002') throw e;
+    }
+
+    // Claim exists. If the order actually reached PAID, this is a completed
+    // claim — genuine no-op. If the order is still unpaid and the claim is
+    // stale, the holder died mid-commit: steal the lease and retry once.
+    const [claim, order] = await Promise.all([
+        prisma.processedStripeEvent.findUnique({ where: { id: `paid-sync:${orderId}` } }),
+        prisma.order.findUnique({ where: { id: orderId }, select: { paymentStatus: true } }),
+    ]);
+    if (!claim) {
+        // Holder failed and released between our insert attempt and now — retry.
+        return claimPaidSync(orderId);
+    }
+    if (order?.paymentStatus === 'PAID' || order?.paymentStatus === 'REFUNDED') return false;
+    if (Date.now() - claim.processedAt.getTime() < PAID_SYNC_LEASE_MS) return false; // holder plausibly alive
+
+    console.warn(`[payment-sync] Stealing stale paid-sync lease for order ${orderId} (claimed ${claim.processedAt.toISOString()}, order still ${order?.paymentStatus ?? 'missing'})`);
+    await sendOpsAlertEmail({
+        subject: 'Payment processing stalled — retrying automatically',
+        orderId,
+        lines: [
+            'A previous attempt to mark this order as paid died mid-commit (server restart or timeout).',
+            'The system is retrying now. If this order does not show PAID in admin within 10 minutes, investigate.',
+        ],
+    }).catch(() => undefined);
+    // Delete-then-recreate; if a rival steals it between the two calls, the
+    // create conflicts and we correctly back off.
+    await prisma.processedStripeEvent.delete({ where: { id: `paid-sync:${orderId}` } }).catch(() => undefined);
     try {
         await prisma.processedStripeEvent.create({
             data: { id: `paid-sync:${orderId}`, type: 'internal.paid-sync' },
@@ -82,7 +125,13 @@ export async function processPaymentSucceeded(pi: Stripe.PaymentIntent): Promise
     if (order.orderStatus === 'CANCELLED') {
         console.warn('[payment-sync] Late success on CANCELLED order — auto-refunding:', order.id, 'PI:', pi.id);
         try {
-            await stripe.refunds.create({ payment_intent: pi.id });
+            // reverse_transfer only when the charge actually has a Connect
+            // transfer — otherwise the platform funds the refund while the
+            // location keeps the money.
+            await stripe.refunds.create({
+                payment_intent: pi.id,
+                reverse_transfer: await chargeHasTransfer(pi.id),
+            });
             await prisma.order.update({
                 where: { id: order.id },
                 data: { paymentStatus: 'REFUNDED' },
@@ -220,22 +269,34 @@ export async function processPaymentFailed(pi: Stripe.PaymentIntent): Promise<vo
         return;
     }
 
+    // ATOMIC state-guarded flip FIRST, release stock only if WE won the flip.
+    // Multiple cancellers can race here (this handler via the webhook, the
+    // reservation cron, a payment_intent.canceled the cron itself triggered) —
+    // the snapshot checks above are not sufficient. A second releaseStock for
+    // the same order would eat OTHER orders' reservedQuantity on shared stock
+    // rows. The guard also refuses to overwrite a concurrent PAID commit.
+    const flipped = await prisma.order.updateMany({
+        where: {
+            id: order.id,
+            paymentStatus: { in: ['UNPAID', 'PROCESSING'] },
+            orderStatus: { not: 'CANCELLED' },
+        },
+        data: {
+            paymentStatus: 'FAILED',
+            orderStatus: 'CANCELLED',
+        },
+    });
+    if (flipped.count === 0) {
+        console.log('[payment-sync] Failure flip lost the race (order already terminal), no-op:', order.id);
+        return;
+    }
+    await prisma.orderFulfillment.updateMany({
+        where: { orderId: order.id },
+        data: { status: 'CANCELLED' },
+    });
+
     const reservationItems = reservationItemsFromOrder(order);
     await releaseStock(reservationItems);
-
-    await prisma.$transaction([
-        prisma.order.update({
-            where: { id: order.id },
-            data: {
-                paymentStatus: 'FAILED',
-                orderStatus: 'CANCELLED',
-            },
-        }),
-        prisma.orderFulfillment.updateMany({
-            where: { orderId: order.id },
-            data: { status: 'CANCELLED' },
-        }),
-    ]);
 
     console.log('[payment-sync] Order cancelled + stock released:', order.id);
 }
@@ -264,21 +325,26 @@ export async function markPaymentProcessing(pi: Stripe.PaymentIntent): Promise<v
 
 /* ─── Reconcile (webhook-independent recovery) ─────────────────────────── */
 
-export type ReconcileResult = 'settled' | 'paid' | 'processing' | 'pending' | 'unknown';
+export type ReconcileResult = 'settled' | 'paid' | 'processing' | 'failed' | 'pending' | 'stale' | 'unknown';
 
 /**
  * Ask Stripe directly what happened to an order's payment and sync our state.
  * Called from the checkout success page (customer just paid — don't depend on
  * the webhook having fired) and from the reservation cron (never cancel an
  * order without checking Stripe first). Safe to call repeatedly.
+ *
+ * maxAgeMs (used by the public success page) refuses to hit Stripe for old
+ * orders — without it the page would be an unauthenticated amplifier anyone
+ * could hammer with a dead order id forever.
  */
-export async function reconcileOrderFromStripe(orderId: string): Promise<ReconcileResult> {
+export async function reconcileOrderFromStripe(orderId: string, opts: { maxAgeMs?: number } = {}): Promise<ReconcileResult> {
     const order = await prisma.order.findUnique({
         where: { id: orderId },
-        select: { id: true, paymentStatus: true, stripePaymentIntentId: true },
+        select: { id: true, paymentStatus: true, stripePaymentIntentId: true, createdAt: true },
     });
     if (!order?.stripePaymentIntentId) return 'unknown';
-    if (order.paymentStatus === 'PAID' || order.paymentStatus === 'REFUNDED') return 'settled';
+    if (order.paymentStatus === 'PAID' || order.paymentStatus === 'REFUNDED' || order.paymentStatus === 'FAILED') return 'settled';
+    if (opts.maxAgeMs && Date.now() - order.createdAt.getTime() > opts.maxAgeMs) return 'stale';
 
     const pi = await stripe.paymentIntents.retrieve(order.stripePaymentIntentId);
     if (pi.status === 'succeeded') {
@@ -288,6 +354,13 @@ export async function reconcileOrderFromStripe(orderId: string): Promise<Reconci
     if (pi.status === 'processing') {
         await markPaymentProcessing(pi);
         return 'processing';
+    }
+    // A PROCESSING order whose intent is no longer in-flight means the bank
+    // payment bounced (ACH debit returned / intent canceled) — the failure
+    // webhook may have been missed, so settle it here: cancel + release.
+    if (order.paymentStatus === 'PROCESSING' && (pi.status === 'canceled' || pi.status === 'requires_payment_method')) {
+        await processPaymentFailed(pi);
+        return 'failed';
     }
     return 'pending';
 }
@@ -344,25 +417,34 @@ export async function syncExternalRefund(charge: Stripe.Charge): Promise<void> {
     const fullyRefunded = charge.refunded === true || (charge.amount_refunded ?? 0) >= totalCents;
     if (!fullyRefunded) {
         if (external.length > 0) {
-            console.log('[payment-sync] Partial dashboard refund recorded for order', order.id);
+            console.log('[payment-sync] Partial external refund recorded for order', order.id);
         }
         return;
     }
-    if (order.paymentStatus === 'REFUNDED') return; // app-initiated full refund already handled everything
+    if (external.length === 0) return; // app-initiated full refund — refundOrderFullCore already handled everything
 
-    await prisma.$transaction([
-        prisma.order.update({
-            where: { id: order.id },
-            data: { paymentStatus: 'REFUNDED', orderStatus: 'CANCELLED' },
-        }),
-        prisma.orderFulfillment.updateMany({
-            where: {
-                orderId: order.id,
-                status: { in: ['PENDING', 'CONFIRMED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY'] },
-            },
-            data: { status: 'CANCELLED' },
-        }),
-    ]);
+    // A refund does not un-deliver food: legs the customer already received
+    // stay DELIVERED (mirrors refundOrderFullCore), and the order is only
+    // marked CANCELLED when nothing was delivered.
+    const anythingDelivered = order.fulfillments.some(f => f.status === 'DELIVERED');
+    const flipped = await prisma.order.updateMany({
+        where: { id: order.id, paymentStatus: { not: 'REFUNDED' } },
+        data: {
+            paymentStatus: 'REFUNDED',
+            ...(anythingDelivered ? {} : { orderStatus: 'CANCELLED' }),
+        },
+    });
+    if (flipped.count === 0) {
+        console.log('[payment-sync] External refund: order already REFUNDED, no-op:', order.id);
+        return;
+    }
+    await prisma.orderFulfillment.updateMany({
+        where: {
+            orderId: order.id,
+            status: { in: ['PENDING', 'CONFIRMED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY'] },
+        },
+        data: { status: 'CANCELLED' },
+    });
 
     // Recall any live courier so a driver isn't sent for a refunded order.
     try {
@@ -376,12 +458,13 @@ export async function syncExternalRefund(charge: Stripe.Charge): Promise<void> {
             '[payment-sync:charge.refunded]',
         );
     } catch (e) {
-        console.error('[payment-sync] courier recall failed after dashboard refund:', e);
+        console.error('[payment-sync] courier recall failed after external refund:', e);
     }
 
-    // Restore stock at most once per order (mirrors refundOrderFullCore's guard).
-    const alreadyRestored = order.refunds.some(r => r.restoredStock);
-    if (!alreadyRestored && external.length > 0) {
+    // Restore stock exactly once across app + webhook paths (atomic claim —
+    // NOT a read of possibly-stale Refund rows). Never restock delivered
+    // goods: they physically left the building.
+    if (!anythingDelivered && (await claimFullRestock(order.id))) {
         try {
             await restoreStock(reservationItemsFromOrder(order), { orderId: order.id, initiatedByUserId: null });
             await prisma.refund.updateMany({
@@ -389,7 +472,7 @@ export async function syncExternalRefund(charge: Stripe.Charge): Promise<void> {
                 data: { restoredStock: true },
             });
         } catch (e) {
-            console.error('[payment-sync] restock failed after dashboard refund for order', order.id, ':', e);
+            console.error('[payment-sync] restock failed after external refund for order', order.id, ':', e);
         }
     }
 
@@ -398,12 +481,14 @@ export async function syncExternalRefund(charge: Stripe.Charge): Promise<void> {
         orderId: order.id,
         lines: [
             'A full refund was issued for this order outside the app (Stripe dashboard or API).',
-            'The order has been marked REFUNDED, its kitchen fulfillments cancelled, couriers recalled, and stock restored.',
+            anythingDelivered
+                ? 'Some legs were already DELIVERED — the order keeps its delivery history and stock was NOT restored.'
+                : 'The order has been cancelled, couriers recalled, and stock restored.',
             'No customer email was sent automatically — contact the customer if they need an explanation.',
         ],
     }).catch(() => undefined);
 
-    console.log('[payment-sync] Dashboard refund synced — order cancelled + refunded:', order.id);
+    console.log('[payment-sync] External refund synced for order:', order.id);
 }
 
 /**

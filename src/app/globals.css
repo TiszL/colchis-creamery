@@ -207,13 +207,18 @@ html {
    never clipped or wrapped. The compact location chip + cart stay inline. The
    quick-action CTA (lang/auth/order) stays inline until 900px, then it too lives
    only in the drawer. */
-@media (max-width: 1320px) {
-  .ch-nav { gap: 14px !important; font-size: 10px !important; }
-}
+/* No-JS / pre-measure fallback breakpoint. Once the Header's ResizeObserver
+   has measured (data-nav-collapsed set on .ch-header-inner), the measurement
+   verdict below OVERRIDES this — the nav collapses exactly when its actual
+   content doesn't fit, for any label length / locale / width. */
 @media (max-width: 1200px) {
   .ch-nav-desktop { display: none !important; }
   .ch-burger { display: flex !important; }
 }
+[data-nav-collapsed="true"] .ch-nav-desktop { display: none !important; }
+[data-nav-collapsed="true"] .ch-burger { display: flex !important; }
+[data-nav-collapsed="false"] .ch-nav-desktop { display: flex !important; }
+[data-nav-collapsed="false"] .ch-burger { display: none !important; }
 @media (max-width: 900px) {
   .ch-header-inner { padding: 16px 16px !important; gap: 8px !important; }
   .ch-header-cta { display: none !important; }

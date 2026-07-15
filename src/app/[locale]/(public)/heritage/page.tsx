@@ -2,8 +2,8 @@ import { ColchisSeal } from "@/components/brand/ColchisSeal";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Heritage | Colchis Food",
-  description: "From ancient Colchis to Dublin, Ohio — 2,000 years of Georgian cheese and bread tradition.",
+  title: "Heritage",
+  description: "From ancient Colchis to Dublin, Ohio — 6,000 years of Georgian cheese and bread tradition.",
 };
 
 const timelineEvents = [
@@ -37,7 +37,7 @@ export default function HeritagePage() {
             <br />the known world.
           </h1>
           <div className="ch-heritage-lead" style={{ marginTop: 48, fontFamily: "var(--font-serif)", fontStyle: "italic", fontSize: "clamp(18px, 2.5vw, 28px)", lineHeight: 1.45, color: "#2C3D33", maxWidth: 800 }}>
-            Two thousand years ago, Colchis was the kingdom Greek sailors called the edge of the known world — a
+            Six thousand years ago, Colchis was the kingdom Greek sailors called the edge of the known world — a
             black-sea coast of vine and wheat, of cheese aged in clay and bread baked in earth ovens. We make those
             foods, here, with milk from Ohio dairies and the same recipes our grandmothers taught.
           </div>

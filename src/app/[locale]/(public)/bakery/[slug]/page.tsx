@@ -31,7 +31,7 @@ export async function generateMetadata({ params }: BakeryPdpProps): Promise<Meta
 
   const canonicalPath = locale === 'en' ? `/bakery/${slug}` : `/${locale}/bakery/${slug}`;
   return {
-    title: `${product.name} | Colchis Food Bakery`,
+    title: `${product.name} | Bakery`,
     description: product.description.slice(0, 160),
     alternates: {
       canonical: `${SITE_URL}${canonicalPath}`,
@@ -45,7 +45,7 @@ export async function generateMetadata({ params }: BakeryPdpProps): Promise<Meta
     },
     openGraph: {
       type: 'website',
-      title: `${product.name} | Colchis Food Bakery`,
+      title: `${product.name} | Bakery`,
       description: product.description.slice(0, 200),
       url: `${SITE_URL}${canonicalPath}`,
       siteName: 'Colchis Food',

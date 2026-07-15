@@ -1,10 +1,10 @@
 const DEFAULTS = {
-  heading: 'Two thousand years ago, Colchis was the kingdom Greek sailors called the edge of the known world — a black-sea coast of vine and wheat, of cheese aged in clay and bread baked in earth ovens.',
+  heading: 'Six thousand years ago, Colchis was the kingdom Greek sailors called the edge of the known world — a black-sea coast of vine and wheat, of cheese aged in clay and bread baked in earth ovens.',
   heading_accent: 'the edge of the known world',
   subheading: 'We make those foods, here, with milk from Ohio dairies and the same recipes our grandmothers taught.',
   image: '',
   stats: [
-    { val: '2,000', label: 'Years of recipe' },
+    { val: '6,000', label: 'Years of recipe' },
     { val: '04', label: 'Generations' },
     { val: '1', label: 'Bakery in Dublin OH' },
     { val: '50', label: 'States we ship' },

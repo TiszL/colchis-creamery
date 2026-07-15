@@ -15,10 +15,10 @@ export const dynamic = 'force-dynamic';
 export async function generateMetadata({ params }: ArticlePageProps): Promise<Metadata> {
     const { locale, slug } = await params;
     const article = await prisma.article.findFirst({ where: { slug, isPublished: true } });
-    if (!article) return { title: 'Article Not Found | Colchis Food' };
+    if (!article) return { title: 'Article Not Found' };
     const canonicalPath = locale === 'en' ? `/journal/${slug}` : `/${locale}/journal/${slug}`;
     return {
-        title: `${article.title} | Journal | Colchis Food`,
+        title: `${article.title} | Journal`,
         description: article.excerpt || article.title,
         keywords: article.tags ? article.tags.split(',').map(t => t.trim()) : ['Colchis Food', 'Georgian cheese'],
         openGraph: {

@@ -7,7 +7,7 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
     const { locale } = await params;
     const canonicalPath = locale === 'en' ? '/legal/terms' : `/${locale}/legal/terms`;
     return {
-        title: 'Terms of Service | Colchis Food',
+        title: 'Terms of Service',
         description: 'Read the Terms of Service for Colchis Food, including wholesale account terms, product information policies, and intellectual property rights.',
         keywords: ['Colchis Food terms', 'terms of service', 'wholesale terms', 'cheese shop terms'],
         alternates: {
@@ -15,11 +15,11 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
             languages: { 'en': `${SITE_URL}/legal/terms`, 'ka': `${SITE_URL}/ka/legal/terms`, 'ru': `${SITE_URL}/ru/legal/terms`, 'es': `${SITE_URL}/es/legal/terms`, 'x-default': `${SITE_URL}/legal/terms` },
         },
         openGraph: {
-            type: 'website', title: 'Terms of Service | Colchis Food',
+            type: 'website', title: 'Terms of Service',
             description: 'Terms and conditions for Colchis Food.',
             url: `${SITE_URL}${canonicalPath}`, siteName: 'Colchis Food',
         },
-        twitter: { card: 'summary', title: 'Terms of Service | Colchis Food', description: 'Our terms of service.' },
+        twitter: { card: 'summary', title: 'Terms of Service', description: 'Our terms of service.' },
     };
 }
 

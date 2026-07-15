@@ -46,7 +46,7 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
     },
     openGraph: {
       type: 'website',
-      title: `${product.name} | Colchis Food`,
+      title: `${product.name}`,
       description: `${product.description} Made exclusively from 100% Grass-Fed A2 Brown Swiss Milk.`,
       url: `${SITE_URL}${canonicalPath}`,
       siteName: 'Colchis Food',
@@ -112,6 +112,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
     priceB2b: parseFloat(product.priceB2b) || 0, stockQuantity: product.stockQuantity,
     isActive: product.isActive, status: product.status as 'ACTIVE' | 'INACTIVE' | 'COMING_SOON',
     isCartOrderable: product.isCartOrderable,
+    isMadeToOrder: product.isMadeToOrder,
     productLineId: product.productLineId, categoryId: product.categoryId,
     productLine: product.productLine, productCategory: product.productCategory,
   };

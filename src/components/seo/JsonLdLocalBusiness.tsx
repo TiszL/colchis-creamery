@@ -1,5 +1,12 @@
-export function JsonLdLocalBusiness() {
-  const jsonLd = {
+import type { PrimaryLocation } from "@/lib/business-location";
+
+// LocalBusiness rich-result schema. Address/geo/phone come from the primary
+// location (single source of truth) so the schema can never drift from the
+// footer/contact page. Google needs image + address (with geo + hours) to
+// render a LocalBusiness result; a bare address won't validate for the local
+// pack.
+export function JsonLdLocalBusiness({ primary }: { primary?: PrimaryLocation }) {
+  const jsonLd: Record<string, unknown> = {
     "@context": "https://schema.org",
     "@type": "LocalBusiness",
     name: "Colchis Food",
@@ -7,10 +14,13 @@ export function JsonLdLocalBusiness() {
       "Authentic Georgian dairy crafted exclusively from 100% Grass-Fed A2 Brown Swiss Milk. Heritage recipes from ancient Colchian traditions, handcrafted fresh in Ohio.",
     url: "https://colchisfood.com",
     logo: "https://colchisfood.com/icon.png",
+    image: "https://colchisfood.com/icon.png",
     address: {
       "@type": "PostalAddress",
-      addressLocality: "Columbus",
-      addressRegion: "OH",
+      streetAddress: primary?.addressLine1 ?? "84 N High St",
+      addressLocality: primary?.city ?? "Dublin",
+      addressRegion: primary?.state ?? "OH",
+      postalCode: primary?.postalCode ?? "43017",
       addressCountry: "US",
     },
     priceRange: "$$",
@@ -40,6 +50,13 @@ export function JsonLdLocalBusiness() {
     },
     sameAs: [],
   };
+
+  const lat = primary?.latitude;
+  const lng = primary?.longitude;
+  if (typeof lat === "number" && typeof lng === "number") {
+    jsonLd.geo = { "@type": "GeoCoordinates", latitude: lat, longitude: lng };
+  }
+  if (primary?.phone) jsonLd.telephone = primary.phone;
 
   return (
     <script

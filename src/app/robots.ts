@@ -11,7 +11,7 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://colchisfood.com';
  * - Co-located with sitemap.ts
  */
 export default function robots(): MetadataRoute.Robots {
-    const isProduction = process.env.NODE_ENV === 'production';
+    const isProduction = (process.env.VERCEL_ENV ?? process.env.NODE_ENV) === 'production';
 
     // Block everything in non-production (dev, preview, staging)
     if (!isProduction) {

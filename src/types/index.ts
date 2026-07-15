@@ -64,6 +64,8 @@ export interface Product {
    *  eligible. Wholesale-only items keep `isB2cVisible=true` so customers see
    *  them, then click through to a "Request a quote" CTA on the PDP. */
   isCartOrderable?: boolean;
+  /** Made-to-order: available even at zero cached stock (cached stockQuantity is unreliable — truth is per-location Stock). */
+  isMadeToOrder?: boolean;
   productLineId?: string | null;
   categoryId?: string | null;
   productLine?: ProductLine | null;

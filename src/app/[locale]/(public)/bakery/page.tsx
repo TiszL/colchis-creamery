@@ -16,7 +16,7 @@ const FROZEN_CATEGORY_SLUG = 'frozen-bake-off';
 const BAKERY_SECTION = 'bakery';
 
 export const metadata: Metadata = {
-  title: "The Bakery | Colchis Food",
+  title: "The Bakery",
   description: "Hot khachapuri delivered in 25 minutes to Dublin, Ohio. Adjaruli, Imeruli, Megruli — fresh from our oven. Frozen ships nationwide.",
 };
 

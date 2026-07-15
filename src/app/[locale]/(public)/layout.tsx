@@ -54,7 +54,7 @@ export default async function PublicLayout({
   return (
     <AuthProvider initialUser={initialUser}>
       <LocationProvider locations={activeLocations} initialSelectedId={initialSelectedId}>
-        <JsonLdLocalBusiness />
+        <JsonLdLocalBusiness primary={primary} />
         <JsonLdOrganization socials={socials} />
         <Header primaryAddressShort={primary.addressLine1} />
         <main className="min-h-screen">{children}</main>

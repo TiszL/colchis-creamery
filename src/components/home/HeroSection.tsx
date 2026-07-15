@@ -9,7 +9,7 @@ const DEFAULTS = {
   eyebrow: '№ 01 — From Colchis, est. MMXXVI',
   headline: 'Bread,\ncheese,\nand a country\nyou should know.',
   headline_accent: 'and a country',
-  subheadline: 'Two thousand years of recipes, hand-pressed and hand-baked in Dublin, Ohio. Hot khachapuri to your door tonight, or aged sulguni shipped to all fifty states.',
+  subheadline: 'Six thousand years of recipes, hand-pressed and hand-baked in Dublin, Ohio. Hot khachapuri to your door tonight, or aged sulguni shipped to all fifty states.',
   cta_primary: 'Shop the Creamery →',
   cta_primary_link: '/shop',
   cta_secondary: 'Read our story',

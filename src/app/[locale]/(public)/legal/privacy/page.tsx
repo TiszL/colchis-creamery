@@ -7,7 +7,7 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
     const { locale } = await params;
     const canonicalPath = locale === 'en' ? '/legal/privacy' : `/${locale}/legal/privacy`;
     return {
-        title: 'Privacy Policy | Colchis Food',
+        title: 'Privacy Policy',
         description: 'Learn how Colchis Food collects, uses, and protects your personal information. Read our full privacy policy.',
         keywords: ['Colchis Food privacy policy', 'data protection', 'personal information', 'cheese shop privacy'],
         alternates: {
@@ -15,11 +15,11 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
             languages: { 'en': `${SITE_URL}/legal/privacy`, 'ka': `${SITE_URL}/ka/legal/privacy`, 'ru': `${SITE_URL}/ru/legal/privacy`, 'es': `${SITE_URL}/es/legal/privacy`, 'x-default': `${SITE_URL}/legal/privacy` },
         },
         openGraph: {
-            type: 'website', title: 'Privacy Policy | Colchis Food',
+            type: 'website', title: 'Privacy Policy',
             description: 'How Colchis Food handles your personal data.',
             url: `${SITE_URL}${canonicalPath}`, siteName: 'Colchis Food',
         },
-        twitter: { card: 'summary', title: 'Privacy Policy | Colchis Food', description: 'Our data privacy practices.' },
+        twitter: { card: 'summary', title: 'Privacy Policy', description: 'Our data privacy practices.' },
     };
 }
 

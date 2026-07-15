@@ -61,7 +61,7 @@ export async function generateMetadata({ params, searchParams }: ShopPageProps):
     },
     openGraph: {
       type: 'website',
-      title: `${title} | Colchis Food`,
+      title: `${title}`,
       description,
       url: `${SITE_URL}${canonicalPath}`,
       siteName: 'Colchis Food',
@@ -202,7 +202,7 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
           eyebrow: 'House No 01 · The Creamery · ყველის სახლი',
           headline: 'Cheese made',
           headline_accent: 'this morning.',
-          subheadline: 'Sulguni and Imeruli, hand-pulled in salted whey from the milk of three small Ohio dairies. The recipe is two thousand years old; the cheese is six hours old.',
+          subheadline: 'Sulguni and Imeruli, hand-pulled in salted whey from the milk of three small Ohio dairies. The recipe is six thousand years old; the cheese is six hours old.',
           stats: [
             { num: '6h', text: 'From milk truck to brine bath. No cheese sits overnight.' },
             { num: '3', text: 'Family dairies in Ohio, within four hours of milking.' },
@@ -264,7 +264,7 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
           heading_suffix: 'and a brine bath.',
           steps: [
             { n: '01', t: 'Milk arrives · 6 AM', d: 'Three Ohio dairies, within four hours of milking. We taste every churn — sweet, balanced, never sour.', time: '06:00–07:00' },
-            { n: '02', t: 'Curds, cut by hand', d: 'Warmed to 86°F. We cut, pull, and knead in salted whey — the same motions for two thousand years.', time: '07:30–09:30' },
+            { n: '02', t: 'Curds, cut by hand', d: 'Warmed to 86°F. We cut, pull, and knead in salted whey — the same motions for six thousand years.', time: '07:30–09:30' },
             { n: '03', t: 'Salt brine · 24 hours', d: 'Cold brine, just under 5% salinity. Fresh Sulguni ships at hour 24. Aged rests seven days with raw Ohio honey.', time: '09:30 → next day' },
             { n: '04', t: 'Out the door · 5 PM', d: 'Wheels weighed, packed cold, labelled with the batch number, off to UPS or onto a Doordash for Dublin.', time: '16:30–17:30' },
           ],

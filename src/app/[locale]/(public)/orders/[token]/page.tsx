@@ -23,7 +23,7 @@ interface PageProps {
 export async function generateMetadata({ params }: PageProps) {
     const { locale } = await params;
     return {
-        title: locale === 'en' ? 'Your order — Colchis Food' : 'Tu pedido — Colchis Food',
+        title: ({ en: 'Your order', ka: 'თქვენი შეკვეთა', ru: 'Ваш заказ', es: 'Tu pedido' } as Record<string, string>)[locale] ?? 'Your order',
         // Lookup pages are tied to a specific token in the URL — we don't want
         // any of them indexed or followed by crawlers.
         robots: { index: false, follow: false },

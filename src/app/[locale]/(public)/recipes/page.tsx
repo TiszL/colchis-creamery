@@ -11,7 +11,7 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
     const ogImage = await getOgImage('recipes');
 
     return {
-        title: 'Recipes & Pairings | Colchis Food',
+        title: 'Recipes & Pairings',
         description: 'Traditional Georgian and easy modern recipes. Filter by what you have time for, what you have in the fridge, and who you are feeding.',
         keywords: ['Georgian cheese recipes', 'sulguni recipes', 'khachapuri', 'cheese pairings', 'Georgian cooking'],
         alternates: {
@@ -26,7 +26,7 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
         },
         openGraph: {
             type: 'website',
-            title: 'Recipes & Pairings | Colchis Food',
+            title: 'Recipes & Pairings',
             description: 'Traditional Georgian and easy modern recipes.',
             url: `${SITE_URL}${canonicalPath}`,
             siteName: 'Colchis Food',

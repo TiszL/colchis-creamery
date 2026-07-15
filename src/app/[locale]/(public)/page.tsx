@@ -71,6 +71,9 @@ export default async function HomePage({ params }: HomePageProps) {
       where: { status: { in: ['ACTIVE', 'COMING_SOON'] }, isB2cVisible: true },
       orderBy: { name: 'asc' },
       take: 6,
+      // sections drive the correct PDP route + house label on the homepage
+      // (Product.house was dropped in 1i).
+      include: { productCategory: { select: { sections: true } } },
     }).catch(() => []),
     prisma.siteConfig.findMany({
       where: { key: { startsWith: 'home.' } },
@@ -116,7 +119,7 @@ export default async function HomePage({ params }: HomePageProps) {
   };
 
   // Map products
-  const products: Product[] = dbProducts.map(p => ({
+  const products: (Product & { section: 'bakery' | 'creamery' })[] = dbProducts.map(p => ({
     id: p.id,
     sku: p.sku,
     name: p.name,
@@ -132,6 +135,7 @@ export default async function HomePage({ params }: HomePageProps) {
     stockQuantity: p.stockQuantity,
     isActive: p.isActive,
     status: p.status as 'ACTIVE' | 'INACTIVE' | 'COMING_SOON',
+    section: (p.productCategory?.sections ?? []).includes('bakery') ? 'bakery' as const : 'creamery' as const,
   }));
 
   return (

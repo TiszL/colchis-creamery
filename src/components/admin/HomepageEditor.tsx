@@ -47,7 +47,7 @@ export default function HomepageEditor({ initialData }: HomepageEditorProps) {
         eyebrow: '№ 01 — From Colchis, est. MMXXVI',
         headline: 'Bread,\ncheese,\nand a country\nyou should know.',
         headline_accent: 'and a country',
-        subheadline: 'Two thousand years of recipes, hand-pressed and hand-baked in Dublin, Ohio. Hot khachapuri to your door tonight, or aged sulguni shipped to all fifty states.',
+        subheadline: 'Six thousand years of recipes, hand-pressed and hand-baked in Dublin, Ohio. Hot khachapuri to your door tonight, or aged sulguni shipped to all fifty states.',
         cta_primary: 'Shop the Creamery →',
         cta_primary_link: '/shop',
         cta_secondary: 'Read our story',
@@ -59,12 +59,12 @@ export default function HomepageEditor({ initialData }: HomepageEditorProps) {
 
     // ─── Story State ─────────────────────────────────────────────────────────────
     const [story, setStory] = useState(initialData.story || {
-        heading: 'Two thousand years ago, Colchis was the kingdom Greek sailors called the edge of the known world — a black-sea coast of vine and wheat, of cheese aged in clay and bread baked in earth ovens.',
+        heading: 'Six thousand years ago, Colchis was the kingdom Greek sailors called the edge of the known world — a black-sea coast of vine and wheat, of cheese aged in clay and bread baked in earth ovens.',
         heading_accent: 'the edge of the known world',
         subheading: 'We make those foods, here, with milk from Ohio dairies and the same recipes our grandmothers taught.',
         image: '',
         stats: [
-            { val: '2,000', label: 'Years of recipe' },
+            { val: '6,000', label: 'Years of recipe' },
             { val: '04', label: 'Generations' },
             { val: '1', label: 'Bakery in Dublin OH' },
             { val: '50', label: 'States we ship' },
@@ -87,7 +87,7 @@ export default function HomepageEditor({ initialData }: HomepageEditorProps) {
         heading_accent: 'start to finish.',
         steps: [
             { n: '01', t: 'Milk arrives 6 AM', d: 'From three Ohio dairies, within 4 hours of milking. Cow only — never sheep.' },
-            { n: '02', t: 'Curds, cut by hand', d: 'Heated to 86°F, cut, pulled, kneaded. The same motions for two thousand years.' },
+            { n: '02', t: 'Curds, cut by hand', d: 'Heated to 86°F, cut, pulled, kneaded. The same motions for six thousand years.' },
             { n: '03', t: 'Brine 24 hours', d: 'Cold salt brine. Fresh sulguni ships at hour 24. Aged sulguni rests 7 days with raw honey.' },
             { n: '04', t: 'Out the door by 5 PM', d: 'Packed cold, into UPS for the country, or onto Doordash for Dublin.' },
         ],

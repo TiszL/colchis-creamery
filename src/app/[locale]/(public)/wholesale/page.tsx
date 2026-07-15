@@ -137,7 +137,7 @@ export default function WholesalePage() {
             </div>
             <div style={{ marginTop: 40, paddingTop: 28, borderTop: "1px solid #1F302622" }}>
               <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.24em", color: "#7A8278", textTransform: "uppercase" }}>Or email directly</div>
-              <div style={{ fontFamily: "var(--font-serif)", fontSize: 26, color: "#1F3026", marginTop: 8 }}>wholesale@colchisfood.com</div>
+              <div style={{ fontFamily: "var(--font-serif)", fontSize: 26, color: "#1F3026", marginTop: 8 }}>sales@colchisfood.com</div>
             </div>
           </div>
           <form action={formAction} style={{ background: "#EAE2D2", padding: 40 }}>

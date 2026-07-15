@@ -3,7 +3,7 @@ const DEFAULTS = {
   heading_accent: 'start to finish.',
   steps: [
     { n: "01", t: "Milk arrives 6 AM", d: "From three Ohio dairies, within 4 hours of milking. Cow only — never sheep." },
-    { n: "02", t: "Curds, cut by hand", d: "Heated to 86°F, cut, pulled, kneaded. The same motions for two thousand years." },
+    { n: "02", t: "Curds, cut by hand", d: "Heated to 86°F, cut, pulled, kneaded. The same motions for six thousand years." },
     { n: "03", t: "Brine 24 hours", d: "Cold salt brine. Fresh sulguni ships at hour 24. Aged sulguni rests 7 days with raw honey." },
     { n: "04", t: "Out the door by 5 PM", d: "Packed cold, into UPS for the country, or onto Doordash for Dublin." },
   ],

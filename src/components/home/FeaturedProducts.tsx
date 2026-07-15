@@ -4,17 +4,20 @@ import Link from "next/link";
 import type { Product } from "@/types";
 
 interface FeaturedProductsProps {
-  products: Product[];
+  products: (Product & { section?: "bakery" | "creamery" })[];
   locale: string;
 }
 
 export function FeaturedProducts({ products, locale }: FeaturedProductsProps) {
   const prefix = locale === "en" ? "" : `/${locale}`;
 
-  // Map db products to the new card format
+  // Map db products to the new card format. `section` (from Category.sections)
+  // drives BOTH the house label and the PDP route — Product.house was dropped
+  // in 1i, and there is no /shop/[slug] route (PDPs live at /bakery|/creamery).
   const displayItems = products.length > 0
     ? products.map((p) => ({
-        house: (p as unknown as { house?: string }).house === "BAKERY" ? "Bakery" : "Creamery",
+        house: p.section === "bakery" ? "Bakery" : "Creamery",
+        section: p.section === "bakery" ? "bakery" : "creamery",
         name: p.name,
         ka: "",
         price: `$${p.priceB2c.toFixed(0)}`,
@@ -24,12 +27,12 @@ export function FeaturedProducts({ products, locale }: FeaturedProductsProps) {
         imageUrl: p.imageUrl,
       }))
     : [
-        { house: "Creamery", name: "Sulguni · Fresh", ka: "სულგუნი", price: "$14", note: "100% cow milk · 340g · brined fresh", tag: "Bestseller", slug: "sulguni-fresh", imageUrl: "" },
-        { house: "Creamery", name: "Sulguni · Aged", ka: "სულგუნი", price: "$18", note: "Cow milk · honey-cured · 7 days · 280g", tag: "Limited", slug: "sulguni-aged", imageUrl: "" },
-        { house: "Creamery", name: "Imeruli", ka: "იმერული", price: "$12", note: "Cow milk · pulled in salted whey · 320g", tag: "", slug: "imeruli", imageUrl: "" },
-        { house: "Bakery", name: "Adjaruli Khachapuri", ka: "აჭარული", price: "$16", note: "Boat-shape · egg yolk · butter · 520g", tag: "Hot · 25 min", slug: "adjaruli", imageUrl: "" },
-        { house: "Bakery", name: "Imeruli Khachapuri", ka: "იმერული", price: "$14", note: "Round, sulguni-stuffed · 480g", tag: "", slug: "imeruli-khachapuri", imageUrl: "" },
-        { house: "Bakery", name: "Frozen Adjaruli · 2-pk", ka: "აჭარული", price: "$24", note: "Ships nationwide · bake in 18 min", tag: "Ships", slug: "frozen-adjaruli", imageUrl: "" },
+        { house: "Creamery", section: "creamery", name: "Sulguni · Fresh", ka: "სულგუნი", price: "$14", note: "100% cow milk · 340g · brined fresh", tag: "Bestseller", slug: "sulguni-fresh", imageUrl: "" },
+        { house: "Creamery", section: "creamery", name: "Sulguni · Aged", ka: "სულგუნი", price: "$18", note: "Cow milk · honey-cured · 7 days · 280g", tag: "Limited", slug: "sulguni-aged", imageUrl: "" },
+        { house: "Creamery", section: "creamery", name: "Imeruli", ka: "იმერული", price: "$12", note: "Cow milk · pulled in salted whey · 320g", tag: "", slug: "imeruli", imageUrl: "" },
+        { house: "Bakery", section: "bakery", name: "Adjaruli Khachapuri", ka: "აჭარული", price: "$16", note: "Boat-shape · egg yolk · butter · 520g", tag: "Hot · 25 min", slug: "adjaruli", imageUrl: "" },
+        { house: "Bakery", section: "bakery", name: "Imeruli Khachapuri", ka: "იმერული", price: "$14", note: "Round, sulguni-stuffed · 480g", tag: "", slug: "imeruli-khachapuri", imageUrl: "" },
+        { house: "Bakery", section: "bakery", name: "Frozen Adjaruli · 2-pk", ka: "აჭარული", price: "$24", note: "Ships nationwide · bake in 18 min", tag: "Ships", slug: "frozen-adjaruli", imageUrl: "" },
       ];
 
   return (
@@ -51,7 +54,7 @@ export function FeaturedProducts({ products, locale }: FeaturedProductsProps) {
         {/* Product grid — matches rebrand spec exactly */}
         <div className="ch-grid-3" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 24 }}>
           {displayItems.map((p, i) => (
-            <Link key={i} href={`${prefix}/shop/${p.slug}`} style={{ textDecoration: "none", color: "inherit", display: "flex", flexDirection: "column", background: "#F5F0E6", border: "1px solid #1F302614", overflow: "hidden", transition: "transform 200ms, box-shadow 200ms" }}>
+            <Link key={i} href={`${prefix}/${p.section}/${p.slug}`} style={{ textDecoration: "none", color: "inherit", display: "flex", flexDirection: "column", background: "#F5F0E6", border: "1px solid #1F302614", overflow: "hidden", transition: "transform 200ms, box-shadow 200ms" }}>
               {/* Image area */}
               <div style={{ aspectRatio: "4/3", background: "#EAE2D2", position: "relative", display: "flex", alignItems: "center", justifyContent: "center", borderBottom: "1px solid #1F302614" }}>
                 {p.imageUrl ? (

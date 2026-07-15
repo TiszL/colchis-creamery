@@ -12,6 +12,8 @@ import { applyFreeShippingRule, type FulfillmentPlan, type ChannelQuote } from '
 import { planFulfillment } from '@/app/actions/shipping-plan';
 import { createCheckoutSession, type CheckoutInput } from '@/app/actions/checkout';
 import { isValidUSPhone } from '@/lib/phone';
+import { isOpenNow, nextOpenSlot } from '@/lib/location-hours';
+import { BUSINESS_TIMEZONE } from '@/lib/timezone';
 import type { DeliveryMethod } from '@prisma/client';
 
 /* ─── Types ────────────────────────────────────────────────────────────── */
@@ -32,37 +34,11 @@ interface CheckoutClientProps {
     initialContact: { name: string; email: string; phone: string };
 }
 
-/* ─── Hours helpers (Lite — Q4) ────────────────────────────────────────── */
-
-const DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
-
-function isOpenNow(hours: LocationLite['hours'], now: Date = new Date()): boolean {
-    if (!hours) return false;
-    const range = hours[DAY_KEYS[now.getDay()]];
-    if (!range) return false;
-    const [openStr, closeStr] = range.split('-');
-    if (!openStr || !closeStr) return false;
-    const [oh, om] = openStr.split(':').map(Number);
-    const [ch, cm] = closeStr.split(':').map(Number);
-    const nowMin = now.getHours() * 60 + now.getMinutes();
-    return nowMin >= oh * 60 + (om || 0) && nowMin < ch * 60 + (cm || 0);
-}
-
-function nextOpenSlot(hours: LocationLite['hours'], from: Date = new Date()): Date | null {
-    if (!hours) return null;
-    for (let i = 0; i < 8; i++) {
-        const candidate = new Date(from);
-        candidate.setDate(from.getDate() + i);
-        const range = hours[DAY_KEYS[candidate.getDay()]];
-        if (!range) continue;
-        const [openStr] = range.split('-');
-        if (!openStr) continue;
-        const [h, m] = openStr.split(':').map(Number);
-        candidate.setHours(h, m || 0, 0, 0);
-        if (candidate > from) return candidate;
-    }
-    return null;
-}
+/* ─── Hours helpers ────────────────────────────────────────────────────── */
+// LAUNCH FIX: this file used to carry a private copy of the hours math that
+// ran on the CUSTOMER's browser clock — a shopper in another timezone saw
+// wrong open/closed hints. isOpenNow/nextOpenSlot now come from the shared
+// lib (imported above), which evaluates in the STORE's timezone.
 
 function formatDateTimeShort(d: Date): string {
     return d.toLocaleString('en-US', {
@@ -71,6 +47,9 @@ function formatDateTimeShort(d: Date): string {
         day: 'numeric',
         hour: 'numeric',
         minute: '2-digit',
+        // Show the slot in STORE time — "opens Thu 7:00 AM" must mean the
+        // bakery's morning, not the browser's.
+        timeZone: BUSINESS_TIMEZONE,
     });
 }
 

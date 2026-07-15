@@ -24,7 +24,7 @@ import { revalidatePath } from 'next/cache';
 // Shared refund core + carrier-cancel helper live in lib — NOT exported from
 // this 'use server' module, which would expose them as unauthenticated
 // server-action endpoints. See src/lib/order-refund.ts.
-import { cancelActiveCarrierDeliveries, refundOrderFullInternal } from '@/lib/order-refund';
+import { cancelActiveCarrierDeliveries, refundOrderFullInternal, chargeHasTransfer } from '@/lib/order-refund';
 
 export type CancelOrderResult =
     | { ok: true }
@@ -77,8 +77,8 @@ export async function cancelOrder(orderId: string): Promise<CancelOrderResult> {
             payment_intent: order.stripePaymentIntentId,
             // Connect destination charges: reverse the transfer too so the refund
             // pulls from the connected account, not just the platform balance.
-            // Stripe ignores this on plain platform charges, so it's safe always.
-            reverse_transfer: true,
+            // Only when a transfer exists — Stripe REJECTS it on platform charges.
+            reverse_transfer: await chargeHasTransfer(order.stripePaymentIntentId),
             metadata: { orderId: order.id, reason: 'customer_cancellation' },
             reason: 'requested_by_customer',
         });
@@ -267,9 +267,9 @@ export async function refundOrder(input: RefundOrderInput): Promise<RefundOrderR
             payment_intent: order.stripePaymentIntentId,
             amount: amountCents,
             // Connect destination charges: reverse the transfer proportionally so
-            // partial refunds also pull from the connected account. No-op on
-            // platform charges.
-            reverse_transfer: true,
+            // partial refunds also pull from the connected account. Only when a
+            // transfer exists — Stripe REJECTS it on platform charges.
+            reverse_transfer: await chargeHasTransfer(order.stripePaymentIntentId),
             metadata: {
                 orderId: order.id,
                 reason: input.reason,

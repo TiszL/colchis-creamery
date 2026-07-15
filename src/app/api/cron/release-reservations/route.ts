@@ -22,6 +22,7 @@ import { prisma } from '@/lib/db';
 import { stripe } from '@/lib/stripe';
 import { releaseStock } from '@/lib/stock-reservation';
 import { processPaymentSucceeded, markPaymentProcessing, reconcileOrderFromStripe } from '@/lib/stripe-payment-sync';
+import { sendOpsAlertEmail } from '@/lib/email';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -223,9 +224,57 @@ export async function GET(req: Request) {
         }
     }
 
-    if (released > 0 || rescued > 0 || deferred > 0 || errors > 0 || processingSettled > 0) {
+    // Third sweep: PAID orders sitting UNACCEPTED in the kitchen queue. An
+    // asleep tablet means the chime never fired and nobody is watching — the
+    // customer paid and their order is silently dying. One escalation email
+    // per fulfillment (stamped), to the location's kitchen inbox + ops.
+    // Scheduled (after-hours) orders only count once their scheduled time is
+    // due — an overnight order awaiting opening is NOT stuck.
+    let escalated = 0;
+    const UNACCEPTED_ALERT_MS = 5 * 60 * 1000;
+    const stuck = await prisma.orderFulfillment.findMany({
+        where: {
+            status: 'PENDING',
+            unacceptedAlertAt: null,
+            deliveryMethod: { in: ['DOORDASH_DRIVE', 'UBER_DIRECT', 'OWN_DELIVERY', 'IN_STORE_PICKUP', 'IN_STORE_DINE_IN'] },
+            order: { paymentStatus: 'PAID' },
+        },
+        select: {
+            id: true, createdAt: true, scheduledFor: true, orderId: true,
+            location: { select: { id: true, name: true, notificationEmail: true } },
+        },
+        take: 25,
+    });
+    for (const f of stuck) {
+        try {
+            const dueSince = f.scheduledFor && f.scheduledFor > f.createdAt ? f.scheduledFor : f.createdAt;
+            if (now.getTime() - dueSince.getTime() < UNACCEPTED_ALERT_MS) continue;
+            const minutes = Math.round((now.getTime() - dueSince.getTime()) / 60000);
+            await sendOpsAlertEmail({
+                subject: `PAID ORDER UNACCEPTED for ${minutes} min — wake the kitchen`,
+                orderId: f.orderId,
+                alsoTo: f.location.notificationEmail ? [f.location.notificationEmail] : [],
+                lines: [
+                    `A paid order at ${f.location.name} has been waiting ${minutes} minutes with nobody accepting it.`,
+                    'The kitchen tablet may be asleep or the queue closed. Open the order queue and Accept it now:',
+                    `${process.env.NEXT_PUBLIC_SITE_URL || ''}/location-portal/${f.location.id}/orders`,
+                    'If the kitchen cannot fulfill it, use "Problem with order?" to cancel & refund — do not leave the customer waiting in silence.',
+                ],
+            });
+            await prisma.orderFulfillment.update({
+                where: { id: f.id },
+                data: { unacceptedAlertAt: now },
+            });
+            escalated++;
+        } catch (e) {
+            console.error(`[cron/release-reservations] escalation failed for fulfillment ${f.id}:`, e instanceof Error ? e.message : e);
+            errors++;
+        }
+    }
+
+    if (released > 0 || rescued > 0 || deferred > 0 || errors > 0 || processingSettled > 0 || escalated > 0) {
         console.log(
-            `[cron/release-reservations] Sweep complete: scanned=${expiredOrders.length} released=${released} rescued=${rescued} deferred=${deferred} processingChecked=${processingChecked} processingSettled=${processingSettled} errors=${errors}`,
+            `[cron/release-reservations] Sweep complete: scanned=${expiredOrders.length} released=${released} rescued=${rescued} deferred=${deferred} processingChecked=${processingChecked} processingSettled=${processingSettled} escalated=${escalated} errors=${errors}`,
         );
     }
 
@@ -236,6 +285,9 @@ export async function GET(req: Request) {
         released,
         rescued,
         deferred,
+        processingChecked,
+        processingSettled,
+        escalated,
         errors,
         releasedIds,
     });

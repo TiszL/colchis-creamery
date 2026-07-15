@@ -27,7 +27,13 @@ export type TestingModeConfig = {
 };
 
 export const DEFAULT_TESTING_MODE: TestingModeConfig = {
-    enabled: true,
+    // LAUNCH FIX: fail CLOSED to real-store mode. The old default (true) meant
+    // a missing SiteConfig row or a DB/parse hiccup silently told customers
+    // "no real charges happen" on a LIVE store — legal poison. The banner now
+    // renders only when the admin row explicitly enables it (the row was
+    // created in prod as part of this change, so pre-launch behavior is
+    // unchanged until the cutover flips it off).
+    enabled: false,
     modalTitle: 'Welcome — site is in testing',
     modalBody: [
         "We're testing our ordering pipeline before going live for real sales.",

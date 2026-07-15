@@ -48,6 +48,26 @@ export async function cancelActiveCarrierDeliveries(
     }
 }
 
+/* ─── Refund helpers ───────────────────────────────────────────────────── */
+
+// Whether the payment's charge has a Connect transfer (destination charge).
+// Stripe REJECTS reverse_transfer on plain platform charges ("Cannot reverse
+// transfer on charge … because it does not have an associated transfer" —
+// hit on pre-Connect orders), so it must only be sent when a transfer exists.
+// On lookup failure default to false: the refund still goes through from the
+// platform balance; a missed reversal is reconciled manually, a hard-failed
+// refund helps nobody.
+async function chargeHasTransfer(paymentIntentId: string): Promise<boolean> {
+    try {
+        const pi = await stripe.paymentIntents.retrieve(paymentIntentId, { expand: ['latest_charge'] });
+        const charge = pi.latest_charge;
+        return !!(charge && typeof charge !== 'string' && charge.transfer);
+    } catch (e) {
+        console.warn('[chargeHasTransfer] lookup failed — refunding without transfer reversal:', e);
+        return false;
+    }
+}
+
 /* ─── Shared full-refund core ──────────────────────────────────────────── */
 
 export type RefundFullCoreOpts = {
@@ -103,8 +123,8 @@ export async function refundOrderFullInternal(
             amount: amountCents,
             // Connect destination charges: reverse the transfer too so the refund
             // pulls from the connected account, not just the platform balance.
-            // Stripe ignores this on plain platform charges, so it's safe always.
-            reverse_transfer: true,
+            // Only when a transfer exists — Stripe rejects it on platform charges.
+            reverse_transfer: await chargeHasTransfer(order.stripePaymentIntentId),
             metadata: {
                 orderId: order.id,
                 reason: opts.reason,
@@ -298,9 +318,9 @@ export async function kitchenRemoveItemsCore(
         const refund = await stripe.refunds.create({
             payment_intent: order.stripePaymentIntentId,
             amount: refundCents,
-            // Connect destination charges: reverse the transfer too (safe no-op
-            // on plain platform charges).
-            reverse_transfer: true,
+            // Connect destination charges: reverse the transfer too. Only when
+            // a transfer exists — Stripe rejects it on platform charges.
+            reverse_transfer: await chargeHasTransfer(order.stripePaymentIntentId),
             metadata: {
                 orderId: order.id,
                 reason: 'kitchen_item_removed',

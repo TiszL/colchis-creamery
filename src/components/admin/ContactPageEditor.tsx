@@ -22,7 +22,7 @@ const DEFAULT_HERO: HeroState = {
     h1Pre: 'Write us',
     h1Accent: 'a postcard.',
     subheadline: "Or an email. Or call the bakery line — Levan picks up when the oven's resting. We answer every note that lands on the counter.",
-    hoursLabel: 'Tue–Sat · 9am – 7pm EST',
+    hoursLabel: 'Open daily · 7am–10pm',
 };
 const DEFAULT_DESKS: DeskState[] = [
     { id: 'order', label: 'An order', desk: 'Customer care', time: 'Replies in < 4h, M–F' },
@@ -31,11 +31,8 @@ const DEFAULT_DESKS: DeskState[] = [
     { id: 'kitchen', label: 'The kitchen', desk: 'Bake-house notes', time: 'Hand-answered by Levan' },
 ];
 const DEFAULT_HOURS: HoursRowState[] = [
-    { day: 'Mon', hours: 'Closed · cellar day' },
-    { day: 'Tue – Thu', hours: '9 am – 6 pm' },
-    { day: 'Fri', hours: '9 am – 8 pm · hot bake' },
-    { day: 'Sat', hours: '10 am – 7 pm' },
-    { day: 'Sun', hours: '11 am – 4 pm' },
+    { day: 'Mon – Fri', hours: '7 am – 10 pm' },
+    { day: 'Sat – Sun', hours: '7 am – 10 pm' },
 ];
 const DEFAULT_FAQ_LINKS: FaqLinkState[] = [
     { label: 'Shipping & cold-chain', href: '/faq' },

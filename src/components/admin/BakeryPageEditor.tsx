@@ -38,7 +38,7 @@ export default function BakeryPageEditor({ initialData }: BakeryPageEditorProps)
 
     // ─── Hero State ──────────────────────────────────────────────────
     const [hero, setHero] = useState(initialData.hero || {
-        eyebrow: 'The Bakery · საცხობი · Open until 9 PM',
+        eyebrow: 'The Bakery · საცხობი · Open until 10 PM',
         headline: 'Hot from',
         headline_accent: 'the oven',
         headline_suffix: 'in Dublin, Ohio.',
@@ -80,7 +80,7 @@ export default function BakeryPageEditor({ initialData }: BakeryPageEditorProps)
         hot_zone: {
             label: '◐ Hot zone · 8 mi radius',
             cities: 'Dublin · Hilliard · Powell · Worthington',
-            description: 'Doordash & Uber Eats. ETA 25 min until 9 PM. Adding new locations as we grow.',
+            description: 'Doordash & Uber Eats. ETA 25 min until 10 PM. Adding new locations as we grow.',
         },
         ship_zone: {
             label: '▸ Ship zone · 50 states',

@@ -22,8 +22,8 @@ export function Visit({ primary, content }: VisitProps) {
   const cityLine = `${primary.city}, ${primary.state}`;
   const description = content?.description
     || primary.displayDescription
-    || 'The bakery is open Wednesday through Sunday. The creamery is by appointment.';
-  const bakeryHours = primary.displayBakeryHours || 'Wed–Sun · 8a–9p';
+    || 'The bakery is open daily, 7 AM to 10 PM. The creamery is by appointment.';
+  const bakeryHours = primary.displayBakeryHours || 'Open daily · 7am–10pm';
   const phone = primary.phone || '';
   const image = content?.image || '';
 

@@ -935,7 +935,7 @@ function LocationDrawer({
                             <label className="block text-[10px] font-bold text-gray-500 mb-1 uppercase tracking-wider">Visit-block description</label>
                             <textarea value={displayDescription} onChange={e => setDisplayDescription(e.target.value)}
                                 rows={2}
-                                placeholder='e.g. "The bakery is open Wednesday through Sunday, 8 AM to 9 PM."'
+                                placeholder='e.g. "The bakery is open daily, 7 AM to 10 PM."'
                                 className="w-full bg-[#161616] border border-[#B96A3D22] text-white py-2 px-3 focus:outline-none focus:border-[#B96A3D] text-sm" />
                             <p className="text-[9px] text-gray-600 mt-1">Shown on the homepage Visit block under the address. Falls back to a generic line if blank.</p>
                         </div>
@@ -943,7 +943,7 @@ function LocationDrawer({
                         <div>
                             <label className="block text-[10px] font-bold text-gray-500 mb-1 uppercase tracking-wider">Short hours label</label>
                             <input value={displayBakeryHours} onChange={e => setDisplayBakeryHours(e.target.value)}
-                                placeholder='e.g. "Wed–Sun · 8a–9p"'
+                                placeholder='e.g. "Open daily · 7am–10pm"'
                                 className="w-full bg-[#161616] border border-[#B96A3D22] text-white py-2 px-3 focus:outline-none focus:border-[#B96A3D] text-sm" />
                             <p className="text-[9px] text-gray-600 mt-1">One-line summary shown on the homepage Visit block. The detailed hours table on /contact is edited at /admin/website/contact.</p>
                         </div>

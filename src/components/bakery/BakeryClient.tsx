@@ -197,7 +197,7 @@ export default function BakeryClient({ heroContent, menuContent, deliveryContent
   // primary business location (server-fetched), so a fresh deploy without DB
   // overrides never shows a stale hardcoded street.
   const hero = heroContent || {
-    eyebrow: 'The Bakery · საცხობი · Open until 9 PM',
+    eyebrow: 'The Bakery · საცხობი · Open until 10 PM',
     headline: 'Hot from',
     headline_accent: 'the oven',
     headline_suffix: primaryCityState ? `in ${primaryCityState}.` : 'in Dublin, Ohio.',

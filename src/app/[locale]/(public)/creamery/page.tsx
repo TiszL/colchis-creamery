@@ -336,26 +336,13 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
       })()}
 
       {/* ─── SUBSCRIPTION (cheese club) ───────────────────────────────── */}
+      {/* Only renders when the owner has configured it in admin. There is no
+          subscription checkout yet, so the placeholder default (a priced
+          "$48/mo" box whose CTAs loop back to this page) must NOT ship — that's
+          a broken conversion path. Enable + wire real CTAs before showing. */}
       {(() => {
-        const sub = subContent || {
-          eyebrow: '№ 04 — The cheese club',
-          heading: 'One box,',
-          heading_accent: 'every month.',
-          description: 'Three rotating cheeses, a printed recipe card, and a postcard from whichever dairy our milk came from this month. Pause anytime.',
-          cta_primary: 'Start subscription',
-          cta_secondary: 'One-time gift box',
-          box_name: 'The Brine Box',
-          box_price: '$48',
-          box_period: '/mo',
-          box_features: [
-            'Three hand-cut cheeses · ~900g total',
-            'One feature: aged Sulguni or seasonal',
-            'Recipe card from our test kitchen',
-            'Postcard from the dairy of the month',
-            'Free cold shipping in the US',
-            'Skip, pause, or cancel any month',
-          ],
-        };
+        const sub = subContent;
+        if (!sub) return null;
         return (
           <section className="ch-section" style={{ background: "#1F3026", color: "#F5F0E6", padding: "120px 56px" }}>
             <div className="ch-cm-sub-grid" style={{ maxWidth: 1280, margin: "0 auto", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 56, alignItems: "center" }}>

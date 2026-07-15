@@ -24,7 +24,6 @@ const TICKER_DEFAULTS = {
     '◐ The Bakery — open until 9 PM',
     '▸ Free UPS over $75',
     '● Made in Dublin, Ohio',
-    '★ 4.9 / 312 reviews',
   ],
 };
 

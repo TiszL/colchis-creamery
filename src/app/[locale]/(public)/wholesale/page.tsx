@@ -49,8 +49,8 @@ export default function WholesalePage() {
               Wholesale partners get cold-chain delivery within a 10-hour drive radius and full access to the Creamery & Bakery line — fresh, aged, and frozen.
             </div>
             <div>
-              <div className="ch-stat-num" style={{ fontFamily: "var(--font-serif)", fontSize: 56, fontWeight: 400, color: "#8B4A28", lineHeight: 1 }}>40+</div>
-              <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.24em", color: "#F5F0E6", opacity: 0.6, textTransform: "uppercase", marginTop: 8 }}>Active accounts in 6 states</div>
+              <div className="ch-stat-num" style={{ fontFamily: "var(--font-serif)", fontSize: 56, fontWeight: 400, color: "#8B4A28", lineHeight: 1 }}>New</div>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.24em", color: "#F5F0E6", opacity: 0.6, textTransform: "uppercase", marginTop: 8 }}>Now onboarding Midwest partners</div>
             </div>
             <div>
               <div className="ch-stat-num" style={{ fontFamily: "var(--font-serif)", fontSize: 56, fontWeight: 400, color: "#8B4A28", lineHeight: 1 }}>72h</div>
@@ -133,7 +133,7 @@ export default function WholesalePage() {
               Tell us about <em style={{ color: "#B96A3D", fontWeight: 400 }}>your shop.</em>
             </div>
             <div style={{ fontFamily: "var(--font-serif)", fontSize: 18, lineHeight: 1.6, color: "#2C3D33", marginTop: 28, fontStyle: "italic" }}>
-              We review applications every Tuesday. Most accounts are onboarded within 10 days.
+              Our sales team reviews applications within 1–2 business days and reaches out with terms and pricing.
             </div>
             <div style={{ marginTop: 40, paddingTop: 28, borderTop: "1px solid #1F302622" }}>
               <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.24em", color: "#7A8278", textTransform: "uppercase" }}>Or email directly</div>

@@ -46,7 +46,7 @@ const DEFAULT_HERO: ContactHeroContent = {
     h1Pre: 'Write us',
     h1Accent: 'a postcard.',
     subheadline: "Or an email. Or call the bakery line — Levan picks up when the oven's resting. We answer every note that lands on the counter.",
-    hoursLabel: 'Tue–Sat · 9am – 7pm EST',
+    hoursLabel: 'Tue–Sun · hours vary — see below',
 };
 
 const DEFAULT_DESKS: ContactDesk[] = [

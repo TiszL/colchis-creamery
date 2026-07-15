@@ -96,8 +96,8 @@ export default function HomepageEditor({ initialData }: HomepageEditorProps) {
     // ─── Press State ─────────────────────────────────────────────────────────────
     const [press, setPress] = useState(initialData.press || {
         outlets: ['Columbus Monthly', 'Eater Midwest', 'Cherry Bombe', 'Bon Appétit'],
-        review_score: '4.9',
-        review_count: '312',
+        review_score: '',
+        review_count: '',
         quote: 'I grew up eating khachapuri on the Black Sea. This tastes exactly like the bakery on the corner where I was a kid. Somehow they did it in Ohio.',
         quote_author: '— Nia G. · Brooklyn NY · ★★★★★',
     });
@@ -119,8 +119,7 @@ export default function HomepageEditor({ initialData }: HomepageEditorProps) {
             '◐ The Bakery — open until 9 PM',
             '▸ Free UPS over $75',
             '● Made in Dublin, Ohio',
-            '★ 4.9 / 312 reviews',
-        ],
+                ],
     });
 
     const handleSave = (key: string, data: any) => {

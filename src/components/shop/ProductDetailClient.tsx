@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 import { AddToCartButton } from "@/components/shop/AddToCartButton";
 
@@ -87,7 +88,7 @@ export function ProductGalleryNew({ images, videos = [], productName }: { images
             style={{ width: "100%", height: "100%", objectFit: "cover" }}
           />
         ) : activeItem ? (
-          <img src={activeItem.url} alt={productName} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          <Image src={activeItem.url} alt={productName} fill sizes="(max-width: 768px) 100vw, 50vw" style={{ objectFit: "cover" }} />
         ) : null}
 
         {/* Counter badge */}
@@ -108,7 +109,7 @@ export function ProductGalleryNew({ images, videos = [], productName }: { images
               overflow: "hidden", position: "relative",
             }}>
               {item.type === 'image' ? (
-                <img src={item.url} alt={`${productName} ${i + 1}`} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                <Image src={item.url} alt={`${productName} ${i + 1}`} fill sizes="96px" style={{ objectFit: "cover" }} />
               ) : item.ytId ? (
                 <>
                   <img

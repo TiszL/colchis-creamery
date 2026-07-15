@@ -1,5 +1,6 @@
 'use client';
 
+import Image from "next/image";
 import { useState } from 'react';
 import { Play } from 'lucide-react';
 
@@ -79,7 +80,7 @@ export function ProductGallery({ images, videos, productName }: ProductGalleryPr
                             }`}
                         >
                             {item.type === 'image' ? (
-                                <img src={item.url} alt={`${productName} ${idx + 1}`} className="w-full h-full object-cover" />
+                                <Image src={item.url} alt={`${productName} ${idx + 1}`} fill sizes="96px" className="object-cover" />
                             ) : item.ytId ? (
                                 <div className="relative w-full h-full">
                                     <img

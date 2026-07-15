@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { ColchisSeal } from "@/components/brand/ColchisSeal";
@@ -402,7 +403,7 @@ export default function BakeryClient({ heroContent, menuContent, deliveryContent
                     <div style={{ aspectRatio: "4/3", background: "#1F302608", position: "relative", display: "flex", alignItems: "center", justifyContent: "center", borderBottom: "1px solid #1F302614", overflow: "hidden" }}>
                       {p.imageUrl && p.imageUrl.trim() !== '' ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={p.imageUrl} alt={p.name} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
+                        <Image src={p.imageUrl} alt={p.name} fill sizes="(max-width: 768px) 100vw, 33vw" style={{ objectFit: "cover" }} />
                       ) : (
                         <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.24em", color: "#7A8278", opacity: 0.6, textTransform: "uppercase" }}>[ {p.name} photo ]</div>
                       )}

@@ -99,9 +99,13 @@ export async function fetchLocationQueue(
 ): Promise<QueueSnapshot> {
     await assertLocationRole(locationId, ['LOCATION_MANAGER', 'LOCATION_FULFILLMENT']);
 
+    // Kitchen must only ever see orders whose money is settled: fulfillments are
+    // created (PENDING) BEFORE payment confirms, and delayed-settlement (ACH)
+    // orders can sit unsettled for days — without this filter staff could
+    // Accept, cook, and dispatch an order whose payment later bounces.
     const where =
-        view === 'active' ? { locationId, status: { in: ACTIVE_STATUSES } }
-        : view === 'done' ? { locationId, status: { in: ['DELIVERED', 'CANCELLED'] } }
+        view === 'active' ? { locationId, status: { in: ACTIVE_STATUSES }, order: { paymentStatus: 'PAID' } }
+        : view === 'done' ? { locationId, status: { in: ['DELIVERED', 'CANCELLED'] }, order: { paymentStatus: { in: ['PAID', 'REFUNDED'] } } }
         : { locationId };
 
     const [rows, location] = await Promise.all([
@@ -222,10 +226,16 @@ export async function acceptFulfillment(fulfillmentId: string, locationId: strin
         await assertLocationRole(locationId, ['LOCATION_MANAGER', 'LOCATION_FULFILLMENT']);
         const f = await prisma.orderFulfillment.findUnique({
             where: { id: fulfillmentId },
-            select: { status: true, locationId: true, deliveryMethod: true, externalOrderId: true, location: { select: { prepMinutes: true } } },
+            select: { status: true, locationId: true, deliveryMethod: true, externalOrderId: true, location: { select: { prepMinutes: true } }, order: { select: { paymentStatus: true } } },
         });
         if (!f || f.locationId !== locationId) return { ok: false, error: 'Not found' };
         if (f.status !== 'PENDING') return { ok: false, error: `Already ${f.status.toLowerCase()}` };
+        // Defense in depth (the queue already filters unpaid orders out): never
+        // let staff commit to cooking — or book a courier for — an order whose
+        // payment hasn't settled.
+        if (f.order.paymentStatus !== 'PAID') {
+            return { ok: false, error: 'Payment not settled yet — the order will appear when it is' };
+        }
 
         await prisma.orderFulfillment.update({
             where: { id: fulfillmentId },

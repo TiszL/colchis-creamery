@@ -639,7 +639,9 @@ model Contract {
 
 // ─── Order ───────────────────────────────────────────────────────────────────
 // orderType: "B2C" | "B2B"
-// paymentStatus: "UNPAID" | "PAID" | "REFUNDED"
+// paymentStatus: "UNPAID" | "PROCESSING" | "PAID" | "FAILED" | "REFUNDED"
+// ("PROCESSING" = delayed-settlement method (ACH) awaiting the bank — excluded
+//  from the reservation-release sweep; webhook moves it to PAID or FAILED.)
 // orderStatus: "PROCESSING" | "READY_FOR_PICKUP" | "SHIPPED" | "IN_TRANSIT" | "DELIVERED"
 
 model Order {
@@ -1109,6 +1111,12 @@ model Location {
   stripeConnectAccountId    String?  @unique
   stripeOnboardingStatus    String?
   stripeOnboardingUpdatedAt DateTime?
+  // Which Stripe mode the connected account was created in. Test-mode acct_
+  // ids do NOT exist in live mode — routing a live PaymentIntent at one
+  // throws "No such destination" and kills the checkout. Checkout only uses
+  // transfer_data when this matches isStripeLiveMode(). null = legacy row
+  // (treated as test-mode).
+  stripeAccountLivemode     Boolean?
 
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt

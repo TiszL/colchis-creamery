@@ -19,7 +19,8 @@
 // @unique. 7b will add proper client-supplied idempotency keys.
 
 import { prisma } from '@/lib/db';
-import { stripe } from '@/lib/stripe';
+import { stripe, isStripeLiveMode } from '@/lib/stripe';
+import { sendOpsAlertEmail } from '@/lib/email';
 import { getSession } from '@/lib/session';
 import { reserveStock, releaseStock } from '@/lib/stock-reservation';
 import { applyFreeShippingRule, planFulfillment } from '@/lib/shipping';
@@ -397,9 +398,21 @@ export async function createCheckoutSession(input: CheckoutInput): Promise<Check
         taxCalculationId = calculation.id;
         taxAmount = (calculation.tax_amount_exclusive ?? 0) / 100;
     } catch (e) {
-        // Don't fail the customer for Stripe Tax misconfig. Surface in logs so the
-        // user-operator sees it. In prod this should trigger an alert (7b/8).
-        console.warn('[checkout] Stripe Tax calculation failed — falling back to tax=$0:', e instanceof Error ? e.message : e);
+        // Don't fail the customer for a Stripe Tax hiccup — but collecting $0 tax
+        // on real orders is a compliance problem the owner must hear about NOW,
+        // not discover at filing time. Alert ops on every occurrence (rare by
+        // design; a burst means Stripe Tax isn't registered for the state).
+        const msg = e instanceof Error ? e.message : String(e);
+        console.error('[checkout] Stripe Tax calculation failed — falling back to tax=$0:', msg);
+        void sendOpsAlertEmail({
+            subject: 'Stripe Tax calculation FAILED — order charged $0 tax',
+            orderId: order.id,
+            lines: [
+                `Tax calculation failed for this checkout and the order proceeded with $0 tax: ${msg}`,
+                'If this repeats, Stripe Tax is misconfigured (check Dashboard → Tax → Registrations for your state).',
+                'Sales tax for this order must be handled manually at filing time.',
+            ],
+        }).catch(() => undefined);
     }
 
     const totalWithTax = subtotal + shippingTotal + taxAmount;
@@ -419,10 +432,28 @@ export async function createCheckoutSession(input: CheckoutInput): Promise<Check
     const uniqueLocationIds = Array.from(new Set(plan.groups.map(g => g.locationId)));
     const connectLookup = await prisma.location.findMany({
         where: { id: { in: uniqueLocationIds } },
-        select: { id: true, stripeConnectAccountId: true, stripeOnboardingStatus: true },
+        select: { id: true, stripeConnectAccountId: true, stripeOnboardingStatus: true, stripeAccountLivemode: true },
     });
+    // Launch hardening — Connect accounts are MODE-SCOPED: a test-mode acct_ id
+    // does not exist in live mode, and routing a live PaymentIntent at one
+    // throws "No such destination" (hard-failing the checkout). Only route to
+    // accounts created in the CURRENT key mode; mismatches fall back to a
+    // platform charge until the location is re-onboarded in live mode.
+    const modeMismatched = connectLookup.filter(
+        l => l.stripeConnectAccountId && l.stripeOnboardingStatus === 'complete' && (l.stripeAccountLivemode ?? false) !== isStripeLiveMode(),
+    );
+    if (modeMismatched.length > 0) {
+        console.error(
+            '[checkout] STRIPE MODE MISMATCH — Connect account(s) created in a different mode than the current key; falling back to platform charge. Re-run Connect onboarding for:',
+            modeMismatched.map(l => l.id),
+        );
+    }
     const completeAccounts = connectLookup
-        .filter(l => l.stripeConnectAccountId && l.stripeOnboardingStatus === 'complete')
+        .filter(l =>
+            l.stripeConnectAccountId &&
+            l.stripeOnboardingStatus === 'complete' &&
+            (l.stripeAccountLivemode ?? false) === isStripeLiveMode(),
+        )
         .map(l => l.stripeConnectAccountId!);
     const allOnSingleConnectAccount =
         completeAccounts.length === connectLookup.length &&
@@ -471,8 +502,17 @@ export async function createCheckoutSession(input: CheckoutInput): Promise<Check
         paymentIntent = await stripe.paymentIntents.create(intentParams);
     } catch (e) {
         await releaseStock(reservationItems);
+        // The order row is deleted (customer retries cleanly) — so this log line
+        // is the ONLY debugging trace. Include everything.
+        console.error('[checkout] PaymentIntent creation failed:', {
+            orderId: order.id,
+            locationIds: uniqueLocationIds,
+            destinationAccountId,
+            liveMode: isStripeLiveMode(),
+            amountCents: Math.round(totalWithTax * 100),
+            error: e instanceof Error ? e.message : e,
+        });
         await prisma.order.delete({ where: { id: order.id } }).catch(() => { /* best effort */ });
-        console.error('[checkout] PaymentIntent creation failed:', e);
         const msg = e instanceof Error ? e.message : 'Unknown Stripe error';
         return { ok: false, error: `Payment system error: ${msg}` };
     }

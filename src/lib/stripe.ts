@@ -20,3 +20,13 @@ export const stripe = new Stripe(STRIPE_SECRET_KEY ?? 'sk_test_placeholder', {
 export function isStripeConfigured(): boolean {
     return !!STRIPE_SECRET_KEY && STRIPE_SECRET_KEY !== 'sk_test_placeholder';
 }
+
+/**
+ * Whether the server is running with a LIVE-mode Stripe key (sk_live_/rk_live_).
+ * Connect account ids, PaymentIntents, webhooks etc. are mode-scoped — objects
+ * created in test mode do not exist in live mode. Anything that stores or
+ * routes to a mode-scoped Stripe id must check this.
+ */
+export function isStripeLiveMode(): boolean {
+    return /^(sk|rk)_live_/.test(STRIPE_SECRET_KEY ?? '');
+}

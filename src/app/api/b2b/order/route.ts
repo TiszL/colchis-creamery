@@ -4,7 +4,7 @@ import { getSession } from "@/lib/session";
 import { B2bPaymentMethod } from "@prisma/client";
 import { createResolveCustomer, createResolveCharge, isResolveConfigured } from "@/lib/resolve";
 import { commitStock, reserveStock } from "@/lib/stock-reservation";
-import { stripe } from "@/lib/stripe";
+import { stripe, isStripeLiveMode } from "@/lib/stripe";
 import { validateB2bQty } from "@/lib/b2b-moq";
 import { getPartnerContext, getOwnerUserId } from "@/lib/b2b-partner";
 
@@ -300,10 +300,18 @@ export async function POST(req: NextRequest) {
             const uniqueLocationIds = Array.from(new Set(result.fulfillmentPlan.map(l => l.locationId)));
             const connectLookup = await db.location.findMany({
                 where: { id: { in: uniqueLocationIds } },
-                select: { id: true, stripeConnectAccountId: true, stripeOnboardingStatus: true },
+                select: { id: true, stripeConnectAccountId: true, stripeOnboardingStatus: true, stripeAccountLivemode: true },
             });
+            // Launch hardening — Connect accounts are mode-scoped; a test-mode
+            // acct_ id routed into a live PaymentIntent throws "No such
+            // destination". Only route to accounts created in the current key
+            // mode (see the same guard in actions/checkout.ts).
             const completeAccounts = connectLookup
-                .filter(l => l.stripeConnectAccountId && l.stripeOnboardingStatus === 'complete')
+                .filter(l =>
+                    l.stripeConnectAccountId &&
+                    l.stripeOnboardingStatus === 'complete' &&
+                    (l.stripeAccountLivemode ?? false) === isStripeLiveMode(),
+                )
                 .map(l => l.stripeConnectAccountId!);
             const allOnSingleConnectAccount =
                 completeAccounts.length === connectLookup.length &&

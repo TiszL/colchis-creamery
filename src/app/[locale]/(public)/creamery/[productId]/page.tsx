@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { notFound, redirect } from "next/navigation";
 import { JsonLdProduct } from "@/components/seo/JsonLdProduct";
+import { JsonLdBreadcrumbList } from "@/components/seo/JsonLdBreadcrumbList";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { ProductGalleryNew, InfoPanel } from "@/components/shop/ProductDetailClient";
@@ -133,6 +134,13 @@ export default async function ProductPage({ params }: ProductPageProps) {
   return (
     <>
       <JsonLdProduct product={productForCart} url={`${SITE_URL}${prefix}/creamery/${product.slug}`} productId={product.id} />
+      <JsonLdBreadcrumbList
+        items={[
+          { name: "Home", url: `${SITE_URL}${prefix}` },
+          { name: "Creamery", url: `${SITE_URL}${prefix}/creamery` },
+          { name: product.name, url: `${SITE_URL}${prefix}/creamery/${product.slug}` },
+        ]}
+      />
 
       {/* ─── Breadcrumbs ──────────────────────────────────────────────── */}
       <nav className="ch-breadcrumbs" style={{ background: "#F5F0E6", padding: "20px 56px", borderBottom: "1px solid #1F302611", fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.22em", color: "#7A8278", textTransform: "uppercase" }}>

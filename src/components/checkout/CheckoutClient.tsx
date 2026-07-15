@@ -10,7 +10,7 @@ import AddressManager, { type ActiveAddress, readGuestAddress, getActiveAddressC
 import type { UserAddressDto } from '@/app/actions/addresses';
 import { applyFreeShippingRule, type FulfillmentPlan, type ChannelQuote } from '@/lib/shipping';
 import { planFulfillment } from '@/app/actions/shipping-plan';
-import { createCheckoutSession, type CheckoutInput } from '@/app/actions/checkout';
+import { createCheckoutSession, abandonCheckoutOrder, type CheckoutInput } from '@/app/actions/checkout';
 import { isValidUSPhone } from '@/lib/phone';
 import { isOpenNow, nextOpenSlot } from '@/lib/location-hours';
 import { BUSINESS_TIMEZONE } from '@/lib/timezone';
@@ -170,6 +170,18 @@ export default function CheckoutClient({
         orderId: string;
         totals: { subtotal: string; shipping: string; tax: string; total: string };
     } | null>(null);
+    // Mirror of pendingPayment so the value-keyed invalidation effect can read
+    // the current order id WITHOUT taking pendingPayment as a dependency (which
+    // would re-run the effect the moment we set it). Whenever we drop a pending
+    // quote we release its server-side stock reservation so the customer's own
+    // held stock never blocks their retry.
+    const pendingPaymentRef = useRef<typeof pendingPayment>(null);
+    const discardPendingPayment = useCallback(() => {
+        const prev = pendingPaymentRef.current;
+        pendingPaymentRef.current = null;
+        setPendingPayment(null);
+        if (prev) void abandonCheckoutOrder(prev.orderId);
+    }, []);
 
     const stripePromise = useMemo(() => getStripePromise(stripePublishableKey), [stripePublishableKey]);
 
@@ -317,7 +329,13 @@ export default function CheckoutClient({
             // see what they'll actually be charged and click "Pay $X" before
             // any money moves (launch polish: the old flow charged a total the
             // customer never saw).
-            setPendingPayment({ clientSecret: result.clientSecret, orderId: result.orderId, totals: result.totals });
+            // If a prior pending quote somehow survived (double-submit), release
+            // it before replacing so we don't leak its reservation.
+            const superseded = pendingPaymentRef.current;
+            if (superseded && superseded.orderId !== result.orderId) void abandonCheckoutOrder(superseded.orderId);
+            const next = { clientSecret: result.clientSecret, orderId: result.orderId, totals: result.totals };
+            pendingPaymentRef.current = next;
+            setPendingPayment(next);
             setPlacingOrder(false);
         } catch (e) {
             console.error('handlePlaceOrder threw:', e);
@@ -375,8 +393,10 @@ export default function CheckoutClient({
         [items, activeAddress, selectedChannels],
     );
     useEffect(() => {
-        setPendingPayment(null);
-    }, [pendingInvalidationKey]);
+        // Cart/address/method changed — the quoted total is stale; drop it AND
+        // release the reservation the abandoned quote is holding.
+        discardPendingPayment();
+    }, [pendingInvalidationKey, discardPendingPayment]);
 
     /* ─── Empty state ────────────────────────────────────────────────── */
 
@@ -677,7 +697,7 @@ export default function CheckoutClient({
                             {pendingPayment && !placingOrder && (
                                 <button
                                     type="button"
-                                    onClick={() => setPendingPayment(null)}
+                                    onClick={discardPendingPayment}
                                     style={{ background: 'transparent', color: '#7A8278', border: 'none', padding: '4px 0', fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.22em', textTransform: 'uppercase', cursor: 'pointer' }}
                                 >
                                     ← Change something first

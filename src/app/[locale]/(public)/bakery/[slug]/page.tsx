@@ -5,6 +5,8 @@ import type { Metadata } from "next";
 import { ProductGalleryNew } from "@/components/shop/ProductDetailClient";
 import ProductReviews from "@/components/reviews/ProductReviews";
 import BakeryPdpClient from "@/components/bakery/BakeryPdpClient";
+import { JsonLdBreadcrumbList } from "@/components/seo/JsonLdBreadcrumbList";
+import { JsonLdProduct } from "@/components/seo/JsonLdProduct";
 import { getSession } from "@/lib/session";
 import { getMyAddresses } from "@/app/actions/addresses";
 import type { ActiveAddress } from "@/components/bakery/AddressManager";
@@ -117,6 +119,40 @@ export default async function BakeryPdp({ params }: BakeryPdpProps) {
 
   return (
     <>
+      {/* Product schema — bakery PDPs previously emitted none, so bakery items
+          were invisible to Google Shopping / product rich results. */}
+      <JsonLdProduct
+        product={{
+          id: product.id,
+          sku: product.sku,
+          name: product.name,
+          slug: product.slug,
+          description: product.description || '',
+          flavorProfile: product.flavorProfile,
+          pairsWith: product.pairsWith,
+          weight: product.weight,
+          ingredients: product.ingredients,
+          imageUrl: product.imageUrl || '',
+          priceB2c: parseFloat(product.priceB2c) || 0,
+          priceB2b: parseFloat(product.priceB2b) || 0,
+          stockQuantity: product.stockQuantity,
+          isActive: product.isActive,
+          status: product.status as 'ACTIVE' | 'INACTIVE' | 'COMING_SOON',
+          isCartOrderable: product.isCartOrderable,
+          isMadeToOrder: product.isMadeToOrder,
+        }}
+        url={`${SITE_URL}${prefix}/bakery/${product.slug}`}
+        productId={product.id}
+      />
+      {/* Breadcrumb schema — matches the visible breadcrumb nav below so Google
+          can render breadcrumb chips instead of the raw URL. */}
+      <JsonLdBreadcrumbList
+        items={[
+          { name: "Home", url: `${SITE_URL}${prefix}` },
+          { name: "Bakery", url: `${SITE_URL}${prefix}/bakery` },
+          { name: product.name, url: `${SITE_URL}${prefix}/bakery/${product.slug}` },
+        ]}
+      />
       {/* ─── Breadcrumbs ──────────────────────────────────────────────── */}
       <nav className="ch-breadcrumbs" style={{ background: "#F5F0E6", padding: "20px 56px", borderBottom: "1px solid #1F302611", fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.22em", color: "#7A8278", textTransform: "uppercase" }}>
         <div style={{ maxWidth: 1440, margin: "0 auto", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>

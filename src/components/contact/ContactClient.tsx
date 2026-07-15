@@ -234,23 +234,23 @@ export default function ContactClient({ email, phone, primary, hero: heroProp, d
 
                             <div className="ch-contact-2col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
                                 <div>
-                                    <label style={{ display: "block", fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.32em", color: "#7A8278", textTransform: "uppercase", marginBottom: 8 }}>Name</label>
-                                    <input type="text" name="name" placeholder="Nino Beridze" required style={inputStyle} />
+                                    <label htmlFor="contact-name" style={{ display: "block", fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.32em", color: "#7A8278", textTransform: "uppercase", marginBottom: 8 }}>Name</label>
+                                    <input id="contact-name" type="text" name="name" placeholder="Nino Beridze" required style={inputStyle} />
                                 </div>
                                 <div>
-                                    <label style={{ display: "block", fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.32em", color: "#7A8278", textTransform: "uppercase", marginBottom: 8 }}>Email</label>
-                                    <input type="email" name="email" placeholder="you@colchisfood.com" required style={inputStyle} />
+                                    <label htmlFor="contact-email" style={{ display: "block", fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.32em", color: "#7A8278", textTransform: "uppercase", marginBottom: 8 }}>Email</label>
+                                    <input id="contact-email" type="email" name="email" placeholder="you@colchisfood.com" required style={inputStyle} />
                                 </div>
                             </div>
 
                             <div className="ch-contact-2col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
                                 <div>
-                                    <label style={{ display: "block", fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.32em", color: "#7A8278", textTransform: "uppercase", marginBottom: 8 }}>Phone (optional)</label>
-                                    <input type="tel" name="phone" placeholder="+1 (614) 555 0142" style={inputStyle} />
+                                    <label htmlFor="contact-phone" style={{ display: "block", fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.32em", color: "#7A8278", textTransform: "uppercase", marginBottom: 8 }}>Phone (optional)</label>
+                                    <input id="contact-phone" type="tel" name="phone" placeholder="+1 (614) 555 0142" style={inputStyle} />
                                 </div>
                                 <div>
-                                    <label style={{ display: "block", fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.32em", color: "#7A8278", textTransform: "uppercase", marginBottom: 8 }}>Order # (if any)</label>
-                                    <input type="text" name="orderNumber" placeholder="CH-XXXX-XX" style={inputStyle} />
+                                    <label htmlFor="contact-orderNumber" style={{ display: "block", fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.32em", color: "#7A8278", textTransform: "uppercase", marginBottom: 8 }}>Order # (if any)</label>
+                                    <input id="contact-orderNumber" type="text" name="orderNumber" placeholder="CH-XXXX-XX" style={inputStyle} />
                                 </div>
                             </div>
 
@@ -272,8 +272,8 @@ export default function ContactClient({ email, phone, primary, hero: heroProp, d
                             </div>
 
                             <div>
-                                <label style={{ display: "block", fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.32em", color: "#7A8278", textTransform: "uppercase", marginBottom: 8 }}>Message</label>
-                                <textarea name="message" rows={6} placeholder="A short note, an idea, a baker's question…" required minLength={10} style={{ ...inputStyle, resize: "vertical", lineHeight: 1.6 }} />
+                                <label htmlFor="contact-message" style={{ display: "block", fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.32em", color: "#7A8278", textTransform: "uppercase", marginBottom: 8 }}>Message</label>
+                                <textarea id="contact-message" name="message" rows={6} placeholder="A short note, an idea, a baker's question…" required minLength={10} style={{ ...inputStyle, resize: "vertical", lineHeight: 1.6 }} />
                             </div>
 
                             {error && (

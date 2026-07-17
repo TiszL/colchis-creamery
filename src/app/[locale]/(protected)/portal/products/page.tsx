@@ -69,6 +69,7 @@ export default async function StaffProductsPage({ params }: { params: Promise<{ 
         imageUrl: p.imageUrl, images: p.images || [], videoUrls: p.videoUrls || [],
         priceB2c: p.priceB2c, priceB2b: p.priceB2b, stockQuantity: p.stockQuantity,
         isMadeToOrder: p.isMadeToOrder, tag: p.tag,
+        dietaryTags: p.dietaryTags,
         productLineId: p.productLineId, categoryId: p.categoryId,
         productCategory: p.productCategory
             ? { slug: p.productCategory.slug, name: p.productCategory.name, sections: p.productCategory.sections }

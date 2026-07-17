@@ -32,6 +32,7 @@ export type BakeryPdpProduct = {
     nameKa: string | null;
     description: string;
     weight: string | null;
+    dietaryTags?: string[];
     ingredients: string | null;
     priceB2c: string;
     priceB2b: string;
@@ -221,6 +222,13 @@ export default function BakeryPdpClient({
             {/* Allergen disclosure — always shown (food business; ingredients alone
                 aren't a substitute for an allergen statement) */}
             <p style={{ fontFamily: "var(--font-sans)", fontSize: 12, lineHeight: 1.55, color: "#7A8278", marginTop: product.ingredients ? 10 : 24 }}>
+                {product.dietaryTags && product.dietaryTags.length > 0 && (
+                    <span style={{ display: "inline-flex", flexWrap: "wrap", gap: 6, marginRight: 10, verticalAlign: "middle" }}>
+                        {product.dietaryTags.map(dt => (
+                            <span key={dt} style={{ padding: "4px 8px", border: "1px solid #2C3D3344", background: "#2C3D330D", fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.18em", color: "#2C3D33", textTransform: "uppercase" }}>{dt}</span>
+                        ))}
+                    </span>
+                )}
                 <strong style={{ color: "#2C3D33" }}>Allergens:</strong> made in a kitchen that handles milk, wheat (gluten) and eggs.
                 Questions about allergens? Contact us before ordering.
             </p>

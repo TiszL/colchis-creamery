@@ -72,6 +72,7 @@ export async function saveProductAction(formData: FormData) {
         b2bUnitLabel: ((formData.get('b2bUnitLabel') as string) || '').trim() || null,
         isMadeToOrder,
         tag: (formData.get('tag') as string) || null,
+        dietaryTags: (formData.getAll('dietaryTags') as string[]).filter(Boolean),
         productLineId: (formData.get('productLineId') as string) || null,
         categoryId,
         status: (formData.get('status') as 'ACTIVE' | 'INACTIVE' | 'COMING_SOON') || 'ACTIVE',

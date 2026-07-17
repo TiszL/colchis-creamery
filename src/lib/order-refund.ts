@@ -393,7 +393,7 @@ export async function kitchenRemoveItemsCore(
         where: { id: orderId },
         include: {
             refunds: true,
-            orderItems: { include: { product: { select: { name: true } }, amendment: { select: { stripePaymentIntentId: true } } } },
+            orderItems: { include: { product: { select: { name: true } }, amendment: { select: { stripePaymentIntentId: true, stripeTaxTransactionId: true } } } },
             fulfillments: {
                 select: { locationId: true, items: { select: { orderItemId: true, quantity: true } } },
             },
@@ -440,7 +440,7 @@ export async function kitchenRemoveItemsCore(
     // Phase 2b: a line added by a paid amendment was charged on the
     // amendment's OWN PaymentIntent — its refund must target that PI. Group
     // removal cents per source PI (one refunds.create per PI below).
-    type PiGroup = { refundCents: number; lines: Array<{ orderItemId: string; qty: number }> };
+    type PiGroup = { refundCents: number; taxTransactionId: string | null; lines: Array<{ orderItemId: string; qty: number }> };
     const byPi = new Map<string, PiGroup>();
     let refundCents = 0;
     for (const [orderItemId, qty] of removalByItem) {
@@ -456,7 +456,13 @@ export async function kitchenRemoveItemsCore(
             : taxedBaseCents > 0 ? Math.round(taxCents * itemCents / taxedBaseCents) : 0;
         refundCents += itemCents + taxShare;
         const pi = item.amendment?.stripePaymentIntentId ?? order.stripePaymentIntentId!;
-        const group = byPi.get(pi) ?? { refundCents: 0, lines: [] };
+        const group = byPi.get(pi) ?? {
+            refundCents: 0,
+            // Reversal target follows the money: amendment lines reverse the
+            // amendment's tax transaction, original lines the order's.
+            taxTransactionId: item.amendment ? item.amendment.stripeTaxTransactionId : order.stripeTaxTransactionId,
+            lines: [],
+        };
         group.refundCents += itemCents + taxShare;
         group.lines.push({ orderItemId, qty });
         byPi.set(pi, group);
@@ -471,9 +477,10 @@ export async function kitchenRemoveItemsCore(
     }
 
     /* ─── Stripe partial refunds — one per source PaymentIntent ──────── */
-    // NOTE: no Stripe Tax transaction reversal here — line-item tax reversal
-    // is out of scope for the kitchen flow; the accountant tooling reconciles
-    // partial-refund tax from the Refund rows (reversedTax stays false).
+    // Phase 4a: each group also issues a best-effort PARTIAL Stripe Tax
+    // reversal (flat_amount = the refunded total, negative, per API contract)
+    // against its source transaction, keeping tax records aligned with money
+    // actually kept. Failure leaves reversedTax=false for the accountant.
     //
     // Groups process SEQUENTIALLY and each group commits its own audit tx
     // (refundedQuantity increments + Refund row) right after its Stripe
@@ -536,6 +543,20 @@ export async function kitchenRemoveItemsCore(
                 },
             }),
         ]);
+        // Best-effort partial tax reversal for this group's source transaction.
+        if (group.taxTransactionId) {
+            try {
+                await stripe.tax.transactions.createReversal({
+                    mode: 'partial',
+                    original_transaction: group.taxTransactionId,
+                    reference: `${order.id}-rm-${stripeRefundId.slice(-8)}`,
+                    flat_amount: -group.refundCents,
+                });
+                await prisma.refund.updateMany({ where: { stripeRefundId }, data: { reversedTax: true } });
+            } catch (e) {
+                console.warn('[kitchenRemoveItemsCore] partial tax reversal failed (accountant reconciles):', e instanceof Error ? e.message : e);
+            }
+        }
         stripeRefundIds.push(stripeRefundId);
         refundedSoFarCents += group.refundCents;
     }

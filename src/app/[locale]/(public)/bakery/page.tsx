@@ -177,6 +177,7 @@ export default async function BakeryPage({ params, searchParams }: BakeryPagePro
       isCartOrderable: p.isCartOrderable,
       offeredChannels: offeredByProduct.get(p.id) ?? [],
       soldOutToday: soldOutTodayFor(p.id),
+      dietaryTags: p.dietaryTags,
     }));
 
     if (activeCat) {

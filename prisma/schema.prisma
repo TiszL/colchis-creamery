@@ -578,6 +578,10 @@ model Product {
   // free-form via Category model) + productFamilyId (cross-channel SKU grouping).
   isMadeToOrder  Boolean       @default(false) // true => no stock tracking at location (e.g. hot khachapuri)
   tag            String?       // Optional UI badge: "Bestseller" | "Vegan" | "Limited" | "Ships" | etc.
+  // Phase 4a — structured dietary/allergen badges for the cafe menu
+  // (e.g. VEGAN, VEGETARIAN, GLUTEN_FREE, CONTAINS_NUTS, DAIRY_FREE, SPICY).
+  // Free strings by design — admin curates; storefront renders as chips.
+  dietaryTags String[] @default([])
   productLineId  String?
   // Phase 9b: categoryId is now required. Every Product belongs to exactly
   // one Category which drives storefront section routing + packaging mode.

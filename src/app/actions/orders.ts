@@ -42,6 +42,7 @@ export async function cancelOrder(orderId: string): Promise<CancelOrderResult> {
             fulfillments: {
                 include: { items: { include: { orderItem: true } } },
             },
+            refunds: { select: { amountCents: true } },
         },
     });
     // Foreign or missing — mirror 404 semantics to avoid leaking existence.
@@ -115,13 +116,9 @@ export async function cancelOrder(orderId: string): Promise<CancelOrderResult> {
 
     /* ─── Restore stock + flip statuses + audit ──────────────────────────── */
 
-    const restoreItems = order.fulfillments.flatMap(f =>
-        f.items.map(it => ({
-            productId: it.orderItem.productId,
-            locationId: f.locationId,
-            quantity: it.quantity,
-        })),
-    );
+    // Net of any prior kitchen item-removal — those units were already
+    // restored by kitchenRemoveItemsCore and must not be credited twice.
+    const restoreItems = effectiveReservationItems(order.fulfillments);
     // Phase 9c: thread orderId into the StockMovement audit row so
     // /admin/sales-reports + the inventory timeline can attribute the
     // restored quantity back to this order.
@@ -131,8 +128,11 @@ export async function cancelOrder(orderId: string): Promise<CancelOrderResult> {
     // we've refunded the customer. Best-effort — see helper for the contract.
     await cancelActiveCarrierDeliveries(order.fulfillments, '[cancelOrder]');
 
-    // amountCents from totalAmount (string dollars) — fall back to 0 if NaN
-    const amountCents = Math.round((parseFloat(order.totalAmount) || 0) * 100);
+    // Stripe refunds the REMAINING balance when amount is omitted, so the
+    // audit row must net out prior partial refunds (kitchen item removals).
+    const totalCents = Math.round((parseFloat(order.totalAmount) || 0) * 100);
+    const priorRefundCents = order.refunds.reduce((sum, r) => sum + r.amountCents, 0);
+    const amountCents = Math.max(0, totalCents - priorRefundCents);
 
     // Interactive form so we can pass a longer timeout — Prisma's array form
     // doesn't accept timeout options. Cold Neon connections can push the

@@ -11,6 +11,7 @@ import { stripe } from '@/lib/stripe';
 import { effectiveReservationItems, restoreStock } from '@/lib/stock-reservation';
 import { doordashCancelDelivery } from '@/lib/doordash';
 import { uberCancelDelivery } from '@/lib/uber-direct';
+import { sendOpsAlertEmail } from '@/lib/email';
 
 /* ─── Carrier cancel helper ────────────────────────────────────────────── */
 //
@@ -448,6 +449,21 @@ export async function kitchenRemoveItemsCore(
         await prisma.refund.update({ where: { stripeRefundId }, data: { restoredStock: true } });
     } catch (e) {
         console.error('[kitchenRemoveItemsCore] Stock restore failed for Order', order.id, '— Refund', stripeRefundId, 'left restoredStock=false; reconcile inventory manually:', e);
+        // Money already moved — surface the inventory discrepancy to ops the
+        // same way syncExternalRefund does, instead of relying on server logs.
+        try {
+            await sendOpsAlertEmail({
+                subject: 'Stock restore FAILED after kitchen item removal',
+                orderId: order.id,
+                lines: [
+                    `Stripe refund ${stripeRefundId} succeeded but restoring inventory failed; Refund.restoredStock is false.`,
+                    `Un-restored lines: ${restoreItems.map(r => `${r.quantity}× product ${r.productId} @ location ${r.locationId}`).join('; ') || '(none mapped)'}.`,
+                    'Reconcile the location stock counts manually, then update the Refund row.',
+                ],
+            });
+        } catch (alertErr) {
+            console.error('[kitchenRemoveItemsCore] ops alert failed too:', alertErr);
+        }
     }
 
     const removed = [...removalByItem].map(([orderItemId, qty]) => ({

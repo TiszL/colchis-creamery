@@ -198,7 +198,7 @@ export default async function BakeryPage({ params, searchParams }: BakeryPagePro
       if (byCat.size > 0) contentProps.sections = Array.from(byCat.values());
     }
   } catch {
-    // products fall back to BakeryClient hardcoded defaults
+    // DB failure: the menu renders empty (no hardcoded fallback since Phase 3).
   }
 
   const session = await getSession();

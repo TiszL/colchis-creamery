@@ -182,16 +182,11 @@ export default function BakeryPageEditor({ initialData }: BakeryPageEditorProps)
                             <input value={menu.heading_accent} onChange={e => setMenu({ ...menu, heading_accent: e.target.value })} className={inputCls} />
                         </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className={labelCls} style={mono}>Hot Tab Label</label>
-                            <input value={menu.hot_tab_label} onChange={e => setMenu({ ...menu, hot_tab_label: e.target.value })} className={inputCls} />
-                        </div>
-                        <div>
-                            <label className={labelCls} style={mono}>Frozen Tab Label</label>
-                            <input value={menu.frozen_tab_label} onChange={e => setMenu({ ...menu, frozen_tab_label: e.target.value })} className={inputCls} />
-                        </div>
-                    </div>
+                    {/* Phase 3: the hot/frozen tabs were retired — the public menu now
+                        stacks every bakery-tagged category as its own titled section
+                        (Category names + sortOrder come from Admin → Categories). The old
+                        tab-label fields stay in the saved JSON for back-compat but are no
+                        longer rendered anywhere, so the inputs were removed. */}
                     {/* Menu items moved to /admin/inventory (Phase 4 — DB-driven). This editor
                         now only manages the section's labels/headings. */}
                     <div className="bg-amber-900/15 border border-amber-700/30 text-amber-300 text-xs px-3 py-2.5">

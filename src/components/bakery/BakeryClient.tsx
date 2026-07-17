@@ -200,7 +200,7 @@ export default function BakeryClient({ heroContent, menuContent, deliveryContent
   // primary business location (server-fetched), so a fresh deploy without DB
   // overrides never shows a stale hardcoded street.
   const hero = heroContent || {
-    eyebrow: 'Cafe & Bakery · კაფე · Open until 10 PM',
+    eyebrow: 'The Cafe & Bakery · კაფე · Open until 10 PM',
     headline: 'Hot from',
     headline_accent: 'the oven',
     headline_suffix: primaryCityState ? `in ${primaryCityState}.` : 'in Dublin, Ohio.',
@@ -217,8 +217,8 @@ export default function BakeryClient({ heroContent, menuContent, deliveryContent
     heading_accent: 'two ways.',
     hot_tab_label: '◐ Hot · Dublin',
     frozen_tab_label: '▸ Frozen · Local delivery',
-    // hot_items / frozen_items intentionally omitted — products now load from DB
-    // (Phase 4) through the `hotItems` / `frozenItems` props on this component.
+    // Menu items load from the DB through the `sections` prop (Phase 3
+    // stacked cafe menu); this SiteConfig block only carries page copy.
   };
 
   const del = deliveryContent || {
@@ -233,7 +233,7 @@ export default function BakeryClient({ heroContent, menuContent, deliveryContent
     ship_zone: {
       label: '▸ Frozen zone · 20 mi radius',
       cities: 'Doordash & Uber Eats only',
-      description: 'Frozen at peak. Bake from frozen at home. Delivered cold within the bakery’s metro range.',
+      description: 'Frozen at peak. Bake from frozen at home. Delivered cold within the cafe’s metro range.',
     },
   };
 
@@ -520,10 +520,10 @@ export default function BakeryClient({ heroContent, menuContent, deliveryContent
                 Out of delivery range
               </div>
               <div style={{ fontFamily: "var(--font-serif)", fontStyle: "italic", fontSize: 28, color: "#1F3026", lineHeight: 1.15 }}>
-                We don&apos;t deliver bakery items to this address yet.
+                We don&apos;t deliver cafe items to this address yet.
               </div>
               <div style={{ fontFamily: "var(--font-sans)", fontSize: 14, color: "#2C3D33", lineHeight: 1.6 }}>
-                Our Dublin OH bakery covers ~20 mi for frozen and 12 mi for hot. For nationwide cheese delivery, browse{" "}
+                Our Dublin OH cafe covers ~20 mi for frozen and 12 mi for hot. For nationwide cheese delivery, browse{" "}
                 <Link href="/creamery" style={{ color: "#B96A3D", textDecoration: "underline" }}>the Creamery shop</Link>.
               </div>
             </div>

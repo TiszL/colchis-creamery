@@ -21,7 +21,7 @@ const DEFAULT_HERO: HeroState = {
     eyebrow: '№ 00 — The Switchboard',
     h1Pre: 'Write us',
     h1Accent: 'a postcard.',
-    subheadline: "Or an email. Or call the bakery line — Levan picks up when the oven's resting. We answer every note that lands on the counter.",
+    subheadline: "Or an email. Or call the cafe line — Levan picks up when the oven's resting. We answer every note that lands on the counter.",
     hoursLabel: 'Open daily · 7am–10pm',
 };
 const DEFAULT_DESKS: DeskState[] = [
@@ -41,7 +41,7 @@ const DEFAULT_FAQ_LINKS: FaqLinkState[] = [
     { label: 'Pickup windows', href: '/faq' },
 ];
 const DEFAULT_MAP: MapState = { eyebrow: '№ 02 — Find us', hint: 'Free parking out back · 6 min from I-270 exit 17B' };
-const DEFAULT_ADDRESS_CARD: AddressCardState = { eyebrow: 'The bakery' };
+const DEFAULT_ADDRESS_CARD: AddressCardState = { eyebrow: 'The cafe & bakery' };
 const DEFAULT_FORM_INTRO: FormIntroState = {
     eyebrow: '№ 01 — A note to the kitchen',
     heading: 'Send a message',

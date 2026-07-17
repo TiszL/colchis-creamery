@@ -726,6 +726,11 @@ model OrderItem {
   // original quantity is never mutated; effective qty = quantity - refundedQuantity.
   refundedQuantity Int @default(0)
 
+  // Phase 2 (order modification) — this line's exact tax in cents, captured
+  // from the Stripe Tax calculation's per-line amounts at checkout. Null on
+  // legacy orders; refund math falls back to pro-rating the order aggregate.
+  taxCents Int?
+
   order            Order                  @relation(fields: [orderId], references: [id])
   product          Product                @relation(fields: [productId], references: [id])
   fulfillmentItems OrderFulfillmentItem[]

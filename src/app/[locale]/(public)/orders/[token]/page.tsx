@@ -45,6 +45,7 @@ export default async function GuestOrderLookupPage({ params }: PageProps) {
             // Full Product so we can serialize for the Reorder button. View
             // itself only reads `name`; the rest is for reorder.
             orderItems: { include: { product: true } },
+            refunds: { orderBy: { createdAt: 'asc' } },
             fulfillments: {
                 orderBy: { createdAt: 'asc' },
                 include: {
@@ -70,10 +71,12 @@ export default async function GuestOrderLookupPage({ params }: PageProps) {
     // Same reorder-eligibility rules as the logged-in customer path: active +
     // status ACTIVE + cart-orderable (excludes COMING_SOON and wholesale-only).
     const reorderItems = order.orderItems
-        .filter(oi => oi.product && oi.product.isActive && oi.product.status === 'ACTIVE' && oi.product.isCartOrderable)
+        .filter(oi => oi.product && oi.product.isActive && oi.product.status === 'ACTIVE' && oi.product.isCartOrderable
+            && oi.quantity - oi.refundedQuantity > 0)
         .map(oi => ({
             product: productForCart(oi.product),
-            quantity: oi.quantity,
+            // Reorder what the customer actually received, not removed lines.
+            quantity: oi.quantity - oi.refundedQuantity,
         }));
     const reorderSkippedCount = order.orderItems.length - reorderItems.length;
 

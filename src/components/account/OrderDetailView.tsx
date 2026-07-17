@@ -35,7 +35,17 @@ export type OrderDetailViewData = {
         id: string;
         quantity: number;
         unitPrice: string;
+        refundedQuantity: number;
         product: { name: string };
+    }[];
+    // Phase 2 — modification transparency: the refund ledger renders in the
+    // totals card and drives the "Order updated" badge + adjusted total.
+    refunds: {
+        id: string;
+        amountCents: number;
+        reason: string;
+        notes: string | null;
+        createdAt: Date;
     }[];
     fulfillments: {
         id: string;
@@ -50,7 +60,7 @@ export type OrderDetailViewData = {
         items: {
             id: string;
             quantity: number;
-            orderItem: { unitPrice: string; product: { name: string } };
+            orderItem: { unitPrice: string; refundedQuantity: number; product: { name: string } };
         }[];
     }[];
 };
@@ -258,6 +268,15 @@ export default function OrderDetailView({
                             }}>
                                 {orderStage.label}
                             </span>
+                            {order.refunds.length > 0 && order.paymentStatus === 'PAID' && (
+                                <span style={{
+                                    fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.24em',
+                                    textTransform: 'uppercase', padding: '6px 12px',
+                                    background: '#B96A3D22', color: '#D9A876', border: '1px solid #B96A3D66',
+                                }}>
+                                    Order updated · partially refunded
+                                </span>
+                            )}
                             {orderStage.description && (
                                 <span style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: 13, color: '#F5F0E6', opacity: 0.78, textAlign: 'right', maxWidth: 280 }}>
                                     {orderStage.description}
@@ -332,19 +351,33 @@ export default function OrderDetailView({
                                 )}
                                 <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
                                     {f.items.map((it, i) => (
-                                        <li key={it.id} style={{ padding: '14px 28px', borderBottom: i === f.items.length - 1 ? 'none' : '1px solid #1F302614', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 16 }}>
+                                        (() => {
+                                            // Modification transparency: refundedQuantity is
+                                            // order-level; edits only exist on single-leg orders,
+                                            // so the per-line subtraction is exact in practice.
+                                            const effective = Math.max(0, it.quantity - it.orderItem.refundedQuantity);
+                                            const removed = effective <= 0;
+                                            const reduced = !removed && it.orderItem.refundedQuantity > 0;
+                                            return (
+                                        <li key={it.id} style={{ padding: '14px 28px', borderBottom: i === f.items.length - 1 ? 'none' : '1px solid #1F302614', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 16, opacity: removed ? 0.55 : 1 }}>
                                             <div>
-                                                <div style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: 17, color: '#1F3026' }}>
+                                                <div style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: 17, color: '#1F3026', textDecoration: removed ? 'line-through' : 'none' }}>
                                                     {it.orderItem.product.name}
                                                 </div>
-                                                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.22em', color: '#7A8278', textTransform: 'uppercase', marginTop: 3 }}>
-                                                    ×{it.quantity} · {fmtMoney(it.orderItem.unitPrice)}/ea
+                                                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.22em', color: removed ? '#A8312C' : '#7A8278', textTransform: 'uppercase', marginTop: 3 }}>
+                                                    {removed
+                                                        ? 'Removed · refunded'
+                                                        : reduced
+                                                            ? <>×{effective} <s style={{ opacity: 0.6 }}>×{it.quantity}</s> · {fmtMoney(it.orderItem.unitPrice)}/ea · partially refunded</>
+                                                            : <>×{it.quantity} · {fmtMoney(it.orderItem.unitPrice)}/ea</>}
                                                 </div>
                                             </div>
-                                            <div style={{ fontFamily: 'var(--font-serif)', fontSize: 17, color: '#1F3026' }}>
-                                                {fmtMoney((parseFloat(it.orderItem.unitPrice) * it.quantity).toFixed(2))}
+                                            <div style={{ fontFamily: 'var(--font-serif)', fontSize: 17, color: '#1F3026', textDecoration: removed ? 'line-through' : 'none' }}>
+                                                {fmtMoney((parseFloat(it.orderItem.unitPrice) * (removed ? it.quantity : effective)).toFixed(2))}
                                             </div>
                                         </li>
+                                            );
+                                        })()
                                     ))}
                                 </ul>
                                 {f.trackingNumber && (
@@ -410,16 +443,21 @@ export default function OrderDetailView({
                                 <h2 style={{ fontFamily: 'var(--font-serif)', fontWeight: 400, fontStyle: 'italic', fontSize: 24, color: '#1F3026', margin: '4px 0 0' }}>Order contents</h2>
                             </header>
                             <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-                                {order.orderItems.map((oi, i) => (
-                                    <li key={oi.id} style={{ padding: '14px 28px', borderBottom: i === order.orderItems.length - 1 ? 'none' : '1px solid #1F302614', display: 'flex', justifyContent: 'space-between', gap: 16 }}>
-                                        <div style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: 17, color: '#1F3026' }}>
-                                            {oi.product.name} <span style={{ color: '#7A8278', fontStyle: 'normal' }}>×{oi.quantity}</span>
+                                {order.orderItems.map((oi, i) => {
+                                    const effective = Math.max(0, oi.quantity - oi.refundedQuantity);
+                                    const removed = effective <= 0;
+                                    return (
+                                    <li key={oi.id} style={{ padding: '14px 28px', borderBottom: i === order.orderItems.length - 1 ? 'none' : '1px solid #1F302614', display: 'flex', justifyContent: 'space-between', gap: 16, opacity: removed ? 0.55 : 1 }}>
+                                        <div style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: 17, color: '#1F3026', textDecoration: removed ? 'line-through' : 'none' }}>
+                                            {oi.product.name} <span style={{ color: '#7A8278', fontStyle: 'normal' }}>×{removed ? oi.quantity : effective}</span>
+                                            {removed && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.2em', color: '#A8312C', textTransform: 'uppercase', marginLeft: 10 }}>Removed · refunded</span>}
                                         </div>
-                                        <div style={{ fontFamily: 'var(--font-serif)', fontSize: 17, color: '#1F3026' }}>
-                                            {fmtMoney((parseFloat(oi.unitPrice) * oi.quantity).toFixed(2))}
+                                        <div style={{ fontFamily: 'var(--font-serif)', fontSize: 17, color: '#1F3026', textDecoration: removed ? 'line-through' : 'none' }}>
+                                            {fmtMoney((parseFloat(oi.unitPrice) * (removed ? oi.quantity : effective)).toFixed(2))}
                                         </div>
                                     </li>
-                                ))}
+                                    );
+                                })}
                             </ul>
                         </section>
                     )}
@@ -471,11 +509,23 @@ export default function OrderDetailView({
                             <SumRow label="Subtotal" value={fmtMoney(order.subtotalAmount)} />
                             <SumRow label="Shipping" value={fmtMoney(order.shippingAmount)} />
                             <SumRow label="Sales tax" value={fmtMoney(order.taxAmount)} />
+                            {order.refunds.map(r => (
+                                <SumRow
+                                    key={r.id}
+                                    label={r.reason === 'kitchen_item_removed' ? 'Refund · items removed' : 'Refund'}
+                                    value={`− $${(r.amountCents / 100).toFixed(2)}`}
+                                />
+                            ))}
                         </div>
                         <div style={{ padding: '18px 28px', borderTop: '1px solid #1F302622', background: '#F5F0E6', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.32em', color: '#7A8278', textTransform: 'uppercase' }}>Total · USD</div>
+                            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.32em', color: '#7A8278', textTransform: 'uppercase' }}>
+                                {order.refunds.length > 0 ? 'Total after refunds · USD' : 'Total · USD'}
+                            </div>
                             <div style={{ fontFamily: 'var(--font-serif)', fontWeight: 400, fontSize: 32, color: '#1F3026', letterSpacing: '-0.02em', lineHeight: 1 }}>
-                                {formatCurrency(parseFloat(order.totalAmount))}
+                                {order.refunds.length > 0 && (
+                                    <s style={{ fontSize: 18, color: '#7A8278', marginRight: 12 }}>{formatCurrency(parseFloat(order.totalAmount))}</s>
+                                )}
+                                {formatCurrency(Math.max(0, parseFloat(order.totalAmount) - order.refunds.reduce((s, r) => s + r.amountCents, 0) / 100))}
                             </div>
                         </div>
                     </section>

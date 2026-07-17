@@ -356,7 +356,11 @@ export async function kitchenRemoveItemsCore(
     for (const [orderItemId, qty] of removalByItem) {
         const item = itemById.get(orderItemId)!;
         const itemCents = toCents(item.unitPrice) * qty;
-        const taxShare = taxedBaseCents > 0 ? Math.round(taxCents * itemCents / taxedBaseCents) : 0;
+        // Phase 2: exact per-line tax captured at checkout (OrderItem.taxCents
+        // covers the FULL line). Legacy orders (null) pro-rate the aggregate.
+        const taxShare = item.taxCents !== null
+            ? Math.round(item.taxCents * qty / item.quantity)
+            : taxedBaseCents > 0 ? Math.round(taxCents * itemCents / taxedBaseCents) : 0;
         refundCents += itemCents + taxShare;
     }
     if (refundCents <= 0) {

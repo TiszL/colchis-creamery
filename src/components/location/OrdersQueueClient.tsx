@@ -574,7 +574,11 @@ export default function OrdersQueueClient({
 
                     // "Edit order" (partial item removal) — same money gate as
                     // cancel, but only while the kitchen can still change course.
-                    const canEdit = canRefund && item.paymentStatus === 'PAID' && isCooking;
+                    // Mirrors kitchenRemoveOrderItems: editable through READY
+                    // until the courier picks up (or own-delivery departs) —
+                    // courierPickedUp is computed above for the ETA display.
+                    const editableWindow = isCooking || (item.status === 'READY' && !courierPickedUp);
+                    const canEdit = canRefund && item.paymentStatus === 'PAID' && editableWindow;
                     const editOpen = editIds.has(item.id);
                     const editArmed = editArmedIds.has(item.id);
                     const sel = editSelections[item.id] ?? {};

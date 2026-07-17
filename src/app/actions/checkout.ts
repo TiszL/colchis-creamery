@@ -445,9 +445,13 @@ export async function createCheckoutSession(input: CheckoutInput): Promise<Check
 
     let taxAmount = 0;
     let taxCalculationId: string | null = null;
+    const taxCentsByProductId = new Map<string, number>();
     try {
         const calculation = await stripe.tax.calculations.create({
             currency: 'usd',
+            // Phase 2: per-line amounts feed OrderItem.taxCents so modification
+            // refunds are exact instead of pro-rated.
+            expand: ['line_items'],
             line_items: [
                 ...input.items.map(item => {
                     const product = productMap.get(item.productId)!;
@@ -458,16 +462,16 @@ export async function createCheckoutSession(input: CheckoutInput): Promise<Check
                         tax_behavior: 'exclusive' as const,
                     };
                 }),
-                {
-                    amount: Math.round(shippingTotal * 100),
-                    // 'shipping' is a Stripe-Tax-reserved keyword for the reference field;
-                    // any non-reserved string works as a line-item identifier.
-                    reference: 'shipping-fee',
-                    quantity: 1,
-                    tax_behavior: 'exclusive' as const,
-                    tax_code: 'txcd_92010001', // Stripe Tax code for shipping
-                },
             ],
+            // Shipping must ride the dedicated shipping_cost param — Stripe
+            // REJECTS tax_code txcd_92010001 on a plain line item (this
+            // rejection silently zeroed tax on every order until Phase 2's
+            // verification caught it; the $0 fallback + ops alert masked it).
+            shipping_cost: {
+                amount: Math.round(shippingTotal * 100),
+                tax_behavior: 'exclusive' as const,
+                tax_code: 'txcd_92010001',
+            },
             customer_details: {
                 address: {
                     line1: addr.line1,
@@ -482,6 +486,18 @@ export async function createCheckoutSession(input: CheckoutInput): Promise<Check
         });
         taxCalculationId = calculation.id;
         taxAmount = (calculation.tax_amount_exclusive ?? 0) / 100;
+        // Per-line tax keyed by our own reference ('product:<id>'). The
+        // shipping-fee line stays order-level only — shipping is never
+        // refunded on modification. Small carts fit one page; if Stripe ever
+        // paginates (has_more) the tail lines just keep taxCents null and the
+        // refund math falls back to pro-rating for them.
+        for (const line of calculation.line_items?.data ?? []) {
+            if (!line.reference?.startsWith('product:')) continue;
+            taxCentsByProductId.set(line.reference.slice('product:'.length), line.amount_tax);
+        }
+        if (calculation.line_items?.has_more) {
+            console.warn('[checkout] tax calculation line_items paginated — tail lines fall back to pro-rate on Order', order.id);
+        }
     } catch (e) {
         // Don't fail the customer for a Stripe Tax hiccup — but collecting $0 tax
         // on real orders is a compliance problem the owner must hear about NOW,
@@ -610,18 +626,28 @@ export async function createCheckoutSession(input: CheckoutInput): Promise<Check
 
     /* ─── 11. Persist totals + PaymentIntent id + tax calc id on Order ──── */
 
-    await prisma.order.update({
-        where: { id: order.id },
-        data: {
-            stripePaymentIntentId: paymentIntent.id,
-            taxAmount: taxAmount.toFixed(2),
-            totalAmount: totalWithTax.toFixed(2),
-            // Storing the calc id locally (in addition to PI metadata) so the webhook
-            // can recover its idempotency state without re-fetching the PI, and so a
-            // future admin tool can find calc-without-transaction orders to retry.
-            stripeTaxCalculationId: taxCalculationId,
-        },
-    });
+    await prisma.$transaction([
+        prisma.order.update({
+            where: { id: order.id },
+            data: {
+                stripePaymentIntentId: paymentIntent.id,
+                taxAmount: taxAmount.toFixed(2),
+                totalAmount: totalWithTax.toFixed(2),
+                // Storing the calc id locally (in addition to PI metadata) so the webhook
+                // can recover its idempotency state without re-fetching the PI, and so a
+                // future admin tool can find calc-without-transaction orders to retry.
+                stripeTaxCalculationId: taxCalculationId,
+            },
+        }),
+        // Phase 2: exact per-line tax (cents) for modification refunds. Keyed
+        // by productId — one OrderItem per product per order by construction.
+        ...[...taxCentsByProductId].map(([productId, cents]) =>
+            prisma.orderItem.updateMany({
+                where: { orderId: order.id, productId },
+                data: { taxCents: cents },
+            }),
+        ),
+    ]);
 
     return {
         ok: true,

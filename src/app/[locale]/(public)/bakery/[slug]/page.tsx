@@ -208,6 +208,7 @@ export default async function BakeryPdp({ params }: BakeryPdpProps) {
                 nameKa: product.nameKa,
                 description: product.description,
                 weight: product.weight,
+          dietaryTags: product.dietaryTags,
                 ingredients: product.ingredients,
                 priceB2c: product.priceB2c,
                 priceB2b: product.priceB2b,

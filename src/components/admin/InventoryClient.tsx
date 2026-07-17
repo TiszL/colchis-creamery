@@ -47,6 +47,7 @@ interface Product {
     // now comes from productCategory.sections (creamery / bakery / shop / ...).
     isMadeToOrder: boolean;
     tag: string | null;
+    dietaryTags: string[];
     productLineId: string | null;
     categoryId: string; // Phase 9b: NOT NULL
     productCategory: { slug: string; name: string; sections: string[] } | null;
@@ -528,6 +529,18 @@ export default function InventoryClient({ products, productLines, productFamilie
                                 <input name="tag" defaultValue={editProduct?.tag || ''}
                                     placeholder="Bestseller · Vegan · Limited · Ships local"
                                     className="w-full bg-[#0C0C0C] border border-[#B96A3D22] text-white py-2.5 px-4 focus:outline-none focus:border-[#B96A3D] placeholder-gray-700 text-sm" />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wider">Dietary / Allergen badges</label>
+                                <div className="flex flex-wrap gap-x-4 gap-y-2">
+                                    {['Vegan', 'Vegetarian', 'Gluten-free', 'Dairy-free', 'Contains nuts', 'Spicy'].map(dt => (
+                                        <label key={dt} className="flex items-center gap-1.5 text-sm text-gray-300 cursor-pointer">
+                                            <input type="checkbox" name="dietaryTags" value={dt}
+                                                defaultChecked={editProduct?.dietaryTags?.includes(dt) ?? false} />
+                                            {dt}
+                                        </label>
+                                    ))}
+                                </div>
                             </div>
                         </div>
 

@@ -458,6 +458,10 @@ export async function approveOrderEditRequest(
             return { ok: false, error: result.error };
         }
         amountRefunded = result.amountRefunded;
+        // Courier manifest re-sync after removals (pre-pickup only) — best-effort.
+        const { resyncCourierManifest } = await import('@/lib/carrier-dispatch');
+        await resyncCourierManifest(req.fulfillment.id, '[approveOrderEdit]').catch(e =>
+            console.error('[approveOrderEdit] courier resync failed:', e));
     }
 
     await prisma.orderEditRequest.update({
@@ -713,6 +717,11 @@ export async function applyPaidAmendment(
             console.error('[order-edit] amendment-paid email failed:', e);
         }
     }
+    // Courier manifest re-sync — the paid addition changed the ticket.
+    const { resyncCourierManifest } = await import('@/lib/carrier-dispatch');
+    await resyncCourierManifest(fulfillment.id, '[applyPaidAmendment]').catch(e =>
+        console.error('[applyPaidAmendment] courier resync failed:', e));
+
     console.log('[order-edit] Amendment applied:', amendment.id, 'order', amendment.order.id);
 }
 

@@ -43,6 +43,8 @@ export interface BakeryItem {
   sources?: Array<{ locationId: string; locationName: string; distanceMiles: number }>;
   /** Phase 3 — every enabled stock row is day-of-86'd: card shows "Sold out today". */
   soldOutToday?: boolean;
+  /** Phase 4a — structured dietary/allergen chips (Vegan, Gluten-free, …). */
+  dietaryTags?: string[];
 }
 
 export interface HeroContent {
@@ -332,6 +334,13 @@ export default function BakeryClient({ heroContent, menuContent, deliveryContent
             </div>
             <div style={{ fontFamily: "var(--font-sans)", fontSize: 13, color: "#2C3D33", lineHeight: 1.55, marginTop: 12 }}>{p.desc}</div>
             <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.2em", color: "#7A8278", textTransform: "uppercase", marginTop: 14 }}>{p.weight}</div>
+            {p.dietaryTags && p.dietaryTags.length > 0 && (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 10 }}>
+                {p.dietaryTags.map(dt => (
+                  <span key={dt} style={{ padding: "4px 8px", border: "1px solid #2C3D3344", background: "#2C3D330D", fontFamily: "var(--font-mono)", fontSize: 8, letterSpacing: "0.18em", color: "#2C3D33", textTransform: "uppercase" }}>{dt}</span>
+                ))}
+              </div>
+            )}
             {p.eligibleChannels && p.eligibleChannels.length > 0 && (
               <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.18em", color: "#B96A3D", textTransform: "uppercase", marginTop: 8, lineHeight: 1.5 }}>
                 ◐ {p.eligibleChannels.map(channelMeta).join(" · ")}

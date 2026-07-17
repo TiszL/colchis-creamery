@@ -75,6 +75,7 @@ export default async function AdminInventoryPage({ params }: { params: Promise<{
         stockQuantity: p.stockQuantity,
         isMadeToOrder: p.isMadeToOrder,
         tag: p.tag,
+        dietaryTags: p.dietaryTags,
         productLineId: p.productLineId,
         categoryId: p.categoryId,
         productCategory: p.productCategory

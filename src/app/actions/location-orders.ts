@@ -593,6 +593,11 @@ export async function kitchenRemoveOrderItems(
         });
         if (!result.ok) return { ok: false, error: result.error };
 
+        // Courier manifest re-sync (pre-pickup only) — best-effort.
+        const { resyncCourierManifest } = await import('@/lib/carrier-dispatch');
+        await resyncCourierManifest(fulfillmentId, '[kitchenRemoveOrderItems]').catch(e =>
+            console.error('[kitchenRemoveOrderItems] courier resync failed:', e));
+
         // Best-effort customer notification — never fail the refund over email.
         const to = f.order.guestEmail ?? f.order.user?.email;
         if (to) {

@@ -70,7 +70,7 @@ export async function dispatchCourierForFulfillment(
         include: {
             location: true,
             order: { include: { user: { select: { name: true, email: true, phone: true } } } },
-            items: { include: { orderItem: { include: { product: { select: { name: true, productCategory: { select: { packagingMode: true } } } } } } } },
+            items: { include: { orderItem: { include: { product: { select: { name: true, productCategory: { select: { packagingMode: true, slug: true } } } } } } } },
         },
     });
     if (!f) return { ok: false, error: 'Fulfillment not found' };
@@ -122,6 +122,12 @@ export async function dispatchCourierForFulfillment(
         description: packagingNote(it.orderItem.product.productCategory?.packagingMode),
     }));
 
+    // Phase 4a (owner decision): orders containing DRINKS are handed to the
+    // customer instead of left at the door — an iced latte on a porch is not
+    // the premium cafe experience. Everything else keeps contactless dropoff.
+    const containsDrinks = effectiveLines.some(it =>
+        /-drinks$/.test(it.orderItem.product.productCategory?.slug ?? ''));
+
     if (f.deliveryMethod === 'DOORDASH_DRIVE') {
         if (!isDoorDashConfigured()) return await failDispatch(f, 'DoorDash is not configured (missing credentials).');
 
@@ -137,7 +143,8 @@ export async function dispatchCourierForFulfillment(
             orderValueCents,
             items,
             pickupReadyAt: opts.pickupReadyAt,
-            contactlessDropoff: true, // platform decision: leave at door
+            // Drinks must be handed over; other orders stay contactless.
+            contactlessDropoff: !containsDrinks,
         });
         if (!result) return await failDispatch(f, 'DoorDash rejected the delivery request — see server logs.');
         await prisma.orderFulfillment.update({
@@ -170,7 +177,8 @@ export async function dispatchCourierForFulfillment(
         orderValueCents,
         items,
         pickupReadyAt: opts.pickupReadyAt,
-        undeliverableAction: 'leave_at_door', // platform decision
+        // Drinks: never abandon at the door — return undeliverables instead.
+        undeliverableAction: containsDrinks ? 'return' : 'leave_at_door',
     });
     if (!result) return await failDispatch(f, 'Uber Direct rejected the delivery request — see server logs.');
     await prisma.orderFulfillment.update({
@@ -210,4 +218,34 @@ async function failDispatch(
         }).catch((e) => console.warn('[carrier-dispatch] Ops email failed:', e instanceof Error ? e.message : e));
     }
     return { ok: false, error };
+}
+
+/**
+ * Phase 4a — after an order edit changes the ticket (items removed, or paid
+ * amendment added), re-book an already-requested courier so the driver's
+ * manifest + declared value match reality. Only safe BEFORE pickup: once the
+ * courier is OUT_FOR_DELIVERY the bag is gone. Best-effort; failures log and
+ * leave the existing booking (staff can use the KDS Re-dispatch button).
+ */
+export async function resyncCourierManifest(fulfillmentId: string, logPrefix: string): Promise<void> {
+    const f = await prisma.orderFulfillment.findUnique({
+        where: { id: fulfillmentId },
+        select: {
+            id: true, deliveryMethod: true, externalOrderId: true,
+            courierStatus: true, status: true,
+            location: { select: { prepMinutes: true } },
+        },
+    });
+    if (!f?.externalOrderId) return;
+    if (!['DOORDASH_DRIVE', 'UBER_DIRECT'].includes(f.deliveryMethod)) return;
+    if (!['REQUESTED', 'CONFIRMED'].includes(f.courierStatus ?? '')) return;
+    const { cancelActiveCarrierDeliveries } = await import('@/lib/order-refund');
+    await cancelActiveCarrierDeliveries(
+        [{ id: f.id, deliveryMethod: f.deliveryMethod, externalOrderId: f.externalOrderId, status: f.status }],
+        logPrefix,
+    );
+    const pickupReadyAt = new Date(Date.now() + (f.location.prepMinutes || 25) * 60 * 1000);
+    const res = await dispatchCourierForFulfillment(f.id, { pickupReadyAt, force: true });
+    if (!res.ok) console.error(`${logPrefix} courier re-dispatch after edit failed:`, res.error);
+    else console.log(`${logPrefix} courier re-booked with the corrected manifest`);
 }

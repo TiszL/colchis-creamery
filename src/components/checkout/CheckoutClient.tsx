@@ -185,6 +185,14 @@ export default function CheckoutClient({
 
     const stripePromise = useMemo(() => getStripePromise(stripePublishableKey), [stripePublishableKey]);
 
+    // Quote-phone: only a COMPLETE-looking phone triggers a re-quote (10+
+    // digits), so we don't spam the carriers per keystroke — the value flips
+    // from undefined to the digits string once, then stays stable.
+    const quotePhone = useMemo(() => {
+        const digits = (contact.phone ?? '').replace(/\D/g, '');
+        return digits.length >= 10 ? digits : undefined;
+    }, [contact.phone]);
+
     // Refetch plan when items or address change (same pattern as CartClient).
     const refetchPlan = useCallback(async () => {
         if (!activeAddress || items.length === 0) {
@@ -208,6 +216,10 @@ export default function CheckoutClient({
                     postalCode: components.postalCode,
                     country: components.country,
                 } : undefined,
+                // Live DD/Uber quotes need a dropoff phone; without it guests
+                // only ever saw the $7 flat fallback. Re-quotes when the typed
+                // phone first becomes plausibly complete (see quotePhone memo).
+                quotePhone,
             );
             setPlan(result);
         } catch (e) {
@@ -216,7 +228,7 @@ export default function CheckoutClient({
         } finally {
             setPlanning(false);
         }
-    }, [activeAddress, items, userAddresses]);
+    }, [activeAddress, items, userAddresses, quotePhone]);
 
     useEffect(() => { refetchPlan(); }, [refetchPlan]);
 

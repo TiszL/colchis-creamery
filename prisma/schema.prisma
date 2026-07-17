@@ -504,7 +504,8 @@ model Category {
   // Phase 9b: replaces the dropped ProductKind enum for shipping packaging.
   // Values: "HOT" | "COLD" | "AMBIENT". Null = AMBIENT (no special handling).
   // shipping.ts uses this to pick HOT_INSULATED / INSULATED_COLD_CHAIN / AMBIENT
-  // packaging for DoorDash/Uber routes. Admin sets per-category in CategoryManager.
+  // packaging for DoorDash/Uber routes. Admin sets it via the Packaging select
+  // in CategoryManager (saveCategoryAction whitelists HOT/COLD/AMBIENT; empty → null).
   packagingMode   String?
   sortOrder       Int         @default(0)
   isActive        Boolean     @default(true)

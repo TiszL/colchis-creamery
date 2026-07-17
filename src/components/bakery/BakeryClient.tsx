@@ -85,6 +85,10 @@ interface BakeryClientProps {
   deliveryContent?: DeliveryContent | null;
   hotItems?: BakeryItem[];      // from DB (Phase 4) — takes precedence
   frozenItems?: BakeryItem[];   // from DB (Phase 4) — takes precedence
+  /** Bakery-tagged categories beyond the legacy hot/frozen tabs. Each renders
+   *  as a titled section (same card grid) below the tabbed menu in the default
+   *  (unfiltered) view. */
+  extraSections?: Array<{ label: string; items: BakeryItem[] }>;
   /** Stage 4: when a Category chip is active on /bakery, the page passes the
    *  filtered items here. BakeryClient then renders a single grid (no hot/
    *  frozen tabs) using the section label below. When undefined, falls back
@@ -112,7 +116,7 @@ function channelMeta(ch: DeliveryMethod): string {
   }
 }
 
-export default function BakeryClient({ heroContent, menuContent, deliveryContent, hotItems: hotItemsProp, frozenItems: frozenItemsProp, singleSectionItems, singleSectionLabel, apiKey, isLoggedIn = false, userAddresses = [], primaryAddressLine1, primaryCityState }: BakeryClientProps) {
+export default function BakeryClient({ heroContent, menuContent, deliveryContent, hotItems: hotItemsProp, frozenItems: frozenItemsProp, extraSections, singleSectionItems, singleSectionLabel, apiKey, isLoggedIn = false, userAddresses = [], primaryAddressLine1, primaryCityState }: BakeryClientProps) {
   const [tab, setTab] = useState<"hot" | "frozen">("hot");
   // Phase 5.5: address-gated availability (guest localStorage OR logged-in UserAddress)
   const [activeAddress, setActiveAddress] = useState<ActiveAddress | null>(null);
@@ -241,7 +245,7 @@ export default function BakeryClient({ heroContent, menuContent, deliveryContent
   // "out of range" message instead of hiding them.
   const enrichWithAvailability = useCallback((item: BakeryItem): BakeryItem => {
     if (!availability || !item.id) return item;
-    const all = [...availability.hotProducts, ...availability.frozenProducts];
+    const all = [...availability.hotProducts, ...availability.frozenProducts, ...availability.otherProducts];
     const match = all.find(p => p.id === item.id);
     if (!match) {
       // Address set, product not in availability → not reachable for this customer
@@ -264,9 +268,179 @@ export default function BakeryClient({ heroContent, menuContent, deliveryContent
   const items = isFilteredView
       ? singleSectionItems.map(enrichWithAvailability)
       : (tab === "hot" ? hotItems : frozenItems);
+  const extraSectionsEnriched = (extraSections ?? []).map(sec => ({
+    label: sec.label,
+    items: sec.items.map(enrichWithAvailability),
+  }));
   // "No coverage" = address is set but NO location is in delivery range. This is purely
   // address-based; it does NOT trigger when products are merely out of stock / coming-soon.
   const noCoverage = !!availability && !availability.inServiceArea;
+
+  // Card renderer shared by the tabbed hot/frozen grid and the extra
+  // per-category sections below it — one card design, no forks.
+  const renderItemCard = (p: BakeryItem, i: number) => {
+    const qty = p.id ? getQty(p.id) : 1;
+    const cap = getCap(p);
+    const atMax = qty >= cap;
+    // Distinguish three "can't add to cart" states (each gets its own UI):
+    //   - dineInOnly: product is configured only for IN_STORE_DINE_IN (intrinsic — true regardless of address)
+    //   - outOfRange: address is set + product has non-dine-in offered channels, but customer reaches none
+    //   - soldOut:    real stock issue (per-location or legacy total = 0)
+    const offered = p.offeredChannels ?? null;
+    const canBeCartOrdered = offered === null
+      ? true                                          // unknown: assume yes until proven otherwise
+      : cartEligibleChannels(offered).length > 0;     // product has at least one non-dine-in channel
+    const dineInOnly = offered !== null && offered.length > 0 && !canBeCartOrdered;
+    const outOfRange = canBeCartOrdered
+      && !!availability
+      && Array.isArray(p.eligibleChannels)
+      && p.eligibleChannels.length === 0;
+    const soldOut = !p.isMadeToOrder
+      && !outOfRange  // don't show "Sold out" when the real issue is "out of range"
+      && typeof p.stockAvailable === 'number'
+      && p.stockAvailable <= 0;
+    const isWholesaleOnly = p.isCartOrderable === false;
+    const cartDisabled = soldOut || dineInOnly || outOfRange || isWholesaleOnly;
+    const recentlyAdded = p.id && justAdded === p.id;
+    const closestSource = (p.sources && p.sources.length > 0 && availability && availability.coveringLocations.length > 1)
+      ? [...p.sources].sort((a, b) => a.distanceMiles - b.distanceMiles)[0]
+      : null;
+    // Image + textual info is the clickable link; cart controls live outside.
+    const HeaderLink: React.ElementType = p.slug ? Link : 'div';
+    const headerLinkProps = p.slug
+      ? { href: `/bakery/${p.slug}`, style: { textDecoration: 'none', color: 'inherit', display: 'block' } }
+      : {};
+    return (
+      <div key={p.id || i} style={{ background: "#EAE2D2", border: "1px solid #1F302614", display: "flex", flexDirection: "column", height: "100%" }}>
+        <HeaderLink {...headerLinkProps}>
+          <div style={{ aspectRatio: "4/3", background: "#1F302608", position: "relative", display: "flex", alignItems: "center", justifyContent: "center", borderBottom: "1px solid #1F302614", overflow: "hidden" }}>
+            {p.imageUrl && p.imageUrl.trim() !== '' ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <Image src={p.imageUrl} alt={p.name} fill sizes="(max-width: 768px) 100vw, 33vw" style={{ objectFit: "cover" }} />
+            ) : (
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.24em", color: "#7A8278", opacity: 0.6, textTransform: "uppercase" }}>[ {p.name} photo ]</div>
+            )}
+            {p.tag && (
+              <div style={{ position: "absolute", top: 16, left: 16, padding: "6px 12px", background: p.tag === "Vegan" ? "#2C3D33" : "#B96A3D", color: "#F5F0E6", fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.24em", textTransform: "uppercase", zIndex: 1 }}>{p.tag}</div>
+            )}
+          </div>
+          <div style={{ padding: "24px 24px 16px", display: "flex", flexDirection: "column" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+              <div>
+                <div style={{ fontFamily: "var(--font-serif)", fontStyle: "italic", fontSize: 28, color: "#1F3026", lineHeight: 1 }}>{p.name}</div>
+                <div style={{ fontFamily: "var(--font-serif-ka, 'Noto Serif Georgian', serif)", fontSize: 16, color: "#1F3026", opacity: 0.5, marginTop: 4 }}>{p.ka}</div>
+              </div>
+              <div style={{ fontFamily: "var(--font-serif)", fontSize: 24, color: "#B96A3D", fontWeight: 500 }}>{p.price}</div>
+            </div>
+            <div style={{ fontFamily: "var(--font-sans)", fontSize: 13, color: "#2C3D33", lineHeight: 1.55, marginTop: 12 }}>{p.desc}</div>
+            <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.2em", color: "#7A8278", textTransform: "uppercase", marginTop: 14 }}>{p.weight}</div>
+            {p.eligibleChannels && p.eligibleChannels.length > 0 && (
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.18em", color: "#B96A3D", textTransform: "uppercase", marginTop: 8, lineHeight: 1.5 }}>
+                ◐ {p.eligibleChannels.map(channelMeta).join(" · ")}
+              </div>
+            )}
+            {closestSource && (
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.18em", color: "#7A8278", textTransform: "uppercase", marginTop: 4 }}>
+                From {closestSource.locationName} · {closestSource.distanceMiles.toFixed(1)} mi
+              </div>
+            )}
+          </div>
+        </HeaderLink>
+
+        {/* Cart controls — outside the Link so clicks don't navigate to PDP */}
+        {p.id && (
+          <div style={{ padding: "0 24px 24px", display: "flex", flexDirection: "column", gap: 10, marginTop: "auto" }}>
+            {isWholesaleOnly ? (
+              // Wholesale-only: listed publicly but not retail-orderable.
+              // Route customer to wholesale enquiry instead.
+              <Link href="/wholesale" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, height: 44, background: "#2C3D33", color: "#F5F0E6", fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.24em", textTransform: "uppercase", textDecoration: "none" }}>
+                Request a quote →
+              </Link>
+            ) : dineInOnly ? (
+              // Dine-in-only product: can't be cart-ordered. Show clear messaging instead of cart UI.
+              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", background: "#1F3026", color: "#F5F0E6", fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.22em", textTransform: "uppercase" }}>
+                <Utensils className="w-3.5 h-3.5" />
+                Dine-in only · visit the bakery
+              </div>
+            ) : outOfRange ? (
+              // Address set, but no reachable channel for this customer.
+              // Show the product (don't hide) but explain why it can't be added.
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, padding: "12px 14px", background: "#EAE2D2", border: "1px solid #1F302622" }}>
+                <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.22em", color: "#A8312C", textTransform: "uppercase" }}>
+                  Not available at your address
+                </div>
+                <div style={{ fontFamily: "var(--font-sans)", fontSize: 12, color: "#2C3D33" }}>
+                  Try a different delivery address to see this product.
+                </div>
+              </div>
+            ) : (
+              <div style={{ display: "flex", alignItems: "stretch", gap: 8 }}>
+                {/* Quantity stepper */}
+                <div style={{ display: "flex", alignItems: "stretch", border: "1px solid #1F302633", background: "#F5F0E6" }}>
+                  <button
+                    type="button"
+                    aria-label="Decrease quantity"
+                    onClick={() => bumpQty(p.id!, -1, cap)}
+                    disabled={qty <= 1 || cartDisabled}
+                    style={{ width: 44, height: 44, border: "none", background: "transparent", cursor: (qty <= 1 || cartDisabled) ? "not-allowed" : "pointer", color: (qty <= 1 || cartDisabled) ? "#7A827855" : "#1F3026", display: "flex", alignItems: "center", justifyContent: "center" }}
+                  >
+                    <Minus className="w-3.5 h-3.5" />
+                  </button>
+                  <div style={{ minWidth: 36, height: 44, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-mono)", fontSize: 14, color: "#1F3026", borderLeft: "1px solid #1F302622", borderRight: "1px solid #1F302622" }}>
+                    {qty}
+                  </div>
+                  <button
+                    type="button"
+                    aria-label="Increase quantity"
+                    onClick={() => bumpQty(p.id!, 1, cap)}
+                    disabled={atMax || cartDisabled}
+                    style={{ width: 44, height: 44, border: "none", background: "transparent", cursor: (atMax || cartDisabled) ? "not-allowed" : "pointer", color: (atMax || cartDisabled) ? "#7A827855" : "#1F3026", display: "flex", alignItems: "center", justifyContent: "center" }}
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                {/* Add to cart button */}
+                <button
+                  type="button"
+                  onClick={() => handleAddToCart(p)}
+                  disabled={cartDisabled}
+                  style={{
+                    flex: 1,
+                    height: 44,
+                    background: cartDisabled ? "#7A8278" : recentlyAdded ? "#2C3D33" : (tab === "hot" ? "#B96A3D" : "#1F3026"),
+                    color: "#F5F0E6",
+                    border: "none",
+                    cursor: cartDisabled ? "not-allowed" : "pointer",
+                    fontFamily: "var(--font-mono)",
+                    fontSize: 11,
+                    letterSpacing: "0.24em",
+                    textTransform: "uppercase",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 8,
+                    transition: "background-color 200ms",
+                    opacity: cartDisabled ? 0.6 : 1,
+                  }}
+                >
+                  {soldOut ? 'Sold out' : recentlyAdded ? (
+                    <><Check className="w-3.5 h-3.5" /> Added</>
+                  ) : (
+                    <><ShoppingBag className="w-3.5 h-3.5" /> Add</>
+                  )}
+                </button>
+              </div>
+            )}
+            {!p.isMadeToOrder && typeof p.stockAvailable === 'number' && p.stockAvailable > 0 && p.stockAvailable <= 5 && (
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.22em", color: "#A8312C", textTransform: "uppercase" }}>
+                Only {p.stockAvailable} left
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <>
@@ -365,170 +539,22 @@ export default function BakeryClient({ heroContent, menuContent, deliveryContent
           )}
 
           <div className="ch-grid-3" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 24 }}>
-            {items.map((p: BakeryItem, i: number) => {
-              const qty = p.id ? getQty(p.id) : 1;
-              const cap = getCap(p);
-              const atMax = qty >= cap;
-              // Distinguish three "can't add to cart" states (each gets its own UI):
-              //   - dineInOnly: product is configured only for IN_STORE_DINE_IN (intrinsic — true regardless of address)
-              //   - outOfRange: address is set + product has non-dine-in offered channels, but customer reaches none
-              //   - soldOut:    real stock issue (per-location or legacy total = 0)
-              const offered = p.offeredChannels ?? null;
-              const canBeCartOrdered = offered === null
-                ? true                                          // unknown: assume yes until proven otherwise
-                : cartEligibleChannels(offered).length > 0;     // product has at least one non-dine-in channel
-              const dineInOnly = offered !== null && offered.length > 0 && !canBeCartOrdered;
-              const outOfRange = canBeCartOrdered
-                && !!availability
-                && Array.isArray(p.eligibleChannels)
-                && p.eligibleChannels.length === 0;
-              const soldOut = !p.isMadeToOrder
-                && !outOfRange  // don't show "Sold out" when the real issue is "out of range"
-                && typeof p.stockAvailable === 'number'
-                && p.stockAvailable <= 0;
-              const isWholesaleOnly = p.isCartOrderable === false;
-              const cartDisabled = soldOut || dineInOnly || outOfRange || isWholesaleOnly;
-              const recentlyAdded = p.id && justAdded === p.id;
-              const closestSource = (p.sources && p.sources.length > 0 && availability && availability.coveringLocations.length > 1)
-                ? [...p.sources].sort((a, b) => a.distanceMiles - b.distanceMiles)[0]
-                : null;
-              // Image + textual info is the clickable link; cart controls live outside.
-              const HeaderLink: React.ElementType = p.slug ? Link : 'div';
-              const headerLinkProps = p.slug
-                ? { href: `/bakery/${p.slug}`, style: { textDecoration: 'none', color: 'inherit', display: 'block' } }
-                : {};
-              return (
-                <div key={p.id || i} style={{ background: "#EAE2D2", border: "1px solid #1F302614", display: "flex", flexDirection: "column", height: "100%" }}>
-                  <HeaderLink {...headerLinkProps}>
-                    <div style={{ aspectRatio: "4/3", background: "#1F302608", position: "relative", display: "flex", alignItems: "center", justifyContent: "center", borderBottom: "1px solid #1F302614", overflow: "hidden" }}>
-                      {p.imageUrl && p.imageUrl.trim() !== '' ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <Image src={p.imageUrl} alt={p.name} fill sizes="(max-width: 768px) 100vw, 33vw" style={{ objectFit: "cover" }} />
-                      ) : (
-                        <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.24em", color: "#7A8278", opacity: 0.6, textTransform: "uppercase" }}>[ {p.name} photo ]</div>
-                      )}
-                      {p.tag && (
-                        <div style={{ position: "absolute", top: 16, left: 16, padding: "6px 12px", background: p.tag === "Vegan" ? "#2C3D33" : "#B96A3D", color: "#F5F0E6", fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.24em", textTransform: "uppercase", zIndex: 1 }}>{p.tag}</div>
-                      )}
-                    </div>
-                    <div style={{ padding: "24px 24px 16px", display: "flex", flexDirection: "column" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                        <div>
-                          <div style={{ fontFamily: "var(--font-serif)", fontStyle: "italic", fontSize: 28, color: "#1F3026", lineHeight: 1 }}>{p.name}</div>
-                          <div style={{ fontFamily: "var(--font-serif-ka, 'Noto Serif Georgian', serif)", fontSize: 16, color: "#1F3026", opacity: 0.5, marginTop: 4 }}>{p.ka}</div>
-                        </div>
-                        <div style={{ fontFamily: "var(--font-serif)", fontSize: 24, color: "#B96A3D", fontWeight: 500 }}>{p.price}</div>
-                      </div>
-                      <div style={{ fontFamily: "var(--font-sans)", fontSize: 13, color: "#2C3D33", lineHeight: 1.55, marginTop: 12 }}>{p.desc}</div>
-                      <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.2em", color: "#7A8278", textTransform: "uppercase", marginTop: 14 }}>{p.weight}</div>
-                      {p.eligibleChannels && p.eligibleChannels.length > 0 && (
-                        <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.18em", color: "#B96A3D", textTransform: "uppercase", marginTop: 8, lineHeight: 1.5 }}>
-                          ◐ {p.eligibleChannels.map(channelMeta).join(" · ")}
-                        </div>
-                      )}
-                      {closestSource && (
-                        <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.18em", color: "#7A8278", textTransform: "uppercase", marginTop: 4 }}>
-                          From {closestSource.locationName} · {closestSource.distanceMiles.toFixed(1)} mi
-                        </div>
-                      )}
-                    </div>
-                  </HeaderLink>
-
-                  {/* Cart controls — outside the Link so clicks don't navigate to PDP */}
-                  {p.id && (
-                    <div style={{ padding: "0 24px 24px", display: "flex", flexDirection: "column", gap: 10, marginTop: "auto" }}>
-                      {isWholesaleOnly ? (
-                        // Wholesale-only: listed publicly but not retail-orderable.
-                        // Route customer to wholesale enquiry instead.
-                        <Link href="/wholesale" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, height: 44, background: "#2C3D33", color: "#F5F0E6", fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.24em", textTransform: "uppercase", textDecoration: "none" }}>
-                          Request a quote →
-                        </Link>
-                      ) : dineInOnly ? (
-                        // Dine-in-only product: can't be cart-ordered. Show clear messaging instead of cart UI.
-                        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", background: "#1F3026", color: "#F5F0E6", fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.22em", textTransform: "uppercase" }}>
-                          <Utensils className="w-3.5 h-3.5" />
-                          Dine-in only · visit the bakery
-                        </div>
-                      ) : outOfRange ? (
-                        // Address set, but no reachable channel for this customer.
-                        // Show the product (don't hide) but explain why it can't be added.
-                        <div style={{ display: "flex", flexDirection: "column", gap: 6, padding: "12px 14px", background: "#EAE2D2", border: "1px solid #1F302622" }}>
-                          <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.22em", color: "#A8312C", textTransform: "uppercase" }}>
-                            Not available at your address
-                          </div>
-                          <div style={{ fontFamily: "var(--font-sans)", fontSize: 12, color: "#2C3D33" }}>
-                            Try a different delivery address to see this product.
-                          </div>
-                        </div>
-                      ) : (
-                        <div style={{ display: "flex", alignItems: "stretch", gap: 8 }}>
-                          {/* Quantity stepper */}
-                          <div style={{ display: "flex", alignItems: "stretch", border: "1px solid #1F302633", background: "#F5F0E6" }}>
-                            <button
-                              type="button"
-                              aria-label="Decrease quantity"
-                              onClick={() => bumpQty(p.id!, -1, cap)}
-                              disabled={qty <= 1 || cartDisabled}
-                              style={{ width: 44, height: 44, border: "none", background: "transparent", cursor: (qty <= 1 || cartDisabled) ? "not-allowed" : "pointer", color: (qty <= 1 || cartDisabled) ? "#7A827855" : "#1F3026", display: "flex", alignItems: "center", justifyContent: "center" }}
-                            >
-                              <Minus className="w-3.5 h-3.5" />
-                            </button>
-                            <div style={{ minWidth: 36, height: 44, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-mono)", fontSize: 14, color: "#1F3026", borderLeft: "1px solid #1F302622", borderRight: "1px solid #1F302622" }}>
-                              {qty}
-                            </div>
-                            <button
-                              type="button"
-                              aria-label="Increase quantity"
-                              onClick={() => bumpQty(p.id!, 1, cap)}
-                              disabled={atMax || cartDisabled}
-                              style={{ width: 44, height: 44, border: "none", background: "transparent", cursor: (atMax || cartDisabled) ? "not-allowed" : "pointer", color: (atMax || cartDisabled) ? "#7A827855" : "#1F3026", display: "flex", alignItems: "center", justifyContent: "center" }}
-                            >
-                              <Plus className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                          {/* Add to cart button */}
-                          <button
-                            type="button"
-                            onClick={() => handleAddToCart(p)}
-                            disabled={cartDisabled}
-                            style={{
-                              flex: 1,
-                              height: 44,
-                              background: cartDisabled ? "#7A8278" : recentlyAdded ? "#2C3D33" : (tab === "hot" ? "#B96A3D" : "#1F3026"),
-                              color: "#F5F0E6",
-                              border: "none",
-                              cursor: cartDisabled ? "not-allowed" : "pointer",
-                              fontFamily: "var(--font-mono)",
-                              fontSize: 11,
-                              letterSpacing: "0.24em",
-                              textTransform: "uppercase",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              gap: 8,
-                              transition: "background-color 200ms",
-                              opacity: cartDisabled ? 0.6 : 1,
-                            }}
-                          >
-                            {soldOut ? 'Sold out' : recentlyAdded ? (
-                              <><Check className="w-3.5 h-3.5" /> Added</>
-                            ) : (
-                              <><ShoppingBag className="w-3.5 h-3.5" /> Add</>
-                            )}
-                          </button>
-                        </div>
-                      )}
-                      {!p.isMadeToOrder && typeof p.stockAvailable === 'number' && p.stockAvailable > 0 && p.stockAvailable <= 5 && (
-                        <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.22em", color: "#A8312C", textTransform: "uppercase" }}>
-                          Only {p.stockAvailable} left
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+            {items.map(renderItemCard)}
           </div>
+
+          {/* Bakery-tagged categories beyond the hot/frozen tabs (Category.sortOrder
+              order) — same cards as the tabbed menu above. */}
+          {!isFilteredView && extraSectionsEnriched.map(sec => (
+            <div key={sec.label}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", borderTop: "1px solid #1F302622", margin: "72px 0 28px", paddingTop: 40 }}>
+                <div style={{ fontFamily: "var(--font-serif)", fontWeight: 300, fontSize: 40, lineHeight: 1.05, letterSpacing: "-0.02em", color: "#1F3026" }}>{sec.label}</div>
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.28em", color: "#7A8278", textTransform: "uppercase" }}>{sec.items.length}</span>
+              </div>
+              <div className="ch-grid-3" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 24 }}>
+                {sec.items.map(renderItemCard)}
+              </div>
+            </div>
+          ))}
         </div>
       </section>
 

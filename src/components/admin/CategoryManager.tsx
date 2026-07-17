@@ -24,6 +24,7 @@ interface CategoryData {
     imageUrl: string | null;
     productLineId: string | null; // Phase 9a: optional
     sections: string[];           // Phase 9a: storefront-section tags
+    packagingMode: string | null; // "HOT" | "COLD" | null/"AMBIENT" — courier packaging
     sortOrder: number;
     isActive: boolean;
     _count?: { products: number };
@@ -269,6 +270,9 @@ export default function CategoryManager({
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-3">
+                                                <span className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 bg-[#ffffff08] text-gray-400 rounded">
+                                                    {cat.packagingMode || 'AMBIENT'}
+                                                </span>
                                                 <span className="text-xs text-gray-600">
                                                     {cat._count?.products ?? 0} product{(cat._count?.products ?? 0) !== 1 ? 's' : ''}
                                                 </span>
@@ -382,6 +386,9 @@ export default function CategoryManager({
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-3 shrink-0">
+                                    <span className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 bg-[#ffffff08] text-gray-400 rounded">
+                                        {cat.packagingMode || 'AMBIENT'}
+                                    </span>
                                     <span className="text-xs text-gray-600">
                                         {cat._count?.products ?? 0} product{(cat._count?.products ?? 0) !== 1 ? 's' : ''}
                                     </span>
@@ -594,6 +601,22 @@ export default function CategoryManager({
                                 </div>
                                 <p className="text-[10px] text-gray-600 mt-1.5">
                                     Pick where this category appears on the storefront. A category can appear in multiple sections.
+                                </p>
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wider">Packaging</label>
+                                <select
+                                    name="packagingMode"
+                                    defaultValue={editingCategory?.packagingMode === 'HOT' || editingCategory?.packagingMode === 'COLD' ? editingCategory.packagingMode : ''}
+                                    className="w-full bg-[#0C0C0C] border border-[#B96A3D22] text-white py-2.5 px-4 focus:outline-none focus:border-[#B96A3D] text-sm"
+                                >
+                                    <option value="">Ambient (default)</option>
+                                    <option value="HOT">Hot</option>
+                                    <option value="COLD">Cold</option>
+                                </select>
+                                <p className="text-[10px] text-gray-600 mt-1">
+                                    Drives DoorDash/Uber courier packaging for products in this category.
                                 </p>
                             </div>
 

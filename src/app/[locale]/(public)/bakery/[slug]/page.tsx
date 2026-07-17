@@ -13,10 +13,12 @@ import type { ActiveAddress } from "@/components/bakery/AddressManager";
 import { DeliveryMethod, LocationType } from "@prisma/client";
 import { offeredChannelsForProduct } from "@/lib/offered-channels";
 
-// Phase 9b: bakery section identified via Category slug, not ProductKind.
+// Phase 9b: bakery scope = any Category tagged 'bakery' in sections, not a
+// slug whitelist — /shop cards + sitemap link every bakery-section product here.
+// The two legacy slugs only drive the Hot/Frozen breadcrumb label below.
+const BAKERY_SECTION = 'bakery';
 const HOT_CATEGORY_SLUG = 'hot-pastries';
 const FROZEN_CATEGORY_SLUG = 'frozen-bake-off';
-const BAKERY_CATEGORY_SLUGS = [HOT_CATEGORY_SLUG, FROZEN_CATEGORY_SLUG];
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://colchisfood.com';
 
@@ -27,7 +29,7 @@ interface BakeryPdpProps {
 export async function generateMetadata({ params }: BakeryPdpProps): Promise<Metadata> {
   const { locale, slug } = await params;
   const product = await prisma.product.findFirst({
-    where: { slug, status: { in: ['ACTIVE', 'COMING_SOON'] }, productCategory: { slug: { in: BAKERY_CATEGORY_SLUGS } } },
+    where: { slug, status: { in: ['ACTIVE', 'COMING_SOON'] }, productCategory: { sections: { has: BAKERY_SECTION } } },
   });
   if (!product) return { title: "Product Not Found" };
 
@@ -65,7 +67,7 @@ export default async function BakeryPdp({ params }: BakeryPdpProps) {
       slug,
       status: { in: ['ACTIVE', 'COMING_SOON'] },
       isB2cVisible: true,
-      productCategory: { slug: { in: BAKERY_CATEGORY_SLUGS } },
+      productCategory: { sections: { has: BAKERY_SECTION } },
     },
     include: {
       productCategory: { select: { slug: true, name: true } },
@@ -160,7 +162,7 @@ export default async function BakeryPdp({ params }: BakeryPdpProps) {
           <span style={{ color: "#2C3D33", opacity: 0.5 }}>/</span>
           <Link href={`${prefix}/bakery`} style={{ color: "#7A8278", textDecoration: "none" }}>Bakery</Link>
           <span style={{ color: "#2C3D33", opacity: 0.5 }}>/</span>
-          <span style={{ color: "#7A8278" }}>{product.productCategory?.slug === HOT_CATEGORY_SLUG ? 'Hot' : 'Frozen'}</span>
+          <span style={{ color: "#7A8278" }}>{product.productCategory?.slug === HOT_CATEGORY_SLUG ? 'Hot' : product.productCategory?.slug === FROZEN_CATEGORY_SLUG ? 'Frozen' : (product.productCategory?.name ?? 'Menu')}</span>
           <span style={{ color: "#2C3D33", opacity: 0.5 }}>/</span>
           <span style={{ color: "#1F3026", fontWeight: 500 }}>{product.name}</span>
         </div>

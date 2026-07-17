@@ -92,6 +92,22 @@ export function nextOpenAfterToday(hours: LocationHours, from: Date = new Date()
 }
 
 /** Next opening datetime strictly after `from` (checks up to 8 days ahead). */
+/**
+ * Phase 4b — MTO order acceptance: open AND not inside the pre-close wind-down
+ * window (mtoCutoffMinutes). A kitchen 30 min from close shouldn't take a
+ * fresh khachapuri order; it schedules for the next open slot instead.
+ */
+export function isAcceptingMtoOrders(
+    hours: LocationHours,
+    cutoffMinutes: number | null | undefined,
+    now: Date = new Date(),
+): boolean {
+    if (!isOpenNow(hours, now)) return false;
+    if (!cutoffMinutes || cutoffMinutes <= 0) return true;
+    // Open now but closed at (now + cutoff) ⇒ inside the wind-down window.
+    return isOpenNow(hours, new Date(now.getTime() + cutoffMinutes * 60 * 1000));
+}
+
 export function nextOpenSlot(hours: LocationHours, from: Date = new Date()): Date | null {
     if (!hours) return null;
     for (let i = 0; i < 8; i++) {

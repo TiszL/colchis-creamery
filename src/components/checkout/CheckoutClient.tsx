@@ -324,6 +324,7 @@ export default function CheckoutClient({
             // 2. Server-side: reserve stock, compute tax, create PaymentIntent.
             const result = await createCheckoutSession({
                 items: items.map(i => ({ productId: i.product.id, quantity: i.quantity })),
+                locale,
                 address: addressComponents,
                 selectedChannels: Object.entries(selectedChannels).map(([locationId, deliveryMethod]) => ({
                     locationId,

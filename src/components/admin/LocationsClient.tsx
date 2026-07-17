@@ -36,6 +36,7 @@ type LocationRow = {
     // Kitchen dispatch (KDS) — prep time drives courier pickup_ready timing;
     // notificationEmail receives new-order alerts (falls back to global).
     prepMinutes: number;
+    mtoCutoffMinutes: number | null;
     notificationEmail: string | null;
     // Phase 10 display fields — drive every public address surface
     isPrimary: boolean;
@@ -554,6 +555,7 @@ function LocationDrawer({
 
     // Kitchen dispatch settings (KDS)
     const [prepMinutes, setPrepMinutes] = useState<string>(String(location?.prepMinutes ?? 25));
+    const [mtoCutoff, setMtoCutoff] = useState<string>(location?.mtoCutoffMinutes != null ? String(location.mtoCutoffMinutes) : '');
     const [notificationEmail, setNotificationEmail] = useState(location?.notificationEmail || '');
 
     // Phase 10 display-on-public-site fields. Read by the homepage Visit block,
@@ -688,6 +690,7 @@ function LocationDrawer({
         fd.set('notes', notes);
         // Kitchen dispatch settings
         fd.set('prepMinutes', String(prepMins));
+        fd.set('mtoCutoffMinutes', mtoCutoff.trim());
         fd.set('notificationEmail', notificationEmail);
         // Phase 10 display fields
         if (showOnContactPage) fd.set('showOnContactPage', 'on');
@@ -867,6 +870,13 @@ function LocationDrawer({
                         <input type="number" min={5} max={120} value={prepMinutes} onChange={e => setPrepMinutes(e.target.value)}
                             className="w-full bg-[#161616] border border-[#B96A3D22] text-white py-2 px-3 focus:outline-none focus:border-[#B96A3D] text-sm" />
                         <p className="text-[9px] text-gray-600 mt-1">Kitchen time from Accept to handoff-ready; drives courier pickup timing.</p>
+                    </div>
+                    <div>
+                        <label className="block text-[10px] font-bold text-gray-500 mb-1 uppercase tracking-wider">MTO cutoff (min before close)</label>
+                        <input type="number" min={0} max={180} value={mtoCutoff} onChange={e => setMtoCutoff(e.target.value)}
+                            placeholder="e.g. 30 — blank = none"
+                            className="w-full bg-[#161616] border border-[#B96A3D22] text-white py-2 px-3 focus:outline-none focus:border-[#B96A3D] text-sm" />
+                        <p className="text-[9px] text-gray-600 mt-1">Made-to-order items ordered inside this window schedule for the next open instead.</p>
                     </div>
                     <div>
                         <label className="block text-[10px] font-bold text-gray-500 mb-1 uppercase tracking-wider">Notification email</label>

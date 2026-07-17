@@ -789,6 +789,19 @@ function fmtChannel(deliveryMethod: string): string {
   return deliveryMethod.replace(/_/g, ' ');
 }
 
+/* ─── Phase 4b — Georgian (ka) customer-email strings ─────────────────────
+ * Order.locale drives which language the core customer emails render in.
+ * Structure/layout stays shared; only customer-read copy switches. ru/es
+ * fall back to English until those locales are re-enabled. */
+const KA = {
+  readySubject: (shortId: string) => `შეკვეთა #${shortId} მზადაა ასაღებად`,
+  readyBody: (loc: string) => `თქვენი შეკვეთა მზადაა და გელოდებათ აქ: ${loc}.`,
+  removedSubject: (shortId: string, amt: string) => `ცვლილება შეკვეთაში #${shortId} — დაბრუნდა $${amt}`,
+  removedBody: (amt: string) => `როგორც შევთანხმდით, შეკვეთიდან მოიხსნა პოზიცია და დაგიბრუნდათ $${amt}. ბანკიდან თანხის ასახვას შეიძლება 5–10 სამუშაო დღე დასჭირდეს.`,
+  cancelSubject: (shortId: string) => `შეკვეთა #${shortId} გაუქმდა — თანხა დაბრუნებულია`,
+  cancelBody: (amt: string) => `ვწუხვართ — შეკვეთა გაუქმდა და სრულად დაგიბრუნდათ $${amt}. ბანკიდან ასახვას შეიძლება 5–10 სამუშაო დღე დასჭირდეს.`,
+};
+
 export async function sendOrderConfirmation(order: OrderForEmail) {
   const recipient = order.guestEmail || order.user.email;
   if (!recipient) {
@@ -1242,14 +1255,16 @@ export async function sendOrderCancelledCustomerEmail(opts: {
   orderId: string;
   amount: string;              // e.g. "45.00"
   reason?: string | null;      // optional human-written reason shown to the customer
+  locale?: string;
 }) {
+  const ka = opts.locale === 'ka';
   const shortId = opts.orderId.slice(0, 8).toUpperCase();
   const greeting = opts.name || 'there';
   try {
     const { data, error } = await sendViaResend({
       from: getFrom(),
       to: [opts.to],
-      subject: `Your order #${shortId} has been cancelled & refunded`,
+      subject: ka ? KA.cancelSubject(shortId) : `Your order #${shortId} has been cancelled & refunded`,
       html: wrap(`
           ${sealHead('Order Cancelled')}
           <tr>
@@ -1257,7 +1272,7 @@ export async function sendOrderCancelledCustomerEmail(opts: {
               <p style="margin:0 0 20px;font-family:'Courier New',monospace;font-size:10px;letter-spacing:3px;color:${C.accent2};text-transform:uppercase;">Order #${shortId}</p>
               <h1 style="margin:0 0 20px;font-family:'Georgia',serif;font-size:28px;font-weight:300;color:${C.forest};line-height:1.2;">Hello, <em style="color:${C.accent2};font-weight:400;">${escHtml(greeting)}.</em></h1>
               <p style="margin:0 0 16px;font-family:'Georgia',serif;font-size:15px;color:${C.moss};line-height:1.75;font-style:italic;">
-                We're sorry — we had to cancel your order and have issued a full refund of <strong style="color:${C.forest};">$${escHtml(opts.amount)}</strong>. Depending on your bank, it can take 5–10 business days to appear.
+                ${ka ? escHtml(KA.cancelBody(opts.amount)) : `We're sorry — we had to cancel your order and have issued a full refund of <strong style="color:${C.forest};">$${escHtml(opts.amount)}</strong>. Depending on your bank, it can take 5–10 business days to appear.`}
               </p>
               ${opts.reason ? `<p style="margin:0;font-family:'Georgia',serif;font-size:14px;color:${C.moss};line-height:1.7;">Note from our kitchen: ${escHtml(opts.reason)}</p>` : ''}
             </td>
@@ -1287,14 +1302,16 @@ export async function sendOrderReadyForPickupEmail(opts: {
   orderId: string;
   locationName: string;
   address?: string | null;
+  locale?: string;
 }) {
+  const ka = opts.locale === 'ka';
   const shortId = opts.orderId.slice(0, 8).toUpperCase();
   const greeting = opts.name || 'there';
   try {
     const { data, error } = await sendViaResend({
       from: getFrom(),
       to: [opts.to],
-      subject: `Your order #${shortId} is ready for pickup`,
+      subject: ka ? KA.readySubject(shortId) : `Your order #${shortId} is ready for pickup`,
       html: wrap(`
           ${sealHead('Ready for Pickup')}
           <tr>
@@ -1302,7 +1319,7 @@ export async function sendOrderReadyForPickupEmail(opts: {
               <p style="margin:0 0 20px;font-family:'Courier New',monospace;font-size:10px;letter-spacing:3px;color:${C.accent2};text-transform:uppercase;">Order #${shortId}</p>
               <h1 style="margin:0 0 20px;font-family:'Georgia',serif;font-size:28px;font-weight:300;color:${C.forest};line-height:1.2;">Hello, <em style="color:${C.accent2};font-weight:400;">${escHtml(greeting)}.</em></h1>
               <p style="margin:0 0 16px;font-family:'Georgia',serif;font-size:15px;color:${C.moss};line-height:1.75;font-style:italic;">
-                Your order is hot off the pass and waiting for you at <strong style="color:${C.forest};">${escHtml(opts.locationName)}</strong>.
+                ${ka ? escHtml(KA.readyBody(opts.locationName)) : `Your order is hot off the pass and waiting for you at <strong style="color:${C.forest};">${escHtml(opts.locationName)}</strong>.`}
               </p>
               ${opts.address ? `<p style="margin:0;font-family:'Georgia',serif;font-size:14px;color:${C.moss};line-height:1.7;">${escHtml(opts.address)}</p>` : ''}
             </td>
@@ -1513,7 +1530,9 @@ export async function sendOrderItemsRemovedCustomerEmail(opts: {
   removed: { name: string; quantity: number }[];
   amountRefunded: string;      // dollars string, e.g. "12.40"
   reason?: string | null;
+  locale?: string;
 }) {
+  const ka = opts.locale === 'ka';
   const shortId = opts.orderId.slice(0, 8).toUpperCase();
   const greeting = opts.name || 'there';
   const removedRows = opts.removed.map((r, i) => `
@@ -1527,7 +1546,7 @@ export async function sendOrderItemsRemovedCustomerEmail(opts: {
     const { data, error } = await sendViaResend({
       from: getFrom(),
       to: [opts.to],
-      subject: `A change to your order #${shortId} — $${opts.amountRefunded} refunded`,
+      subject: ka ? KA.removedSubject(shortId, opts.amountRefunded) : `A change to your order #${shortId} — $${opts.amountRefunded} refunded`,
       html: wrap(`
           ${sealHead('Order Update')}
           <tr>

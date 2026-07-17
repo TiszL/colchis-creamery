@@ -100,12 +100,19 @@ export async function dispatchCourierForFulfillment(
     const lastName = fullName.split(/\s+/).slice(1).join(' ') || undefined;
     const instructions = combineDropoffInstructions(order);
 
-    // Per-fulfillment order value in cents (items in this leg only).
-    const orderValueCents = f.items.reduce((sum, it) => {
+    // Per-fulfillment manifest + value in cents (items in this leg only), net of
+    // units the kitchen already removed (OrderItem.refundedQuantity) — an order
+    // edited before Accept must not book the courier with the removed items or
+    // their declared value. refundedQuantity is order-level, but item removal is
+    // only possible on single-location orders, so subtracting it here is exact.
+    const effectiveLines = f.items
+        .map(it => ({ orderItem: it.orderItem, quantity: Math.max(0, it.quantity - it.orderItem.refundedQuantity) }))
+        .filter(it => it.quantity > 0);
+    const orderValueCents = effectiveLines.reduce((sum, it) => {
         const unit = parseFloat(it.orderItem.unitPrice);
         return isNaN(unit) ? sum : sum + Math.round(unit * 100) * it.quantity;
     }, 0);
-    const items = f.items.map(it => ({ name: it.orderItem.product.name, quantity: it.quantity }));
+    const items = effectiveLines.map(it => ({ name: it.orderItem.product.name, quantity: it.quantity }));
 
     if (f.deliveryMethod === 'DOORDASH_DRIVE') {
         if (!isDoorDashConfigured()) return await failDispatch(f, 'DoorDash is not configured (missing credentials).');

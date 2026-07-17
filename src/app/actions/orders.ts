@@ -18,7 +18,7 @@
 import { prisma } from '@/lib/db';
 import { stripe } from '@/lib/stripe';
 import { getSession } from '@/lib/session';
-import { restoreStock } from '@/lib/stock-reservation';
+import { effectiveReservationItems, restoreStock } from '@/lib/stock-reservation';
 import { CANCEL_WINDOW_MS, PAST_CONFIRMED_FULFILLMENT_STATUSES } from '@/lib/order-policy';
 import { revalidatePath } from 'next/cache';
 // Shared refund core + carrier-cancel helper live in lib — NOT exported from
@@ -306,13 +306,8 @@ export async function refundOrder(input: RefundOrderInput): Promise<RefundOrderR
     // across multiple partial refunds that each tick the "restore stock" box.
     const alreadyRestored = order.refunds.some(r => r.restoredStock);
     if (input.restoreStock && !alreadyRestored) {
-        const restoreItems = order.fulfillments.flatMap(f =>
-            f.items.map(it => ({
-                productId: it.orderItem.productId,
-                locationId: f.locationId,
-                quantity: it.quantity,
-            })),
-        );
+        // Net of units the kitchen already removed + restored (see helper).
+        const restoreItems = effectiveReservationItems(order.fulfillments);
         // Phase 9c: thread orderId + admin userId into the StockMovement audit
         // row so the refund-restore shows up linked to both this order AND the
         // admin who issued it.

@@ -22,7 +22,7 @@ import { getSession } from '@/lib/session';
 import { assertLocationRole } from '@/lib/location-rbac';
 import { dispatchCourierForFulfillment } from '@/lib/carrier-dispatch';
 import { refundOrderFullCore, kitchenRemoveItemsCore, cancelActiveCarrierDeliveries } from '@/lib/order-refund';
-import { sendOrderCancelledCustomerEmail, sendOrderItemsRemovedCustomerEmail, sendCancelRequestManagerEmail } from '@/lib/email';
+import { sendOrderCancelledCustomerEmail, sendOrderItemsRemovedCustomerEmail, sendCancelRequestManagerEmail, sendOrderReadyForPickupEmail } from '@/lib/email';
 import { BUSINESS_TIMEZONE } from '@/lib/timezone';
 
 const COURIER_METHODS = ['DOORDASH_DRIVE', 'UBER_DIRECT'] as const;
@@ -282,7 +282,11 @@ export async function advanceFulfillment(fulfillmentId: string, locationId: stri
         await assertLocationRole(locationId, ['LOCATION_MANAGER', 'LOCATION_FULFILLMENT']);
         const f = await prisma.orderFulfillment.findUnique({
             where: { id: fulfillmentId },
-            select: { status: true, locationId: true, deliveryMethod: true },
+            select: {
+                status: true, locationId: true, deliveryMethod: true,
+                order: { select: { id: true, guestEmail: true, user: { select: { email: true, name: true } } } },
+                location: { select: { name: true, addressLine1: true, city: true, state: true } },
+            },
         });
         if (!f || f.locationId !== locationId) return { ok: false, error: 'Not found' };
         // Accepting is its own action (it books the courier) — don't allow the
@@ -292,10 +296,35 @@ export async function advanceFulfillment(fulfillmentId: string, locationId: stri
         const next = nextStatusFor(f.deliveryMethod, f.status);
         if (!next) return { ok: false, error: 'Nothing to advance' };
 
-        await prisma.orderFulfillment.update({
-            where: { id: fulfillmentId },
+        // Guarded transition: two tablets advancing concurrently must not both
+        // win (and both email the customer below) — only the caller whose
+        // expected status still holds performs the write.
+        const advanced = await prisma.orderFulfillment.updateMany({
+            where: { id: fulfillmentId, status: f.status },
             data: { status: next, ...(next === 'READY' ? { readyAt: new Date() } : {}) },
         });
+        if (advanced.count === 0) return { ok: false, error: 'Order already advanced' };
+
+        // Phase 2: tell pickup customers their bag is on the counter. Courier
+        // READY means "driver picking up soon", not "come get it" — pickup only.
+        // Best-effort AFTER the status write; email failure never blocks the flow.
+        if (next === 'READY' && f.deliveryMethod === 'IN_STORE_PICKUP') {
+            const to = f.order.guestEmail ?? f.order.user?.email;
+            if (to) {
+                try {
+                    const sent = await sendOrderReadyForPickupEmail({
+                        to,
+                        name: f.order.user?.name ?? null,
+                        orderId: f.order.id,
+                        locationName: f.location.name,
+                        address: `${f.location.addressLine1}, ${f.location.city}, ${f.location.state}`,
+                    });
+                    if (!sent.success) console.error('[advanceFulfillment] ready email failed:', sent.error);
+                } catch (e) {
+                    console.error('[advanceFulfillment] ready email failed:', e);
+                }
+            }
+        }
         return { ok: true };
     } catch (e) {
         return { ok: false, error: e instanceof Error ? e.message : 'Unknown error' };
@@ -416,6 +445,7 @@ export async function kitchenRemoveOrderItems(
             select: {
                 locationId: true,
                 status: true,
+                courierStatus: true,
                 items: { select: { orderItemId: true, quantity: true, orderItem: { select: { refundedQuantity: true } } } },
                 order: {
                     select: {
@@ -435,8 +465,15 @@ export async function kitchenRemoveOrderItems(
         if (f.order.fulfillments.some(x => x.locationId !== locationId)) {
             return { ok: false, error: 'Multi-location order — contact the admin to refund' };
         }
-        if (!['PENDING', 'CONFIRMED', 'PREPARING'].includes(f.status)) {
-            return { ok: false, error: 'Too late to edit — the order is already past preparing' };
+        // Phase 2 (owner decision): edits allowed through READY until the
+        // courier actually picks up — customers call late. Once the bag is
+        // with a driver (or out on own-delivery) it's too late.
+        const courierPickedUp = ['OUT_FOR_DELIVERY', 'DELIVERED'].includes(f.courierStatus ?? '');
+        const editable =
+            ['PENDING', 'CONFIRMED', 'PREPARING'].includes(f.status) ||
+            (f.status === 'READY' && !courierPickedUp);
+        if (!editable) {
+            return { ok: false, error: 'Too late to edit — the order already left the kitchen' };
         }
 
         // Full-removal detection: if the removals cover every remaining

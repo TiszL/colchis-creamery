@@ -347,8 +347,8 @@ export async function kitchenRemoveItemsCore(
     // order's tax (itemCents / taxedBaseCents). Shipping is never refunded.
     const subtotalCents = toCents(order.subtotalAmount)
         || order.orderItems.reduce((sum, it) => sum + toCents(it.unitPrice) * it.quantity, 0);
-    // taxAmount was calculated over items + shipping (checkout submits shipping
-    // to Stripe Tax as a taxed line), so shares pro-rate over that full base.
+    // taxAmount includes shipping tax (checkout submits shipping via the
+    // calculation's shipping_cost param), so shares pro-rate over that base.
     const taxedBaseCents = subtotalCents + toCents(order.shippingAmount);
     const taxCents = toCents(order.taxAmount);
 
@@ -356,7 +356,14 @@ export async function kitchenRemoveItemsCore(
     for (const [orderItemId, qty] of removalByItem) {
         const item = itemById.get(orderItemId)!;
         const itemCents = toCents(item.unitPrice) * qty;
-        const taxShare = taxedBaseCents > 0 ? Math.round(taxCents * itemCents / taxedBaseCents) : 0;
+        // Phase 2: exact per-line tax captured at checkout (OrderItem.taxCents
+        // covers the FULL line). Telescoped against refundedQuantity so repeated
+        // partial removals sum exactly and can never exceed the tax collected.
+        // Legacy orders (null) pro-rate the aggregate.
+        const taxShare = item.taxCents !== null
+            ? Math.round(item.taxCents * (item.refundedQuantity + qty) / item.quantity)
+              - Math.round(item.taxCents * item.refundedQuantity / item.quantity)
+            : taxedBaseCents > 0 ? Math.round(taxCents * itemCents / taxedBaseCents) : 0;
         refundCents += itemCents + taxShare;
     }
     if (refundCents <= 0) {

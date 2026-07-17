@@ -1277,6 +1277,51 @@ export async function sendOrderCancelledCustomerEmail(opts: {
   }
 }
 
+/**
+ * Phase 2 — pickup order is READY. Sent best-effort from advanceFulfillment
+ * when a pickup fulfillment reaches READY; never blocks the kitchen flow.
+ */
+export async function sendOrderReadyForPickupEmail(opts: {
+  to: string;
+  name: string | null;
+  orderId: string;
+  locationName: string;
+  address?: string | null;
+}) {
+  const shortId = opts.orderId.slice(0, 8).toUpperCase();
+  const greeting = opts.name || 'there';
+  try {
+    const { data, error } = await sendViaResend({
+      from: getFrom(),
+      to: [opts.to],
+      subject: `Your order #${shortId} is ready for pickup`,
+      html: wrap(`
+          ${sealHead('Ready for Pickup')}
+          <tr>
+            <td style="background:${C.cream2};padding:48px 48px 24px;">
+              <p style="margin:0 0 20px;font-family:'Courier New',monospace;font-size:10px;letter-spacing:3px;color:${C.accent2};text-transform:uppercase;">Order #${shortId}</p>
+              <h1 style="margin:0 0 20px;font-family:'Georgia',serif;font-size:28px;font-weight:300;color:${C.forest};line-height:1.2;">Hello, <em style="color:${C.accent2};font-weight:400;">${escHtml(greeting)}.</em></h1>
+              <p style="margin:0 0 16px;font-family:'Georgia',serif;font-size:15px;color:${C.moss};line-height:1.75;font-style:italic;">
+                Your order is hot off the pass and waiting for you at <strong style="color:${C.forest};">${escHtml(opts.locationName)}</strong>.
+              </p>
+              ${opts.address ? `<p style="margin:0;font-family:'Georgia',serif;font-size:14px;color:${C.moss};line-height:1.7;">${escHtml(opts.address)}</p>` : ''}
+            </td>
+          </tr>
+          <tr>
+            <td style="background:${C.cream2};padding:0 48px 44px;">
+              <p style="margin:0;font-family:'Georgia',serif;font-size:13px;color:${C.muted};line-height:1.6;text-align:center;">See you soon — it's best while it's warm.</p>
+            </td>
+          </tr>
+          ${darkFoot()}
+      `),
+    });
+    if (error) return { success: false, error: error.message };
+    return { success: true, id: data?.id };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'unknown error' };
+  }
+}
+
 /** Welcome email for a newly-created kitchen (location-staff) account. */
 export async function sendKitchenWelcomeEmail(opts: {
   to: string;

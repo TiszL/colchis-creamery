@@ -32,6 +32,7 @@ export default async function CustomerOrderDetailPage({ params }: PageProps) {
             // Product for the Reorder button. OrderDetailView only uses `name`
             // from this relation; the rest is for reorder.
             orderItems: { include: { product: true } },
+            refunds: { orderBy: { createdAt: 'asc' } },
             fulfillments: {
                 orderBy: { createdAt: 'asc' },
                 include: {
@@ -54,12 +55,17 @@ export default async function CustomerOrderDetailPage({ params }: PageProps) {
     // AND be cart-orderable (excludes products flipped to wholesale-only since
     // the original order — checkout would reject them anyway).
     const reorderItems = order.orderItems
-        .filter(oi => oi.product && oi.product.isActive && oi.product.status === 'ACTIVE' && oi.product.isCartOrderable)
+        .filter(oi => oi.product && oi.product.isActive && oi.product.status === 'ACTIVE' && oi.product.isCartOrderable
+            && oi.quantity - oi.refundedQuantity > 0)
         .map(oi => ({
             product: productForCart(oi.product),
-            quantity: oi.quantity,
+            // Reorder what the customer actually received, not removed lines.
+            quantity: oi.quantity - oi.refundedQuantity,
         }));
-    const reorderSkippedCount = order.orderItems.length - reorderItems.length;
+    // Removed-and-refunded lines are intentionally excluded, not "no longer
+    // available" — don't count them in the skipped message.
+    const removedLineCount = order.orderItems.filter(oi => oi.quantity - oi.refundedQuantity <= 0).length;
+    const reorderSkippedCount = Math.max(0, order.orderItems.length - removedLineCount - reorderItems.length);
 
     // Cancel eligibility (UI hint only — server re-validates inside the action).
     // Server component runs once per request; Date.now() impurity is intentional.

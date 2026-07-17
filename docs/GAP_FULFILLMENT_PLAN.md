@@ -86,6 +86,19 @@ for Phase 2 (order-modification linkage writes the why).
 5. 86 action lists already-paid scheduled orders containing the item so the kitchen can call each customer (feeds Phase 2 flow).
 
 ## Phase 2 — Order modification workflow (decided: request→approve; full swaps + upcharges)
+
+**Status: 2a ✅ LANDED 2026-07-17 (PR #41)** — per-line tax capture
+(OrderItem.taxCents) + exact telescoped refund math; **fixed the systemic
+\$0-tax bug** (Stripe rejected the shipping tax_code on a line item; every
+historical order had taxAmount 0.00 — shipping now rides shipping_cost);
+edit window extended to READY-before-pickup; customer order pages show
+modifications (badge, strikethrough, refund ledger, adjusted total);
+pickup-READY email; forged-cart dedupe. **2b (next): OrderEditRequest
+schema + kitchen request UI + manager approval executing removals/swaps,
+upcharge Stripe Checkout payment links + webhook activation of added
+lines, courier re-dispatch on edit, modification emails.** Deferred
+minors tracked: KDS refund-estimate preview w/ exact taxCents,
+listing-card display conventions (Phase 3).
 1. Schema: `OrderEditRequest` + `OrderEditRequestLine` (removals, swaps, additions; requester/resolver denormalized like OrderCancelRequest; required reason + `customerContactedAt`). Per-line tax capture at checkout (`OrderItem.taxCents` from the Stripe Tax calculation lines) so refunds and upcharges are exact.
 2. Kitchen UI: propose changes with reason + "customer contacted" confirmation; live request-status tracking on the kitchen tablet.
 3. Manager approval executes: removals/downgrades via the existing partial-refund core (now with exact per-line tax); **upcharges via Stripe payment link** — amendment record, link emailed to the customer during the call, new OrderItem lines activate on payment webhook, auto-expire unpaid amendments.

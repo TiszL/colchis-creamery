@@ -122,7 +122,18 @@ listing-card display conventions (Phase 3).
 5. Courier sync: edits before pickup cancel + re-dispatch with corrected manifest; later edits warn.
 6. Comms: modification emails per type; build the order-READY email (restores the Phase-0-removed promise, done properly); edit window extends to READY-before-pickup.
 
-## Phase 3 — Cafe & Bakery (decided: counter ordering)
+## Phase 3 — Cafe & Bakery (decided: counter ordering; ka brand = კაფე)
+
+**Status: ✅ LANDED 2026-07-17 (PR #45)** — /bakery is a stacked cafe menu
+(tabs retired, chips = section anchors, "Sold out today" listing cards);
+54-surface rename to "Cafe & Bakery"/"კაფე" incl. DB copy + Location row +
+admin-editor seeds (review caught editor drift that would have reverted
+the rename on Save); hot-drinks/cold-drinks categories scaffolded with
+correct packagingMode (owner adds products via Admin → Inventory); KDS
+per-line HOT/COLD chips on mixed tickets + carrier manifest packing
+notes. Still open (owner): dietary/allergen badges, hand-to-customer
+dropoff for drink orders. AddressManager.tsx line 1105 still says
+"bakery" (file on the leave-alone list — owner's working tree).
 1. /bakery becomes a stacked-section premium cafe menu (one titled section per category, sortOrder-driven; chips become jump links). Hot/frozen tab code retired.
 2. Catalog: Hot Drinks (HOT) / Cold Drinks (COLD) / dish categories with correct packagingMode + salesChannel guidance; flat SKUs per size grouped by ProductFamily.
 3. Rename to "Cafe & Bakery": labels in 4 locales (**needs owner's Georgian wording**), home-page copy pass, JSON-LD, llms.txt, opengraph — `/bakery` URL kept.

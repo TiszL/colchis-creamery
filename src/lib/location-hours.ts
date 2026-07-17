@@ -85,7 +85,10 @@ export function nextOpenAfterToday(hours: LocationHours, from: Date = new Date()
     // Store-local midnight at the end of today (h=24 overflows to next day
     // via Date.UTC, which storeLocalToInstant handles).
     const endOfToday = storeLocalToInstant(local.y, local.m, local.d, 24, 0);
-    return nextOpenSlot(hours, endOfToday);
+    // 1ms before store-midnight so an opening at exactly 00:00 still counts
+    // (nextOpenSlot's contract is strictly-after; don't change it — checkout
+    // scheduling relies on that).
+    return nextOpenSlot(hours, new Date(endOfToday.getTime() - 1));
 }
 
 /** Next opening datetime strictly after `from` (checks up to 8 days ahead). */

@@ -99,7 +99,16 @@ export default async function ProductPage({ params }: ProductPageProps) {
   if (offeredChannels.length === 0) {
     const now = new Date();
     const enabledStocks = await prisma.stock.findMany({
-      where: { productId: product.id, isEnabled: true, location: { isActive: true } },
+      // Same location scope offeredChannelsByProduct counts.
+      where: {
+        productId: product.id,
+        isEnabled: true,
+        location: {
+          isActive: true,
+          allowsChannels: { has: product.salesChannel },
+          channels: { some: { isActive: true } },
+        },
+      },
       select: { disabledUntil: true },
     });
     soldOutToday = enabledStocks.length > 0 && enabledStocks.every(s => s.disabledUntil !== null && s.disabledUntil > now);

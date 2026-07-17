@@ -1186,11 +1186,15 @@ model Stock {
 
 // 86 workflow — audit trail for menu-availability changes (day-of 86s and
 // the permanent toggle). byName is denormalized because staff accounts can
-// be deleted outright (removeLocationRoleAction) — the audit must survive.
+// be deleted outright (removeLocationRoleAction) — the audit must survive;
+// locationId/productId are denormalized and stockId is SetNull for the same
+// reason (a deleted Stock row must not erase its availability history).
+// reason is optional and currently unwritten — reserved for flows that
+// carry a why (e.g. the Phase 2 order-modification linkage).
 model MenuAvailabilityEvent {
   id         String    @id @default(uuid())
-  stockId    String
-  stock      Stock     @relation(fields: [stockId], references: [id], onDelete: Cascade)
+  stockId    String?
+  stock      Stock?    @relation(fields: [stockId], references: [id], onDelete: SetNull)
   locationId String
   productId  String
   action     String    // EIGHTY_SIX_TODAY | RESTORE | MENU_HIDE | MENU_SHOW

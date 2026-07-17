@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { requireLocationAccess } from "@/lib/location-rbac";
 import { getSession } from "@/lib/session";
 import { nextOpenAfterToday } from "@/lib/location-hours";
-import { isEightySixed } from "@/lib/stock-availability";
+import { isEightySixed, type MenuAvailabilityAction } from "@/lib/stock-availability";
 import { BUSINESS_TIMEZONE } from "@/lib/timezone";
 import type { LocationHours } from "@/lib/location-hours";
 import { Power, PowerOff, AlertTriangle } from "lucide-react";
@@ -49,7 +49,7 @@ async function toggleStockEnabledAction(formData: FormData) {
                 stockId,
                 locationId: stock.locationId,
                 productId: stock.productId,
-                action: next ? "MENU_SHOW" : "MENU_HIDE",
+                action: (next ? "MENU_SHOW" : "MENU_HIDE") satisfies MenuAvailabilityAction,
                 byUserId: session?.userId ?? null,
                 byName: session?.name || session?.email || "Staff",
             },
@@ -92,7 +92,7 @@ async function eightySixTodayAction(formData: FormData) {
                 stockId,
                 locationId: stock.locationId,
                 productId: stock.productId,
-                action: "EIGHTY_SIX_TODAY",
+                action: "EIGHTY_SIX_TODAY" satisfies MenuAvailabilityAction,
                 until,
                 byUserId: session?.userId ?? null,
                 byName: session?.name || session?.email || "Staff",
@@ -128,7 +128,7 @@ async function restoreEightySixAction(formData: FormData) {
                 stockId,
                 locationId: stock.locationId,
                 productId: stock.productId,
-                action: "RESTORE",
+                action: "RESTORE" satisfies MenuAvailabilityAction,
                 byUserId: session?.userId ?? null,
                 byName: session?.name || session?.email || "Staff",
             },
@@ -150,7 +150,8 @@ export default async function LocationMenuPage({
 }: {
     params: Promise<{ locale: string; locationId: string }>;
 }) {
-    const { locationId } = await params;
+    const { locale, locationId } = await params;
+    const prefix = locale === "en" ? "" : `/${locale}`;
     const { ctx, matchedLocation } = await requireLocationAccess(locationId);
     const isManager = ctx.isMasterAdmin || (matchedLocation?.roles.includes("LOCATION_MANAGER") ?? false);
     const now = new Date();
@@ -187,12 +188,21 @@ export default async function LocationMenuPage({
                 orderItem: { productId: { in: unavailableProductIds } },
             },
             select: {
-                fulfillment: { select: { orderId: true } },
+                fulfillment: { select: { orderId: true, scheduledFor: true } },
                 orderItem: { select: { productId: true, quantity: true, refundedQuantity: true } },
             },
         });
+        const stockByProduct = new Map(stocks.map(s => [s.productId, s]));
         for (const line of lines) {
             if (line.orderItem.quantity - line.orderItem.refundedQuantity <= 0) continue;
+            // An order scheduled for AFTER an 86 expires doesn't need a call —
+            // the item will be back by then. (Permanently hidden rows keep the
+            // unbounded warning: there's no comeback date.)
+            const st = stockByProduct.get(line.orderItem.productId);
+            if (
+                st && st.isEnabled && st.disabledUntil &&
+                line.fulfillment.scheduledFor && line.fulfillment.scheduledFor > st.disabledUntil
+            ) continue;
             const set = affectedOrdersByProduct.get(line.orderItem.productId) ?? new Set<string>();
             set.add(line.fulfillment.orderId);
             affectedOrdersByProduct.set(line.orderItem.productId, set);
@@ -306,7 +316,7 @@ export default async function LocationMenuPage({
                                     <span>
                                         {affected} paid pending order{affected === 1 ? "" : "s"} include{affected === 1 ? "s" : ""} this item —
                                         call the customer{affected === 1 ? "" : "s"} from the{" "}
-                                        <Link href={`/location-portal/${locationId}/orders`} className="underline hover:text-amber-200">Orders queue</Link>.
+                                        <Link href={`${prefix}/location-portal/${locationId}/orders`} className="underline hover:text-amber-200">Orders queue</Link>.
                                     </span>
                                 </div>
                             )}

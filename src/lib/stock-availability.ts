@@ -12,6 +12,20 @@
 // use this fragment. Listing VISIBILITY intentionally checks only isEnabled
 // (see productCatalogWhereForLocation) so an 86'd item still shows with an
 // unavailable state instead of vanishing mid-day.
+//
+// reserveStock/commitStock deliberately do NOT re-check this predicate: a
+// PaymentIntent created seconds before an 86 can confirm seconds after it,
+// and rejecting at commit time would strand a captured payment. Such orders
+// land PAID + PENDING and surface in the location-portal menu page's
+// affected-orders banner — the kitchen calls the customer (the designed
+// recovery path). Do not "fix" this by gating the commit.
+
+/** Audit actions written to MenuAvailabilityEvent.action. */
+export type MenuAvailabilityAction =
+    | "EIGHTY_SIX_TODAY"
+    | "RESTORE"
+    | "MENU_HIDE"
+    | "MENU_SHOW";
 
 /** Prisma where-fragment: this Stock row is currently sellable. */
 export function sellableStockWhere(now: Date = new Date()) {

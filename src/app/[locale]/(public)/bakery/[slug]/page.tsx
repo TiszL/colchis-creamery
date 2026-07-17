@@ -95,7 +95,18 @@ export default async function BakeryPdp({ params }: BakeryPdpProps) {
   if (offeredChannels.length === 0) {
     const now = new Date();
     const enabledStocks = await prisma.stock.findMany({
-      where: { productId: product.id, isEnabled: true, location: { isActive: true, type: LocationType.BAKERY } },
+      // Same location scope offeredChannelsByProduct counts — a row at a
+      // location that can't actually offer the product must not skew the state.
+      where: {
+        productId: product.id,
+        isEnabled: true,
+        location: {
+          isActive: true,
+          type: LocationType.BAKERY,
+          allowsChannels: { has: product.salesChannel },
+          channels: { some: { isActive: true } },
+        },
+      },
       select: { disabledUntil: true },
     });
     soldOutToday = enabledStocks.length > 0 && enabledStocks.every(s => s.disabledUntil !== null && s.disabledUntil > now);

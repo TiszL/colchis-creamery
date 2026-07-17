@@ -107,7 +107,7 @@ export default function BakeryPdpClient({
     // Find THIS product in the availability result → its eligible channels + stock for the customer
     const customerMatch = (() => {
         if (!availability) return null;
-        const all = [...availability.hotProducts, ...availability.frozenProducts];
+        const all = [...availability.hotProducts, ...availability.frozenProducts, ...availability.otherProducts];
         return all.find(p => p.id === product.id) || null;
     })();
     const customerEligibleChannels = customerMatch ? customerMatch.eligibleChannels : (availability ? [] : null);

@@ -54,6 +54,7 @@ export default async function BakeryPage({ params, searchParams }: BakeryPagePro
     deliveryContent?: DeliveryContent | null;
     hotItems?: BakeryItem[];
     frozenItems?: BakeryItem[];
+    extraSections?: Array<{ slug: string; label: string; items: BakeryItem[] }>;
     singleSectionItems?: BakeryItem[];
     singleSectionLabel?: string;
   } = {};
@@ -127,7 +128,7 @@ export default async function BakeryPage({ params, searchParams }: BakeryPagePro
         isActive: true,
         ...locationFilter,
       },
-      include: { productCategory: { select: { slug: true } } },
+      include: { productCategory: { select: { slug: true, name: true } } },
       orderBy: [{ productCategory: { sortOrder: 'asc' } }, { name: 'asc' }],
     });
 
@@ -167,6 +168,18 @@ export default async function BakeryPage({ params, searchParams }: BakeryPagePro
       const frozenItems = mapped.filter((_item, i) => bakeryProducts[i].productCategory?.slug === FROZEN_CATEGORY_SLUG);
       if (hotItems.length > 0) contentProps.hotItems = hotItems;
       if (frozenItems.length > 0) contentProps.frozenItems = frozenItems;
+      // Bakery-tagged categories beyond the legacy hot/frozen tabs render as
+      // titled sections below the tabs (full menu redesign is a later phase).
+      // The query orders by Category.sortOrder, so Map insertion order keeps it.
+      const extraByCat = new Map<string, { slug: string; label: string; items: BakeryItem[] }>();
+      mapped.forEach((item, i) => {
+        const cat = bakeryProducts[i].productCategory;
+        if (!cat || cat.slug === HOT_CATEGORY_SLUG || cat.slug === FROZEN_CATEGORY_SLUG) return;
+        const section = extraByCat.get(cat.slug) ?? { slug: cat.slug, label: cat.name, items: [] };
+        section.items.push(item);
+        extraByCat.set(cat.slug, section);
+      });
+      if (extraByCat.size > 0) contentProps.extraSections = Array.from(extraByCat.values());
     }
   } catch {
     // products fall back to BakeryClient hardcoded defaults

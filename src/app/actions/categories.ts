@@ -63,6 +63,9 @@ export async function deleteProductLineAction(formData: FormData) {
 // ─── Category Actions ────────────────────────────────────────────────────────
 
 const VALID_SECTIONS = ['creamery', 'bakery', 'shop', 'wholesale'] as const;
+// Category.packagingMode drives DoorDash/Uber courier packaging (shipping.ts).
+// Anything outside the whitelist (incl. empty form value) → null = AMBIENT.
+const VALID_PACKAGING_MODES = ['HOT', 'COLD', 'AMBIENT'] as const;
 
 export async function saveCategoryAction(formData: FormData) {
     await requireRole(CATEGORY_EDITORS);
@@ -74,6 +77,9 @@ export async function saveCategoryAction(formData: FormData) {
     // Sections come from checkboxes; FormData.getAll returns an array.
     const sections = (formData.getAll('sections') as string[])
         .filter(s => (VALID_SECTIONS as readonly string[]).includes(s));
+    const packagingModeRaw = formData.get('packagingMode') as string;
+    const packagingMode = (VALID_PACKAGING_MODES as readonly string[]).includes(packagingModeRaw)
+        ? packagingModeRaw : null;
 
     const data = {
         name: formData.get('name') as string,
@@ -82,6 +88,7 @@ export async function saveCategoryAction(formData: FormData) {
         imageUrl: (formData.get('imageUrl') as string) || null,
         productLineId,
         sections,
+        packagingMode,
         sortOrder: parseInt(formData.get('sortOrder') as string, 10) || 0,
         isActive: formData.get('isActive') === 'on' || formData.get('isActive') === 'true',
     };

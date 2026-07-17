@@ -6,7 +6,9 @@ import { DeliveryMethod, LocationType } from '@prisma/client';
 
 // Phase 9b: bakery products were split into hot vs frozen using ProductKind
 // (BAKERY_HOT / BAKERY_FROZEN). That enum is gone; the split now comes from
-// the Category slug. Anything tagged 'bakery' in Category.sections is in scope.
+// the Category slug. Anything tagged 'bakery' in Category.sections is in scope;
+// categories beyond the two legacy slugs land in `otherProducts`.
+const BAKERY_SECTION = 'bakery';
 const BAKERY_HOT_CATEGORY_SLUG = 'hot-pastries';
 const BAKERY_FROZEN_CATEGORY_SLUG = 'frozen-bake-off';
 
@@ -37,6 +39,8 @@ export type AvailabilityResult = {
     customerLng: number;
     hotProducts: DeliverableProduct[];
     frozenProducts: DeliverableProduct[];
+    /** Products in bakery-tagged categories other than hot-pastries / frozen-bake-off. */
+    otherProducts: DeliverableProduct[];
     /** True when at least one bakery location is in delivery range, even if no products. */
     inServiceArea: boolean;
     /** Names of the locations covering this address. */
@@ -48,7 +52,7 @@ export type AvailabilityResult = {
  *
  * Logic:
  *   1. Find every active BAKERY location with at least one active channel reaching the customer.
- *   2. For each (location, channel) pair, gather BAKERY_HOT / BAKERY_FROZEN products that
+ *   2. For each (location, channel) pair, gather bakery-section products that
  *      are stocked at the location AND eligible for that channel AND visible on B2C.
  *   3. Group/dedupe by product so each product lists the union of reachable channels.
  *
@@ -77,8 +81,9 @@ export async function getAvailableBakeryProducts(
                         isActive: true,
                         isB2cVisible: true,
                         status: 'ACTIVE',
-                        // Phase 9b: filter by category slugs instead of ProductKind enum.
-                        productCategory: { slug: { in: [BAKERY_HOT_CATEGORY_SLUG, BAKERY_FROZEN_CATEGORY_SLUG] } },
+                        // Phase 9b: filter by Category.sections instead of ProductKind enum —
+                        // any bakery-tagged category is in scope, not just hot/frozen.
+                        productCategory: { sections: { has: BAKERY_SECTION } },
                     },
                 },
                 include: {
@@ -162,6 +167,7 @@ export async function getAvailableBakeryProducts(
         customerLng,
         hotProducts: all.filter(p => p.categorySlug === BAKERY_HOT_CATEGORY_SLUG).sort((a, b) => a.name.localeCompare(b.name)),
         frozenProducts: all.filter(p => p.categorySlug === BAKERY_FROZEN_CATEGORY_SLUG).sort((a, b) => a.name.localeCompare(b.name)),
+        otherProducts: all.filter(p => p.categorySlug !== BAKERY_HOT_CATEGORY_SLUG && p.categorySlug !== BAKERY_FROZEN_CATEGORY_SLUG).sort((a, b) => a.name.localeCompare(b.name)),
         inServiceArea: coveringLocations.size > 0,
         coveringLocations: Array.from(coveringLocations),
     };

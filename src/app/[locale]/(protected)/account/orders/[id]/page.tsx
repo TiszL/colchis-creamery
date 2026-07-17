@@ -62,7 +62,10 @@ export default async function CustomerOrderDetailPage({ params }: PageProps) {
             // Reorder what the customer actually received, not removed lines.
             quantity: oi.quantity - oi.refundedQuantity,
         }));
-    const reorderSkippedCount = order.orderItems.length - reorderItems.length;
+    // Removed-and-refunded lines are intentionally excluded, not "no longer
+    // available" — don't count them in the skipped message.
+    const removedLineCount = order.orderItems.filter(oi => oi.quantity - oi.refundedQuantity <= 0).length;
+    const reorderSkippedCount = Math.max(0, order.orderItems.length - removedLineCount - reorderItems.length);
 
     // Cancel eligibility (UI hint only — server re-validates inside the action).
     // Server component runs once per request; Date.now() impurity is intentional.

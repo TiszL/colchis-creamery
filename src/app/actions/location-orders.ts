@@ -296,10 +296,14 @@ export async function advanceFulfillment(fulfillmentId: string, locationId: stri
         const next = nextStatusFor(f.deliveryMethod, f.status);
         if (!next) return { ok: false, error: 'Nothing to advance' };
 
-        await prisma.orderFulfillment.update({
-            where: { id: fulfillmentId },
+        // Guarded transition: two tablets advancing concurrently must not both
+        // win (and both email the customer below) — only the caller whose
+        // expected status still holds performs the write.
+        const advanced = await prisma.orderFulfillment.updateMany({
+            where: { id: fulfillmentId, status: f.status },
             data: { status: next, ...(next === 'READY' ? { readyAt: new Date() } : {}) },
         });
+        if (advanced.count === 0) return { ok: false, error: 'Order already advanced' };
 
         // Phase 2: tell pickup customers their bag is on the counter. Courier
         // READY means "driver picking up soon", not "come get it" — pickup only.

@@ -78,7 +78,10 @@ export default async function GuestOrderLookupPage({ params }: PageProps) {
             // Reorder what the customer actually received, not removed lines.
             quantity: oi.quantity - oi.refundedQuantity,
         }));
-    const reorderSkippedCount = order.orderItems.length - reorderItems.length;
+    // Removed-and-refunded lines are intentionally excluded, not "no longer
+    // available" — don't count them in the skipped message.
+    const removedLineCount = order.orderItems.filter(oi => oi.quantity - oi.refundedQuantity <= 0).length;
+    const reorderSkippedCount = Math.max(0, order.orderItems.length - removedLineCount - reorderItems.length);
 
     // No back link — guest may not have an account, so /account isn't a sensible
     // destination. The "Need help?" block + home links elsewhere in the layout

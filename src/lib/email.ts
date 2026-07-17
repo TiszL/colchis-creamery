@@ -1277,7 +1277,6 @@ export async function sendOrderCancelledCustomerEmail(opts: {
   }
 }
 
-/** Welcome email for a newly-created kitchen (location-staff) account. */
 /**
  * Phase 2 — pickup order is READY. Sent best-effort from advanceFulfillment
  * when a pickup fulfillment reaches READY; never blocks the kitchen flow.
@@ -1323,6 +1322,7 @@ export async function sendOrderReadyForPickupEmail(opts: {
   }
 }
 
+/** Welcome email for a newly-created kitchen (location-staff) account. */
 export async function sendKitchenWelcomeEmail(opts: {
   to: string;
   name: string;

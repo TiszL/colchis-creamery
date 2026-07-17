@@ -135,6 +135,19 @@ export async function createCheckoutSession(input: CheckoutInput): Promise<Check
     if (!input.items?.length) {
         return { ok: false, error: 'Your cart is empty.' };
     }
+    // One OrderItem per product per order is a real invariant, not a client
+    // courtesy: duplicate product references make the Stripe Tax calculation
+    // throw wholesale (unique-reference rule), which the $0-tax fallback would
+    // swallow. Merge duplicates server-side — the cart is client-controlled.
+    {
+        const merged = new Map<string, number>();
+        for (const it of input.items) {
+            merged.set(it.productId, (merged.get(it.productId) ?? 0) + it.quantity);
+        }
+        if (merged.size !== input.items.length) {
+            input = { ...input, items: [...merged].map(([productId, quantity]) => ({ productId, quantity })) };
+        }
+    }
     if (!input.contact?.email || !input.contact?.phone || !input.contact?.name) {
         return { ok: false, error: 'Please fill in your contact details.' };
     }

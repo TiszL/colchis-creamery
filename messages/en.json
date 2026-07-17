@@ -16,7 +16,7 @@
     "home": "Home",
     "heritage": "Heritage",
     "shop": "Creamery",
-    "bakery": "Bakery",
+    "bakery": "Cafe & Bakery",
     "recipes": "Recipes",
     "wholesale": "Wholesale",
     "journal": "Journal",
@@ -72,7 +72,7 @@
     "all": "All",
     "filterByCategory": "Filter by category",
     "browseCreamery": "Browse the creamery",
-    "browseBakery": "Browse the bakery",
+    "browseBakery": "Browse the cafe & bakery",
     "filteredView": "Filtered"
   },
   "cart": {
@@ -159,7 +159,7 @@
     "tagline": "Ancient heritage, fresh every day.",
     "description": "Georgian cheese & bread, hand-pressed and hand-baked in Dublin, Ohio.",
     "quickLinks": "The Creamery",
-    "support": "The Bakery",
+    "support": "The Cafe & Bakery",
     "connect": "Company",
     "copyright": "© {year} Colchis Food LLC · Dublin OH",
     "madeIn": "Made by hand, since 2026"

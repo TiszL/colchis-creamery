@@ -730,22 +730,34 @@ export default function OrdersQueueClient({
                                     </p>
 
                                     <div className="mt-3 border border-[#ffffff0A] divide-y divide-[#ffffff0A]">
-                                        {item.items.map(line => {
-                                            const eff = line.quantity - line.refundedQuantity;
-                                            return (
-                                                <div key={line.orderItemId} className="min-h-[56px] flex items-center gap-3 px-3 py-1.5">
-                                                    <ItemThumb imageUrl={line.imageUrl} name={line.name} />
-                                                    <span className={`font-bold font-mono text-sm tabular-nums ${eff > 1 ? 'text-amber-400' : 'text-white'}`}>
-                                                        {eff}×
-                                                    </span>
-                                                    <div className="flex-1 min-w-0">
-                                                        <p className="text-[14px] text-white truncate">{line.name}</p>
-                                                        <p className="text-[10px] text-gray-600 font-mono">{line.sku}</p>
+                                        {(() => {
+                                            // Per-line temperature cues only when the ticket MIXES
+                                            // packaging modes — uniform orders don't need the noise.
+                                            const modes = new Set(item.items.map(l => l.packagingMode ?? 'AMBIENT'));
+                                            const showModes = modes.size > 1;
+                                            return item.items.map(line => {
+                                                const eff = line.quantity - line.refundedQuantity;
+                                                return (
+                                                    <div key={line.orderItemId} className="min-h-[56px] flex items-center gap-3 px-3 py-1.5">
+                                                        <ItemThumb imageUrl={line.imageUrl} name={line.name} />
+                                                        <span className={`font-bold font-mono text-sm tabular-nums ${eff > 1 ? 'text-amber-400' : 'text-white'}`}>
+                                                            {eff}×
+                                                        </span>
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="text-[14px] text-white truncate">{line.name}</p>
+                                                            <p className="text-[10px] text-gray-600 font-mono">{line.sku}</p>
+                                                        </div>
+                                                        {showModes && line.packagingMode === 'HOT' && (
+                                                            <span className="shrink-0 px-1.5 py-0.5 text-[9px] font-mono uppercase tracking-wider bg-orange-900/30 text-orange-400">Hot</span>
+                                                        )}
+                                                        {showModes && line.packagingMode === 'COLD' && (
+                                                            <span className="shrink-0 px-1.5 py-0.5 text-[9px] font-mono uppercase tracking-wider bg-cyan-900/30 text-cyan-400">Cold</span>
+                                                        )}
+                                                        <span className="text-[12px] text-gray-500 font-mono shrink-0">${line.unitPrice}</span>
                                                     </div>
-                                                    <span className="text-[12px] text-gray-500 font-mono shrink-0">${line.unitPrice}</span>
-                                                </div>
-                                            );
-                                        })}
+                                                );
+                                            });
+                                        })()}
                                     </div>
                                     <p className="mt-1.5 text-[11px] font-mono text-gray-500">
                                         {itemCount} item{itemCount === 1 ? '' : 's'} · ${item.orderEffectiveTotal}

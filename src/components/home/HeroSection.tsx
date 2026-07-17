@@ -21,7 +21,7 @@ const DEFAULTS = {
 
 const TICKER_DEFAULTS = {
   items: [
-    '◐ The Bakery — open until 10 PM',
+    '◐ The Cafe & Bakery — open until 10 PM',
     '▸ Free UPS over $75',
     '● Made in Dublin, Ohio',
   ],

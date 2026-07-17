@@ -24,6 +24,10 @@ interface CategoryChipsProps {
     /** Label for the "show everything" chip. Defaults to "All" (English) when
      *  omitted so existing callers don't break. */
     allLabel?: string;
+    /** Phase 3 (cafe menu): when true, chips jump to on-page section anchors
+     *  (#sec-<slug>) instead of applying the ?cat= filter — the stacked cafe
+     *  menu shows every section at once, so filtering became navigation. */
+    anchors?: boolean;
 }
 
 /**
@@ -44,11 +48,12 @@ export function CategoryChips({
     totalCount,
     label = "Browse by category",
     allLabel = "All",
+    anchors = false,
 }: CategoryChipsProps) {
     if (categories.length <= 1) return null;
 
     const allHref = `${prefix}${basePath}`;
-    const chipHref = (slug: string) => `${prefix}${basePath}?cat=${slug}`;
+    const chipHref = (slug: string) => anchors ? `#sec-${slug}` : `${prefix}${basePath}?cat=${slug}`;
 
     return (
         <section

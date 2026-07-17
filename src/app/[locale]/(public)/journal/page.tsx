@@ -12,7 +12,7 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
 
     return {
         title: 'The Journal',
-        description: 'Heritage essays, field notes from the creamery and the bakery, news from the road. We publish when we have something worth saying.',
+        description: 'Heritage essays, field notes from the creamery and the cafe & bakery, news from the road. We publish when we have something worth saying.',
         keywords: ['Georgian cheese blog', 'artisanal cheese journal', 'Colchis Food news', 'cheesemaking stories', 'Georgian heritage'],
         alternates: {
             canonical: `${SITE_URL}${canonicalPath}`,
@@ -50,7 +50,7 @@ export default async function JournalPage({ params }: { params: Promise<{ locale
         '@context': 'https://schema.org',
         '@type': 'Blog',
         name: 'The Journal — Colchis Food',
-        description: 'Heritage essays, field notes, and news from the creamery and the bakery.',
+        description: 'Heritage essays, field notes, and news from the creamery and the cafe & bakery.',
         url: `${SITE_URL}/${locale === 'en' ? '' : locale + '/'}journal`,
         publisher: { '@type': 'Organization', name: 'Colchis Food', url: SITE_URL },
         blogPost: articles.map(a => ({
@@ -88,7 +88,7 @@ export default async function JournalPage({ params }: { params: Promise<{ locale
                         Stories from <em style={{ color: "#8B4A28", fontWeight: 300 }}>a country</em><br />you should know.
                     </h1>
                     <p className="ch-lede" style={{ marginTop: 32, fontFamily: "var(--font-serif)", fontStyle: "italic", fontSize: 22, lineHeight: 1.55, color: "#F5F0E6", opacity: 0.78, maxWidth: 720 }}>
-                        Heritage essays, field notes from the creamery and the bakery, news from the road.
+                        Heritage essays, field notes from the creamery and the cafe & bakery, news from the road.
                         We publish when we have something worth saying.
                     </p>
                 </div>

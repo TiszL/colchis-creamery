@@ -46,7 +46,7 @@ export function JsonLdOrganization({ socials }: Props = {}) {
         legalName: "Colchis Food LLC",
         alternateName: ["Colchis Creamery", "Colchis"],
         description:
-            "Georgian artisanal cheese and bread — sulguni, imeruli, hot khachapuri — hand-pressed and baked in Dublin, Ohio. The Creamery ships nationwide; the Bakery delivers in 25 minutes.",
+            "Georgian artisanal cheese and bread — sulguni, imeruli, hot khachapuri — hand-pressed and baked in Dublin, Ohio. The Creamery ships nationwide; the Cafe & Bakery delivers in 25 minutes.",
         url: "https://colchisfood.com",
         logo: {
             "@type": "ImageObject",

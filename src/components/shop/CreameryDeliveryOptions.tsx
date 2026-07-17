@@ -14,7 +14,7 @@ function channelMeta(c: DeliveryMethod): { label: string; eta: string } {
         case 'DOORDASH_DRIVE':    return { label: 'DoorDash',                   eta: '~30–45 min · local' };
         case 'UBER_DIRECT':       return { label: 'Uber Eats',                  eta: '~30–45 min · local' };
         case 'IN_STORE_PICKUP':   return { label: 'In-store pickup',            eta: '~15 min ready' };
-        case 'IN_STORE_DINE_IN':  return { label: 'Dine-in at the bakery',     eta: '' };
+        case 'IN_STORE_DINE_IN':  return { label: 'Dine-in at the cafe',     eta: '' };
         default:                  return { label: c.replace(/_/g, ' '), eta: '' };
     }
 }

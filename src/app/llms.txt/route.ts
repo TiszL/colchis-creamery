@@ -48,7 +48,7 @@ export async function GET() {
 
     sections.push(`# Colchis Food
 
-> Georgian artisanal cheese and bread — hand-pressed sulguni and imeruli, hot khachapuri baked fresh, made in Dublin, Ohio. The Creamery ships nationwide (cold-chain UPS); the Bakery delivers hot food locally in 25 minutes via DoorDash and Uber Direct.
+> Georgian artisanal cheese and bread — hand-pressed sulguni and imeruli, hot khachapuri baked fresh, made in Dublin, Ohio. The Creamery ships nationwide (cold-chain UPS); the Cafe & Bakery delivers hot food locally in 25 minutes via DoorDash and Uber Direct.
 
 Brand: Colchis Food (formerly Colchis Creamery)
 Location: Dublin, Ohio, USA
@@ -61,13 +61,13 @@ Languages: English, Georgian (ქართული), Russian (Русский), 
 Colchis Food makes Georgian-heritage dairy and breads in Dublin, Ohio. The brand has two arms:
 
 - **The Creamery** — small-batch handcrafted cheese from 100% Grass-Fed A2 Brown Swiss Milk. Includes sulguni (pulled-curd Georgian cheese), imeruli (fresh white cheese), and other Colchis Reserve / Colchis Classic lines. Ships nationwide via cold-chain UPS Ground 2-day.
-- **The Bakery** — hot Georgian breads, primarily khachapuri (cheese-filled bread) in multiple regional styles (Adjaruli, Imeruli, Megruli, Penovani, Achma, Lobiani). Made to order and delivered hot via in-house drivers or DoorDash / Uber Direct, 12-20 mile radius from Dublin OH. Frozen 2-packs also available.
+- **The Cafe & Bakery** — hot Georgian breads, primarily khachapuri (cheese-filled bread) in multiple regional styles (Adjaruli, Imeruli, Megruli, Penovani, Achma, Lobiani). Made to order and delivered hot via in-house drivers or DoorDash / Uber Direct, 12-20 mile radius from Dublin OH. Frozen 2-packs also available.
 
 ## Key pages
 
 - [Home](${SITE_URL}/) — overview + featured products
 - [Shop / Creamery](${SITE_URL}/shop) — cheese catalog with national shipping
-- [Bakery](${SITE_URL}/bakery) — hot Georgian bread menu for local delivery
+- [Cafe & Bakery](${SITE_URL}/bakery) — hot Georgian bread menu for local delivery
 - [Heritage](${SITE_URL}/heritage) — story of Colchis / Georgian dairy traditions
 - [Recipes](${SITE_URL}/recipes) — Georgian cooking with our products
 - [Journal](${SITE_URL}/journal) — articles on heritage, ingredients, craft
@@ -84,7 +84,7 @@ ${creamery.map(p =>
     }
 
     if (bakery.length > 0) {
-        sections.push(`## Bakery Products (local delivery, Dublin OH area)
+        sections.push(`## Cafe & Bakery Products (local delivery, Dublin OH area)
 
 ${bakery.map(p =>
             `- **${p.name}** — ${truncate(p.description, 140)}\n  → ${SITE_URL}/bakery/${p.slug}`,

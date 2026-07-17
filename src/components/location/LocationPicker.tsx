@@ -91,7 +91,7 @@ export function LocationPicker() {
                 /* Dropdown — caps to viewport width on small screens with side gutters */
                 <div className="absolute right-0 mt-2 w-[min(320px,calc(100vw-32px))] bg-cream border border-ink/15 rounded-lg shadow-xl z-50 overflow-hidden">
                     <div className="px-4 py-3 border-b border-ink/10">
-                        <p className="text-[11px] font-bold text-ink/60 uppercase tracking-wider">Pick a bakery</p>
+                        <p className="text-[11px] font-bold text-ink/60 uppercase tracking-wider">Pick a cafe</p>
                         <p className="text-[10px] text-ink/40 mt-0.5">Catalog + delivery options scope to your choice.</p>
                     </div>
 

@@ -6,7 +6,7 @@ const DEFAULTS = {
   stats: [
     { val: '6,000', label: 'Years of recipe' },
     { val: '04', label: 'Generations' },
-    { val: '1', label: 'Bakery in Dublin OH' },
+    { val: '1', label: 'Cafe & Bakery in Dublin OH' },
     { val: '50', label: 'States we ship' },
   ],
 };

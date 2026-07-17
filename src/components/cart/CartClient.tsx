@@ -347,7 +347,7 @@ export default function CartClient({ locale, apiKey, isLoggedIn, userAddresses }
                         <div style={{ display: "grid", gap: 14, marginTop: 14 }}>
                             {[
                                 ["Cold-chain.", "Wheels ship insulated, 2-day priority."],
-                                ["Hot-pickup.", "Reserve a 25-min window at the Dublin bakery."],
+                                ["Hot-pickup.", "Reserve a 25-min window at the Dublin cafe."],
                                 ["The replace pledge.", "Anything not perfect on arrival — we'll re-press it."],
                             ].map(([title, desc], i) => (
                                 <div key={i} style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: 12, alignItems: "baseline" }}>

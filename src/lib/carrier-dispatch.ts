@@ -70,7 +70,7 @@ export async function dispatchCourierForFulfillment(
         include: {
             location: true,
             order: { include: { user: { select: { name: true, email: true, phone: true } } } },
-            items: { include: { orderItem: { include: { product: { select: { name: true } } } } } },
+            items: { include: { orderItem: { include: { product: { select: { name: true, productCategory: { select: { packagingMode: true } } } } } } } },
         },
     });
     if (!f) return { ok: false, error: 'Fulfillment not found' };
@@ -112,7 +112,15 @@ export async function dispatchCourierForFulfillment(
         const unit = parseFloat(it.orderItem.unitPrice);
         return isNaN(unit) ? sum : sum + Math.round(unit * 100) * it.quantity;
     }, 0);
-    const items = effectiveLines.map(it => ({ name: it.orderItem.product.name, quantity: it.quantity }));
+    // Phase 3 (cafe): per-item temperature cue rides the carrier manifest
+    // description field so mixed hot+cold orders get packed and carried right.
+    const packagingNote = (mode: string | null | undefined): string | undefined =>
+        mode === 'HOT' ? 'HOT - insulated bag' : mode === 'COLD' ? 'COLD - keep chilled' : undefined;
+    const items = effectiveLines.map(it => ({
+        name: it.orderItem.product.name,
+        quantity: it.quantity,
+        description: packagingNote(it.orderItem.product.productCategory?.packagingMode),
+    }));
 
     if (f.deliveryMethod === 'DOORDASH_DRIVE') {
         if (!isDoorDashConfigured()) return await failDispatch(f, 'DoorDash is not configured (missing credentials).');

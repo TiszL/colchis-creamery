@@ -6,7 +6,7 @@ const DEFAULTS = {
   heading_accent: 'two crafts.',
   houses: [
     { name: "The Creamery", ka: "ყველის სახლი", num: "I", tag: "Imeruli & Sulguni, hand-pressed", cta: "Shop cheese →", href: "/creamery", desc: "Cow-milk Sulguni, brined fresh or aged with honey. Imeruli pulled in salted whey. Aged in our Dublin facility, shipped fresh nationwide.", dark: false },
-    { name: "The Bakery", ka: "საცხობი", num: "II", tag: "Khachapuri, hot from the oven", cta: "Order hot delivery →", href: "/bakery", desc: "Adjaruli, Imeruli, Megruli — pulled apart at 25 minutes via Doordash and Uber Eats inside Dublin. Frozen for the rest of the country.", dark: true },
+    { name: "The Cafe & Bakery", ka: "კაფე", num: "II", tag: "Khachapuri, hot from the oven", cta: "Order hot delivery →", href: "/bakery", desc: "Adjaruli, Imeruli, Megruli — pulled apart at 25 minutes via Doordash and Uber Eats inside Dublin. Frozen for the rest of the country.", dark: true },
   ],
 };
 

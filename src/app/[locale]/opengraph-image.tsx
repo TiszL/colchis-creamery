@@ -111,7 +111,7 @@ export default async function OpengraphImage() {
                     }}
                 >
                     <span>colchisfood.com</span>
-                    <span style={{ color: '#7A8278' }}>Creamery · Bakery · Heritage</span>
+                    <span style={{ color: '#7A8278' }}>Creamery · Cafe & Bakery · Heritage</span>
                 </div>
             </div>
         ),

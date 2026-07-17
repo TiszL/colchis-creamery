@@ -6,7 +6,7 @@ import { getPrimaryLocation } from "@/lib/business-location";
 
 const DEFAULT_COLUMNS = [
   { t: "The Creamery", l: [{ label: "Sulguni Fresh", href: "/creamery" }, { label: "Sulguni Aged", href: "/creamery" }, { label: "Imeruli", href: "/creamery" }, { label: "Cheese boards", href: "/creamery" }, { label: "Subscriptions", href: "/creamery" }] },
-  { t: "The Bakery", l: [{ label: "Hot delivery", href: "/bakery" }, { label: "Pickup", href: "/bakery" }, { label: "Frozen ship", href: "/bakery" }, { label: "Catering", href: "/contact" }, { label: "Today's menu", href: "/bakery" }] },
+  { t: "The Cafe & Bakery", l: [{ label: "Hot delivery", href: "/bakery" }, { label: "Pickup", href: "/bakery" }, { label: "Frozen ship", href: "/bakery" }, { label: "Catering", href: "/contact" }, { label: "Today's menu", href: "/bakery" }] },
   { t: "Company", l: [{ label: "Heritage", href: "/heritage" }, { label: "Wholesale", href: "/wholesale" }, { label: "Press", href: "/contact" }, { label: "Contact", href: "/contact" }, { label: "Careers", href: "/contact" }] },
 ];
 

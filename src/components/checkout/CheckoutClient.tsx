@@ -534,7 +534,7 @@ export default function CheckoutClient({
                                             </div>
                                             {hasMTO && !openNow && nextOpen && (
                                                 <div style={{ marginTop: 10, padding: '8px 12px', background: '#fff', border: '1px solid #B96A3D55', fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.22em', color: '#B96A3D', textTransform: 'uppercase' }}>
-                                                    ⌛ Scheduled — bakery opens {formatDateTimeShort(nextOpen)}
+                                                    ⌛ Scheduled — cafe opens {formatDateTimeShort(nextOpen)}
                                                 </div>
                                             )}
                                             <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>

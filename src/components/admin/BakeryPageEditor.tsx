@@ -38,7 +38,7 @@ export default function BakeryPageEditor({ initialData }: BakeryPageEditorProps)
 
     // ─── Hero State ──────────────────────────────────────────────────
     const [hero, setHero] = useState(initialData.hero || {
-        eyebrow: 'The Bakery · საცხობი · Open until 10 PM',
+        eyebrow: 'The Cafe & Bakery · კაფე · Open until 10 PM',
         headline: 'Hot from',
         headline_accent: 'the oven',
         headline_suffix: 'in Dublin, Ohio.',

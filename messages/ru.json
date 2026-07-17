@@ -16,7 +16,7 @@
     "home": "Главная",
     "heritage": "Наследие",
     "shop": "Магазин",
-    "bakery": "Пекарня",
+    "bakery": "Кафе и пекарня",
     "recipes": "Рецепты",
     "wholesale": "Оптовая продажа",
     "journal": "Журнал",
@@ -72,7 +72,7 @@
     "all": "Все",
     "filterByCategory": "Фильтр по категории",
     "browseCreamery": "Каталог сыра",
-    "browseBakery": "Каталог выпечки",
+    "browseBakery": "Каталог кафе и пекарни",
     "filteredView": "Отфильтровано"
   },
   "cart": {

@@ -22,7 +22,7 @@ export function Visit({ primary, content }: VisitProps) {
   const cityLine = `${primary.city}, ${primary.state}`;
   const description = content?.description
     || primary.displayDescription
-    || 'The bakery is open daily, 7 AM to 10 PM. The creamery is by appointment.';
+    || 'The cafe & bakery is open daily, 7 AM to 10 PM. The creamery is by appointment.';
   const bakeryHours = primary.displayBakeryHours || 'Open daily · 7am–10pm';
   const phone = primary.phone || '';
   const image = content?.image || '';
@@ -47,7 +47,7 @@ export function Visit({ primary, content }: VisitProps) {
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 32, marginTop: 40, paddingTop: 32, borderTop: "1px solid #1F302622" }}>
             <div>
-              <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.24em", color: "#7A8278", textTransform: "uppercase" }}>Bakery hours</div>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.24em", color: "#7A8278", textTransform: "uppercase" }}>Cafe & Bakery hours</div>
               <div style={{ fontFamily: "var(--font-serif)", fontSize: 22, color: "#1F3026", marginTop: 8 }}>{bakeryHours}</div>
             </div>
             <div>

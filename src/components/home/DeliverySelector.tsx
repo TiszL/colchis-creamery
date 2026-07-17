@@ -36,7 +36,7 @@ function statusLine(r: ResolvedLocation): string {
   }
   const nearest =
     r.nearestBakeryMiles !== null
-      ? ` · nearest bakery ${r.nearestBakeryMiles.toFixed(0)} mi away`
+      ? ` · nearest cafe ${r.nearestBakeryMiles.toFixed(0)} mi away`
       : "";
   return `→ Out of local range${nearest} · ships nationwide via UPS 2-day from ${r.name}`;
 }
@@ -115,7 +115,7 @@ function ModeCards({ linkPrefix }: { linkPrefix: string }) {
         <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.28em", textTransform: "uppercase", opacity: 0.7 }}>
           ◐ Hot · local
         </div>
-        <div style={{ fontFamily: "var(--font-serif)", fontStyle: "italic", fontSize: 22, marginTop: 6 }}>Bakery</div>
+        <div style={{ fontFamily: "var(--font-serif)", fontStyle: "italic", fontSize: 22, marginTop: 6 }}>Cafe & Bakery</div>
         <div style={{ fontSize: 11, opacity: 0.7, marginTop: 2 }}>Khachapuri, fresh from oven</div>
       </Link>
       <Link

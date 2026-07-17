@@ -17,7 +17,7 @@ export function FeaturedProducts({ products, locale }: FeaturedProductsProps) {
   // in 1i, and there is no /shop/[slug] route (PDPs live at /bakery|/creamery).
   const displayItems = products.length > 0
     ? products.map((p) => ({
-        house: p.section === "bakery" ? "Bakery" : "Creamery",
+        house: p.section === "bakery" ? "Cafe & Bakery" : "Creamery",
         section: p.section === "bakery" ? "bakery" : "creamery",
         name: p.name,
         ka: "",

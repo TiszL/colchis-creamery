@@ -45,7 +45,7 @@ const DEFAULT_HERO: ContactHeroContent = {
     eyebrow: '№ 00 — The Switchboard',
     h1Pre: 'Write us',
     h1Accent: 'a postcard.',
-    subheadline: "Or an email. Or call the bakery line — Levan picks up when the oven's resting. We answer every note that lands on the counter.",
+    subheadline: "Or an email. Or call the cafe line — Levan picks up when the oven's resting. We answer every note that lands on the counter.",
     hoursLabel: 'Open daily · 7am–10pm',
 };
 
@@ -74,7 +74,7 @@ const DEFAULT_MAP: ContactMapContent = {
 };
 
 const DEFAULT_ADDRESS_CARD: ContactAddressCardContent = {
-    eyebrow: 'The bakery',
+    eyebrow: 'The cafe & bakery',
 };
 
 const DEFAULT_FORM_INTRO: ContactFormIntroContent = {

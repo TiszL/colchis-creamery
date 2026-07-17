@@ -16,8 +16,8 @@ function channelMeta(c: DeliveryMethod): { label: string; eta: string } {
         case 'DOORDASH_DRIVE':         return { label: 'DoorDash',                  eta: '~30–45 min · 20 mi radius' };
         case 'UBER_DIRECT':            return { label: 'Uber Eats',                 eta: '~30–45 min · 20 mi radius' };
         case 'IN_STORE_PICKUP':        return { label: 'In-store pickup',           eta: '~15 min ready' };
-        case 'IN_STORE_DINE_IN':       return { label: 'Dine-in at the bakery',    eta: 'Fresh from the oven' };
-        case 'UPS_2DAY':        return { label: 'UPS Ground 2-day',          eta: 'Not offered for bakery' };
+        case 'IN_STORE_DINE_IN':       return { label: 'Dine-in at the cafe',    eta: 'Fresh from the oven' };
+        case 'UPS_2DAY':        return { label: 'UPS Ground 2-day',          eta: 'Not offered for cafe items' };
         case 'DOORDASH_MARKETPLACE':   return { label: 'DoorDash Marketplace',      eta: '' };
         case 'UBER_EATS_MARKETPLACE':  return { label: 'Uber Eats Marketplace',     eta: '' };
         default:                       return { label: c, eta: '' };

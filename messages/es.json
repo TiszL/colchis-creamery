@@ -16,7 +16,7 @@
     "home": "Inicio",
     "heritage": "Herencia",
     "shop": "Tienda",
-    "bakery": "Panadería",
+    "bakery": "Café y panadería",
     "recipes": "Recetas",
     "wholesale": "Mayoristas",
     "journal": "Diario",
@@ -72,7 +72,7 @@
     "all": "Todos",
     "filterByCategory": "Filtrar por categoría",
     "browseCreamery": "Explorar la cremería",
-    "browseBakery": "Explorar la panadería",
+    "browseBakery": "Explorar el café y la panadería",
     "filteredView": "Filtrado"
   },
   "cart": {

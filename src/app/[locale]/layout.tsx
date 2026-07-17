@@ -8,13 +8,13 @@ export const metadata: Metadata = {
     template: "%s | Colchis Food",
   },
   description:
-    "Ancient heritage, fresh every day. Hand-pressed sulguni and imeruli cheese, hot khachapuri baked in Dublin, Ohio. The Creamery ships nationwide. The Bakery delivers in 25 minutes.",
+    "Ancient heritage, fresh every day. Hand-pressed sulguni and imeruli cheese, hot khachapuri baked in Dublin, Ohio. The Creamery ships nationwide. The Cafe & Bakery delivers in 25 minutes.",
   keywords: [
     "Georgian cheese",
     "sulguni",
     "imeruli",
     "khachapuri",
-    "Georgian bakery",
+    "Georgian bakery", "Georgian cafe",
     "artisanal cheese Ohio",
     "Colchis Food",
     "Georgian food",

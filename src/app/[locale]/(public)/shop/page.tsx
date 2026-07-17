@@ -38,7 +38,7 @@ function buildTabs(prefix: string): Array<{ id: 'all' | 'creamery' | 'bakery'; l
     return [
         { id: 'all', label: 'Everything', href: `${prefix}/shop` },
         { id: 'creamery', label: 'Creamery →', href: `${prefix}/creamery` },
-        { id: 'bakery', label: 'Bakery →', href: `${prefix}/bakery` },
+        { id: 'bakery', label: 'Cafe & Bakery →', href: `${prefix}/bakery` },
     ];
 }
 
@@ -54,7 +54,7 @@ export async function generateMetadata({ params }: ShopPageProps): Promise<Metad
     const canonicalPath = locale === 'en' ? '/shop' : `/${locale}/shop`;
     const ogImage = await getOgImage('shop');
     const title = t ? `${t('title')} — Everything` : 'Shop — Colchis Food';
-    const description = 'Browse the full Colchis Food catalog — Georgian cheese from the creamery and khachapuri from the bakery, all in one place.';
+    const description = 'Browse the full Colchis Food catalog — Georgian cheese from the creamery and khachapuri from the cafe & bakery, all in one place.';
     return {
         title,
         description,
@@ -168,7 +168,7 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
                         Everything we make, <em style={{ color: '#B96A3D', fontWeight: 300 }}>in one place.</em>
                     </h1>
                     <p style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: 20, color: '#2C3D33', maxWidth: 640, lineHeight: 1.55, marginTop: 22 }}>
-                        Cheese from the creamery, khachapuri from the bakery. Browse the catalog. Each item links to the right shop for ordering.
+                        Cheese from the creamery, khachapuri from the cafe & bakery. Browse the catalog. Each item links to the right shop for ordering.
                     </p>
                 </div>
             </section>

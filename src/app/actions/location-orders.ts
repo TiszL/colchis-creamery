@@ -71,6 +71,9 @@ export type QueueItem = {
         sku: string;
         imageUrl: string | null;
         unitPrice: string;
+        // Phase 3 — category packaging cue (HOT/COLD/null=ambient) so packers
+        // see per-line temperature on mixed cafe orders.
+        packagingMode: string | null;
     }[];
     deliveryNotes: string | null;
     // Original total — unread by the KDS UI since orderEffectiveTotal landed,
@@ -168,7 +171,7 @@ export async function fetchLocationQueue(
                         },
                     },
                 },
-                items: { include: { orderItem: { include: { product: { select: { name: true, sku: true, imageUrl: true } } } } } },
+                items: { include: { orderItem: { include: { product: { select: { name: true, sku: true, imageUrl: true, productCategory: { select: { packagingMode: true } } } } } } } },
                 cancelRequests: {
                     orderBy: { createdAt: 'desc' },
                     take: 1,
@@ -240,6 +243,7 @@ export async function fetchLocationQueue(
                     sku: i.orderItem.product.sku,
                     imageUrl: i.orderItem.product.imageUrl || null,
                     unitPrice: i.orderItem.unitPrice,
+                    packagingMode: i.orderItem.product.productCategory?.packagingMode ?? null,
                 })),
             deliveryNotes: f.order.shippingDeliveryNotes,
             orderTotal: f.order.totalAmount,

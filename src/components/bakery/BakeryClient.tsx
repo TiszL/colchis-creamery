@@ -41,6 +41,8 @@ export interface BakeryItem {
   eligibleChannels?: DeliveryMethod[];
   /** Locations stocking this product that reach the customer (multi-bakery attribution). */
   sources?: Array<{ locationId: string; locationName: string; distanceMiles: number }>;
+  /** Phase 3 — every enabled stock row is day-of-86'd: card shows "Sold out today". */
+  soldOutToday?: boolean;
 }
 
 export interface HeroContent {
@@ -83,12 +85,9 @@ interface BakeryClientProps {
   heroContent?: HeroContent | null;
   menuContent?: MenuContent | null;
   deliveryContent?: DeliveryContent | null;
-  hotItems?: BakeryItem[];      // from DB (Phase 4) — takes precedence
-  frozenItems?: BakeryItem[];   // from DB (Phase 4) — takes precedence
-  /** Bakery-tagged categories beyond the legacy hot/frozen tabs. Each renders
-   *  as a titled section (same card grid) below the tabbed menu in the default
-   *  (unfiltered) view. */
-  extraSections?: Array<{ slug: string; label: string; items: BakeryItem[] }>;
+  /** Phase 3 (cafe menu): every bakery-tagged category as a titled stacked
+   *  section, in Category.sortOrder. Replaces the retired hot/frozen tabs. */
+  sections?: Array<{ slug: string; label: string; items: BakeryItem[] }>;
   /** Stage 4: when a Category chip is active on /bakery, the page passes the
    *  filtered items here. BakeryClient then renders a single grid (no hot/
    *  frozen tabs) using the section label below. When undefined, falls back
@@ -116,8 +115,7 @@ function channelMeta(ch: DeliveryMethod): string {
   }
 }
 
-export default function BakeryClient({ heroContent, menuContent, deliveryContent, hotItems: hotItemsProp, frozenItems: frozenItemsProp, extraSections, singleSectionItems, singleSectionLabel, apiKey, isLoggedIn = false, userAddresses = [], primaryAddressLine1, primaryCityState }: BakeryClientProps) {
-  const [tab, setTab] = useState<"hot" | "frozen">("hot");
+export default function BakeryClient({ heroContent, menuContent, deliveryContent, sections, singleSectionItems, singleSectionLabel, apiKey, isLoggedIn = false, userAddresses = [], primaryAddressLine1, primaryCityState }: BakeryClientProps) {
   // Phase 5.5: address-gated availability (guest localStorage OR logged-in UserAddress)
   const [activeAddress, setActiveAddress] = useState<ActiveAddress | null>(null);
   const [availability, setAvailability] = useState<AvailabilityResult | null>(null);
@@ -202,7 +200,7 @@ export default function BakeryClient({ heroContent, menuContent, deliveryContent
   // primary business location (server-fetched), so a fresh deploy without DB
   // overrides never shows a stale hardcoded street.
   const hero = heroContent || {
-    eyebrow: 'The Bakery · საცხობი · Open until 10 PM',
+    eyebrow: 'The Cafe & Bakery · კაფე · Open until 10 PM',
     headline: 'Hot from',
     headline_accent: 'the oven',
     headline_suffix: primaryCityState ? `in ${primaryCityState}.` : 'in Dublin, Ohio.',
@@ -219,8 +217,8 @@ export default function BakeryClient({ heroContent, menuContent, deliveryContent
     heading_accent: 'two ways.',
     hot_tab_label: '◐ Hot · Dublin',
     frozen_tab_label: '▸ Frozen · Local delivery',
-    // hot_items / frozen_items intentionally omitted — products now load from DB
-    // (Phase 4) through the `hotItems` / `frozenItems` props on this component.
+    // Menu items load from the DB through the `sections` prop (Phase 3
+    // stacked cafe menu); this SiteConfig block only carries page copy.
   };
 
   const del = deliveryContent || {
@@ -235,7 +233,7 @@ export default function BakeryClient({ heroContent, menuContent, deliveryContent
     ship_zone: {
       label: '▸ Frozen zone · 20 mi radius',
       cities: 'Doordash & Uber Eats only',
-      description: 'Frozen at peak. Bake from frozen at home. Delivered cold within the bakery’s metro range.',
+      description: 'Frozen at peak. Bake from frozen at home. Delivered cold within the cafe’s metro range.',
     },
   };
 
@@ -259,27 +257,23 @@ export default function BakeryClient({ heroContent, menuContent, deliveryContent
     };
   }, [availability]);
 
-  const hotItems: BakeryItem[] = (hotItemsProp ?? menu.hot_items ?? []).map(enrichWithAvailability);
-  const frozenItems: BakeryItem[] = (frozenItemsProp ?? menu.frozen_items ?? []).map(enrichWithAvailability);
-  // Stage 4: when /bakery applies a Category chip filter, singleSectionItems
-  // replaces the hot/frozen split with a single flat list. The hot/frozen
-  // tab UI hides itself in this mode (see below).
+  // Stage 4: when /bakery applies a ?cat= filter, singleSectionItems replaces
+  // the stacked menu with a single flat list.
   const isFilteredView = Array.isArray(singleSectionItems);
-  const items = isFilteredView
-      ? singleSectionItems.map(enrichWithAvailability)
-      : (tab === "hot" ? hotItems : frozenItems);
-  const extraSectionsEnriched = (extraSections ?? []).map(sec => ({
+  const filteredItems = isFilteredView ? singleSectionItems.map(enrichWithAvailability) : [];
+  const menuSections = (sections ?? []).map(sec => ({
     slug: sec.slug,
     label: sec.label,
     items: sec.items.map(enrichWithAvailability),
   }));
+  const totalMenuCount = menuSections.reduce((n, sec) => n + sec.items.length, 0);
   // "No coverage" = address is set but NO location is in delivery range. This is purely
   // address-based; it does NOT trigger when products are merely out of stock / coming-soon.
   const noCoverage = !!availability && !availability.inServiceArea;
 
   // Card renderer shared by the tabbed hot/frozen grid and the extra
   // per-category sections below it — one card design, no forks.
-  const renderItemCard = (p: BakeryItem, i: number) => {
+  const renderItemCard = (p: BakeryItem, i: number, accent: string = "#B96A3D") => {
     const qty = p.id ? getQty(p.id) : 1;
     const cap = getCap(p);
     const atMax = qty >= cap;
@@ -361,14 +355,14 @@ export default function BakeryClient({ heroContent, menuContent, deliveryContent
                 Request a quote →
               </Link>
             ) : unavailable ? (
-              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", background: "#EAE2D2", border: "1px solid #1F302622", fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.22em", color: "#7A8278", textTransform: "uppercase" }}>
-                Unavailable right now
+              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", background: "#EAE2D2", border: "1px solid #1F302622", fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.22em", color: p.soldOutToday ? "#A8312C" : "#7A8278", textTransform: "uppercase" }}>
+                {p.soldOutToday ? 'Sold out today — back tomorrow' : 'Unavailable right now'}
               </div>
             ) : dineInOnly ? (
               // Dine-in-only product: can't be cart-ordered. Show clear messaging instead of cart UI.
               <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", background: "#1F3026", color: "#F5F0E6", fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.22em", textTransform: "uppercase" }}>
                 <Utensils className="w-3.5 h-3.5" />
-                Dine-in only · visit the bakery
+                Dine-in only · visit the cafe
               </div>
             ) : outOfRange ? (
               // Address set, but no reachable channel for this customer.
@@ -415,7 +409,7 @@ export default function BakeryClient({ heroContent, menuContent, deliveryContent
                   style={{
                     flex: 1,
                     height: 44,
-                    background: cartDisabled ? "#7A8278" : recentlyAdded ? "#2C3D33" : (tab === "hot" ? "#B96A3D" : "#1F3026"),
+                    background: cartDisabled ? "#7A8278" : recentlyAdded ? "#2C3D33" : accent,
                     color: "#F5F0E6",
                     border: "none",
                     cursor: cartDisabled ? "not-allowed" : "pointer",
@@ -491,16 +485,16 @@ export default function BakeryClient({ heroContent, menuContent, deliveryContent
               </div>
             </div>
             {isFilteredView ? (
-              // Stage 4: when /bakery is filtered to a single Category, swap
-              // the hot/frozen tabs for a static label that names the filter.
+              // ?cat= deep link: static label naming the single-category view.
               <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 22px", border: "1px solid #1F302644", background: "#1F3026", color: "#F5F0E6", fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.28em", textTransform: "uppercase" }}>
                 <span>{singleSectionLabel ?? "Filtered"}</span>
-                <span style={{ opacity: 0.55 }}>{items.length}</span>
+                <span style={{ opacity: 0.55 }}>{filteredItems.length}</span>
               </div>
             ) : (
-              <div className="ch-tab-row" style={{ display: "flex", gap: 0, border: "1px solid #1F302644" }}>
-                <button onClick={() => setTab("hot")} style={{ padding: "14px 26px", fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.28em", textTransform: "uppercase", background: tab === "hot" ? "#1F3026" : "transparent", color: tab === "hot" ? "#F5F0E6" : "#1F3026", border: "none", cursor: "pointer" }}>{menu.hot_tab_label}</button>
-                <button onClick={() => setTab("frozen")} style={{ padding: "14px 26px", fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.28em", textTransform: "uppercase", background: tab === "frozen" ? "#1F3026" : "transparent", color: tab === "frozen" ? "#F5F0E6" : "#1F3026", border: "none", cursor: "pointer", borderLeft: "1px solid #1F302644" }}>{menu.frozen_tab_label}</button>
+              // Phase 3: the cafe menu is one continuous page — the hot/frozen
+              // tabs are retired; the chip row above jumps between sections.
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.28em", color: "#7A8278", textTransform: "uppercase", padding: "14px 0" }}>
+                {totalMenuCount} items · full menu
               </div>
             )}
           </div>
@@ -526,10 +520,10 @@ export default function BakeryClient({ heroContent, menuContent, deliveryContent
                 Out of delivery range
               </div>
               <div style={{ fontFamily: "var(--font-serif)", fontStyle: "italic", fontSize: 28, color: "#1F3026", lineHeight: 1.15 }}>
-                We don&apos;t deliver bakery items to this address yet.
+                We don&apos;t deliver cafe items to this address yet.
               </div>
               <div style={{ fontFamily: "var(--font-sans)", fontSize: 14, color: "#2C3D33", lineHeight: 1.6 }}>
-                Our Dublin OH bakery covers ~20 mi for frozen and 12 mi for hot. For nationwide cheese delivery, browse{" "}
+                Our Dublin OH cafe covers ~20 mi for frozen and 12 mi for hot. For nationwide cheese delivery, browse{" "}
                 <Link href="/creamery" style={{ color: "#B96A3D", textDecoration: "underline" }}>the Creamery shop</Link>.
               </div>
             </div>
@@ -546,23 +540,32 @@ export default function BakeryClient({ heroContent, menuContent, deliveryContent
             </div>
           )}
 
-          <div className="ch-grid-3" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 24 }}>
-            {items.map(renderItemCard)}
-          </div>
-
-          {/* Bakery-tagged categories beyond the hot/frozen tabs (Category.sortOrder
-              order) — same cards as the tabbed menu above. */}
-          {!isFilteredView && extraSectionsEnriched.map(sec => (
-            <div key={sec.slug}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", borderTop: "1px solid #1F302622", margin: "72px 0 28px", paddingTop: 40 }}>
-                <div style={{ fontFamily: "var(--font-serif)", fontWeight: 300, fontSize: 40, lineHeight: 1.05, letterSpacing: "-0.02em", color: "#1F3026" }}>{sec.label}</div>
-                <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.28em", color: "#7A8278", textTransform: "uppercase" }}>{sec.items.length}</span>
-              </div>
-              <div className="ch-grid-3" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 24 }}>
-                {sec.items.map(renderItemCard)}
-              </div>
+          {isFilteredView ? (
+            <div className="ch-grid-3" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 24 }}>
+              {filteredItems.map((p, i) => renderItemCard(p, i))}
             </div>
-          ))}
+          ) : (
+            // Phase 3: stacked cafe-menu sections in Category.sortOrder, each
+            // anchor-addressable from the chip row. Accents alternate so long
+            // menus stay scannable; same card renderer everywhere.
+            menuSections.map((sec, secIdx) => {
+              const accent = secIdx % 2 === 0 ? "#B96A3D" : "#1F3026";
+              return (
+                <div key={sec.slug} id={`sec-${sec.slug}`} style={{ scrollMarginTop: 120 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", ...(secIdx === 0 ? { margin: "0 0 28px" } : { borderTop: "1px solid #1F302622", margin: "72px 0 28px", paddingTop: 40 }) }}>
+                    <div style={{ display: "flex", alignItems: "baseline", gap: 14 }}>
+                      <span style={{ width: 10, height: 10, background: accent, display: "inline-block" }} />
+                      <div style={{ fontFamily: "var(--font-serif)", fontWeight: 300, fontSize: 40, lineHeight: 1.05, letterSpacing: "-0.02em", color: "#1F3026" }}>{sec.label}</div>
+                    </div>
+                    <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.28em", color: "#7A8278", textTransform: "uppercase" }}>{sec.items.length}</span>
+                  </div>
+                  <div className="ch-grid-3" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 24 }}>
+                    {sec.items.map((p, i) => renderItemCard(p, i, accent))}
+                  </div>
+                </div>
+              );
+            })
+          )}
         </div>
       </section>
 

@@ -66,7 +66,7 @@ export default function HomepageEditor({ initialData }: HomepageEditorProps) {
         stats: [
             { val: '6,000', label: 'Years of recipe' },
             { val: '04', label: 'Generations' },
-            { val: '1', label: 'Bakery in Dublin OH' },
+            { val: '1', label: 'Cafe & Bakery in Dublin OH' },
             { val: '50', label: 'States we ship' },
         ],
     });
@@ -77,7 +77,7 @@ export default function HomepageEditor({ initialData }: HomepageEditorProps) {
         heading_accent: 'two crafts.',
         houses: [
             { name: 'The Creamery', ka: 'ყველის სახლი', tag: 'Imeruli & Sulguni, hand-pressed', desc: 'Cow-milk Sulguni, brined fresh or aged with honey. Imeruli pulled in salted whey. Aged in our Dublin facility, shipped fresh nationwide.', cta: 'Shop cheese →', href: '/shop', image: '' },
-            { name: 'The Bakery', ka: 'საცხობი', tag: 'Khachapuri, hot from the oven', desc: 'Adjaruli, Imeruli, Megruli — pulled apart at 25 minutes via Doordash and Uber Eats inside Dublin. Frozen for the rest of the country.', cta: 'Order hot delivery →', href: '/bakery', image: '' },
+            { name: 'The Cafe & Bakery', ka: 'კაფე', tag: 'Khachapuri, hot from the oven', desc: 'Adjaruli, Imeruli, Megruli — pulled apart at 25 minutes via Doordash and Uber Eats inside Dublin. Frozen bake-off delivered locally.', cta: 'Order hot delivery →', href: '/bakery', image: '' },
         ],
     });
 
@@ -112,7 +112,7 @@ export default function HomepageEditor({ initialData }: HomepageEditorProps) {
     const [visit, setVisit] = useState(() => {
         const v = (initialData.visit || {}) as { description?: string; image?: string };
         return {
-            description: v.description ?? 'The bakery is open daily, 7 AM to 10 PM. The creamery is by appointment — we\'d love to show you the cheese cellar.',
+            description: v.description ?? 'The cafe & bakery is open daily, 7 AM to 10 PM. The creamery is by appointment — we\'d love to show you the cheese cellar.',
             image: v.image ?? '',
         };
     });
@@ -120,7 +120,7 @@ export default function HomepageEditor({ initialData }: HomepageEditorProps) {
     // ─── Ticker State ────────────────────────────────────────────────────────────
     const [ticker, setTicker] = useState(initialData.ticker || {
         items: [
-            '◐ The Bakery — open until 10 PM',
+            '◐ The Cafe & Bakery — open until 10 PM',
             '▸ Free UPS over $75',
             '● Made in Dublin, Ohio',
                 ],

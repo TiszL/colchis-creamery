@@ -35,7 +35,7 @@ export async function generateMetadata({ params }: BakeryPdpProps): Promise<Meta
 
   const canonicalPath = locale === 'en' ? `/bakery/${slug}` : `/${locale}/bakery/${slug}`;
   return {
-    title: `${product.name} | Bakery`,
+    title: `${product.name} | Cafe & Bakery`,
     description: product.description.slice(0, 160),
     alternates: {
       canonical: `${SITE_URL}${canonicalPath}`,
@@ -49,7 +49,7 @@ export async function generateMetadata({ params }: BakeryPdpProps): Promise<Meta
     },
     openGraph: {
       type: 'website',
-      title: `${product.name} | Bakery`,
+      title: `${product.name} | Cafe & Bakery`,
       description: product.description.slice(0, 200),
       url: `${SITE_URL}${canonicalPath}`,
       siteName: 'Colchis Food',
@@ -175,7 +175,7 @@ export default async function BakeryPdp({ params }: BakeryPdpProps) {
       <JsonLdBreadcrumbList
         items={[
           { name: "Home", url: `${SITE_URL}${prefix}` },
-          { name: "Bakery", url: `${SITE_URL}${prefix}/bakery` },
+          { name: "Cafe & Bakery", url: `${SITE_URL}${prefix}/bakery` },
           { name: product.name, url: `${SITE_URL}${prefix}/bakery/${product.slug}` },
         ]}
       />
@@ -184,7 +184,7 @@ export default async function BakeryPdp({ params }: BakeryPdpProps) {
         <div style={{ maxWidth: 1440, margin: "0 auto", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
           <Link href={`${prefix}/`} style={{ color: "#7A8278", textDecoration: "none" }}>Colchis Food</Link>
           <span style={{ color: "#2C3D33", opacity: 0.5 }}>/</span>
-          <Link href={`${prefix}/bakery`} style={{ color: "#7A8278", textDecoration: "none" }}>Bakery</Link>
+          <Link href={`${prefix}/bakery`} style={{ color: "#7A8278", textDecoration: "none" }}>Cafe & Bakery</Link>
           <span style={{ color: "#2C3D33", opacity: 0.5 }}>/</span>
           <span style={{ color: "#7A8278" }}>{product.productCategory?.slug === HOT_CATEGORY_SLUG ? 'Hot' : product.productCategory?.slug === FROZEN_CATEGORY_SLUG ? 'Frozen' : (product.productCategory?.name ?? 'Menu')}</span>
           <span style={{ color: "#2C3D33", opacity: 0.5 }}>/</span>
@@ -250,7 +250,7 @@ export default async function BakeryPdp({ params }: BakeryPdpProps) {
           <div style={{ maxWidth: 1280, margin: "0 auto" }}>
             <div className="ch-section-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 44 }}>
               <div>
-                <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.32em", color: "#B96A3D", textTransform: "uppercase" }}>Also from our bakery</div>
+                <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.32em", color: "#B96A3D", textTransform: "uppercase" }}>Also from our cafe & bakery</div>
                 <h2 className="ch-h2" style={{ fontFamily: "var(--font-serif)", fontWeight: 300, fontSize: 48, lineHeight: 1.05, marginTop: 14, color: "#1F3026" }}>
                   You might <em style={{ color: "#B96A3D", fontWeight: 400 }}>also love</em>
                 </h2>

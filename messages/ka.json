@@ -16,7 +16,7 @@
     "home": "მთავარი",
     "heritage": "მემკვიდრეობა",
     "shop": "მაღაზია",
-    "bakery": "საცხობი",
+    "bakery": "კაფე",
     "recipes": "რეცეპტები",
     "wholesale": "საბითუმო",
     "journal": "ჟურნალი",
@@ -72,7 +72,7 @@
     "all": "ყველა",
     "filterByCategory": "კატეგორიის ფილტრი",
     "browseCreamery": "კრემერი",
-    "browseBakery": "ცომეული",
+    "browseBakery": "კაფე",
     "filteredView": "გაფილტრული"
   },
   "cart": {

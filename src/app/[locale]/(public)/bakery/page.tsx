@@ -10,14 +10,11 @@ import { CategoryChips } from "@/components/shop/CategoryChips";
 import { offeredChannelsByProduct } from "@/lib/offered-channels";
 import { DeliveryMethod, LocationType } from "@prisma/client";
 
-// Phase 9b: was ProductKind.BAKERY_HOT / BAKERY_FROZEN. Now driven by Category slug.
-const HOT_CATEGORY_SLUG = 'hot-pastries';
-const FROZEN_CATEGORY_SLUG = 'frozen-bake-off';
 const BAKERY_SECTION = 'bakery';
 
 export const metadata: Metadata = {
-  title: "The Bakery",
-  description: "Hot khachapuri delivered in 25 minutes to Dublin, Ohio. Adjaruli, Imeruli, Megruli — fresh from our oven. Frozen ships nationwide.",
+  title: "Cafe & Bakery",
+  description: "Hot khachapuri, drinks and Georgian cafe dishes in Dublin, Ohio — delivered in 25 minutes or ready for pickup. Frozen bake-off ships locally.",
 };
 
 function parseJSON<T>(value: string | undefined | null): T | null {
@@ -52,9 +49,7 @@ export default async function BakeryPage({ params, searchParams }: BakeryPagePro
     heroContent?: HeroContent | null;
     menuContent?: MenuContent | null;
     deliveryContent?: DeliveryContent | null;
-    hotItems?: BakeryItem[];
-    frozenItems?: BakeryItem[];
-    extraSections?: Array<{ slug: string; label: string; items: BakeryItem[] }>;
+    sections?: Array<{ slug: string; label: string; items: BakeryItem[] }>;
     singleSectionItems?: BakeryItem[];
     singleSectionLabel?: string;
   } = {};
@@ -142,6 +137,31 @@ export default async function BakeryPage({ params, searchParams }: BakeryPagePro
       { locationType: LocationType.BAKERY, exclude: [DeliveryMethod.UPS_2DAY] },
     );
 
+    // Phase 3 (cafe menu) — batched day-of-86 flags: a product whose every
+    // enabled Stock row is temporarily disabled shows "Sold out today" on its
+    // card (same predicate as the PDP, computed once for the whole list).
+    const now = new Date();
+    const enabledStocks = await prisma.stock.findMany({
+      where: {
+        productId: { in: bakeryProducts.map(p => p.id) },
+        isEnabled: true,
+        location: { isActive: true, type: LocationType.BAKERY, channels: { some: { isActive: true } } },
+      },
+      select: { productId: true, disabledUntil: true, location: { select: { allowsChannels: true } } },
+    });
+    const stocksByProduct = new Map<string, { disabledUntil: Date | null }[]>();
+    for (const st of enabledStocks) {
+      const prod = bakeryProducts.find(p => p.id === st.productId);
+      if (!prod || !st.location.allowsChannels.includes(prod.salesChannel)) continue;
+      const list = stocksByProduct.get(st.productId) ?? [];
+      list.push({ disabledUntil: st.disabledUntil });
+      stocksByProduct.set(st.productId, list);
+    }
+    const soldOutTodayFor = (id: string): boolean => {
+      const rows = stocksByProduct.get(id) ?? [];
+      return rows.length > 0 && rows.every(r => r.disabledUntil !== null && r.disabledUntil > now);
+    };
+
     const mapped = bakeryProducts.map(p => ({
       id: p.id,
       sku: p.sku,
@@ -156,33 +176,29 @@ export default async function BakeryPage({ params, searchParams }: BakeryPagePro
       isMadeToOrder: p.isMadeToOrder,
       isCartOrderable: p.isCartOrderable,
       offeredChannels: offeredByProduct.get(p.id) ?? [],
+      soldOutToday: soldOutTodayFor(p.id),
     }));
 
     if (activeCat) {
-      // Single-category view: flat grid, no hot/frozen tabs.
-      // Prefer the Category display name; fall back to translated "Filtered".
+      // Single-category view (?cat= deep links): flat grid, one section.
       contentProps.singleSectionItems = mapped;
       contentProps.singleSectionLabel = activeCategoryLabel ?? t('filteredView');
     } else {
-      const hotItems = mapped.filter((_item, i) => bakeryProducts[i].productCategory?.slug === HOT_CATEGORY_SLUG);
-      const frozenItems = mapped.filter((_item, i) => bakeryProducts[i].productCategory?.slug === FROZEN_CATEGORY_SLUG);
-      if (hotItems.length > 0) contentProps.hotItems = hotItems;
-      if (frozenItems.length > 0) contentProps.frozenItems = frozenItems;
-      // Bakery-tagged categories beyond the legacy hot/frozen tabs render as
-      // titled sections below the tabs (full menu redesign is a later phase).
-      // The query orders by Category.sortOrder, so Map insertion order keeps it.
-      const extraByCat = new Map<string, { slug: string; label: string; items: BakeryItem[] }>();
+      // Phase 3 (cafe menu): EVERY bakery-tagged category renders as a titled
+      // stacked section in Category.sortOrder — hot pastries, frozen bake-off,
+      // drinks, dishes… one continuous menu, chips jump to anchors.
+      const byCat = new Map<string, { slug: string; label: string; items: BakeryItem[] }>();
       mapped.forEach((item, i) => {
         const cat = bakeryProducts[i].productCategory;
-        if (!cat || cat.slug === HOT_CATEGORY_SLUG || cat.slug === FROZEN_CATEGORY_SLUG) return;
-        const section = extraByCat.get(cat.slug) ?? { slug: cat.slug, label: cat.name, items: [] };
+        if (!cat) return;
+        const section = byCat.get(cat.slug) ?? { slug: cat.slug, label: cat.name, items: [] };
         section.items.push(item);
-        extraByCat.set(cat.slug, section);
+        byCat.set(cat.slug, section);
       });
-      if (extraByCat.size > 0) contentProps.extraSections = Array.from(extraByCat.values());
+      if (byCat.size > 0) contentProps.sections = Array.from(byCat.values());
     }
   } catch {
-    // products fall back to BakeryClient hardcoded defaults
+    // DB failure: the menu renders empty (no hardcoded fallback since Phase 3).
   }
 
   const session = await getSession();
@@ -204,6 +220,7 @@ export default async function BakeryPage({ params, searchParams }: BakeryPagePro
         totalCount={sectionTotal}
         label={t('browseBakery')}
         allLabel={t('all')}
+        anchors={!activeCat}
       />
 
       <BakeryClient

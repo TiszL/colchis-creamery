@@ -70,7 +70,7 @@ function LoginContent() {
                     <img src="/logo.svg" alt="Colchis Food — home" style={{ height: 34, width: "auto", objectFit: "contain", display: "block" }} />
                 </Link>
                 <nav className="ch-auth-nav" style={{ display: "flex", gap: 22, fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase" }}>
-                    {([["Creamery", "/creamery"], ["Bakery", "/bakery"], ["Journal", "/journal"], ["Recipes", "/recipes"], ["Heritage", "/heritage"], ["Wholesale", "/wholesale"], ["Contact", "/contact"]] as const).map(([l, h]) => (
+                    {([["Creamery", "/creamery"], ["Cafe & Bakery", "/bakery"], ["Journal", "/journal"], ["Recipes", "/recipes"], ["Heritage", "/heritage"], ["Wholesale", "/wholesale"], ["Contact", "/contact"]] as const).map(([l, h]) => (
                         <Link key={h} href={h} style={{ color: "#1F3026", textDecoration: "none", whiteSpace: "nowrap" }}>{l}</Link>
                     ))}
                 </nav>

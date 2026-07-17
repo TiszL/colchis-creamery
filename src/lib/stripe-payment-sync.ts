@@ -26,7 +26,7 @@ import type Stripe from 'stripe';
 import type { DeliveryMethod } from '@prisma/client';
 import { stripe } from '@/lib/stripe';
 import { prisma } from '@/lib/db';
-import { commitStock, releaseStock, restoreStock } from '@/lib/stock-reservation';
+import { commitStock, effectiveReservationItems, releaseStock, restoreStock } from '@/lib/stock-reservation';
 import { cancelActiveCarrierDeliveries, chargeHasTransfer, claimFullRestock } from '@/lib/order-refund';
 import {
     sendOrderConfirmation,
@@ -530,14 +530,12 @@ async function loadOrderForPI(paymentIntentId: string) {
     });
 }
 
+// Net of units the kitchen already removed + restored (OrderItem.refundedQuantity)
+// so the charge.refunded full-restock path can't double-credit them. Harmless for
+// the commit/release callers — item removal requires a PAID order, so
+// refundedQuantity is always 0 when they run.
 function reservationItemsFromOrder(order: OrderForSync) {
-    return order.fulfillments.flatMap(f =>
-        f.items.map(it => ({
-            productId: it.orderItem.productId,
-            locationId: f.locationId,
-            quantity: it.quantity,
-        })),
-    );
+    return effectiveReservationItems(order.fulfillments);
 }
 
 // Delivery methods whose lifecycle is owned by kitchen staff in the location

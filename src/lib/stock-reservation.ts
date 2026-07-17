@@ -179,6 +179,47 @@ class ReservationError extends Error {
 }
 
 /**
+ * Build ReservationItems from an order's fulfillment legs, net of units the
+ * kitchen already removed + restored (OrderItem.refundedQuantity). Full-refund
+ * restore paths that rebuild their list from OrderFulfillmentItem rows must
+ * use this — raw leg quantities double-credit stock after a partial item
+ * removal (kitchenRemoveItemsCore restores those units immediately).
+ *
+ * refundedQuantity lives on the OrderItem (order-level) while legs are
+ * per-location, so it's subtracted greedily across the item's legs (capped at
+ * each leg's own quantity). Item-removal edits are only possible on
+ * single-location orders, so the greedy distribution is exact in practice.
+ */
+export function effectiveReservationItems(
+    fulfillments: ReadonlyArray<{
+        locationId: string;
+        items: ReadonlyArray<{
+            orderItemId: string;
+            quantity: number;
+            orderItem: { productId: string; refundedQuantity: number };
+        }>;
+    }>,
+): ReservationItem[] {
+    const remainingByOrderItem = new Map<string, number>();
+    const result: ReservationItem[] = [];
+    for (const f of fulfillments) {
+        for (const it of f.items) {
+            if (!remainingByOrderItem.has(it.orderItemId)) {
+                remainingByOrderItem.set(it.orderItemId, it.orderItem.refundedQuantity);
+            }
+            const remaining = remainingByOrderItem.get(it.orderItemId)!;
+            const subtract = Math.min(it.quantity, remaining);
+            remainingByOrderItem.set(it.orderItemId, remaining - subtract);
+            const quantity = it.quantity - subtract;
+            if (quantity > 0) {
+                result.push({ productId: it.orderItem.productId, locationId: f.locationId, quantity });
+            }
+        }
+    }
+    return result;
+}
+
+/**
  * Restore previously-committed stock back to inventory.
  *
  * Inverse of `commitStock` for the customer-cancel and admin-refund paths

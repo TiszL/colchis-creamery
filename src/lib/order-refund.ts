@@ -8,9 +8,10 @@
 
 import { prisma } from '@/lib/db';
 import { stripe } from '@/lib/stripe';
-import { restoreStock } from '@/lib/stock-reservation';
+import { effectiveReservationItems, restoreStock } from '@/lib/stock-reservation';
 import { doordashCancelDelivery } from '@/lib/doordash';
 import { uberCancelDelivery } from '@/lib/uber-direct';
+import { sendOpsAlertEmail } from '@/lib/email';
 
 /* ─── Carrier cancel helper ────────────────────────────────────────────── */
 //
@@ -220,13 +221,8 @@ export async function refundOrderFullInternal(
     // our own refunds.create above triggers within seconds) — atomic claim, not
     // a read of possibly-stale Refund rows.
     if (opts.restoreStock && (await claimFullRestock(order.id))) {
-        const restoreItems = order.fulfillments.flatMap(f =>
-            f.items.map(it => ({
-                productId: it.orderItem.productId,
-                locationId: f.locationId,
-                quantity: it.quantity,
-            })),
-        );
+        // Net of units the kitchen already removed + restored (see helper).
+        const restoreItems = effectiveReservationItems(order.fulfillments);
         await restoreStock(restoreItems, {
             orderId: order.id,
             ...(opts.initiatedByUserId ? { initiatedByUserId: opts.initiatedByUserId } : {}),
@@ -348,16 +344,19 @@ export async function kitchenRemoveItemsCore(
 
     /* ─── Cents math ──────────────────────────────────────────────────── */
     // Each removed unit refunds its price + a proportional share of the
-    // order's tax (itemCents / subtotalCents). Shipping is never refunded.
+    // order's tax (itemCents / taxedBaseCents). Shipping is never refunded.
     const subtotalCents = toCents(order.subtotalAmount)
         || order.orderItems.reduce((sum, it) => sum + toCents(it.unitPrice) * it.quantity, 0);
+    // taxAmount was calculated over items + shipping (checkout submits shipping
+    // to Stripe Tax as a taxed line), so shares pro-rate over that full base.
+    const taxedBaseCents = subtotalCents + toCents(order.shippingAmount);
     const taxCents = toCents(order.taxAmount);
 
     let refundCents = 0;
     for (const [orderItemId, qty] of removalByItem) {
         const item = itemById.get(orderItemId)!;
         const itemCents = toCents(item.unitPrice) * qty;
-        const taxShare = subtotalCents > 0 ? Math.round(taxCents * itemCents / subtotalCents) : 0;
+        const taxShare = taxedBaseCents > 0 ? Math.round(taxCents * itemCents / taxedBaseCents) : 0;
         refundCents += itemCents + taxShare;
     }
     if (refundCents <= 0) {
@@ -415,7 +414,9 @@ export async function kitchenRemoveItemsCore(
                 reason: 'kitchen_item_removed',
                 notes: opts.reason || null,
                 stripeRefundId,
-                restoredStock: true,
+                // Flipped to true below only AFTER restoreStock succeeds — it
+                // runs outside this tx and can fail.
+                restoredStock: false,
                 reversedTax: false,
             },
         }),
@@ -440,10 +441,30 @@ export async function kitchenRemoveItemsCore(
         }
         return [{ productId: itemById.get(orderItemId)!.productId, locationId, quantity: qty }];
     });
-    await restoreStock(restoreItems, {
-        orderId: order.id,
-        ...(opts.initiatedByUserId ? { initiatedByUserId: opts.initiatedByUserId } : {}),
-    });
+    try {
+        await restoreStock(restoreItems, {
+            orderId: order.id,
+            ...(opts.initiatedByUserId ? { initiatedByUserId: opts.initiatedByUserId } : {}),
+        });
+        await prisma.refund.update({ where: { stripeRefundId }, data: { restoredStock: true } });
+    } catch (e) {
+        console.error('[kitchenRemoveItemsCore] Stock restore failed for Order', order.id, '— Refund', stripeRefundId, 'left restoredStock=false; reconcile inventory manually:', e);
+        // Money already moved — surface the inventory discrepancy to ops the
+        // same way syncExternalRefund does, instead of relying on server logs.
+        try {
+            await sendOpsAlertEmail({
+                subject: 'Stock restore FAILED after kitchen item removal',
+                orderId: order.id,
+                lines: [
+                    `Stripe refund ${stripeRefundId} succeeded but restoring inventory failed; Refund.restoredStock is false.`,
+                    `Un-restored lines: ${restoreItems.map(r => `${r.quantity}× product ${r.productId} @ location ${r.locationId}`).join('; ') || '(none mapped)'}.`,
+                    'Reconcile the location stock counts manually, then update the Refund row.',
+                ],
+            });
+        } catch (alertErr) {
+            console.error('[kitchenRemoveItemsCore] ops alert failed too:', alertErr);
+        }
+    }
 
     const removed = [...removalByItem].map(([orderItemId, qty]) => ({
         name: itemById.get(orderItemId)!.product.name,

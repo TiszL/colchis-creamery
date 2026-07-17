@@ -1005,14 +1005,8 @@ export async function sendOrderConfirmation(order: OrderForEmail) {
                   </td>
                 </tr>
                 <tr>
-                  <td style="padding:0 0 14px;font-family:'Georgia',serif;font-size:14.5px;color:${C.forest};line-height:1.65;">
-                    <strong style="color:${C.accent2};font-family:'Courier New',monospace;font-size:11px;letter-spacing:2px;margin-right:8px;">02</strong>
-                    You&rsquo;ll get a separate note when each fulfillment ships or is ready for pickup.
-                  </td>
-                </tr>
-                <tr>
                   <td style="padding:0;font-family:'Georgia',serif;font-size:14.5px;color:${C.forest};line-height:1.65;">
-                    <strong style="color:${C.accent2};font-family:'Courier New',monospace;font-size:11px;letter-spacing:2px;margin-right:8px;">03</strong>
+                    <strong style="color:${C.accent2};font-family:'Courier New',monospace;font-size:11px;letter-spacing:2px;margin-right:8px;">02</strong>
                     Questions? Reply to this email or write to
                     <a href="mailto:hello@colchisfood.com?subject=Order%20%23${shortId}" style="color:${C.accent2};text-decoration:none;border-bottom:1px solid ${C.accent2}55;">hello@colchisfood.com</a>
                     — your order number will be pre-filled.
@@ -1369,6 +1363,64 @@ export async function sendOrderItemsRemovedCustomerEmail(opts: {
           <tr>
             <td style="background:${C.cream2};padding:0 48px 44px;">
               <p style="margin:0;font-family:'Georgia',serif;font-size:13px;color:${C.muted};line-height:1.6;text-align:center;">Questions? Reply to this email and our team will help.</p>
+            </td>
+          </tr>
+          ${darkFoot()}
+      `),
+    });
+    if (error) return { success: false, error: error.message };
+    return { success: true, id: data?.id };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'unknown error' };
+  }
+}
+
+/** Ops alert to the location's managers: kitchen staff filed a cancel/refund
+ *  request that needs manager approval on the KDS queue — without this nudge
+ *  the request sits invisibly while the cook-timer runs. */
+export async function sendCancelRequestManagerEmail(opts: {
+  to: string[];
+  orderId: string;
+  orderTotal: string;          // dollars string, e.g. "45.00"
+  locationId: string;
+  locationName: string;
+  requestedByName: string;
+  reason: string;
+}) {
+  const shortId = opts.orderId.slice(0, 8).toUpperCase();
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+  const queueUrl = `${siteUrl}/location-portal/${opts.locationId}/orders`;
+  try {
+    const { data, error } = await sendViaResend({
+      from: getFrom(),
+      to: opts.to,
+      subject: `Cancel request — order #${shortId}`,
+      html: wrap(`
+          ${sealHead('Cancel Request')}
+          <tr>
+            <td style="background:${C.cream2};padding:44px 48px 20px;">
+              <p style="margin:0 0 8px;font-family:'Courier New',monospace;font-size:10px;letter-spacing:3px;color:${C.red};text-transform:uppercase;">Order #${shortId} · ${escHtml(opts.locationName)}</p>
+              <h1 style="margin:0;font-family:'Georgia',serif;font-size:28px;font-weight:300;color:${C.forest};line-height:1.2;">Kitchen requests <em style="color:${C.red};font-weight:400;">cancel &amp; refund.</em></h1>
+            </td>
+          </tr>
+          <tr>
+            <td style="background:${C.cream2};padding:0 48px 24px;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="background:${C.cream};border:1px solid ${C.forest}22;">
+                <tr><td style="padding:14px 20px 2px;font-family:'Courier New',monospace;font-size:9px;letter-spacing:3px;color:${C.muted};text-transform:uppercase;">Requested by</td></tr>
+                <tr><td style="padding:0 20px 12px;font-family:'Georgia',serif;font-size:14px;color:${C.forest};">${escHtml(opts.requestedByName)}</td></tr>
+                <tr><td style="padding:12px 20px 2px;border-top:1px solid ${C.forest}11;font-family:'Courier New',monospace;font-size:9px;letter-spacing:3px;color:${C.muted};text-transform:uppercase;">Reason</td></tr>
+                <tr><td style="padding:0 20px 12px;font-family:'Georgia',serif;font-size:14px;color:${C.forest};">${escHtml(opts.reason)}</td></tr>
+                <tr><td style="padding:12px 20px 2px;border-top:1px solid ${C.forest}11;font-family:'Courier New',monospace;font-size:9px;letter-spacing:3px;color:${C.muted};text-transform:uppercase;">Order</td></tr>
+                <tr><td style="padding:0 20px 14px;font-family:'Georgia',serif;font-size:14px;color:${C.forest};">#${shortId} · ${fmtMoney(opts.orderTotal)}</td></tr>
+              </table>
+              <p style="margin:14px 0 0;font-family:'Georgia',serif;font-size:13px;color:${C.muted};line-height:1.6;">
+                The kitchen keeps cooking until someone decides — approve or decline the request on the order queue.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="background:${C.cream2};padding:0 48px 44px;text-align:center;">
+              <a href="${queueUrl}" style="display:inline-block;background:${C.forest};color:${C.cream};text-decoration:none;padding:16px 28px;font-family:'Courier New',monospace;font-size:11px;letter-spacing:3px;text-transform:uppercase;">Open order queue &rarr;</a>
             </td>
           </tr>
           ${darkFoot()}

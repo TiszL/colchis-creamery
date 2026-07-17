@@ -14,9 +14,10 @@
 import { prisma } from '@/lib/db';
 import { stripe, isStripeLiveMode } from '@/lib/stripe';
 import { sellableStockWhere } from '@/lib/stock-availability';
-import { isOpenNow, type LocationHours } from '@/lib/location-hours';
+import { isOpenNow, isAcceptingMtoOrders, type LocationHours } from '@/lib/location-hours';
 import { reserveStock, releaseStock, type ReservationItem } from '@/lib/stock-reservation';
 import { signOrderToken } from '@/lib/order-token';
+import { sendOpsAlertEmail } from '@/lib/email';
 
 const CONFIG_KEY = 'qrOrdering';
 const SESSION_TTL_MINUTES = 35; // Stripe Checkout minimum expiry is 30 min
@@ -58,7 +59,7 @@ export async function setQrOrderingConfig(config: QrOrderingConfig): Promise<voi
 /** A table page is servable when: master toggle on, table within the
  *  location's configured count, location active + dine-in enabled. */
 export async function validateTable(locationId: string, table: number): Promise<
-    | { ok: true; location: { id: string; name: string; hours: LocationHours; addressLine1: string; city: string; state: string; postalCode: string; country: string; stripeConnectAccountId: string | null; stripeOnboardingStatus: string | null; stripeAccountLivemode: boolean | null } }
+    | { ok: true; location: { id: string; name: string; hours: LocationHours; allowsChannels: string[]; mtoCutoffMinutes: number | null; addressLine1: string; city: string; state: string; postalCode: string; country: string; stripeConnectAccountId: string | null; stripeOnboardingStatus: string | null; stripeAccountLivemode: boolean | null } }
     | { ok: false; reason: 'disabled' | 'unknown_table' | 'no_dine_in' }
 > {
     const config = await getQrOrderingConfig();
@@ -73,7 +74,7 @@ export async function validateTable(locationId: string, table: number): Promise<
             channels: { some: { deliveryMethod: 'IN_STORE_DINE_IN', isActive: true } },
         },
         select: {
-            id: true, name: true, hours: true,
+            id: true, name: true, hours: true, allowsChannels: true, mtoCutoffMinutes: true,
             addressLine1: true, city: true, state: true, postalCode: true, country: true,
             stripeConnectAccountId: true, stripeOnboardingStatus: true, stripeAccountLivemode: true,
         },
@@ -108,12 +109,21 @@ export async function createTableOrder(input: TableOrderInput): Promise<TableOrd
         merged.set(it.productId, (merged.get(it.productId) ?? 0) + it.quantity);
     }
     const items = [...merged].map(([productId, quantity]) => ({ productId, quantity }));
+    // A table order is a meal, not a warehouse pull — bound the reservation
+    // surface an unauthenticated caller can hold.
+    if (items.length > 15) return { ok: false, error: 'That is a lot of dishes for one table — please split the order.' };
+    if (items.reduce((n, i) => n + i.quantity, 0) > 40) return { ok: false, error: 'Too many items for one order — please split it.' };
 
     const valid = await validateTable(input.locationId, input.table);
     if (!valid.ok) return { ok: false, error: 'QR ordering is not available right now — please order at the counter.' };
     const loc = valid.location;
-    // Dine-in needs an open kitchen — there is no "schedule for tomorrow" at a table.
-    if (!isOpenNow(loc.hours)) return { ok: false, error: 'The kitchen is closed right now — please order at the counter when we open.' };
+    // Dine-in needs an open kitchen — there is no "schedule for tomorrow" at a
+    // table. The pre-close wind-down window counts as closed too (matches the
+    // paid pipeline's isAcceptingMtoOrders, so a table ticket can never land
+    // "scheduled for tomorrow" in front of a seated customer).
+    if (!isAcceptingMtoOrders(loc.hours, loc.mtoCutoffMinutes)) {
+        return { ok: false, error: 'The kitchen is closed right now — please order at the counter when we open.' };
+    }
 
     /* Products must be genuinely sellable at THIS location (86s, caps and
        cutoffs enforce via sellableStockWhere + reserveStock). */
@@ -124,6 +134,9 @@ export async function createTableOrder(input: TableOrderInput): Promise<TableOrd
             isB2cVisible: true,
             isCartOrderable: true,
             status: 'ACTIVE',
+            // Full availability invariant — the location must actually SELL
+            // this product's channel, not merely warehouse it.
+            salesChannel: { in: loc.allowsChannels as never },
             stocks: { some: { ...sellableStockWhere(), locationId: loc.id } },
         },
         select: { id: true, name: true, priceB2c: true },
@@ -179,7 +192,15 @@ export async function createTableOrder(input: TableOrderInput): Promise<TableOrd
                 }
             }
         } catch (e) {
-            console.error('[table-order] Stripe Tax calculation failed — proceeding with $0 tax:', e);
+            const msg = e instanceof Error ? e.message : String(e);
+            console.error('[table-order] Stripe Tax calculation failed — proceeding with $0 tax:', msg);
+            void sendOpsAlertEmail({
+                subject: 'Stripe Tax calculation FAILED — QR table order charged $0 tax',
+                lines: [
+                    `Tax calculation failed for a table order at location ${loc.id} (table ${input.table}): ${msg}`,
+                    'If this repeats, Stripe Tax is misconfigured — sales tax for this order must be handled manually at filing time.',
+                ],
+            }).catch(() => undefined);
         }
         const totalCents = subtotalCents + taxCents;
 
@@ -250,6 +271,7 @@ export async function createTableOrder(input: TableOrderInput): Promise<TableOrd
                 ? loc.stripeConnectAccountId
                 : null;
         const site = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+        const localePrefix = input.locale && input.locale !== 'en' && ['ka', 'ru', 'es'].includes(input.locale) ? `/${input.locale}` : '';
         const token = await signOrderToken(order.id);
         const session = await stripe.checkout.sessions.create({
             mode: 'payment',
@@ -271,21 +293,37 @@ export async function createTableOrder(input: TableOrderInput): Promise<TableOrd
             metadata: { kind: 'table_order', orderId: order.id, table: String(input.table) },
             customer_email: email,
             expires_at: Math.floor(Date.now() / 1000) + SESSION_TTL_MINUTES * 60,
-            success_url: `${site}/orders/${token}?table=paid`,
-            cancel_url: `${site}/table/${loc.id}/${input.table}`,
+            success_url: `${site}${localePrefix}/orders/${token}?table=paid`,
+            cancel_url: `${site}${localePrefix}/table/${loc.id}/${input.table}`,
         });
         if (!session.url) throw new Error('Stripe returned no session URL');
+        // Persisted so webhook-independent recovery (the reservation cron)
+        // can ask Stripe about this order even before a PI exists.
+        await prisma.order.update({
+            where: { id: order.id },
+            data: { stripeCheckoutSessionId: session.id },
+        });
         return { ok: true, paymentUrl: session.url, orderId: order.id };
     } catch (e) {
         console.error('[table-order] creation failed:', e);
-        // Undo what we can: release the reservation; an orphaned UNPAID order
-        // is swept by the reservation cron.
-        await releaseStock(reservationItems).catch(() => undefined);
+        // Same invariant as abandonCheckoutOrder: win the guarded CANCELLED
+        // flip FIRST, release stock only when we won it. If the flip (or the
+        // release after a won flip) fails, leave state for the reservation
+        // cron — never release without the flip or vice versa.
         if (orderId) {
-            await prisma.order.updateMany({
-                where: { id: orderId, paymentStatus: 'UNPAID' },
-                data: { orderStatus: 'CANCELLED' },
-            }).catch(() => undefined);
+            try {
+                const flipped = await prisma.order.updateMany({
+                    where: { id: orderId, paymentStatus: 'UNPAID', orderStatus: { not: 'CANCELLED' } },
+                    data: { orderStatus: 'CANCELLED' },
+                });
+                if (flipped.count === 1) await releaseStock(reservationItems);
+            } catch (undoErr) {
+                console.error('[table-order] failure-path cleanup failed — reservation cron will recover:', undoErr);
+            }
+        } else {
+            // No order was created — the reservation is ours alone to release.
+            await releaseStock(reservationItems).catch(err =>
+                console.error('[table-order] reservation release failed (cron cannot see it — check stock):', err));
         }
         return { ok: false, error: 'Could not start the payment. Please try again or order at the counter.' };
     }

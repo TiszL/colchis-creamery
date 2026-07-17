@@ -13,5 +13,10 @@ export async function placeTableOrder(input: TableOrderInput): Promise<TableOrde
     if (!rl.ok) {
         return { ok: false, error: rateLimitMessage(rl) };
     }
+    const email = (input.contact?.email ?? '').trim().toLowerCase();
+    if (email) {
+        const rlEmail = await rateLimit(`table-order:email:${email}`, 6, 600);
+        if (!rlEmail.ok) return { ok: false, error: rateLimitMessage(rlEmail) };
+    }
     return createTableOrder(input);
 }

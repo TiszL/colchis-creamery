@@ -4,7 +4,7 @@
 import { prisma } from '@/lib/db';
 import { validateTable } from '@/lib/table-ordering';
 import { sellableStockWhere } from '@/lib/stock-availability';
-import { isOpenNow } from '@/lib/location-hours';
+import { isAcceptingMtoOrders } from '@/lib/location-hours';
 import TableOrderClient, { type TableMenuItem } from '@/components/table/TableOrderClient';
 import { ColchisSeal } from '@/components/brand/ColchisSeal';
 import Link from 'next/link';
@@ -64,7 +64,7 @@ export default async function TablePage({
         );
     }
 
-    const open = isOpenNow(valid.location.hours);
+    const open = isAcceptingMtoOrders(valid.location.hours, valid.location.mtoCutoffMinutes);
 
     // Dine-in menu: everything genuinely sellable at THIS location, grouped by
     // category in sortOrder — same availability rules as the cafe menu.
@@ -74,6 +74,8 @@ export default async function TablePage({
             isB2cVisible: true,
             isCartOrderable: true,
             status: 'ACTIVE',
+            // Same availability invariant as every storefront surface.
+            salesChannel: { in: valid.location.allowsChannels as never },
             stocks: { some: { ...sellableStockWhere(), locationId } },
         },
         include: { productCategory: { select: { slug: true, name: true, sortOrder: true } } },

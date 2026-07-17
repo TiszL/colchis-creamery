@@ -16,12 +16,17 @@ async function saveQrConfigAction(formData: FormData) {
     const session = await getSession();
     if (!session || session.role !== 'MASTER_ADMIN') throw new Error('Not authorized');
     const enabled = formData.get('enabled') === 'on';
-    const tablesByLocation: Record<string, number> = {};
+    // Merge over the saved config: locations whose input wasn't submitted
+    // (e.g. dine-in temporarily disabled → field disabled) keep their counts,
+    // so already-printed QRs survive a toggle round-trip.
+    const current = await getQrOrderingConfig();
+    const tablesByLocation: Record<string, number> = { ...current.tablesByLocation };
     for (const [key, value] of formData.entries()) {
         if (!key.startsWith('tables-')) continue;
         const locationId = key.slice('tables-'.length);
         const n = parseInt((value as string) || '0', 10);
         if (Number.isFinite(n) && n > 0 && n <= 200) tablesByLocation[locationId] = n;
+        else delete tablesByLocation[locationId];
     }
     await setQrOrderingConfig({ enabled, tablesByLocation });
     revalidatePath('/[locale]/admin/qr-ordering', 'page');
@@ -55,13 +60,13 @@ export default async function QrOrderingAdminPage({ params }: { params: Promise<
     const qrByLocation: Record<string, { table: number; url: string; svg: string }[]> = {};
     for (const loc of dineInLocations) {
         if (!loc.dineInEnabled || loc.tables <= 0) continue;
-        const list: { table: number; url: string; svg: string }[] = [];
-        for (let t = 1; t <= loc.tables; t++) {
-            const url = `${site}/table/${loc.id}/${t}`;
-            const svg = await QRCode.toString(url, { type: 'svg', margin: 1, width: 220, color: { dark: '#1F3026', light: '#F5F0E6' } });
-            list.push({ table: t, url, svg });
-        }
-        qrByLocation[loc.id] = list;
+        qrByLocation[loc.id] = await Promise.all(
+            Array.from({ length: loc.tables }, (_, i) => i + 1).map(async t => {
+                const url = `${site}/table/${loc.id}/${t}`;
+                const svg = await QRCode.toString(url, { type: 'svg', margin: 1, width: 220, color: { dark: '#1F3026', light: '#F5F0E6' } });
+                return { table: t, url, svg };
+            }),
+        );
     }
 
     return (

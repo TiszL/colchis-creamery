@@ -87,6 +87,11 @@ export default function TableOrderClient({
                 {locationName} · order &amp; pay from your phone · we bring it to table {table}
             </p>
 
+            {items.length === 0 && (
+                <div style={{ padding: '32px 20px', textAlign: 'center', fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: 20, color: '#1F3026' }}>
+                    The menu isn&apos;t available right now — please order at the counter.
+                </div>
+            )}
             {sections.map(([cat, list]) => (
                 <section key={cat} style={{ marginBottom: 28 }}>
                     <h2 style={{ fontFamily: 'var(--font-serif)', fontWeight: 300, fontSize: 26, color: '#1F3026', borderBottom: '1px solid #1F302622', paddingBottom: 8, margin: '0 0 4px' }}>{cat}</h2>

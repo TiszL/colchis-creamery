@@ -610,6 +610,9 @@ async function scheduleAndNotifyKitchenLegs(orderId: string): Promise<void> {
     const scheduledByFulfillment = new Map<string, Date>();
     for (const f of order.fulfillments) {
         try {
+            // Dine-in: the customer is AT the table — never schedule ahead
+            // (order acceptance already gated on open+cutoff at creation).
+            if (f.deliveryMethod === 'IN_STORE_DINE_IN') continue;
             // Closed OR inside the MTO pre-close cutoff — both schedule ahead.
             if (isAcceptingMtoOrders(f.location.hours as any, f.location.mtoCutoffMinutes)) continue;
             const slot = nextOpenSlot(f.location.hours as any, new Date(Date.now() + (f.location.mtoCutoffMinutes ?? 0) * 60 * 1000));

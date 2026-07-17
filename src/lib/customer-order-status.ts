@@ -99,12 +99,15 @@ export function customerOrderStage(
     const rank = Math.min(...active.map(fulfillmentRank));
     const stage = RANK_STAGE[rank];
     const allPickup = active.every(f => PICKUP_METHODS.has(f.deliveryMethod));
+    const allDineIn = active.every(f => f.deliveryMethod === 'IN_STORE_DINE_IN');
     const descriptions: Record<CustomerStage, string> = {
         PAYMENT_PENDING: 'We are confirming your payment.',
         RECEIVED: 'Order received — the kitchen will confirm shortly.',
         CONFIRMED: 'The kitchen confirmed your order.',
         PREPARING: 'Your order is being prepared right now.',
-        READY: allPickup ? 'Ready for pickup — come on by.' : 'Ready — handing off to your courier.',
+        READY: allDineIn
+            ? 'Ready — we are bringing it to your table.'
+            : allPickup ? 'Ready for pickup — come on by.' : 'Ready — handing off to your courier.',
         ON_THE_WAY: 'Your order is on the way.',
         DELIVERED: 'Delivered — enjoy!',
         CANCELLED: 'This order was cancelled.',
@@ -121,7 +124,15 @@ export function fulfillmentTimeline(f: FulfillmentLike): TimelineStep[] {
     const rank = fulfillmentRank(f);
 
     let steps: { key: string; label: string; atRank: number }[];
-    if (PICKUP_METHODS.has(f.deliveryMethod)) {
+    if (f.deliveryMethod === 'IN_STORE_DINE_IN') {
+        steps = [
+            { key: 'received', label: 'Received', atRank: 0 },
+            { key: 'confirmed', label: 'Confirmed', atRank: 1 },
+            { key: 'preparing', label: 'Preparing', atRank: 2 },
+            { key: 'ready', label: 'Coming to your table', atRank: 3 },
+            { key: 'delivered', label: 'Served', atRank: 5 },
+        ];
+    } else if (PICKUP_METHODS.has(f.deliveryMethod)) {
         steps = [
             { key: 'received', label: 'Received', atRank: 0 },
             { key: 'confirmed', label: 'Confirmed', atRank: 1 },

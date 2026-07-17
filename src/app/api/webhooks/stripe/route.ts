@@ -134,6 +134,25 @@ export async function POST(req: Request) {
             }
             case 'checkout.session.expired': {
                 const session = event.data.object as Stripe.Checkout.Session;
+                if (session.metadata?.kind === 'table_order' && session.metadata.orderId) {
+                    // Prompt release beats waiting for the reservation cron:
+                    // guarded flip first, release only when we won it.
+                    const flipped = await prisma.order.updateMany({
+                        where: { id: session.metadata.orderId, paymentStatus: 'UNPAID', orderStatus: { not: 'CANCELLED' } },
+                        data: { orderStatus: 'CANCELLED' },
+                    });
+                    if (flipped.count === 1) {
+                        const order = await prisma.order.findUnique({
+                            where: { id: session.metadata.orderId },
+                            select: { fulfillments: { select: { locationId: true, items: { select: { orderItemId: true, quantity: true, orderItem: { select: { productId: true, refundedQuantity: true } } } } } } },
+                        });
+                        if (order) {
+                            const { effectiveReservationItems, releaseStock } = await import('@/lib/stock-reservation');
+                            await releaseStock(effectiveReservationItems(order.fulfillments));
+                        }
+                    }
+                    break;
+                }
                 if (session.metadata?.kind === 'order_amendment') {
                     await prisma.orderAmendment.updateMany({
                         where: { stripeCheckoutSessionId: session.id, status: 'PENDING_PAYMENT' },

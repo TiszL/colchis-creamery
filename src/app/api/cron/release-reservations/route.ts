@@ -88,6 +88,32 @@ export async function GET(req: Request) {
             // genuinely unpaid orders get cancelled — and their PaymentIntent is
             // cancelled at Stripe too, so a late customer confirm can't charge a
             // card for an order we already killed.
+            // QR table orders have no PI until payment — ask their Checkout
+            // Session before any cancel decision, and adopt the PI if paid.
+            if (!order.stripePaymentIntentId && order.stripeCheckoutSessionId) {
+                try {
+                    const session = await stripe.checkout.sessions.retrieve(order.stripeCheckoutSessionId);
+                    const sessionPi = typeof session.payment_intent === 'string' ? session.payment_intent : session.payment_intent?.id ?? null;
+                    if (session.payment_status === 'paid' && sessionPi) {
+                        const { applyPaidTableOrder } = await import('@/lib/table-ordering');
+                        await applyPaidTableOrder(order.id, sessionPi);
+                        const check = await prisma.order.findUnique({ where: { id: order.id }, select: { paymentStatus: true } });
+                        if (check?.paymentStatus === 'PAID') {
+                            console.log(`[cron/release-reservations] RESCUED paid table order ${order.id} via its Checkout Session`);
+                            rescued++;
+                            continue;
+                        }
+                        console.error(`[cron/release-reservations] table-order rescue did not land for ${order.id} — deferring`);
+                        errors++;
+                        continue;
+                    }
+                    // Unpaid: fall through to the normal cancel+release below.
+                } catch (e) {
+                    console.error(`[cron/release-reservations] session lookup failed for order ${order.id} — deferring:`, e instanceof Error ? e.message : e);
+                    errors++;
+                    continue;
+                }
+            }
             if (order.stripePaymentIntentId) {
                 let pi: Stripe.PaymentIntent | null = null;
                 try {

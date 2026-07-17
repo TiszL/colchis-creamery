@@ -1322,6 +1322,149 @@ export async function sendOrderReadyForPickupEmail(opts: {
   }
 }
 
+/**
+ * Phase 2b — a manager approved adding items; the customer pays the delta
+ * through a Stripe Checkout link. Sent best-effort from the approval flow.
+ */
+export async function sendAmendmentPaymentEmail(opts: {
+  to: string;
+  name: string | null;
+  orderId: string;
+  items: { name: string; quantity: number }[];
+  amountDollars: string;
+  payUrl: string;
+  expiresMinutes: number;
+}) {
+  const shortId = opts.orderId.slice(0, 8).toUpperCase();
+  const greeting = opts.name || 'there';
+  const itemsHtml = opts.items
+    .map(i => `<li style="margin:0 0 6px;font-family:'Georgia',serif;font-size:14px;color:${C.moss};">${i.quantity}× ${escHtml(i.name)}</li>`)
+    .join('');
+  try {
+    const { data, error } = await sendViaResend({
+      from: getFrom(),
+      to: [opts.to],
+      subject: `Confirm the addition to your order #${shortId} — $${escHtml(opts.amountDollars)}`,
+      html: wrap(`
+          ${sealHead('Order Addition')}
+          <tr>
+            <td style="background:${C.cream2};padding:48px 48px 24px;">
+              <p style="margin:0 0 20px;font-family:'Courier New',monospace;font-size:10px;letter-spacing:3px;color:${C.accent2};text-transform:uppercase;">Order #${shortId}</p>
+              <h1 style="margin:0 0 20px;font-family:'Georgia',serif;font-size:28px;font-weight:300;color:${C.forest};line-height:1.2;">Hello, <em style="color:${C.accent2};font-weight:400;">${escHtml(greeting)}.</em></h1>
+              <p style="margin:0 0 16px;font-family:'Georgia',serif;font-size:15px;color:${C.moss};line-height:1.75;font-style:italic;">
+                As discussed with our kitchen, here's the payment link to add the following to your order:
+              </p>
+              <ul style="margin:0 0 16px;padding-left:20px;">${itemsHtml}</ul>
+              <p style="margin:0 0 24px;font-family:'Georgia',serif;font-size:15px;color:${C.moss};line-height:1.75;">
+                Total for the addition (incl. tax): <strong style="color:${C.forest};">$${escHtml(opts.amountDollars)}</strong>.
+                The link expires in about ${opts.expiresMinutes} minutes — the items join your order the moment payment completes.
+              </p>
+              <p style="margin:0 0 8px;text-align:center;">
+                <a href="${opts.payUrl}" style="display:inline-block;background:${C.forest};color:${C.cream2};font-family:'Courier New',monospace;font-size:12px;letter-spacing:3px;text-transform:uppercase;text-decoration:none;padding:16px 32px;">Pay $${escHtml(opts.amountDollars)} →</a>
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="background:${C.cream2};padding:0 48px 44px;">
+              <p style="margin:0;font-family:'Georgia',serif;font-size:13px;color:${C.muted};line-height:1.6;text-align:center;">Didn't ask for this? Ignore the link and nothing changes — your original order stands.</p>
+            </td>
+          </tr>
+          ${darkFoot()}
+      `),
+    });
+    if (error) return { success: false, error: error.message };
+    return { success: true, id: data?.id };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'unknown error' };
+  }
+}
+
+/** Phase 2b — the amendment was paid; the added items are now on the order. */
+export async function sendAmendmentPaidEmail(opts: {
+  to: string;
+  name: string | null;
+  orderId: string;
+  items: { name: string; quantity: number }[];
+  amountDollars: string;
+}) {
+  const shortId = opts.orderId.slice(0, 8).toUpperCase();
+  const greeting = opts.name || 'there';
+  const itemsHtml = opts.items
+    .map(i => `<li style="margin:0 0 6px;font-family:'Georgia',serif;font-size:14px;color:${C.moss};">${i.quantity}× ${escHtml(i.name)}</li>`)
+    .join('');
+  try {
+    const { data, error } = await sendViaResend({
+      from: getFrom(),
+      to: [opts.to],
+      subject: `Added to your order #${shortId} — $${escHtml(opts.amountDollars)} received`,
+      html: wrap(`
+          ${sealHead('Order Updated')}
+          <tr>
+            <td style="background:${C.cream2};padding:48px 48px 24px;">
+              <p style="margin:0 0 20px;font-family:'Courier New',monospace;font-size:10px;letter-spacing:3px;color:${C.accent2};text-transform:uppercase;">Order #${shortId}</p>
+              <h1 style="margin:0 0 20px;font-family:'Georgia',serif;font-size:28px;font-weight:300;color:${C.forest};line-height:1.2;">Hello, <em style="color:${C.accent2};font-weight:400;">${escHtml(greeting)}.</em></h1>
+              <p style="margin:0 0 16px;font-family:'Georgia',serif;font-size:15px;color:${C.moss};line-height:1.75;font-style:italic;">
+                Payment received — these items are now part of your order and the kitchen has them on the ticket:
+              </p>
+              <ul style="margin:0 0 16px;padding-left:20px;">${itemsHtml}</ul>
+              <p style="margin:0;font-family:'Georgia',serif;font-size:15px;color:${C.moss};line-height:1.75;">
+                Charged: <strong style="color:${C.forest};">$${escHtml(opts.amountDollars)}</strong> (incl. tax).
+              </p>
+            </td>
+          </tr>
+          ${darkFoot()}
+      `),
+    });
+    if (error) return { success: false, error: error.message };
+    return { success: true, id: data?.id };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'unknown error' };
+  }
+}
+
+/**
+ * Phase 2b — kitchen filed an order-EDIT request; alert the location's
+ * managers (same convention as sendCancelRequestManagerEmail).
+ */
+export async function sendEditRequestManagerEmail(opts: {
+  to: string[];
+  orderId: string;
+  locationId: string;
+  locationName: string;
+  requestedByName: string;
+  reason: string;
+  summary: string; // e.g. "Remove 1× Adjaruli · Add 2× Lobiani"
+}) {
+  const shortId = opts.orderId.slice(0, 8).toUpperCase();
+  const site = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+  try {
+    const { data, error } = await sendViaResend({
+      from: getFrom(),
+      to: opts.to,
+      subject: `Change request — order #${shortId} (${opts.locationName})`,
+      html: wrap(`
+          ${sealHead('Change Request')}
+          <tr>
+            <td style="background:${C.cream2};padding:48px 48px 24px;">
+              <p style="margin:0 0 20px;font-family:'Courier New',monospace;font-size:10px;letter-spacing:3px;color:${C.accent2};text-transform:uppercase;">Order #${shortId} · ${escHtml(opts.locationName)}</p>
+              <h1 style="margin:0 0 20px;font-family:'Georgia',serif;font-size:28px;font-weight:300;color:${C.forest};line-height:1.2;">The kitchen proposes a change.</h1>
+              <p style="margin:0 0 12px;font-family:'Georgia',serif;font-size:15px;color:${C.moss};line-height:1.75;"><strong style="color:${C.forest};">${escHtml(opts.requestedByName)}</strong> requests: ${escHtml(opts.summary)}</p>
+              <p style="margin:0 0 24px;font-family:'Georgia',serif;font-size:14px;color:${C.moss};line-height:1.7;font-style:italic;">"${escHtml(opts.reason)}"</p>
+              <p style="margin:0 0 8px;text-align:center;">
+                <a href="${site}/location-portal/${opts.locationId}/orders" style="display:inline-block;background:${C.forest};color:${C.cream2};font-family:'Courier New',monospace;font-size:12px;letter-spacing:3px;text-transform:uppercase;text-decoration:none;padding:16px 32px;">Review in the portal →</a>
+              </p>
+            </td>
+          </tr>
+          ${darkFoot()}
+      `),
+    });
+    if (error) return { success: false, error: error.message };
+    return { success: true, id: data?.id };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'unknown error' };
+  }
+}
+
 /** Welcome email for a newly-created kitchen (location-staff) account. */
 export async function sendKitchenWelcomeEmail(opts: {
   to: string;

@@ -17,6 +17,7 @@
 // .env.local and curl with `Authorization: Bearer <value>` to test.
 
 import { NextResponse } from 'next/server';
+import { markExpiredAmendments } from '@/lib/order-edit';
 import type Stripe from 'stripe';
 import { prisma } from '@/lib/db';
 import { stripe } from '@/lib/stripe';
@@ -278,9 +279,17 @@ export async function GET(req: Request) {
         );
     }
 
+    // Phase 2b — bookkeeping sweep for overdue payment-link amendments
+    // (Stripe expired the hosted sessions itself; no stock or money is held).
+    const expiredAmendments = await markExpiredAmendments().catch(e => {
+        console.error('[cron/release-reservations] amendment sweep failed:', e);
+        return 0;
+    });
+
     return NextResponse.json({
         ok: true,
         timestamp: now.toISOString(),
+        expiredAmendments,
         scanned: expiredOrders.length,
         released,
         rescued,

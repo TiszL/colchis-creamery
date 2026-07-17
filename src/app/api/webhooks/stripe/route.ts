@@ -24,6 +24,7 @@ import {
     syncExternalRefund,
     alertDisputeCreated,
 } from '@/lib/stripe-payment-sync';
+import { applyPaidAmendment } from '@/lib/order-edit';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs'; // signature verification needs Node crypto
@@ -98,6 +99,31 @@ export async function POST(req: Request) {
             case 'charge.dispute.created':
                 await alertDisputeCreated(event.data.object);
                 break;
+            // Phase 2b — order-amendment payment links (added items). Only
+            // sessions we minted carry kind=order_amendment; anything else is
+            // acked and ignored.
+            case 'checkout.session.completed': {
+                const session = event.data.object as Stripe.Checkout.Session;
+                if (session.metadata?.kind === 'order_amendment') {
+                    await applyPaidAmendment(
+                        session.id,
+                        typeof session.payment_intent === 'string' ? session.payment_intent : session.payment_intent?.id ?? null,
+                    );
+                } else {
+                    console.log('[stripe-webhook] checkout.session.completed (non-amendment) ignored:', session.id);
+                }
+                break;
+            }
+            case 'checkout.session.expired': {
+                const session = event.data.object as Stripe.Checkout.Session;
+                if (session.metadata?.kind === 'order_amendment') {
+                    await prisma.orderAmendment.updateMany({
+                        where: { stripeCheckoutSessionId: session.id, status: 'PENDING_PAYMENT' },
+                        data: { status: 'EXPIRED', resolvedAt: new Date() },
+                    });
+                }
+                break;
+            }
             // Phase 4 (4d) — Connect events. The connected-account ID is
             // available on `event.account` (or on event.data.object.id for
             // account.updated).

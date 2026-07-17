@@ -704,6 +704,7 @@ model Order {
   shipment     Shipment?
   fulfillments OrderFulfillment[]
   refunds      Refund[]
+  amendments   OrderAmendment[]
   // Phase 6 — B2B invoice when paymentMethod ∈ RESOLVE_NET_*.
   b2bInvoice   B2bInvoice?
 
@@ -730,6 +731,13 @@ model OrderItem {
   // from the Stripe Tax calculation's per-line amounts at checkout. Null on
   // legacy orders; refund math falls back to pro-rating the order aggregate.
   taxCents Int?
+
+  // Phase 2b — set when this line was ADDED by a paid order amendment (an
+  // approved edit's upcharge). Its money lives on the amendment's OWN
+  // PaymentIntent, so refunds of this line must target that PI, not the
+  // order's original one. Null = original checkout line.
+  amendmentId String?
+  amendment   OrderAmendment? @relation(fields: [amendmentId], references: [id])
 
   order            Order                  @relation(fields: [orderId], references: [id])
   product          Product                @relation(fields: [productId], references: [id])
@@ -1264,6 +1272,7 @@ model OrderFulfillment {
 
   items          OrderFulfillmentItem[]
   cancelRequests OrderCancelRequest[]
+  editRequests   OrderEditRequest[]
 
   @@index([orderId])
 }
@@ -1290,6 +1299,84 @@ model OrderCancelRequest {
 
   @@index([fulfillmentId])
   @@index([locationId, status])
+}
+
+// Phase 2b — kitchen-proposed ORDER EDITS (remove / swap / add items on a paid
+// order), mirroring OrderCancelRequest's request→approve shape: fulfillment
+// staff propose with a reason + confirmation the customer was phoned; a
+// LOCATION_MANAGER approves (executing refunds / payment links) or declines.
+// Requester/resolver names denormalized so the audit survives account deletion.
+model OrderEditRequest {
+  id                  String           @id @default(uuid())
+  fulfillmentId       String
+  fulfillment         OrderFulfillment @relation(fields: [fulfillmentId], references: [id], onDelete: Cascade)
+  locationId          String
+  requestedById       String
+  requestedByName     String
+  reason              String           // required — shown to the manager + threaded to customer comms
+  // The kitchen must confirm the customer agreed by phone before proposing.
+  customerContactedAt DateTime
+  status              String           @default("PENDING") // PENDING|APPROVED|DECLINED
+  resolvedById        String?
+  resolvedByName      String?
+  resolutionNote      String?
+  resolvedAt          DateTime?
+  createdAt           DateTime         @default(now())
+
+  lines     OrderEditRequestLine[]
+  amendment OrderAmendment?
+
+  @@index([fulfillmentId])
+  @@index([locationId, status])
+}
+
+// One proposed change line. A swap is modeled as REMOVE + ADD lines in the
+// same request; approval executes removals immediately (refund via the
+// existing partial-refund core) and adds via an OrderAmendment payment link.
+model OrderEditRequestLine {
+  id             String           @id @default(uuid())
+  requestId      String
+  request        OrderEditRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  type           String           // REMOVE | ADD
+  // REMOVE: which order line + how many units
+  orderItemId    String?
+  removeQuantity Int?
+  // ADD: which product + how many; unit price snapshotted at request time so
+  // the approved charge can't drift if the catalog price changes mid-flight.
+  addProductId   String?
+  addQuantity    Int?
+  addUnitPrice   String?
+
+  @@index([requestId])
+}
+
+// Phase 2b — an approved edit's UPCHARGE: added items are paid through a
+// Stripe Checkout Session the customer opens from a link. The added
+// OrderItem rows are created ONLY when checkout.session.completed arrives —
+// an unpaid amendment changes nothing about the order.
+model OrderAmendment {
+  id                      String            @id @default(uuid())
+  orderId                 String
+  order                   Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  requestId               String?           @unique
+  request                 OrderEditRequest? @relation(fields: [requestId], references: [id])
+  status                  String            @default("PENDING_PAYMENT") // PENDING_PAYMENT|PAID|EXPIRED|CANCELLED
+  // What the customer owes for the additions: items + their tax, in cents.
+  itemsCents              Int
+  taxCents                Int               @default(0)
+  // Stripe linkage. paymentIntentId is captured on completion so later
+  // refunds of amendment lines target the right charge.
+  stripeCheckoutSessionId String?           @unique
+  stripePaymentIntentId   String?
+  stripeTaxCalculationId  String?
+  paymentUrl              String?
+  expiresAt               DateTime
+  resolvedAt              DateTime?
+  createdAt               DateTime          @default(now())
+
+  orderItems OrderItem[]
+
+  @@index([orderId, status])
 }
 
 model OrderFulfillmentItem {

@@ -22,6 +22,10 @@ import {
     clearStaleFulfillment,
     requestCancelOrder,
     resolveCancelRequest,
+    requestOrderEdit,
+    resolveOrderEdit,
+    cancelAmendment,
+    fetchLocationSellableProducts,
     type QueueItem,
     type QueueSnapshot,
     type MutationResult,
@@ -219,6 +223,28 @@ export default function OrdersQueueClient({
     // Manager resolution of a pending request: optional note + two-step approve.
     const [resolveNotes, setResolveNotes] = useState<Record<string, string>>({});
     const [approveArmedIds, setApproveArmedIds] = useState<Set<string>>(new Set());
+    // Phase 2b — "Request changes" panel (both roles; manager submissions
+    // auto-approve server-side): removal steppers + add-item picker + reason
+    // + required customer-contacted confirmation.
+    const [changeOpenIds, setChangeOpenIds] = useState<Set<string>>(new Set());
+    const [changeRemovals, setChangeRemovals] = useState<Record<string, Record<string, number>>>({});
+    const [changeAdds, setChangeAdds] = useState<Record<string, Record<string, number>>>({});
+    const [changeReasons, setChangeReasons] = useState<Record<string, string>>({});
+    const [changeContacted, setChangeContacted] = useState<Set<string>>(new Set());
+    const [changeSuccess, setChangeSuccess] = useState<Record<string, string>>({});
+    const [sellable, setSellable] = useState<{ id: string; name: string; priceB2c: string }[] | null>(null);
+    const [addPick, setAddPick] = useState<Record<string, string>>({});
+    // Manager resolution of a pending EDIT request + payment-link controls.
+    const [editResolveNotes, setEditResolveNotes] = useState<Record<string, string>>({});
+    const [editApproveArmedIds, setEditApproveArmedIds] = useState<Set<string>>(new Set());
+    const [copiedLinkIds, setCopiedLinkIds] = useState<Set<string>>(new Set());
+
+    const loadSellable = useCallback(() => {
+        if (sellable !== null) return;
+        fetchLocationSellableProducts(locationId)
+            .then(setSellable)
+            .catch(() => setSellable([]));
+    }, [sellable, locationId]);
     const [explainerOpen, setExplainerOpen] = useState(false);
     const [pendingCount, setPendingCount] = useState(() => initial.items.filter(i => i.status === 'PENDING').length);
     const [, startTransition] = useTransition();
@@ -613,6 +639,23 @@ export default function OrdersQueueClient({
                     const requestReason = requestReasons[item.id] ?? '';
                     const approveArmed = approveArmedIds.has(item.id);
 
+                    // Phase 2b — edit-request state (latest request wins).
+                    const er = item.editRequest;
+                    const erPending = er?.status === 'PENDING';
+                    const amendment = er?.amendment ?? null;
+                    const canProposeEdit =
+                        !erPending &&
+                        item.paymentStatus === 'PAID' &&
+                        editableWindow &&
+                        !(amendment && amendment.status === 'PENDING_PAYMENT');
+                    const changeOpen = changeOpenIds.has(item.id);
+                    const removalsSel = changeRemovals[item.id] ?? {};
+                    const addsSel = changeAdds[item.id] ?? {};
+                    const changeLineCount =
+                        Object.values(removalsSel).filter(n => n > 0).length +
+                        Object.values(addsSel).filter(n => n > 0).length;
+                    const editApproveArmed = editApproveArmedIds.has(item.id);
+
                     return (
                         <div
                             key={item.id}
@@ -887,6 +930,133 @@ export default function OrdersQueueClient({
                                 </div>
                             )}
 
+                            {/* ── Phase 2b: pending EDIT request — manager resolves */}
+                            {er && erPending && canRefund && (
+                                <div className="mt-3 px-3 py-3 bg-sky-900/20 border-2 border-sky-700/60 space-y-2">
+                                    <p className="text-[12px] font-mono font-bold uppercase tracking-wider text-sky-300">
+                                        ✎ Kitchen requests a change
+                                    </p>
+                                    <p className="text-[12px] font-mono text-gray-200">{er.summary}</p>
+                                    <p className="text-[12px] font-mono text-gray-400">
+                                        {er.requestedByName}: &ldquo;{er.reason}&rdquo; · customer was called
+                                    </p>
+                                    <input
+                                        type="text"
+                                        value={editResolveNotes[item.id] ?? ''}
+                                        onChange={e => setEditResolveNotes(prev => ({ ...prev, [item.id]: e.target.value }))}
+                                        placeholder="Optional note (kitchen sees it; threads into customer comms)"
+                                        className="w-full bg-[#161616] border border-[#ffffff0A] px-3 py-2 text-[12px] font-mono text-white placeholder-gray-600 focus:outline-none focus:border-sky-800/60"
+                                    />
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        <button
+                                            type="button"
+                                            disabled={busy}
+                                            onClick={() => {
+                                                if (!editApproveArmed) {
+                                                    setEditApproveArmedIds(prev => new Set(prev).add(item.id));
+                                                    return;
+                                                }
+                                                setEditApproveArmedIds(prev => { const next = new Set(prev); next.delete(item.id); return next; });
+                                                runAction(item.id, async () => {
+                                                    const res = await resolveOrderEdit(er.id, locationId, true, editResolveNotes[item.id] ?? '');
+                                                    if (res.ok) {
+                                                        setChangeSuccess(prev => ({
+                                                            ...prev,
+                                                            [item.id]: res.paymentUrl
+                                                                ? 'Approved — payment link created & emailed to the customer.'
+                                                                : `Approved${res.amountRefunded ? ` — $${res.amountRefunded} refunded` : ''}.`,
+                                                        }));
+                                                    }
+                                                    return res;
+                                                });
+                                            }}
+                                            className={`min-h-[44px] px-5 text-[11px] font-mono uppercase tracking-wider border transition-colors disabled:opacity-50 disabled:cursor-wait ${
+                                                editApproveArmed
+                                                    ? 'bg-sky-700 text-white border-sky-700 hover:bg-sky-600'
+                                                    : 'bg-sky-900/40 text-sky-300 border-sky-800/60 hover:bg-sky-900/60'
+                                            }`}
+                                        >
+                                            {busy ? 'Working…' : editApproveArmed ? 'Confirm — execute change' : 'Approve change'}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            disabled={busy}
+                                            onClick={() => {
+                                                setEditApproveArmedIds(prev => { const next = new Set(prev); next.delete(item.id); return next; });
+                                                runAction(item.id, () => resolveOrderEdit(er.id, locationId, false, editResolveNotes[item.id] ?? ''));
+                                            }}
+                                            className="min-h-[44px] px-5 text-[11px] font-mono uppercase tracking-wider bg-[#161616] text-gray-300 border border-[#ffffff1A] hover:text-white transition-colors disabled:opacity-50 disabled:cursor-wait"
+                                        >
+                                            Decline
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {er && erPending && !canRefund && (
+                                <div className="mt-3 px-3 py-2 bg-sky-900/20 border border-sky-800/40 text-[11px] font-mono text-sky-300">
+                                    ⏳ Change requested — waiting for a manager.
+                                    <span className="block mt-0.5 text-sky-400/70">{er.summary}</span>
+                                </div>
+                            )}
+
+                            {er && er.status === 'DECLINED' && (
+                                <div className="mt-3 px-3 py-2 bg-[#161616] border border-[#ffffff1A] text-[11px] font-mono text-gray-400">
+                                    ✕ Manager declined the change request
+                                    {er.resolutionNote ? <>: &ldquo;{er.resolutionNote}&rdquo;</> : '.'}
+                                </div>
+                            )}
+
+                            {/* ── Phase 2b: payment link status */}
+                            {amendment && amendment.status === 'PENDING_PAYMENT' && (
+                                <div className="mt-3 px-3 py-2 bg-violet-900/20 border border-violet-800/40 space-y-1.5">
+                                    <p className="text-[11px] font-mono text-violet-300">
+                                        💳 Payment link sent — ${amendment.totalDollars} · added items join the ticket once paid
+                                        (expires {new Date(amendment.expiresAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})
+                                    </p>
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        {amendment.paymentUrl && (
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    void navigator.clipboard?.writeText(amendment.paymentUrl!);
+                                                    setCopiedLinkIds(prev => new Set(prev).add(item.id));
+                                                    setTimeout(() => setCopiedLinkIds(prev => { const next = new Set(prev); next.delete(item.id); return next; }), 2000);
+                                                }}
+                                                className="min-h-[36px] px-4 text-[10px] font-mono uppercase tracking-wider bg-violet-900/40 text-violet-300 border border-violet-800/60 hover:bg-violet-900/60 transition-colors"
+                                            >
+                                                {copiedLinkIds.has(item.id) ? 'Copied ✓' : 'Copy link'}
+                                            </button>
+                                        )}
+                                        {canRefund && (
+                                            <button
+                                                type="button"
+                                                disabled={busy}
+                                                onClick={() => runAction(item.id, () => cancelAmendment(amendment.id, locationId))}
+                                                className="min-h-[36px] px-4 text-[10px] font-mono uppercase tracking-wider bg-[#161616] text-gray-400 border border-[#ffffff1A] hover:text-white transition-colors disabled:opacity-50"
+                                            >
+                                                Cancel link
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+                            {amendment && amendment.status === 'PAID' && (
+                                <div className="mt-3 px-3 py-2 bg-emerald-900/20 border border-emerald-800/40 text-[11px] font-mono text-emerald-400">
+                                    ✓ Addition paid (${amendment.totalDollars}) — new items are on the ticket.
+                                </div>
+                            )}
+                            {amendment && (amendment.status === 'EXPIRED' || amendment.status === 'CANCELLED') && (
+                                <div className="mt-3 px-3 py-2 bg-[#161616] border border-[#ffffff1A] text-[11px] font-mono text-gray-500">
+                                    Payment link {amendment.status === 'EXPIRED' ? 'expired unpaid' : 'cancelled'} — the order stands as-is.
+                                </div>
+                            )}
+                            {changeSuccess[item.id] && (
+                                <div className="mt-3 px-3 py-2 bg-emerald-900/20 border border-emerald-800/40 text-[11px] font-mono text-emerald-400">
+                                    ✓ {changeSuccess[item.id]}
+                                </div>
+                            )}
+
                             {(canEdit || canProblem || isStale || canRequest) && (
                                 <div className="mt-3">
                                     <div className="flex items-center gap-5 flex-wrap">
@@ -941,6 +1111,23 @@ export default function OrdersQueueClient({
                                                 className="py-1 text-[11px] font-mono text-gray-600 hover:text-gray-400 underline underline-offset-2 transition-colors"
                                             >
                                                 {problemOpen ? 'Never mind' : 'Problem with order?'}
+                                            </button>
+                                        )}
+                                        {canProposeEdit && (
+                                            <button
+                                                type="button"
+                                                disabled={busy}
+                                                onClick={() => {
+                                                    loadSellable();
+                                                    setChangeOpenIds(prev => {
+                                                        const next = new Set(prev);
+                                                        if (next.has(item.id)) next.delete(item.id); else next.add(item.id);
+                                                        return next;
+                                                    });
+                                                }}
+                                                className="min-h-[44px] px-2 text-[11px] font-mono uppercase tracking-wider text-sky-400/80 hover:text-sky-300 transition-colors disabled:opacity-50"
+                                            >
+                                                {changeOpen ? 'Close change form' : canRefund ? 'Change items' : 'Request changes'}
                                             </button>
                                         )}
                                         {canRequest && (
@@ -1030,6 +1217,130 @@ export default function OrdersQueueClient({
                                                 className="min-h-[44px] px-5 text-[11px] font-mono uppercase tracking-wider bg-amber-900/40 text-amber-300 border border-amber-800/60 hover:bg-amber-900/60 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                             >
                                                 {busy ? 'Sending…' : 'Send request to manager'}
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    {canProposeEdit && changeOpen && (
+                                        <div className="mt-2 px-3 py-3 bg-[#0e1317] border border-sky-900/40 space-y-3">
+                                            <p className="text-[11px] font-mono uppercase tracking-wider text-gray-500">
+                                                Propose changes — removals refund the customer; additions send a payment link
+                                            </p>
+                                            <div className="divide-y divide-[#ffffff0A]">
+                                                {item.items.map(line => {
+                                                    const eff = line.quantity - line.refundedQuantity;
+                                                    const sel = removalsSel[line.orderItemId] ?? 0;
+                                                    if (eff <= 0) return null;
+                                                    return (
+                                                        <div key={line.orderItemId} className="py-2 flex items-center justify-between gap-3">
+                                                            <span className="text-[12px] font-mono text-gray-300 flex-1 min-w-0 truncate">
+                                                                {line.name} <span className="text-gray-500">×{eff}</span>
+                                                            </span>
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-[10px] font-mono uppercase text-gray-600">remove</span>
+                                                                <button
+                                                                    type="button"
+                                                                    disabled={sel <= 0}
+                                                                    onClick={() => setChangeRemovals(prev => ({ ...prev, [item.id]: { ...(prev[item.id] ?? {}), [line.orderItemId]: Math.max(0, sel - 1) } }))}
+                                                                    className="w-9 h-9 text-gray-300 bg-[#161616] border border-[#ffffff1A] disabled:opacity-30"
+                                                                >−</button>
+                                                                <span className="w-6 text-center text-[13px] font-mono text-white">{sel}</span>
+                                                                <button
+                                                                    type="button"
+                                                                    disabled={sel >= eff}
+                                                                    onClick={() => setChangeRemovals(prev => ({ ...prev, [item.id]: { ...(prev[item.id] ?? {}), [line.orderItemId]: Math.min(eff, sel + 1) } }))}
+                                                                    className="w-9 h-9 text-gray-300 bg-[#161616] border border-[#ffffff1A] disabled:opacity-30"
+                                                                >+</button>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                            <div className="space-y-2">
+                                                <p className="text-[10px] font-mono uppercase tracking-wider text-gray-600">Add items (customer pays via link)</p>
+                                                {Object.entries(addsSel).filter(([, q]) => q > 0).map(([pid, q]) => {
+                                                    const prod = sellable?.find(sp => sp.id === pid);
+                                                    return (
+                                                        <div key={pid} className="flex items-center justify-between gap-3">
+                                                            <span className="text-[12px] font-mono text-sky-300 flex-1 min-w-0 truncate">+ {q}× {prod?.name ?? 'Item'} <span className="text-gray-500">${prod?.priceB2c}/ea</span></span>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setChangeAdds(prev => { const next = { ...(prev[item.id] ?? {}) }; delete next[pid]; return { ...prev, [item.id]: next }; })}
+                                                                className="w-9 h-9 text-gray-400 bg-[#161616] border border-[#ffffff1A]"
+                                                            >×</button>
+                                                        </div>
+                                                    );
+                                                })}
+                                                <div className="flex items-center gap-2">
+                                                    <select
+                                                        value={addPick[item.id] ?? ''}
+                                                        onChange={e => setAddPick(prev => ({ ...prev, [item.id]: e.target.value }))}
+                                                        className="flex-1 min-w-0 bg-[#161616] border border-[#ffffff0A] px-2 py-2 text-[12px] font-mono text-white focus:outline-none"
+                                                    >
+                                                        <option value="">{sellable === null ? 'Loading menu…' : 'Pick a product to add…'}</option>
+                                                        {(sellable ?? []).map(sp => (
+                                                            <option key={sp.id} value={sp.id}>{sp.name} — ${sp.priceB2c}</option>
+                                                        ))}
+                                                    </select>
+                                                    <button
+                                                        type="button"
+                                                        disabled={!addPick[item.id]}
+                                                        onClick={() => {
+                                                            const pid = addPick[item.id];
+                                                            if (!pid) return;
+                                                            setChangeAdds(prev => ({ ...prev, [item.id]: { ...(prev[item.id] ?? {}), [pid]: (prev[item.id]?.[pid] ?? 0) + 1 } }));
+                                                        }}
+                                                        className="min-h-[40px] px-4 text-[11px] font-mono uppercase tracking-wider bg-sky-900/40 text-sky-300 border border-sky-800/60 disabled:opacity-40"
+                                                    >Add</button>
+                                                </div>
+                                            </div>
+                                            <textarea
+                                                value={changeReasons[item.id] ?? ''}
+                                                onChange={e => setChangeReasons(prev => ({ ...prev, [item.id]: e.target.value }))}
+                                                placeholder="Why is the order changing? (required — audited + shown to the customer)"
+                                                rows={2}
+                                                className="w-full bg-[#161616] border border-[#ffffff0A] px-3 py-2 text-[12px] font-mono text-white placeholder-gray-600 focus:outline-none focus:border-sky-800/60"
+                                            />
+                                            <label className="flex items-center gap-2 text-[12px] font-mono text-gray-300 cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={changeContacted.has(item.id)}
+                                                    onChange={e => setChangeContacted(prev => { const next = new Set(prev); if (e.target.checked) next.add(item.id); else next.delete(item.id); return next; })}
+                                                    className="w-4 h-4"
+                                                />
+                                                I called the customer and they agreed to this change
+                                            </label>
+                                            <button
+                                                type="button"
+                                                disabled={busy || changeLineCount === 0 || (changeReasons[item.id] ?? '').trim().length === 0 || !changeContacted.has(item.id)}
+                                                onClick={() =>
+                                                    runAction(item.id, async () => {
+                                                        const lines = [
+                                                            ...Object.entries(removalsSel).filter(([, q]) => q > 0).map(([orderItemId, quantity]) => ({ type: 'REMOVE' as const, orderItemId, quantity })),
+                                                            ...Object.entries(addsSel).filter(([, q]) => q > 0).map(([productId, quantity]) => ({ type: 'ADD' as const, productId, quantity })),
+                                                        ];
+                                                        const res = await requestOrderEdit(item.id, locationId, lines, changeReasons[item.id] ?? '', changeContacted.has(item.id));
+                                                        if (res.ok) {
+                                                            setChangeOpenIds(prev => { const next = new Set(prev); next.delete(item.id); return next; });
+                                                            setChangeRemovals(prev => { const next = { ...prev }; delete next[item.id]; return next; });
+                                                            setChangeAdds(prev => { const next = { ...prev }; delete next[item.id]; return next; });
+                                                            setChangeReasons(prev => { const next = { ...prev }; delete next[item.id]; return next; });
+                                                            setChangeContacted(prev => { const next = new Set(prev); next.delete(item.id); return next; });
+                                                            setChangeSuccess(prev => ({
+                                                                ...prev,
+                                                                [item.id]: canRefund
+                                                                    ? res.paymentUrl
+                                                                        ? 'Change executed — payment link emailed to the customer for the added items.'
+                                                                        : `Change executed${res.amountRefunded ? ` — $${res.amountRefunded} refunded` : ''}.`
+                                                                    : 'Request sent — a manager will review it on this screen.',
+                                                            }));
+                                                        }
+                                                        return res;
+                                                    })
+                                                }
+                                                className="min-h-[44px] px-5 text-[11px] font-mono uppercase tracking-wider bg-sky-900/40 text-sky-300 border border-sky-800/60 hover:bg-sky-900/60 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                            >
+                                                {busy ? 'Working…' : canRefund ? 'Execute change' : 'Send request to manager'}
                                             </button>
                                         </div>
                                     )}

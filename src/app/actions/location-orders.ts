@@ -23,6 +23,10 @@ import { assertLocationRole } from '@/lib/location-rbac';
 import { dispatchCourierForFulfillment } from '@/lib/carrier-dispatch';
 import { refundOrderFullCore, kitchenRemoveItemsCore, cancelActiveCarrierDeliveries } from '@/lib/order-refund';
 import { sendOrderCancelledCustomerEmail, sendOrderItemsRemovedCustomerEmail, sendCancelRequestManagerEmail, sendOrderReadyForPickupEmail } from '@/lib/email';
+import { createOrderEditRequest, approveOrderEditRequest, cancelPendingAmendment, type EditLineInput } from '@/lib/order-edit';
+import { sendEditRequestManagerEmail } from '@/lib/email';
+import { hasLocationRole } from '@/lib/location-rbac';
+import { sellableStockWhere } from '@/lib/stock-availability';
 import { BUSINESS_TIMEZONE } from '@/lib/timezone';
 
 const COURIER_METHODS = ['DOORDASH_DRIVE', 'UBER_DIRECT'] as const;
@@ -96,6 +100,24 @@ export type QueueItem = {
         resolutionNote: string | null;
         createdAt: string;
     } | null;
+    // Phase 2b — latest order-EDIT request (remove/swap/add) + its payment
+    // link when the approved change needs the customer to pay a delta.
+    editRequest: {
+        id: string;
+        status: string; // PENDING|APPROVED|DECLINED
+        reason: string;
+        requestedByName: string;
+        resolutionNote: string | null;
+        createdAt: string;
+        summary: string;
+        amendment: {
+            id: string;
+            status: string; // PENDING_PAYMENT|PAID|EXPIRED|CANCELLED
+            paymentUrl: string | null;
+            expiresAt: string;
+            totalDollars: string;
+        } | null;
+    } | null;
 };
 
 export type QueueSnapshot = { items: QueueItem[]; fetchedAt: string; prepMinutes: number };
@@ -141,12 +163,38 @@ export async function fetchLocationQueue(
                         resolutionNote: true, createdAt: true,
                     },
                 },
+                editRequests: {
+                    orderBy: { createdAt: 'desc' },
+                    take: 1,
+                    include: { lines: true, amendment: { select: { id: true, status: true, paymentUrl: true, expiresAt: true, itemsCents: true, taxCents: true } } },
+                },
             },
             orderBy: [{ createdAt: 'desc' }],
             take: view === 'active' ? 100 : 50,
         }),
         prisma.location.findUnique({ where: { id: locationId }, select: { prepMinutes: true } }),
     ]);
+
+    // Phase 2b — resolve display names for edit-request lines in one batch
+    // (OrderEditRequestLine stores plain ids, no relations).
+    const editLines = rows.flatMap(f => f.editRequests[0]?.lines ?? []);
+    const lineOrderItemIds = editLines.map(l => l.orderItemId).filter((x): x is string => !!x);
+    const lineProductIds = editLines.map(l => l.addProductId).filter((x): x is string => !!x);
+    const [lineOrderItems, lineProducts] = await Promise.all([
+        lineOrderItemIds.length > 0
+            ? prisma.orderItem.findMany({ where: { id: { in: lineOrderItemIds } }, select: { id: true, product: { select: { name: true } } } })
+            : Promise.resolve([]),
+        lineProductIds.length > 0
+            ? prisma.product.findMany({ where: { id: { in: lineProductIds } }, select: { id: true, name: true } })
+            : Promise.resolve([]),
+    ]);
+    const nameOfOrderItem = new Map(lineOrderItems.map(i => [i.id, i.product.name]));
+    const nameOfProduct = new Map(lineProducts.map(p => [p.id, p.name]));
+    const summarize = (lines: typeof editLines): string =>
+        lines.map(l => l.type === 'REMOVE'
+            ? `Remove ${l.removeQuantity}× ${nameOfOrderItem.get(l.orderItemId ?? '') ?? 'item'}`
+            : `Add ${l.addQuantity}× ${nameOfProduct.get(l.addProductId ?? '') ?? 'item'}`,
+        ).join(' · ');
 
     return {
         fetchedAt: new Date().toISOString(),
@@ -202,6 +250,26 @@ export async function fetchLocationQueue(
                       requestedByName: f.cancelRequests[0].requestedByName,
                       resolutionNote: f.cancelRequests[0].resolutionNote,
                       createdAt: f.cancelRequests[0].createdAt.toISOString(),
+                  }
+                : null,
+            editRequest: f.editRequests[0]
+                ? {
+                      id: f.editRequests[0].id,
+                      status: f.editRequests[0].status,
+                      reason: f.editRequests[0].reason,
+                      requestedByName: f.editRequests[0].requestedByName,
+                      resolutionNote: f.editRequests[0].resolutionNote,
+                      createdAt: f.editRequests[0].createdAt.toISOString(),
+                      summary: summarize(f.editRequests[0].lines),
+                      amendment: f.editRequests[0].amendment
+                          ? {
+                                id: f.editRequests[0].amendment.id,
+                                status: f.editRequests[0].amendment.status,
+                                paymentUrl: f.editRequests[0].amendment.paymentUrl,
+                                expiresAt: f.editRequests[0].amendment.expiresAt.toISOString(),
+                                totalDollars: ((f.editRequests[0].amendment.itemsCents + f.editRequests[0].amendment.taxCents) / 100).toFixed(2),
+                            }
+                          : null,
                   }
                 : null,
         })),
@@ -743,4 +811,208 @@ export async function resolveCancelRequest(
     } catch (e) {
         return { ok: false, error: e instanceof Error ? e.message : 'Unknown error' };
     }
+}
+
+/* ─── Phase 2b — order-edit requests (remove / swap / add) ──────────────── */
+
+/**
+ * Sellable products at this location for the "add item" picker. Both kitchen
+ * roles may read it — it exposes nothing the public menu doesn't.
+ */
+export async function fetchLocationSellableProducts(
+    locationId: string,
+): Promise<{ id: string; name: string; priceB2c: string; isMadeToOrder: boolean }[]> {
+    await assertLocationRole(locationId, ['LOCATION_MANAGER', 'LOCATION_FULFILLMENT']);
+    const location = await prisma.location.findUnique({
+        where: { id: locationId },
+        select: { allowsChannels: true },
+    });
+    if (!location) return [];
+    const products = await prisma.product.findMany({
+        where: {
+            isActive: true,
+            isB2cVisible: true,
+            isCartOrderable: true,
+            status: 'ACTIVE',
+            salesChannel: { in: location.allowsChannels },
+            stocks: { some: { ...sellableStockWhere(), locationId } },
+        },
+        orderBy: { name: 'asc' },
+        select: { id: true, name: true, priceB2c: true, isMadeToOrder: true },
+    });
+    return products;
+}
+
+/**
+ * Kitchen (or manager) proposes an order edit. The kitchen's request waits
+ * for a manager; a MANAGER's own submission auto-approves immediately so
+ * there's a single audited flow for both ("fulfillment staff cannot move
+ * money" holds — approval is what moves it).
+ */
+export async function requestOrderEdit(
+    fulfillmentId: string,
+    locationId: string,
+    lines: EditLineInput[],
+    reason: string,
+    customerContacted: boolean,
+): Promise<MutationResult & { paymentUrl?: string | null; amountRefunded?: string | null }> {
+    try {
+        await assertLocationRole(locationId, ['LOCATION_MANAGER', 'LOCATION_FULFILLMENT']);
+        if (!customerContacted) {
+            return { ok: false, error: 'Confirm the customer was called and agreed first' };
+        }
+        const session = await getSession();
+        const requestedByName = session?.name || session?.email || 'Kitchen staff';
+
+        const created = await createOrderEditRequest({
+            fulfillmentId,
+            locationId,
+            lines,
+            reason,
+            requestedById: session?.userId ?? '',
+            requestedByName,
+        });
+        if (!created.ok) return created;
+
+        // Managers execute their own proposals immediately — one audit trail.
+        const isManager = session?.userId
+            ? (session.role === 'MASTER_ADMIN' || await hasLocationRole(session.userId, locationId, 'LOCATION_MANAGER'))
+            : false;
+        if (isManager) {
+            const approved = await approveOrderEditRequest(created.requestId, locationId, {
+                resolvedById: session?.userId ?? null,
+                resolvedByName: requestedByName,
+                note: null,
+            });
+            if (!approved.ok) return approved;
+            return { ok: true, paymentUrl: approved.paymentUrl, amountRefunded: approved.amountRefunded ?? undefined };
+        }
+
+        // Kitchen path: alert the managers (same convention as cancel requests).
+        try {
+            const f = await prisma.orderFulfillment.findUnique({
+                where: { id: fulfillmentId },
+                select: {
+                    order: { select: { id: true } },
+                    location: { select: { name: true, notificationEmail: true } },
+                },
+            });
+            const managers = await prisma.userLocation.findMany({
+                where: { locationId, role: 'LOCATION_MANAGER', user: { isActive: true } },
+                select: { user: { select: { email: true } } },
+            });
+            const managerEmails = [...new Set(managers.map(m => m.user.email).filter(Boolean))];
+            const fallback = f?.location.notificationEmail || process.env.BAKERY_NOTIFICATION_EMAIL;
+            const to = managerEmails.length > 0 ? managerEmails : fallback ? [fallback] : [];
+            if (to.length > 0 && f) {
+                const summary = summarizeEditLines(lines, await editLineNames(lines));
+                const sent = await sendEditRequestManagerEmail({
+                    to,
+                    orderId: f.order.id,
+                    locationId,
+                    locationName: f.location.name,
+                    requestedByName,
+                    reason: reason.trim(),
+                    summary,
+                });
+                if (!sent.success) console.error('[requestOrderEdit] manager email failed:', sent.error);
+            }
+        } catch (e) {
+            console.error('[requestOrderEdit] manager email failed:', e);
+        }
+        return { ok: true };
+    } catch (e) {
+        return { ok: false, error: e instanceof Error ? e.message : 'Unknown error' };
+    }
+}
+
+/** Manager approves or declines a kitchen edit request. */
+export async function resolveOrderEdit(
+    requestId: string,
+    locationId: string,
+    approve: boolean,
+    note: string,
+): Promise<MutationResult & { paymentUrl?: string | null; amountRefunded?: string | null }> {
+    try {
+        await assertLocationRole(locationId, ['LOCATION_MANAGER']);
+        const session = await getSession();
+        if (!approve) {
+            const declined = await prisma.orderEditRequest.updateMany({
+                where: { id: requestId, locationId, status: 'PENDING' },
+                data: {
+                    status: 'DECLINED',
+                    resolvedById: session?.userId ?? null,
+                    resolvedByName: session?.name || session?.email || null,
+                    resolutionNote: note.trim() || null,
+                    resolvedAt: new Date(),
+                },
+            });
+            return declined.count === 1 ? { ok: true } : { ok: false, error: 'Request is no longer pending' };
+        }
+        const approved = await approveOrderEditRequest(requestId, locationId, {
+            resolvedById: session?.userId ?? null,
+            resolvedByName: session?.name || session?.email || null,
+            note: note.trim() || null,
+        });
+        if (!approved.ok) return approved;
+        return { ok: true, paymentUrl: approved.paymentUrl, amountRefunded: approved.amountRefunded ?? undefined };
+    } catch (e) {
+        return { ok: false, error: e instanceof Error ? e.message : 'Unknown error' };
+    }
+}
+
+/** Manager kills a pending payment link (customer changed their mind). */
+export async function cancelAmendment(
+    amendmentId: string,
+    locationId: string,
+): Promise<MutationResult> {
+    try {
+        await assertLocationRole(locationId, ['LOCATION_MANAGER']);
+        // The amendment must belong to an order fulfilled at THIS location.
+        const a = await prisma.orderAmendment.findUnique({
+            where: { id: amendmentId },
+            select: { order: { select: { fulfillments: { select: { locationId: true } } } } },
+        });
+        if (!a || !a.order.fulfillments.some(f => f.locationId === locationId)) {
+            return { ok: false, error: 'Not found' };
+        }
+        return await cancelPendingAmendment(amendmentId);
+    } catch (e) {
+        return { ok: false, error: e instanceof Error ? e.message : 'Unknown error' };
+    }
+}
+
+/** Human summary of proposed lines for emails + banners. */
+function summarizeEditLines(
+    lines: EditLineInput[],
+    names: Map<string, string>,
+): string {
+    const parts: string[] = [];
+    for (const l of lines) {
+        if (l.type === 'REMOVE') parts.push(`Remove ${l.quantity}× ${names.get(l.orderItemId) ?? 'item'}`);
+        else parts.push(`Add ${l.quantity}× ${names.get(l.productId) ?? 'item'}`);
+    }
+    return parts.join(' · ');
+}
+
+/** Resolve display names for both kinds of line references. */
+async function editLineNames(lines: EditLineInput[]): Promise<Map<string, string>> {
+    const names = new Map<string, string>();
+    const orderItemIds = lines.filter(l => l.type === 'REMOVE').map(l => (l as { orderItemId: string }).orderItemId);
+    const productIds = lines.filter(l => l.type === 'ADD').map(l => (l as { productId: string }).productId);
+    if (orderItemIds.length > 0) {
+        const items = await prisma.orderItem.findMany({
+            where: { id: { in: orderItemIds } },
+            select: { id: true, product: { select: { name: true } } },
+        });
+        for (const i of items) names.set(i.id, i.product.name);
+    }
+    if (productIds.length > 0) {
+        const products = await prisma.product.findMany({
+            where: { id: { in: productIds } },
+            select: { id: true, name: true },
+        });
+        for (const p of products) names.set(p.id, p.name);
+    }
+    return names;
 }

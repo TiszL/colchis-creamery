@@ -663,6 +663,8 @@ model Order {
   // independent of the User row (also helps cross-user-merge later).
   // Phase 4b — the storefront locale at checkout; customer emails render in it.
   locale                 String      @default("en")
+  // QR table ordering — dine-in orders carry the table the customer scanned.
+  tableNumber            Int?
   guestEmail             String?
   guestPhone             String?
   // Phase 7a — scheduled fulfillment (earliest "ready" time across all fulfillments)

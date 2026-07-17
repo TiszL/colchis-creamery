@@ -104,6 +104,18 @@ export async function POST(req: Request) {
             // acked and ignored.
             case 'checkout.session.completed': {
                 const session = event.data.object as Stripe.Checkout.Session;
+                if (session.metadata?.kind === 'table_order' && session.metadata.orderId) {
+                    if (session.payment_status === 'paid') {
+                        const { applyPaidTableOrder } = await import('@/lib/table-ordering');
+                        await applyPaidTableOrder(
+                            session.metadata.orderId,
+                            typeof session.payment_intent === 'string' ? session.payment_intent : session.payment_intent?.id ?? null,
+                        );
+                    } else {
+                        console.warn('[stripe-webhook] table_order session completed unpaid — ignoring:', session.id);
+                    }
+                    break;
+                }
                 if (session.metadata?.kind === 'order_amendment') {
                     // Sessions are card-only, but belt-and-braces: never apply
                     // an amendment whose funds have not actually arrived.

@@ -69,6 +69,8 @@ export type QueueItem = {
         unitPrice: string;
     }[];
     deliveryNotes: string | null;
+    // Original total — unread by the KDS UI since orderEffectiveTotal landed,
+    // kept for a future "was $X" strikethrough next to the effective total.
     orderTotal: string;
     // totalAmount minus all refunds (cents math, floored at $0) — after a
     // kitchen edit the original total is stale money on other tablets.
@@ -581,7 +583,7 @@ export async function requestCancelOrder(
                 locationId: true,
                 status: true,
                 order: { select: { id: true, paymentStatus: true, totalAmount: true } },
-                location: { select: { name: true } },
+                location: { select: { name: true, notificationEmail: true } },
             },
         });
         if (!f || f.locationId !== locationId) return { ok: false, error: 'Not found' };
@@ -615,14 +617,16 @@ export async function requestCancelOrder(
         // request over email.
         try {
             const managers = await prisma.userLocation.findMany({
-                where: { locationId, role: 'LOCATION_MANAGER' },
+                where: { locationId, role: 'LOCATION_MANAGER', user: { isActive: true } },
                 select: { user: { select: { email: true } } },
             });
             const managerEmails = [...new Set(managers.map(m => m.user.email).filter(Boolean))];
-            const fallback = process.env.BAKERY_NOTIFICATION_EMAIL;
+            // Same per-location alert convention as the new-order kitchen email:
+            // managers -> Location.notificationEmail -> global ops inbox.
+            const fallback = f.location.notificationEmail || process.env.BAKERY_NOTIFICATION_EMAIL;
             const to = managerEmails.length > 0 ? managerEmails : fallback ? [fallback] : [];
             if (to.length > 0) {
-                await sendCancelRequestManagerEmail({
+                const sent = await sendCancelRequestManagerEmail({
                     to,
                     orderId: f.order.id,
                     orderTotal: f.order.totalAmount,
@@ -631,6 +635,11 @@ export async function requestCancelOrder(
                     requestedByName,
                     reason: why,
                 });
+                // sendCancelRequestManagerEmail catches internally — this email
+                // IS the notification, so a silent failure defeats its purpose.
+                if (!sent.success) {
+                    console.error('[requestCancelOrder] manager email failed:', sent.error);
+                }
             }
         } catch (e) {
             console.error('[requestCancelOrder] manager email failed:', e);

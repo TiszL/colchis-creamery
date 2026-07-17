@@ -7,6 +7,7 @@
 //
 // Made-to-order products bypass quantity checks entirely (they have no inventory limit).
 
+import { BUSINESS_TIMEZONE } from '@/lib/timezone';
 import { prisma } from './db';
 import { Prisma } from '@prisma/client';
 
@@ -33,6 +34,12 @@ export type ReserveResult =
  * Atomically reserve stock for the given items. Either ALL items reserve or none do.
  * Made-to-order products skip the quantity check (they're capacity-bound, not stock-bound).
  */
+
+/** Business-day stamp (store timezone) for the MTO daily-cap counters. */
+function businessDayStamp(now: Date = new Date()): string {
+    return new Intl.DateTimeFormat('en-CA', { timeZone: BUSINESS_TIMEZONE, year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
+}
+
 export async function reserveStock(items: ReservationItem[]): Promise<ReserveResult> {
     if (items.length === 0) return { ok: true };
 
@@ -52,8 +59,22 @@ export async function reserveStock(items: ReservationItem[]): Promise<ReserveRes
                     );
                 }
 
-                // MTO products: no quantity gate, just record the reservation count for analytics
+                // MTO products: capacity-bound. When a dailyCap is set, enforce
+                // it against the rolled business-day counter; otherwise MTO
+                // stays unlimited. reservedQuantity still counts for analytics.
                 if (stock.product.isMadeToOrder) {
+                    if (stock.dailyCap !== null) {
+                        const today = businessDayStamp();
+                        const counted = stock.dailyCountDate && businessDayStamp(stock.dailyCountDate) === today
+                            ? stock.dailySold
+                            : 0;
+                        if (counted + item.quantity > stock.dailyCap) {
+                            throw new ReservationError(
+                                `${stock.product.name}: today's batch is sold out (daily limit ${stock.dailyCap})`,
+                                { productId: item.productId, locationId: item.locationId, available: Math.max(0, stock.dailyCap - counted), requested: item.quantity },
+                            );
+                        }
+                    }
                     await tx.stock.update({
                         where: { id: stock.id },
                         data: { reservedQuantity: { increment: item.quantity } },
@@ -145,11 +166,24 @@ export async function commitStock(
             });
             if (!stock) continue;
 
-            const data: { reservedQuantity: { decrement: number }; quantity?: { decrement: number } } = {
+            const data: {
+                reservedQuantity: { decrement: number };
+                quantity?: { decrement: number };
+                dailySold?: number | { increment: number };
+                dailyCountDate?: Date;
+            } = {
                 reservedQuantity: { decrement: Math.min(item.quantity, stock.reservedQuantity) },
             };
             if (!stock.product.isMadeToOrder && stock.quantity !== null) {
                 data.quantity = { decrement: item.quantity };
+            }
+            // Phase 4b — MTO daily-cap counter: roll at the business-day
+            // boundary, then count this sale.
+            if (stock.product.isMadeToOrder && stock.dailyCap !== null) {
+                const today = businessDayStamp();
+                const sameDay = stock.dailyCountDate && businessDayStamp(stock.dailyCountDate) === today;
+                data.dailySold = sameDay ? { increment: item.quantity } : item.quantity;
+                data.dailyCountDate = new Date();
             }
             await tx.stock.update({ where: { id: stock.id }, data });
 

@@ -59,6 +59,23 @@ async function toggleStockEnabledAction(formData: FormData) {
     revalidateMenuSurfaces(stock.locationId);
 }
 
+async function setDailyCapAction(formData: FormData) {
+    "use server";
+    const stockId = formData.get("stockId") as string;
+    const raw = ((formData.get("dailyCap") as string) || "").trim();
+    if (!stockId) return;
+    const stock = await prisma.stock.findUnique({
+        where: { id: stockId },
+        select: { locationId: true, quantity: true },
+    });
+    if (!stock || stock.quantity !== null) return; // caps are an MTO concept
+    await requireLocationAccess(stock.locationId, ["LOCATION_MANAGER"]);
+    const parsed = raw === "" ? null : parseInt(raw, 10);
+    const dailyCap = parsed !== null && Number.isFinite(parsed) && parsed > 0 && parsed <= 999 ? parsed : null;
+    await prisma.stock.update({ where: { id: stockId }, data: { dailyCap } });
+    revalidateMenuSurfaces(stock.locationId);
+}
+
 // 86 workflow: day-of unavailability. Kitchen staff (LOCATION_FULFILLMENT)
 // can 86 — it moves no money and mirrors the physical reality of running out.
 // The item stays listed with an unavailable state and self-re-enables at the
@@ -273,6 +290,19 @@ export default async function LocationMenuPage({
                                         <div className="text-sm text-white font-mono">{s.quantity === null ? "MTO" : s.quantity}</div>
                                         <div className="text-[10px] text-gray-500 uppercase tracking-wider">in stock</div>
                                     </div>
+                                    {isManager && s.quantity === null && (
+                                        <form action={setDailyCapAction} className="flex items-center gap-1.5">
+                                            <input type="hidden" name="stockId" value={s.id} />
+                                            <input
+                                                type="number" name="dailyCap" min={1} max={999}
+                                                defaultValue={s.dailyCap ?? ""}
+                                                placeholder="cap/day"
+                                                title="Max units sellable per day (blank = unlimited). Today so far is counted automatically."
+                                                className="w-20 bg-[#161616] border border-[#ffffff1A] text-white text-xs font-mono px-2 py-2 focus:outline-none focus:border-[#B96A3D]"
+                                            />
+                                            <button type="submit" className="text-[10px] font-mono uppercase tracking-wider px-2 py-2 border border-[#ffffff1A] text-gray-400 hover:text-white transition-colors">Set</button>
+                                        </form>
+                                    )}
                                     {s.isEnabled && (eightySixed ? (
                                         <form action={restoreEightySixAction}>
                                             <input type="hidden" name="stockId" value={s.id} />

@@ -661,6 +661,8 @@ model Order {
   // Phase 7a — guest checkout. Order.userId still required; we create User rows
   // with passwordHash=null for guests. Email/phone duplicated here for fast lookup
   // independent of the User row (also helps cross-user-merge later).
+  // Phase 4b — the storefront locale at checkout; customer emails render in it.
+  locale                 String      @default("en")
   guestEmail             String?
   guestPhone             String?
   // Phase 7a — scheduled fulfillment (earliest "ready" time across all fulfillments)
@@ -1084,6 +1086,9 @@ model Location {
   googlePlaceId String?                               // store Place ID for re-lookup
   phone         String?
   hours         Json?                                 // { mon: "07:00-21:00", tue: "07:00-21:00", ... }
+  // Phase 4b — stop accepting made-to-order items N minutes before close
+  // (kitchen wind-down). Orders inside the window schedule for next open.
+  mtoCutoffMinutes Int?
   isActive      Boolean      @default(true)
   notes         String?
 
@@ -1182,6 +1187,13 @@ model Stock {
   quantity          Int?                              // NULL = made-to-order (unlimited while location open)
   reservedQuantity  Int      @default(0)
   lowStockThreshold Int      @default(0)
+  // Phase 4b — MTO daily capacity: cap = max units sellable per business day
+  // (null = unlimited). dailySold/dailyCountDate roll at the business-day
+  // boundary (America/New_York) — reserveStock enforces, commitStock counts.
+  dailyCap       Int?
+  dailySold      Int       @default(0)
+  dailyCountDate DateTime?
+
   // Phase 9c: per-location menu toggle. When false, the SKU stays in the
   // Stock table (count preserved) but disappears from public availability
   // queries + cart eligibility. Location managers flip this via

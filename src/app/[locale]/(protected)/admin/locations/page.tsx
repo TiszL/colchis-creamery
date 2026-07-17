@@ -33,6 +33,10 @@ async function saveLocationAction(formData: FormData) {
     // validates too); notification email is optional, blank = fall back to
     // the global BAKERY_NOTIFICATION_EMAIL.
     const prepMinutesRaw = parseInt((formData.get('prepMinutes') as string) || '', 10);
+    const mtoCutoffRaw = ((formData.get('mtoCutoffMinutes') as string) || '').trim();
+    const mtoCutoffParsed = mtoCutoffRaw === '' ? null : parseInt(mtoCutoffRaw, 10);
+    const mtoCutoffMinutes = mtoCutoffParsed !== null && Number.isFinite(mtoCutoffParsed) && mtoCutoffParsed >= 0 && mtoCutoffParsed <= 180
+        ? mtoCutoffParsed : null;
     const prepMinutes = Number.isFinite(prepMinutesRaw) ? Math.min(120, Math.max(5, prepMinutesRaw)) : 25;
     const notificationEmail = ((formData.get('notificationEmail') as string) || '').trim() || null;
 
@@ -53,6 +57,7 @@ async function saveLocationAction(formData: FormData) {
         isActive: formData.get('isActive') === 'on',
         notes: (formData.get('notes') as string) || null,
         prepMinutes,
+        mtoCutoffMinutes,
         notificationEmail,
         // Phase 10: display-layer fields. Drives every public address surface
         // (footer, homepage Visit, contact page) via getPrimaryLocation().
@@ -237,6 +242,7 @@ export default async function AdminLocationsPage({ params }: { params: Promise<{
         isActive: l.isActive,
         notes: l.notes,
         prepMinutes: l.prepMinutes,
+        mtoCutoffMinutes: l.mtoCutoffMinutes,
         notificationEmail: l.notificationEmail,
         // Phase 10 display fields
         isPrimary: l.isPrimary,

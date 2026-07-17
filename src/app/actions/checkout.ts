@@ -31,6 +31,8 @@ import type Stripe from 'stripe';
 
 export type CheckoutInput = {
     items: { productId: string; quantity: number }[];
+    /** Phase 4b — storefront locale at checkout; customer emails render in it. */
+    locale?: string;
     address: {
         line1: string;
         line2?: string;
@@ -370,6 +372,7 @@ export async function createCheckoutSession(input: CheckoutInput): Promise<Check
                 data: {
                     userId,
                     orderType: 'B2C',
+                    locale: ['en', 'ka', 'ru', 'es'].includes(input.locale ?? '') ? input.locale! : 'en',
                     totalAmount: totalBeforeTax.toFixed(2), // updated after tax calc below
                     subtotalAmount: subtotal.toFixed(2),
                     shippingAmount: shippingTotal.toFixed(2),

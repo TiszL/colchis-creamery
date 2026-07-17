@@ -35,7 +35,7 @@ import {
     type OrderForEmail,
 } from '@/lib/email';
 import { easypostBuyLabel, isEasyPostConfigured } from '@/lib/easypost';
-import { isOpenNow, nextOpenSlot } from '@/lib/location-hours';
+import { isOpenNow, isAcceptingMtoOrders, nextOpenSlot } from '@/lib/location-hours';
 
 // Delayed-notification methods (ACH debit etc.) settle in 1-5 business days.
 // While a PaymentIntent sits in 'processing' we hold the stock reservation
@@ -610,8 +610,9 @@ async function scheduleAndNotifyKitchenLegs(orderId: string): Promise<void> {
     const scheduledByFulfillment = new Map<string, Date>();
     for (const f of order.fulfillments) {
         try {
-            if (isOpenNow(f.location.hours as any)) continue;
-            const slot = nextOpenSlot(f.location.hours as any);
+            // Closed OR inside the MTO pre-close cutoff — both schedule ahead.
+            if (isAcceptingMtoOrders(f.location.hours as any, f.location.mtoCutoffMinutes)) continue;
+            const slot = nextOpenSlot(f.location.hours as any, new Date(Date.now() + (f.location.mtoCutoffMinutes ?? 0) * 60 * 1000));
             if (!slot) continue; // no hours configured — nothing to schedule
             await prisma.orderFulfillment.update({
                 where: { id: f.id },

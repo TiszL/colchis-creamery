@@ -379,7 +379,7 @@ export async function advanceFulfillment(fulfillmentId: string, locationId: stri
             where: { id: fulfillmentId },
             select: {
                 status: true, locationId: true, deliveryMethod: true,
-                order: { select: { id: true, guestEmail: true, user: { select: { email: true, name: true } } } },
+                order: { select: { id: true, guestEmail: true, locale: true, user: { select: { email: true, name: true } } } },
                 location: { select: { name: true, addressLine1: true, city: true, state: true } },
             },
         });
@@ -412,6 +412,7 @@ export async function advanceFulfillment(fulfillmentId: string, locationId: stri
                         name: f.order.user?.name ?? null,
                         orderId: f.order.id,
                         locationName: f.location.name,
+                        locale: f.order.locale,
                         address: `${f.location.addressLine1}, ${f.location.city}, ${f.location.state}`,
                     });
                     if (!sent.success) console.error('[advanceFulfillment] ready email failed:', sent.error);
@@ -547,6 +548,7 @@ export async function kitchenRemoveOrderItems(
                         id: true,
                         paymentStatus: true,
                         guestEmail: true,
+                        locale: true,
                         user: { select: { name: true, email: true } },
                         fulfillments: { select: { locationId: true } },
                     },
@@ -609,6 +611,7 @@ export async function kitchenRemoveOrderItems(
                     removed: result.removed,
                     amountRefunded: result.amountRefunded,
                     reason: reason || null,
+                    locale: f.order.locale,
                 });
             } catch (e) {
                 console.error('[kitchenRemoveOrderItems] customer email failed:', e);
@@ -641,6 +644,7 @@ async function cancelOrderWithRefund(
                     paymentStatus: true,
                     totalAmount: true,
                     guestEmail: true,
+                    locale: true,
                     user: { select: { email: true, name: true } },
                     fulfillments: { select: { locationId: true } },
                 },
@@ -672,6 +676,7 @@ async function cancelOrderWithRefund(
                 orderId: f.order.id,
                 amount: result.amountRefunded,
                 reason: reason || null,
+                locale: f.order.locale,
             });
         } catch (e) {
             console.error('[cancelOrderWithRefund] customer email failed:', e);

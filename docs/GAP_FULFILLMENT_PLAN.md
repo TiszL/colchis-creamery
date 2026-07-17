@@ -87,7 +87,23 @@ for Phase 2 (order-modification linkage writes the why).
 
 ## Phase 2 — Order modification workflow (decided: request→approve; full swaps + upcharges)
 
-**Status: 2a ✅ LANDED 2026-07-17 (PR #41)** — per-line tax capture
+**Status: PHASE 2 COMPLETE ✅ — 2a PR #41, 2b PR #43 (2026-07-17)**
+
+**2b landed**: OrderEditRequest + lines (kitchen proposes w/ reason +
+customer-contacted confirmation; managers approve/decline or execute
+directly through the same audited flow; DB-enforced one pending per
+fulfillment); removals refund per source PaymentIntent with approval
+idempotency (EXECUTING claim + Stripe idempotency keys); additions ride
+OrderAmendment + card-only Checkout payment links — added lines are
+created atomically WITH the PAID flip inside the stock-commit tx
+(webhook-retry safe, replay-verified); completed payments beat cron
+expiry; cancels expire the session first; payments on dead orders
+auto-refund + ops alert; full refunds kill live links + reverse
+amendment tax transactions; KDS panel + link chip; customer page shows
+pending links + added lines. 3-lens adversarial review (1 blocker + 8
+majors) fixed pre-merge; E2E-verified against real DB + Stripe sandbox.
+
+**2a**:  — per-line tax capture
 (OrderItem.taxCents) + exact telescoped refund math; **fixed the systemic
 \$0-tax bug** (Stripe rejected the shipping tax_code on a line item; every
 historical order had taxAmount 0.00 — shipping now rides shipping_cost);

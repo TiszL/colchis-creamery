@@ -28,6 +28,7 @@ import { uberCreateQuote, isUberDirectConfigured, UNDELIVERABLE as UBER_UNDELIVE
 import { easypostGetRate, isEasyPostConfigured } from './easypost';
 import { isNationalShipEnabled } from './feature-flags';
 import { DeliveryMethod } from '@prisma/client';
+import { sellableStockWhere } from '@/lib/stock-availability';
 
 /** Phase 8.2: customer address bundle passed into planFulfillment. All fields
  *  optional so callers can pass partial info — carrier branches that need
@@ -532,8 +533,10 @@ export async function planFulfillment(
             // Phase 8: ProductChannel relation removed. Per-product delivery-
             // method gating is gone — location.channels (LocationDeliveryMethod)
             // is the source of truth for what can ship from a location.
-            // Phase 9c: skip stocks the location manager has disabled — same
-            // visibility gate as the public availability queries.
+            // Phase 9c: skip stocks the location manager has disabled. Day-of
+            // 86s (disabledUntil) are filtered in the loop below instead of the
+            // query so an 86'd item gets its own "Sold out today" reason rather
+            // than the misleading "Not stocked at any location yet".
             stocks: {
                 where: { isEnabled: true },
                 include: { location: { include: { channels: { where: { isActive: true } } } } },
@@ -575,10 +578,26 @@ export async function planFulfillment(
         let sawLowStock = false;          // some location stocks this but quantity < requested
         let sawNoReach = false;           // some location stocks this with quantity OK, but customer out of reach
         let sawNoChannelMatch = false;    // some location reachable but its channels don't match product's channels
+        let sawEightySixed = false;       // carried, but 86'd for the day at every otherwise-viable location
 
         for (const stock of product.stocks) {
             const loc = stock.location;
             if (loc.latitude === null || loc.longitude === null || !loc.isActive) continue;
+            // Availability model: a location only serves channels it allows.
+            // Mirrors offeredChannelsByProduct + productCatalogWhereForLocation —
+            // without this gate a misconfigured Stock row (location stocks a
+            // product whose salesChannel it doesn't allow) slipped through
+            // checkout while every display surface called it unavailable.
+            if (!loc.allowsChannels.includes(product.salesChannel)) {
+                sawNoChannelMatch = true;
+                continue;
+            }
+            // Day-of 86 (self-expiring) — mirrors sellableStockWhere; kept out
+            // of the query so the undeliverable reason can say so explicitly.
+            if (stock.disabledUntil && stock.disabledUntil > new Date()) {
+                sawEightySixed = true;
+                continue;
+            }
             const stockOk = product.isMadeToOrder || (stock.quantity ?? 0) >= item.quantity;
             const distance = distanceMiles(customerLat, customerLng, loc.latitude, loc.longitude);
 
@@ -648,6 +667,7 @@ export async function planFulfillment(
             const reason =
                 sawLowStock ? 'Out of stock' :
                 sawNoReach ? 'Not deliverable to your address' :
+                sawEightySixed ? 'Sold out today — back at the next opening' :
                 sawNoChannelMatch ? 'No supported delivery method at the reachable location' :
                 'Not stocked at any location yet';
             undeliverable.push({ productId: product.id, productName: product.name, reason });

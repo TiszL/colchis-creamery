@@ -3,6 +3,7 @@
 import { prisma } from '@/lib/db';
 import { distanceMiles, channelMaxRadius } from '@/lib/distance';
 import { DeliveryMethod } from '@prisma/client';
+import { sellableStockWhere } from '@/lib/stock-availability';
 
 // Phase 9b: was ProductKind.startsWith('CREAMERY'). Now: any product whose
 // Category has 'creamery' in its sections list shows up in this section.
@@ -56,8 +57,8 @@ export async function getAvailableCreameryProducts(
             channels: { where: { isActive: true } },
             stocks: {
                 where: {
-                    // Phase 9c: per-location menu toggle.
-                    isEnabled: true,
+                    // Phase 9c menu toggle + day-of 86s — not orderable now.
+                    ...sellableStockWhere(),
                     product: {
                         isActive: true,
                         isB2cVisible: true,

@@ -7,6 +7,7 @@ import { commitStock, reserveStock } from "@/lib/stock-reservation";
 import { stripe, isStripeLiveMode } from "@/lib/stripe";
 import { validateB2bQty } from "@/lib/b2b-moq";
 import { getPartnerContext, getOwnerUserId } from "@/lib/b2b-partner";
+import { sellableStockWhere } from '@/lib/stock-availability';
 
 // Phase 6 (6c) — B2B order placement now branches on paymentMethod.
 // Backward compat: omit the field and the order falls through to the
@@ -178,7 +179,7 @@ export async function POST(req: NextRequest) {
                     select: {
                         id: true, name: true, isPrimary: true,
                         stocks: {
-                            where: { productId: product.id, isEnabled: true },
+                            where: { productId: product.id, ...sellableStockWhere() },
                             select: { id: true, quantity: true, reservedQuantity: true },
                         },
                     },

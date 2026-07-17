@@ -49,12 +49,15 @@ export type BakeryPdpProduct = {
 export default function BakeryPdpClient({
     product,
     offeredChannels,
+    soldOutToday = false,
     locale,
     initialAddress,
     isLoggedIn,
 }: {
     product: BakeryPdpProduct;
     offeredChannels: DeliveryMethod[];
+    /** Unavailable specifically because every carrying Stock row is 86'd for the day. */
+    soldOutToday?: boolean;
     locale: string;
     initialAddress: ActiveAddress | null;
     isLoggedIn: boolean;
@@ -351,7 +354,7 @@ export default function BakeryPdpClient({
                             opacity: cartDisabled ? 0.6 : 1,
                         }}
                     >
-                        {unavailable ? 'Unavailable right now' : soldOut ? 'Sold out' : justAdded ? (
+                        {unavailable ? (soldOutToday ? 'Sold out today' : 'Unavailable right now') : soldOut ? 'Sold out' : justAdded ? (
                             <><Check className="w-4 h-4" /> Added — going to cart…</>
                         ) : (
                             <><ShoppingBag className="w-4 h-4" /> {isHot ? 'Order hot' : 'Add to box'}</>

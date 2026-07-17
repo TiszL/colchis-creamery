@@ -370,7 +370,10 @@ export default function CreameryClient({ products, locale, apiKey, isLoggedIn, u
                 && p.eligibleChannels.length === 0;
               const isOutOfStock = !outOfRange && effectiveStock <= 0;
               const isWholesaleOnly = p.isCartOrderable === false;
-              const cartDisabled = isComingSoon || isOutOfStock || dineInOnly || outOfRange || isWholesaleOnly;
+              // No offered channels anywhere (86'd or menu-hidden at every
+              // carrying location) — the legacy stockQuantity cache can't see it.
+              const unavailable = offered !== null && offered.length === 0;
+              const cartDisabled = isComingSoon || isOutOfStock || dineInOnly || outOfRange || isWholesaleOnly || unavailable;
               const qty = getQty(p.id);
               const cap = (isOutOfStock || outOfRange) ? 0 : effectiveStock;
               const atMax = qty >= cap;
@@ -493,7 +496,7 @@ export default function CreameryClient({ products, locale, apiKey, isLoggedIn, u
                             opacity: cartDisabled ? 0.6 : 1,
                           }}
                         >
-                          {isComingSoon ? 'Soon' : isOutOfStock ? 'Sold out' : recentlyAdded ? (
+                          {isComingSoon ? 'Soon' : unavailable ? 'Unavailable' : isOutOfStock ? 'Sold out' : recentlyAdded ? (
                             <><Check className="w-3.5 h-3.5" /> Added</>
                           ) : (
                             <><ShoppingBag className="w-3.5 h-3.5" /> Add</>

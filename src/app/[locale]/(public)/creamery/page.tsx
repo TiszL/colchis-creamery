@@ -1,3 +1,5 @@
+import { offeredChannelsByProduct } from '@/lib/offered-channels';
+import { DeliveryMethod } from '@prisma/client';
 import { prisma } from "@/lib/db";
 import { permanentRedirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
@@ -155,6 +157,14 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
   const deliveryContent = parseJSON(cm['creamery.delivery']);
   const subContent = parseJSON(cm['creamery.subscription']);
 
+  // Real per-product offered channels (mirrors bakery/page.tsx + the creamery
+  // PDP): an item 86'd or menu-hidden at every carrying location must not show
+  // an active Add button just because the legacy stockQuantity cache is > 0.
+  const offeredMap = await offeredChannelsByProduct(
+    dbProducts.map(p => ({ id: p.id, salesChannel: p.salesChannel, isMadeToOrder: p.isMadeToOrder })),
+    { exclude: [DeliveryMethod.IN_STORE_DINE_IN] },
+  );
+
   const products = dbProducts.map(p => ({
     id: p.id,
     sku: p.sku,
@@ -168,7 +178,7 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
     status: p.status,
     isCartOrderable: p.isCartOrderable,
     productLine: p.productLine ? { name: p.productLine.name, badgeColor: p.productLine.badgeColor } : null,
-    offeredChannels: [],
+    offeredChannels: offeredMap.get(p.id) ?? [],
   }));
 
   // JSON-LD

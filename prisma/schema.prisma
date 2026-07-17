@@ -1170,11 +1170,42 @@ model Stock {
   // queries + cart eligibility. Location managers flip this via
   // /location-portal/[id]/menu without losing on-hand counts.
   isEnabled         Boolean  @default(true)
+  // 86 workflow: day-of "86" — the SKU becomes sellable again once this
+  // instant passes (orderability queries compare against now; no cron flips
+  // it back). Independent of isEnabled: the permanent toggle hides the SKU
+  // from listings, an active 86 keeps it listed but not orderable.
+  disabledUntil     DateTime?
   updatedAt         DateTime @updatedAt
   createdAt         DateTime @default(now())
 
+  availabilityEvents MenuAvailabilityEvent[]
+
   @@unique([locationId, productId])
   @@index([productId])
+}
+
+// 86 workflow — audit trail for menu-availability changes (day-of 86s and
+// the permanent toggle). byName is denormalized because staff accounts can
+// be deleted outright (removeLocationRoleAction) — the audit must survive;
+// locationId/productId are denormalized and stockId is SetNull for the same
+// reason (a deleted Stock row must not erase its availability history).
+// reason is optional and currently unwritten — reserved for flows that
+// carry a why (e.g. the Phase 2 order-modification linkage).
+model MenuAvailabilityEvent {
+  id         String    @id @default(uuid())
+  stockId    String?
+  stock      Stock?    @relation(fields: [stockId], references: [id], onDelete: SetNull)
+  locationId String
+  productId  String
+  action     String    // EIGHTY_SIX_TODAY | RESTORE | MENU_HIDE | MENU_SHOW
+  until      DateTime? // the disabledUntil that was set (EIGHTY_SIX_TODAY only)
+  byUserId   String?
+  byName     String
+  reason     String?
+  createdAt  DateTime  @default(now())
+
+  @@index([locationId, createdAt])
+  @@index([stockId])
 }
 
 // One Order may split across multiple OrderFulfillment rows (one per location).

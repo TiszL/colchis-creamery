@@ -51,6 +51,11 @@ export function productCatalogWhereForLocation(loc: SelectedLocation | null) {
         // Phase 9c: respect the per-location menu toggle — a stock row the
         // location manager disabled must not surface the product publicly
         // (matches the *-availability actions, which filter isEnabled too).
+        //
+        // Deliberately NOT filtered on Stock.disabledUntil (the day-of 86):
+        // an 86'd item stays LISTED with an unavailable state instead of
+        // vanishing mid-day — orderability is enforced by sellableStockWhere
+        // in offered-channels, the availability actions, and checkout.
         stocks: { some: { locationId: loc.id, isEnabled: true } },
         salesChannel: { in: loc.allowsChannels },
     };

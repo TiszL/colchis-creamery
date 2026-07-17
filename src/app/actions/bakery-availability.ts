@@ -3,6 +3,7 @@
 import { prisma } from '@/lib/db';
 import { distanceMiles, channelMaxRadius } from '@/lib/distance';
 import { DeliveryMethod, LocationType } from '@prisma/client';
+import { sellableStockWhere } from '@/lib/stock-availability';
 
 // Phase 9b: bakery products were split into hot vs frozen using ProductKind
 // (BAKERY_HOT / BAKERY_FROZEN). That enum is gone; the split now comes from
@@ -74,9 +75,8 @@ export async function getAvailableBakeryProducts(
             channels: { where: { isActive: true } },
             stocks: {
                 where: {
-                    // Phase 9c: per-location menu toggle — hide stocks that the
-                    // location manager has disabled from public availability.
-                    isEnabled: true,
+                    // Phase 9c menu toggle + day-of 86s — not orderable now.
+                    ...sellableStockWhere(),
                     product: {
                         isActive: true,
                         isB2cVisible: true,

@@ -5,6 +5,7 @@ import BulkOrderClient from '@/components/b2b/BulkOrderClient';
 import { PackagePlus } from 'lucide-react';
 import { redirect } from 'next/navigation';
 import { getTranslations } from 'next-intl/server';
+import { sellableStockWhere } from '@/lib/stock-availability';
 
 export const dynamic = 'force-dynamic';
 
@@ -61,7 +62,7 @@ export default async function B2BOrderPage({ params, searchParams }: { params: P
         where: { isActive: true },
         select: {
             allowsChannels: true,
-            stocks: { where: { isEnabled: true }, select: { productId: true, quantity: true, reservedQuantity: true } },
+            stocks: { where: sellableStockWhere(), select: { productId: true, quantity: true, reservedQuantity: true } },
         },
     });
     // Tier 2 — the partner's shops (ship-to). A scoped member is locked to one.

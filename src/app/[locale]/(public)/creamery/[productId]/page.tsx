@@ -94,6 +94,17 @@ export default async function ProductPage({ params }: ProductPageProps) {
     { exclude: [DeliveryMethod.IN_STORE_DINE_IN] },
   );
 
+  // "Sold out today": enabled Stock rows exist but all are under a day-of 86.
+  let soldOutToday = false;
+  if (offeredChannels.length === 0) {
+    const now = new Date();
+    const enabledStocks = await prisma.stock.findMany({
+      where: { productId: product.id, isEnabled: true, location: { isActive: true } },
+      select: { disabledUntil: true },
+    });
+    soldOutToday = enabledStocks.length > 0 && enabledStocks.every(s => s.disabledUntil !== null && s.disabledUntil > now);
+  }
+
   // 301 redirect UUID URLs to slug URLs
   const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   if (UUID_REGEX.test(productId) && product.slug && product.slug !== productId) {
@@ -164,7 +175,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
         <div style={{ maxWidth: 1280, margin: "0 auto" }}>
           <div className="ch-pdp-hero-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 64, alignItems: "flex-start" }}>
             <ProductGalleryNew images={allImages} videos={allVideos} productName={product.name} />
-            <InfoPanel product={productForCart} unavailable={offeredChannels.length === 0} />
+            <InfoPanel product={productForCart} unavailable={offeredChannels.length === 0} soldOutToday={soldOutToday} />
           </div>
         </div>
       </section>

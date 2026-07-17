@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/db';
 import { isNationalShipEnabled } from '@/lib/feature-flags';
+import { sellableStockWhere } from '@/lib/stock-availability';
 import { DeliveryMethod, LocationType, type SalesChannel } from '@prisma/client';
 
 /**
@@ -48,7 +49,7 @@ export async function offeredChannelsByProduct(
             allowsChannels: true,
             channels: { where: { isActive: true }, select: { deliveryMethod: true } },
             stocks: {
-                where: { isEnabled: true, productId: { in: products.map(p => p.id) } },
+                where: { ...sellableStockWhere(), productId: { in: products.map(p => p.id) } },
                 select: { productId: true },
             },
         },

@@ -160,7 +160,7 @@ interface ProductForPanel {
 
 // `unavailable` = no location offers this product (empty offered-channels list —
 // e.g. an 86'd made-to-order item); the CTA must not let it into the cart.
-export function InfoPanel({ product, unavailable = false }: { product: ProductForPanel; unavailable?: boolean }) {
+export function InfoPanel({ product, unavailable = false, soldOutToday = false }: { product: ProductForPanel; unavailable?: boolean; soldOutToday?: boolean }) {
   const isComingSoon = product.status === "COMING_SOON";
   const lineColor = product.productLine?.badgeColor || "#B96A3D";
 
@@ -240,7 +240,7 @@ export function InfoPanel({ product, unavailable = false }: { product: ProductFo
             <a href="/wholesale" style={{ alignSelf: "flex-start", marginTop: 4, background: "#B96A3D", color: "#F5F0E6", padding: "12px 22px", fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.28em", textTransform: "uppercase", textDecoration: "none" }}>Request a quote →</a>
           </div>
         ) : unavailable ? (
-          <button disabled style={{ flex: 1, minWidth: 220, height: 56, background: "#7A8278", border: "none", color: "#F5F0E6", fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.28em", textTransform: "uppercase", cursor: "not-allowed", opacity: 0.6 }}>Unavailable right now</button>
+          <button disabled style={{ flex: 1, minWidth: 220, height: 56, background: "#7A8278", border: "none", color: "#F5F0E6", fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.28em", textTransform: "uppercase", cursor: "not-allowed", opacity: 0.6 }}>{soldOutToday ? 'Sold out today' : 'Unavailable right now'}</button>
         ) : (
           <AddToCartButton product={product} />
         )}

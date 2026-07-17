@@ -28,6 +28,7 @@ import { uberCreateQuote, isUberDirectConfigured, UNDELIVERABLE as UBER_UNDELIVE
 import { easypostGetRate, isEasyPostConfigured } from './easypost';
 import { isNationalShipEnabled } from './feature-flags';
 import { DeliveryMethod } from '@prisma/client';
+import { sellableStockWhere } from '@/lib/stock-availability';
 
 /** Phase 8.2: customer address bundle passed into planFulfillment. All fields
  *  optional so callers can pass partial info — carrier branches that need
@@ -533,9 +534,9 @@ export async function planFulfillment(
             // method gating is gone — location.channels (LocationDeliveryMethod)
             // is the source of truth for what can ship from a location.
             // Phase 9c: skip stocks the location manager has disabled — same
-            // visibility gate as the public availability queries.
+            // gate as the public availability queries (incl. active day-of 86s).
             stocks: {
-                where: { isEnabled: true },
+                where: sellableStockWhere(),
                 include: { location: { include: { channels: { where: { isActive: true } } } } },
             },
             // Phase 9b: packagingMode drives DoorDash/Uber packaging selection
@@ -579,6 +580,15 @@ export async function planFulfillment(
         for (const stock of product.stocks) {
             const loc = stock.location;
             if (loc.latitude === null || loc.longitude === null || !loc.isActive) continue;
+            // Availability model: a location only serves channels it allows.
+            // Mirrors offeredChannelsByProduct + productCatalogWhereForLocation —
+            // without this gate a misconfigured Stock row (location stocks a
+            // product whose salesChannel it doesn't allow) slipped through
+            // checkout while every display surface called it unavailable.
+            if (!loc.allowsChannels.includes(product.salesChannel)) {
+                sawNoChannelMatch = true;
+                continue;
+            }
             const stockOk = product.isMadeToOrder || (stock.quantity ?? 0) >= item.quantity;
             const distance = distanceMiles(customerLat, customerLng, loc.latitude, loc.longitude);
 

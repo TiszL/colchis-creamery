@@ -19,6 +19,7 @@ import { B2bPaymentMethod, B2bInvoiceStatus } from "@prisma/client";
 import { createResolveCharge, isResolveConfigured } from "@/lib/resolve";
 import { reserveStock, commitStock } from "@/lib/stock-reservation";
 import { validateB2bQty } from "@/lib/b2b-moq";
+import { sellableStockWhere } from '@/lib/stock-availability';
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -117,7 +118,7 @@ export async function GET(req: Request) {
                         where: { isActive: true, allowsChannels: { has: product.salesChannel } },
                         select: {
                             id: true, isPrimary: true,
-                            stocks: { where: { productId: product.id, isEnabled: true }, select: { quantity: true, reservedQuantity: true } },
+                            stocks: { where: { productId: product.id, ...sellableStockWhere() }, select: { quantity: true, reservedQuantity: true } },
                         },
                         orderBy: [{ isPrimary: 'desc' }, { name: 'asc' }],
                     });

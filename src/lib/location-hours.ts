@@ -71,6 +71,23 @@ export function isOpenNow(hours: LocationHours, now: Date = new Date()): boolean
     return local.minutes >= oh * 60 + (om || 0) && local.minutes < ch * 60 + (cm || 0);
 }
 
+/**
+ * The "86 for today" expiry: the first opening AFTER the current store-local
+ * day ends. Whether the kitchen 86es an item before open, mid-service, or
+ * after close, the item stays off the menu for the rest of TODAY and comes
+ * back at the next day's opening (or later if the store is closed then).
+ * Plain nextOpenSlot() would be wrong pre-open — it returns today's opening,
+ * expiring the 86 minutes later.
+ */
+export function nextOpenAfterToday(hours: LocationHours, from: Date = new Date()): Date | null {
+    if (!hours) return null;
+    const local = storeParts(from);
+    // Store-local midnight at the end of today (h=24 overflows to next day
+    // via Date.UTC, which storeLocalToInstant handles).
+    const endOfToday = storeLocalToInstant(local.y, local.m, local.d, 24, 0);
+    return nextOpenSlot(hours, endOfToday);
+}
+
 /** Next opening datetime strictly after `from` (checks up to 8 days ahead). */
 export function nextOpenSlot(hours: LocationHours, from: Date = new Date()): Date | null {
     if (!hours) return null;

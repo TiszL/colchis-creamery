@@ -88,6 +88,19 @@ export default async function BakeryPdp({ params }: BakeryPdpProps) {
     { locationType: LocationType.BAKERY, exclude: [DeliveryMethod.UPS_2DAY] },
   );
 
+  // "Sold out today" vs generic unavailability: the product IS on the menu
+  // (enabled Stock rows exist) but every carrying row sits under an active
+  // day-of 86 — it comes back at the next opening.
+  let soldOutToday = false;
+  if (offeredChannels.length === 0) {
+    const now = new Date();
+    const enabledStocks = await prisma.stock.findMany({
+      where: { productId: product.id, isEnabled: true, location: { isActive: true, type: LocationType.BAKERY } },
+      select: { disabledUntil: true },
+    });
+    soldOutToday = enabledStocks.length > 0 && enabledStocks.every(s => s.disabledUntil !== null && s.disabledUntil > now);
+  }
+
   // Prime initial address for logged-in users so the client doesn't flicker.
   const session = await getSession();
   let initialAddress: ActiveAddress | null = null;
@@ -196,6 +209,7 @@ export default async function BakeryPdp({ params }: BakeryPdpProps) {
                 stockQuantity: product.stockQuantity,
               }}
               offeredChannels={offeredChannels}
+              soldOutToday={soldOutToday}
               locale={locale}
               initialAddress={initialAddress}
               isLoggedIn={!!session?.userId}

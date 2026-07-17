@@ -249,8 +249,12 @@ function BulkOrderInner({
         setSubmitError(null);
         setIsSubmitting(true);
 
+        // Reorder prefills (initialQuantities) can reference products that are
+        // no longer orderable — they're hidden from the list and excluded from
+        // the displayed totals, so they must not ride along in the POST either.
+        const availableIds = new Set(availableProducts.map(p => p.id));
         const orderItems = Object.entries(quantities)
-            .filter(([, qty]) => qty > 0)
+            .filter(([id, qty]) => qty > 0 && availableIds.has(id))
             .map(([id, qty]) => ({ id, quantity: qty }));
 
         try {

@@ -164,7 +164,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
         <div style={{ maxWidth: 1280, margin: "0 auto" }}>
           <div className="ch-pdp-hero-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 64, alignItems: "flex-start" }}>
             <ProductGalleryNew images={allImages} videos={allVideos} productName={product.name} />
-            <InfoPanel product={productForCart} />
+            <InfoPanel product={productForCart} unavailable={offeredChannels.length === 0} />
           </div>
         </div>
       </section>

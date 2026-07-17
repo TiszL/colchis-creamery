@@ -158,7 +158,9 @@ interface ProductForPanel {
   productCategory: { id: string; slug: string; name: string; description: string | null; imageUrl: string | null; productLineId: string | null; sections: string[]; sortOrder: number; isActive: boolean } | null;
 }
 
-export function InfoPanel({ product }: { product: ProductForPanel }) {
+// `unavailable` = no location offers this product (empty offered-channels list —
+// e.g. an 86'd made-to-order item); the CTA must not let it into the cart.
+export function InfoPanel({ product, unavailable = false }: { product: ProductForPanel; unavailable?: boolean }) {
   const isComingSoon = product.status === "COMING_SOON";
   const lineColor = product.productLine?.badgeColor || "#B96A3D";
 
@@ -227,7 +229,7 @@ export function InfoPanel({ product }: { product: ProductForPanel }) {
         </div>
       )}
 
-      {/* CTA — coming soon > wholesale-only > standard add-to-cart */}
+      {/* CTA — coming soon > wholesale-only > unavailable > standard add-to-cart */}
       <div className="ch-pdp-cta" style={{ marginTop: 36, display: "flex", gap: 12, alignItems: "stretch", flexWrap: "wrap" }}>
         {isComingSoon ? (
           <button style={{ flex: 1, minWidth: 220, height: 56, background: "#B96A3D22", border: "1px solid #B96A3D", color: "#B96A3D", fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.28em", textTransform: "uppercase", cursor: "pointer" }}>Notify Me When Available</button>
@@ -237,6 +239,8 @@ export function InfoPanel({ product }: { product: ProductForPanel }) {
             <div style={{ fontFamily: "var(--font-sans)", fontSize: 13.5, opacity: 0.85, lineHeight: 1.55 }}>This product isn&apos;t available for retail orders. Restaurants and shops — request a quote and we&apos;ll get back to you within one business day.</div>
             <a href="/wholesale" style={{ alignSelf: "flex-start", marginTop: 4, background: "#B96A3D", color: "#F5F0E6", padding: "12px 22px", fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.28em", textTransform: "uppercase", textDecoration: "none" }}>Request a quote →</a>
           </div>
+        ) : unavailable ? (
+          <button disabled style={{ flex: 1, minWidth: 220, height: 56, background: "#7A8278", border: "none", color: "#F5F0E6", fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.28em", textTransform: "uppercase", cursor: "not-allowed", opacity: 0.6 }}>Unavailable right now</button>
         ) : (
           <AddToCartButton product={product} />
         )}

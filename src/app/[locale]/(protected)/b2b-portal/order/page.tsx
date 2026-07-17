@@ -50,7 +50,9 @@ export default async function B2BOrderPage({ params, searchParams }: { params: P
 
     // Fetch B2B-purchasable products + compute REAL per-location availability so the
     // catalog matches what /api/b2b/order actually allocates (it requires a single
-    // location to cover each line). MTO products are unlimited (availableQty=null).
+    // location to cover each line). MTO products are unlimited (availableQty=null)
+    // only while some allowed location carries an enabled Stock row for them —
+    // the API rejects the line otherwise ("Insufficient stock ...").
     const productRows = await db.product.findMany({
         where: { status: 'ACTIVE', isB2bVisible: true },
         orderBy: { name: 'asc' }
@@ -73,7 +75,14 @@ export default async function B2BOrderPage({ params, searchParams }: { params: P
     const lockedShopId = ctx?.assignedLocationId ?? null;
 
     const products = productRows.map(p => {
-        if (p.isMadeToOrder) return { ...p, availableQty: null as number | null };
+        if (p.isMadeToOrder) {
+            // Mirror the API's location predicate: active + allowsChannels has the
+            // product's salesChannel + an enabled Stock row (quantity=null for MTO).
+            const carried = locations.some(loc =>
+                loc.allowsChannels.includes(p.salesChannel) &&
+                loc.stocks.some(s => s.productId === p.id));
+            return { ...p, availableQty: (carried ? null : 0) as number | null };
+        }
         let maxFree = 0;
         for (const loc of locations) {
             if (!loc.allowsChannels.includes(p.salesChannel)) continue;

@@ -54,7 +54,7 @@ export default async function BakeryPage({ params, searchParams }: BakeryPagePro
     deliveryContent?: DeliveryContent | null;
     hotItems?: BakeryItem[];
     frozenItems?: BakeryItem[];
-    extraSections?: Array<{ label: string; items: BakeryItem[] }>;
+    extraSections?: Array<{ slug: string; label: string; items: BakeryItem[] }>;
     singleSectionItems?: BakeryItem[];
     singleSectionLabel?: string;
   } = {};
@@ -171,11 +171,11 @@ export default async function BakeryPage({ params, searchParams }: BakeryPagePro
       // Bakery-tagged categories beyond the legacy hot/frozen tabs render as
       // titled sections below the tabs (full menu redesign is a later phase).
       // The query orders by Category.sortOrder, so Map insertion order keeps it.
-      const extraByCat = new Map<string, { label: string; items: BakeryItem[] }>();
+      const extraByCat = new Map<string, { slug: string; label: string; items: BakeryItem[] }>();
       mapped.forEach((item, i) => {
         const cat = bakeryProducts[i].productCategory;
         if (!cat || cat.slug === HOT_CATEGORY_SLUG || cat.slug === FROZEN_CATEGORY_SLUG) return;
-        const section = extraByCat.get(cat.slug) ?? { label: cat.name, items: [] };
+        const section = extraByCat.get(cat.slug) ?? { slug: cat.slug, label: cat.name, items: [] };
         section.items.push(item);
         extraByCat.set(cat.slug, section);
       });

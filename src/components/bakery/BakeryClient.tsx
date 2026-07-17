@@ -88,7 +88,7 @@ interface BakeryClientProps {
   /** Bakery-tagged categories beyond the legacy hot/frozen tabs. Each renders
    *  as a titled section (same card grid) below the tabbed menu in the default
    *  (unfiltered) view. */
-  extraSections?: Array<{ label: string; items: BakeryItem[] }>;
+  extraSections?: Array<{ slug: string; label: string; items: BakeryItem[] }>;
   /** Stage 4: when a Category chip is active on /bakery, the page passes the
    *  filtered items here. BakeryClient then renders a single grid (no hot/
    *  frozen tabs) using the section label below. When undefined, falls back
@@ -269,6 +269,7 @@ export default function BakeryClient({ heroContent, menuContent, deliveryContent
       ? singleSectionItems.map(enrichWithAvailability)
       : (tab === "hot" ? hotItems : frozenItems);
   const extraSectionsEnriched = (extraSections ?? []).map(sec => ({
+    slug: sec.slug,
     label: sec.label,
     items: sec.items.map(enrichWithAvailability),
   }));
@@ -300,7 +301,10 @@ export default function BakeryClient({ heroContent, menuContent, deliveryContent
       && typeof p.stockAvailable === 'number'
       && p.stockAvailable <= 0;
     const isWholesaleOnly = p.isCartOrderable === false;
-    const cartDisabled = soldOut || dineInOnly || outOfRange || isWholesaleOnly;
+    // No offered channels anywhere (86'd MTO / never-stocked): distinct from
+    // soldOut (which requires tracked stock) and dineInOnly (offered > 0).
+    const unavailable = offered !== null && offered.length === 0;
+    const cartDisabled = soldOut || dineInOnly || outOfRange || isWholesaleOnly || unavailable;
     const recentlyAdded = p.id && justAdded === p.id;
     const closestSource = (p.sources && p.sources.length > 0 && availability && availability.coveringLocations.length > 1)
       ? [...p.sources].sort((a, b) => a.distanceMiles - b.distanceMiles)[0]
@@ -356,6 +360,10 @@ export default function BakeryClient({ heroContent, menuContent, deliveryContent
               <Link href="/wholesale" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, height: 44, background: "#2C3D33", color: "#F5F0E6", fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.24em", textTransform: "uppercase", textDecoration: "none" }}>
                 Request a quote →
               </Link>
+            ) : unavailable ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", background: "#EAE2D2", border: "1px solid #1F302622", fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.22em", color: "#7A8278", textTransform: "uppercase" }}>
+                Unavailable right now
+              </div>
             ) : dineInOnly ? (
               // Dine-in-only product: can't be cart-ordered. Show clear messaging instead of cart UI.
               <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", background: "#1F3026", color: "#F5F0E6", fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.22em", textTransform: "uppercase" }}>
@@ -545,7 +553,7 @@ export default function BakeryClient({ heroContent, menuContent, deliveryContent
           {/* Bakery-tagged categories beyond the hot/frozen tabs (Category.sortOrder
               order) — same cards as the tabbed menu above. */}
           {!isFilteredView && extraSectionsEnriched.map(sec => (
-            <div key={sec.label}>
+            <div key={sec.slug}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", borderTop: "1px solid #1F302622", margin: "72px 0 28px", paddingTop: 40 }}>
                 <div style={{ fontFamily: "var(--font-serif)", fontWeight: 300, fontSize: 40, lineHeight: 1.05, letterSpacing: "-0.02em", color: "#1F3026" }}>{sec.label}</div>
                 <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.28em", color: "#7A8278", textTransform: "uppercase" }}>{sec.items.length}</span>

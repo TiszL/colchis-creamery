@@ -36,6 +36,7 @@ export type OrderDetailViewData = {
         quantity: number;
         unitPrice: string;
         refundedQuantity: number;
+        amendmentId: string | null;
         product: { name: string };
     }[];
     // Phase 2 — modification transparency: the refund ledger renders in the
@@ -46,6 +47,14 @@ export type OrderDetailViewData = {
         reason: string;
         notes: string | null;
         createdAt: Date;
+    }[];
+    // Phase 2b — payment-link amendments (added items). PENDING_PAYMENT renders
+    // an awaiting-payment banner; PAID lines carry amendmentId and show a note.
+    amendments: {
+        id: string;
+        status: string;
+        itemsCents: number;
+        taxCents: number;
     }[];
     fulfillments: {
         id: string;
@@ -509,6 +518,11 @@ export default function OrderDetailView({
                             <SumRow label="Subtotal" value={fmtMoney(order.subtotalAmount)} />
                             <SumRow label="Shipping" value={fmtMoney(order.shippingAmount)} />
                             <SumRow label="Sales tax" value={fmtMoney(order.taxAmount)} />
+                            {order.amendments.filter(a => a.status === 'PENDING_PAYMENT').map(a => (
+                                <div key={a.id} style={{ padding: '10px 12px', background: '#EAE2D2', border: '1px solid #B96A3D44', fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.16em', color: '#8A4F2D', textTransform: 'uppercase' }}>
+                                    Payment link sent — ${((a.itemsCents + a.taxCents) / 100).toFixed(2)} for added items. They appear here once paid.
+                                </div>
+                            ))}
                             {order.refunds.map(r => (
                                 <SumRow
                                     key={r.id}

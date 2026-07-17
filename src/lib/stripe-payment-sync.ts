@@ -385,6 +385,36 @@ export async function syncExternalRefund(charge: Stripe.Charge): Promise<void> {
         },
     });
     if (!order) {
+        // Phase 2b — the PI may belong to a paid order AMENDMENT (its own
+        // charge). Record dashboard-issued refunds against the parent order so
+        // the ledger (and every total-minus-refunds surface) stays truthful.
+        const amendment = await prisma.orderAmendment.findFirst({
+            where: { stripePaymentIntentId: piId },
+            select: { id: true, orderId: true },
+        });
+        if (amendment) {
+            const amendRefunds = await stripe.refunds.list({ payment_intent: piId, limit: 100 });
+            for (const r of amendRefunds.data) {
+                if (r.status === 'failed' || r.status === 'canceled') continue;
+                await prisma.refund
+                    .create({
+                        data: {
+                            orderId: amendment.orderId,
+                            initiatedByUserId: null,
+                            amountCents: r.amount,
+                            reason: 'admin_other',
+                            notes: `external refund of amendment ${amendment.id}`,
+                            stripeRefundId: r.id,
+                            restoredStock: false,
+                            reversedTax: false,
+                        },
+                    })
+                    .catch(e => {
+                        if ((e as { code?: string })?.code !== 'P2002') throw e;
+                    });
+            }
+            return;
+        }
         console.log('[payment-sync] charge.refunded for untracked PI:', piId);
         return;
     }

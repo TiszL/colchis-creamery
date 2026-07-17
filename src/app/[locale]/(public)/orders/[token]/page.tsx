@@ -46,6 +46,7 @@ export default async function GuestOrderLookupPage({ params }: PageProps) {
             // itself only reads `name`; the rest is for reorder.
             orderItems: { include: { product: true } },
             refunds: { orderBy: { createdAt: 'asc' } },
+            amendments: { where: { status: { in: ['PENDING_PAYMENT', 'PAID'] } }, orderBy: { createdAt: 'asc' } },
             fulfillments: {
                 orderBy: { createdAt: 'asc' },
                 include: {

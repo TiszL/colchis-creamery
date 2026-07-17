@@ -157,6 +157,12 @@ export async function refundOrderFullInternal(
             fulfillments: {
                 include: { items: { include: { orderItem: true } } },
             },
+            // Phase 2b — paid amendments have their OWN PaymentIntents that a
+            // full refund must also return.
+            amendments: {
+                where: { status: 'PAID', stripePaymentIntentId: { not: null } },
+                select: { id: true, stripePaymentIntentId: true, stripeTaxTransactionId: true },
+            },
         },
     });
     if (!order) return { ok: false, error: 'Order not found.' };
@@ -167,6 +173,13 @@ export async function refundOrderFullInternal(
         return { ok: false, error: 'This order has no payment intent — nothing to refund.' };
     }
 
+    // Kill any live payment link first — a refunded order must not be able to
+    // collect an amendment payment afterwards. (Lazy import avoids a module
+    // cycle: order-edit imports kitchenRemoveItemsCore from this file.)
+    const { cancelAllPendingAmendments } = await import('@/lib/order-edit');
+    await cancelAllPendingAmendments(order.id).catch(e =>
+        console.warn('[refundOrderFullCore] pending-amendment cancel failed:', e));
+
     // Full refund of the remaining balance (= full total when no priors).
     const totalCents = Math.round((parseFloat(order.totalAmount) || 0) * 100);
     const alreadyRefundedCents = order.refunds.reduce((sum, r) => sum + r.amountCents, 0);
@@ -175,27 +188,84 @@ export async function refundOrderFullInternal(
         return { ok: false, error: 'This order is already fully refunded.' };
     }
 
-    /* ─── Stripe refund ───────────────────────────────────────────────── */
+    /* ─── Stripe refund(s) ────────────────────────────────────────────── */
+    // No paid amendments (the near-universal case): one explicit-amount refund
+    // of the remaining balance on the original PI — exact behavior unchanged.
+    //
+    // WITH paid amendments the order's money is split across multiple
+    // PaymentIntents, so "remaining balance" can exceed any single charge.
+    // Refund each PI WITHOUT an amount — Stripe refunds that charge's own
+    // remainder natively — and record what actually came back per PI.
 
     let stripeRefundId: string | null = null;
+    let extraRefunds: Array<{ id: string; amountCents: number }> = [];
+    let actualAmountCents = amountCents;
     try {
-        const refund = await stripe.refunds.create({
-            payment_intent: order.stripePaymentIntentId,
-            amount: amountCents,
-            // Connect destination charges: reverse the transfer too so the refund
-            // pulls from the connected account, not just the platform balance.
-            // Only when a transfer exists — Stripe rejects it on platform charges.
-            reverse_transfer: await chargeHasTransfer(order.stripePaymentIntentId),
-            metadata: {
-                orderId: order.id,
-                reason: opts.reason,
-                ...(opts.initiatedByUserId ? { initiatedByUserId: opts.initiatedByUserId } : {}),
-            },
-        });
-        stripeRefundId = refund.id;
+        if (order.amendments.length === 0) {
+            const refund = await stripe.refunds.create({
+                payment_intent: order.stripePaymentIntentId,
+                amount: amountCents,
+                // Connect destination charges: reverse the transfer too so the refund
+                // pulls from the connected account, not just the platform balance.
+                // Only when a transfer exists — Stripe rejects it on platform charges.
+                reverse_transfer: await chargeHasTransfer(order.stripePaymentIntentId),
+                metadata: {
+                    orderId: order.id,
+                    reason: opts.reason,
+                    ...(opts.initiatedByUserId ? { initiatedByUserId: opts.initiatedByUserId } : {}),
+                },
+            });
+            stripeRefundId = refund.id;
+        } else {
+            actualAmountCents = 0;
+            const pis = [order.stripePaymentIntentId, ...order.amendments.map(a => a.stripePaymentIntentId!)];
+            for (const pi of pis) {
+                try {
+                    const refund = await stripe.refunds.create({
+                        payment_intent: pi,
+                        reverse_transfer: await chargeHasTransfer(pi),
+                        metadata: {
+                            orderId: order.id,
+                            reason: opts.reason,
+                            ...(opts.initiatedByUserId ? { initiatedByUserId: opts.initiatedByUserId } : {}),
+                        },
+                    });
+                    if (stripeRefundId === null) stripeRefundId = refund.id;
+                    else extraRefunds.push({ id: refund.id, amountCents: refund.amount });
+                    actualAmountCents += refund.amount;
+                } catch (e) {
+                    // "Charge already fully refunded" on one PI must not block
+                    // refunding the others (e.g. a prior partial removal).
+                    const msg = e instanceof Error ? e.message : String(e);
+                    const code = (e as { code?: string })?.code;
+                    if (code === 'charge_already_refunded' || /already.*refunded/i.test(msg)) {
+                        console.log('[refundOrderFullCore] PI already fully refunded, skipping:', pi);
+                        continue;
+                    }
+                    throw e;
+                }
+            }
+            if (stripeRefundId === null && extraRefunds.length === 0) {
+                return { ok: false, error: 'Every payment on this order is already refunded.' };
+            }
+        }
     } catch (e) {
         console.error('[refundOrderFullCore] Stripe refund failed:', e);
         return { ok: false, error: `Refund failed: ${e instanceof Error ? e.message : 'unknown error'}` };
+    }
+
+    /* ─── Amendment tax reversals (best-effort) ───────────────────────── */
+    for (const a of order.amendments) {
+        if (!a.stripeTaxTransactionId) continue;
+        try {
+            await stripe.tax.transactions.createReversal({
+                mode: 'full',
+                original_transaction: a.stripeTaxTransactionId,
+                reference: `${order.id}-amend-${a.id.slice(0, 8)}-refund-${Date.now()}`,
+            });
+        } catch (e) {
+            console.warn('[refundOrderFullCore] amendment tax reversal failed:', e instanceof Error ? e.message : e);
+        }
     }
 
     /* ─── Tax reversal (best-effort, first refund only) ───────────────── */
@@ -236,16 +306,31 @@ export async function refundOrderFullInternal(
 
     /* ─── Audit + status flips ────────────────────────────────────────── */
 
+    // Multi-PI refunds: the primary row carries the first refund; each extra
+    // PI's refund gets its own row so sum(Refund.amountCents) stays truthful.
+    const primaryAmountCents = actualAmountCents - extraRefunds.reduce((sum, r) => sum + r.amountCents, 0);
     const refundRecord = await upsertRefundRecord({
         orderId: order.id,
         initiatedByUserId: opts.initiatedByUserId,
-        amountCents,
+        amountCents: primaryAmountCents,
         reason: opts.reason,
         notes: opts.notes?.trim() || null,
         stripeRefundId,
         restoredStock: stockRestored,
         reversedTax: taxReversed,
     });
+    for (const extra of extraRefunds) {
+        await upsertRefundRecord({
+            orderId: order.id,
+            initiatedByUserId: opts.initiatedByUserId,
+            amountCents: extra.amountCents,
+            reason: opts.reason,
+            notes: 'amendment payment refund',
+            stripeRefundId: extra.id,
+            restoredStock: false,
+            reversedTax: false,
+        });
+    }
 
     await prisma.order.update({
         where: { id: order.id },
@@ -257,9 +342,9 @@ export async function refundOrderFullInternal(
         data: { status: 'CANCELLED' },
     });
 
-    console.log(`[refundOrderFullCore] $${(amountCents / 100).toFixed(2)} refunded on Order ${order.id} (fully refunded)`);
+    console.log(`[refundOrderFullCore] $${(actualAmountCents / 100).toFixed(2)} refunded on Order ${order.id} (fully refunded)`);
 
-    return { ok: true, refundId: refundRecord.id, amountCents };
+    return { ok: true, refundId: refundRecord.id, amountCents: actualAmountCents };
 }
 
 /**
@@ -296,10 +381,10 @@ function toCents(s: string | null | undefined): number {
 export async function kitchenRemoveItemsCore(
     orderId: string,
     removals: { orderItemId: string; quantity: number }[],
-    opts: { initiatedByUserId: string | null; reason: string },
+    opts: { initiatedByUserId: string | null; reason: string; idempotencyKeyBase?: string },
 ): Promise<
     | { ok: true; amountRefunded: string; removed: { name: string; quantity: number }[] }
-    | { ok: false; error: string }
+    | { ok: false; error: string; partiallyRefunded?: boolean }
 > {
     if (!orderId) return { ok: false, error: 'Missing order id.' };
     if (removals.length === 0) return { ok: false, error: 'No items selected for removal.' };
@@ -308,7 +393,7 @@ export async function kitchenRemoveItemsCore(
         where: { id: orderId },
         include: {
             refunds: true,
-            orderItems: { include: { product: { select: { name: true } } } },
+            orderItems: { include: { product: { select: { name: true } }, amendment: { select: { stripePaymentIntentId: true } } } },
             fulfillments: {
                 select: { locationId: true, items: { select: { orderItemId: true, quantity: true } } },
             },
@@ -352,6 +437,11 @@ export async function kitchenRemoveItemsCore(
     const taxedBaseCents = subtotalCents + toCents(order.shippingAmount);
     const taxCents = toCents(order.taxAmount);
 
+    // Phase 2b: a line added by a paid amendment was charged on the
+    // amendment's OWN PaymentIntent — its refund must target that PI. Group
+    // removal cents per source PI (one refunds.create per PI below).
+    type PiGroup = { refundCents: number; lines: Array<{ orderItemId: string; qty: number }> };
+    const byPi = new Map<string, PiGroup>();
     let refundCents = 0;
     for (const [orderItemId, qty] of removalByItem) {
         const item = itemById.get(orderItemId)!;
@@ -365,6 +455,11 @@ export async function kitchenRemoveItemsCore(
               - Math.round(item.taxCents * item.refundedQuantity / item.quantity)
             : taxedBaseCents > 0 ? Math.round(taxCents * itemCents / taxedBaseCents) : 0;
         refundCents += itemCents + taxShare;
+        const pi = item.amendment?.stripePaymentIntentId ?? order.stripePaymentIntentId!;
+        const group = byPi.get(pi) ?? { refundCents: 0, lines: [] };
+        group.refundCents += itemCents + taxShare;
+        group.lines.push({ orderItemId, qty });
+        byPi.set(pi, group);
     }
     if (refundCents <= 0) {
         return { ok: false, error: 'Nothing to refund for the selected items.' };
@@ -375,59 +470,75 @@ export async function kitchenRemoveItemsCore(
         return { ok: false, error: 'This would refund the entire remaining balance — use the full cancel flow instead.' };
     }
 
-    /* ─── Stripe partial refund ───────────────────────────────────────── */
+    /* ─── Stripe partial refunds — one per source PaymentIntent ──────── */
     // NOTE: no Stripe Tax transaction reversal here — line-item tax reversal
     // is out of scope for the kitchen flow; the accountant tooling reconciles
     // partial-refund tax from the Refund rows (reversedTax stays false).
-    let stripeRefundId: string;
-    try {
-        const refund = await stripe.refunds.create({
-            payment_intent: order.stripePaymentIntentId,
-            amount: refundCents,
-            // Connect destination charges: reverse the transfer too. Only when
-            // a transfer exists — Stripe rejects it on platform charges.
-            reverse_transfer: await chargeHasTransfer(order.stripePaymentIntentId),
-            metadata: {
-                orderId: order.id,
-                reason: 'kitchen_item_removed',
-                ...(opts.initiatedByUserId ? { initiatedByUserId: opts.initiatedByUserId } : {}),
-            },
-        });
-        stripeRefundId = refund.id;
-    } catch (e) {
-        console.error('[kitchenRemoveItemsCore] Stripe refund failed:', e);
-        return { ok: false, error: `Refund failed: ${e instanceof Error ? e.message : 'unknown error'}` };
-    }
+    //
+    // Groups process SEQUENTIALLY and each group commits its own audit tx
+    // (refundedQuantity increments + Refund row) right after its Stripe
+    // refund succeeds — a later group's failure can't orphan an earlier
+    // group's money movement. In practice a single order has one PI unless
+    // an amendment line is being removed.
+    const stripeRefundIds: string[] = [];
+    let refundedSoFarCents = 0;
+    for (const [pi, group] of byPi) {
+        let stripeRefundId: string;
+        try {
+            const refund = await stripe.refunds.create({
+                payment_intent: pi,
+                amount: group.refundCents,
+                // Connect destination charges: reverse the transfer too. Only when
+                // a transfer exists — Stripe rejects it on platform charges.
+                reverse_transfer: await chargeHasTransfer(pi),
+                metadata: {
+                    orderId: order.id,
+                    reason: 'kitchen_item_removed',
+                    ...(opts.initiatedByUserId ? { initiatedByUserId: opts.initiatedByUserId } : {}),
+                },
+            // Callers with a natural retry scope (edit-request approval) pass a
+            // key so a retried call returns the ORIGINAL refund, not a second one.
+            }, opts.idempotencyKeyBase ? { idempotencyKey: `${opts.idempotencyKeyBase}:${pi}` } : undefined);
+            stripeRefundId = refund.id;
+        } catch (e) {
+            console.error('[kitchenRemoveItemsCore] Stripe refund failed on PI', pi, ':', e);
+            if (refundedSoFarCents > 0) {
+                return { ok: false, partiallyRefunded: true, error: `Partially done: $${(refundedSoFarCents / 100).toFixed(2)} was refunded, but the rest failed (${e instanceof Error ? e.message : 'unknown error'}). Check the order's refund history before retrying.` };
+            }
+            return { ok: false, error: `Refund failed: ${e instanceof Error ? e.message : 'unknown error'}` };
+        }
 
-    /* ─── Audit: refundedQuantity increments + Refund row (one tx) ─────── */
-
-    await prisma.$transaction([
-        ...[...removalByItem].map(([orderItemId, qty]) =>
-            prisma.orderItem.update({
-                where: { id: orderItemId },
-                data: { refundedQuantity: { increment: qty } },
+        /* Audit: this group's refundedQuantity increments + Refund row (one tx). */
+        await prisma.$transaction([
+            ...group.lines.map(({ orderItemId, qty }) =>
+                prisma.orderItem.update({
+                    where: { id: orderItemId },
+                    data: { refundedQuantity: { increment: qty } },
+                }),
+            ),
+            // The charge.refunded webhook fires within seconds of our refunds.create
+            // above and may have recorded this refund id first with generic
+            // attribution — replace its row with ours atomically instead of
+            // crashing the whole edit on the unique constraint.
+            prisma.refund.deleteMany({ where: { stripeRefundId } }),
+            prisma.refund.create({
+                data: {
+                    orderId: order.id,
+                    initiatedByUserId: opts.initiatedByUserId,
+                    amountCents: group.refundCents,
+                    reason: 'kitchen_item_removed',
+                    notes: opts.reason || null,
+                    stripeRefundId,
+                    // Flipped to true below only AFTER restoreStock succeeds — it
+                    // runs outside this tx and can fail.
+                    restoredStock: false,
+                    reversedTax: false,
+                },
             }),
-        ),
-        // The charge.refunded webhook fires within seconds of our refunds.create
-        // above and may have recorded this refund id first with generic
-        // attribution — replace its row with ours atomically instead of
-        // crashing the whole edit on the unique constraint.
-        prisma.refund.deleteMany({ where: { stripeRefundId } }),
-        prisma.refund.create({
-            data: {
-                orderId: order.id,
-                initiatedByUserId: opts.initiatedByUserId,
-                amountCents: refundCents,
-                reason: 'kitchen_item_removed',
-                notes: opts.reason || null,
-                stripeRefundId,
-                // Flipped to true below only AFTER restoreStock succeeds — it
-                // runs outside this tx and can fail.
-                restoredStock: false,
-                reversedTax: false,
-            },
-        }),
-    ]);
+        ]);
+        stripeRefundIds.push(stripeRefundId);
+        refundedSoFarCents += group.refundCents;
+    }
 
     /* ─── Stock restore (outside the tx, mirrors refundOrderFullInternal) ── */
     // Map each orderItem to its fulfillment's location so restoreStock gets
@@ -453,9 +564,9 @@ export async function kitchenRemoveItemsCore(
             orderId: order.id,
             ...(opts.initiatedByUserId ? { initiatedByUserId: opts.initiatedByUserId } : {}),
         });
-        await prisma.refund.update({ where: { stripeRefundId }, data: { restoredStock: true } });
+        await prisma.refund.updateMany({ where: { stripeRefundId: { in: stripeRefundIds } }, data: { restoredStock: true } });
     } catch (e) {
-        console.error('[kitchenRemoveItemsCore] Stock restore failed for Order', order.id, '— Refund', stripeRefundId, 'left restoredStock=false; reconcile inventory manually:', e);
+        console.error('[kitchenRemoveItemsCore] Stock restore failed for Order', order.id, '— Refund(s)', stripeRefundIds.join(','), 'left restoredStock=false; reconcile inventory manually:', e);
         // Money already moved — surface the inventory discrepancy to ops the
         // same way syncExternalRefund does, instead of relying on server logs.
         try {
@@ -463,7 +574,7 @@ export async function kitchenRemoveItemsCore(
                 subject: 'Stock restore FAILED after kitchen item removal',
                 orderId: order.id,
                 lines: [
-                    `Stripe refund ${stripeRefundId} succeeded but restoring inventory failed; Refund.restoredStock is false.`,
+                    `Stripe refund(s) ${stripeRefundIds.join(', ')} succeeded but restoring inventory failed; Refund.restoredStock is false.`,
                     `Un-restored lines: ${restoreItems.map(r => `${r.quantity}× product ${r.productId} @ location ${r.locationId}`).join('; ') || '(none mapped)'}.`,
                     'Reconcile the location stock counts manually, then update the Refund row.',
                 ],

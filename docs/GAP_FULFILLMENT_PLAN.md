@@ -71,6 +71,14 @@ exact per-line Stripe Tax amounts (Phase 2), extra-section accent color
 | D4 | KDS headline total shows pre-modification amount; other tablets get no modification signal | Effective total + "MODIFIED" badge when refunds exist |
 
 ## Phase 1 — 86 workflow (decided: on/off only)
+
+**Status: ✅ LANDED 2026-07-17** — PR #39 (two migrations pre-applied;
+3-lens adversarial review: 1 major + 10 minors fixed; verified live
+end-to-end via a real LOCATION_FULFILLMENT account). Deferred to Phase 3's
+menu redesign: "Sold out today" wording on listing CARDS (PDPs have it;
+cards show generic Unavailable), per-card accent colors, batched
+soldOutToday flags for listings. MenuAvailabilityEvent.reason is reserved
+for Phase 2 (order-modification linkage writes the why).
 1. Schema: `Stock.disabledUntil DateTime?` — self-expiring "86 today" (predicates check the timestamp; no cron needed). Hand-written migration.
 2. Centralize the availability predicate (isEnabled + disabledUntil) so /shop, /bakery, /creamery, PDPs, checkout, B2B all share it.
 3. "86 for today" quick action on the location-portal menu page — available to **LOCATION_FULFILLMENT** (kitchen self-serve; the permanent toggle stays manager-only). Audit log (who/when/which/why) — new small model.

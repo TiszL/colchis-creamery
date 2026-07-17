@@ -62,6 +62,8 @@ export type QueueItem = {
     createdAt: string;
     customerName: string;
     customerPhone: string | null;
+    // QR table ordering — dine-in tickets show which table to bring it to.
+    tableNumber: number | null;
     // Lines with effective (quantity - refundedQuantity) <= 0 are excluded.
     items: {
         orderItemId: string;
@@ -157,7 +159,7 @@ export async function fetchLocationQueue(
             include: {
                 order: {
                     select: {
-                        id: true, paymentStatus: true, guestEmail: true, guestPhone: true, shippingDeliveryNotes: true,
+                        id: true, paymentStatus: true, guestEmail: true, guestPhone: true, shippingDeliveryNotes: true, tableNumber: true,
                         totalAmount: true, subtotalAmount: true, taxAmount: true, notes: true,
                         shippingAddress: true, shippingLine1: true, shippingAddressLine2: true,
                         shippingCity: true, shippingState: true, shippingPostalCode: true,
@@ -232,6 +234,7 @@ export async function fetchLocationQueue(
             readyAt: f.readyAt ? f.readyAt.toISOString() : null,
             createdAt: f.createdAt.toISOString(),
             customerName: f.order.user?.name ?? f.order.user?.email ?? f.order.guestEmail ?? 'Guest',
+            tableNumber: f.order.tableNumber,
             customerPhone: f.order.guestPhone ?? f.order.user?.phone ?? null,
             items: f.items
                 .filter(i => i.quantity - i.orderItem.refundedQuantity > 0)

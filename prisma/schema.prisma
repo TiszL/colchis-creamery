@@ -663,6 +663,8 @@ model Order {
   // independent of the User row (also helps cross-user-merge later).
   // Phase 4b — the storefront locale at checkout; customer emails render in it.
   locale                 String      @default("en")
+  // QR table ordering — dine-in orders carry the table the customer scanned.
+  tableNumber            Int?
   guestEmail             String?
   guestPhone             String?
   // Phase 7a — scheduled fulfillment (earliest "ready" time across all fulfillments)
@@ -670,6 +672,10 @@ model Order {
   // Phase 7a — auto-release reserved stock if payment doesn't complete in time
   reservationExpiresAt   DateTime?
   stripePaymentIntentId  String?     @unique  // used for idempotency on webhooks
+  // QR table ordering — the Checkout Session minted at order creation, so the
+  // reservation cron can rescue a paid-but-webhook-delayed order (the PI only
+  // exists after payment; checkout-flow orders store their PI up front).
+  stripeCheckoutSessionId String?    @unique
   stripeInvoiceId        String?
   // Phase 7a.6 — Stripe Tax integration.
   // calculation id is set in 7a.5 right after we call tax.calculations.create.

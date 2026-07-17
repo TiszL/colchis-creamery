@@ -686,6 +686,11 @@ export default function OrdersQueueClient({
                                             </span>
                                         )}
                                         <span className="text-[10px] text-gray-600 font-mono">{item.deliveryMethod.replace(/_/g, ' ')}</span>
+                                        {item.tableNumber !== null && (
+                                            <span className="px-2 py-0.5 text-[11px] font-mono font-bold uppercase tracking-wider bg-violet-900/40 text-violet-300 border border-violet-700/60">
+                                                Table {item.tableNumber}
+                                            </span>
+                                        )}
                                         {item.packagingType && (
                                             <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 bg-cyan-900/30 text-cyan-400">
                                                 {item.packagingType.replace(/_/g, ' ')}

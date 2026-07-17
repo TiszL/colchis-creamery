@@ -626,12 +626,22 @@ export default function OrdersQueueClient({
                                         <span className={`text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 ${statusClass(item.status)}`}>
                                             {item.status.replace(/_/g, ' ')}
                                         </span>
+                                        {item.hasModifications && (
+                                            <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 bg-orange-900/30 text-orange-400">
+                                                Modified
+                                            </span>
+                                        )}
                                         {item.courierStatus && !dispatchFailed && (
                                             <span className={`text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 ${courierChipClass(item.courierStatus)}`}>
                                                 {COURIER_LABELS[item.courierStatus] ?? item.courierStatus.replace(/_/g, ' ')}
                                             </span>
                                         )}
                                         <span className="text-[10px] text-gray-600 font-mono">{item.deliveryMethod.replace(/_/g, ' ')}</span>
+                                        {item.packagingType && (
+                                            <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 bg-cyan-900/30 text-cyan-400">
+                                                {item.packagingType.replace(/_/g, ' ')}
+                                            </span>
+                                        )}
                                         <span className="text-[10px] text-gray-600 font-mono">#{item.orderShort}</span>
                                         {isCooking && (
                                             <span className={`text-[10px] font-mono tabular-nums ${ageClass}`}>{formatAge(ageMs)}</span>
@@ -689,7 +699,7 @@ export default function OrdersQueueClient({
                                         })}
                                     </div>
                                     <p className="mt-1.5 text-[11px] font-mono text-gray-500">
-                                        {itemCount} item{itemCount === 1 ? '' : 's'} · ${item.orderTotal}
+                                        {itemCount} item{itemCount === 1 ? '' : 's'} · ${item.orderEffectiveTotal}
                                     </p>
 
                                     {item.deliveryMethod === 'OWN_DELIVERY' && item.deliveryAddress && (

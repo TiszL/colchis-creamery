@@ -22,7 +22,7 @@ import { getSession } from '@/lib/session';
 import { assertLocationRole } from '@/lib/location-rbac';
 import { dispatchCourierForFulfillment } from '@/lib/carrier-dispatch';
 import { refundOrderFullCore, kitchenRemoveItemsCore, cancelActiveCarrierDeliveries } from '@/lib/order-refund';
-import { sendOrderCancelledCustomerEmail, sendOrderItemsRemovedCustomerEmail } from '@/lib/email';
+import { sendOrderCancelledCustomerEmail, sendOrderItemsRemovedCustomerEmail, sendCancelRequestManagerEmail } from '@/lib/email';
 import { BUSINESS_TIMEZONE } from '@/lib/timezone';
 
 const COURIER_METHODS = ['DOORDASH_DRIVE', 'UBER_DIRECT'] as const;
@@ -48,6 +48,9 @@ export type QueueItem = {
     courierStatus: string | null;
     dispatchError: string | null;
     deliveryMethod: string;
+    // Packaging requirement persisted at checkout (e.g. "INSULATED_COLD_CHAIN")
+    // — packers pick the box from this. Null = no special packaging.
+    packagingType: string | null;
     trackingUrl: string | null;
     scheduledFor: string | null;
     acceptedAt: string | null;
@@ -66,7 +69,13 @@ export type QueueItem = {
         unitPrice: string;
     }[];
     deliveryNotes: string | null;
+    // Original total — unread by the KDS UI since orderEffectiveTotal landed,
+    // kept for a future "was $X" strikethrough next to the effective total.
     orderTotal: string;
+    // totalAmount minus all refunds (cents math, floored at $0) — after a
+    // kitchen edit the original total is stale money on other tablets.
+    orderEffectiveTotal: string;
+    hasModifications: boolean;
     orderSubtotal: string | null;
     orderTax: string | null;
     orderNotes: string | null;
@@ -120,6 +129,7 @@ export async function fetchLocationQueue(
                         shippingCity: true, shippingState: true, shippingPostalCode: true,
                         shippingBuildingName: true, shippingAccessCode: true,
                         user: { select: { email: true, name: true, phone: true } },
+                        refunds: { select: { amountCents: true } },
                     },
                 },
                 items: { include: { orderItem: { include: { product: { select: { name: true, sku: true, imageUrl: true } } } } } },
@@ -150,6 +160,7 @@ export async function fetchLocationQueue(
             courierStatus: f.courierStatus,
             dispatchError: f.dispatchError,
             deliveryMethod: f.deliveryMethod,
+            packagingType: f.packagingType,
             trackingUrl: f.trackingNumber,
             scheduledFor: f.scheduledFor ? f.scheduledFor.toISOString() : null,
             acceptedAt: f.acceptedAt ? f.acceptedAt.toISOString() : null,
@@ -170,6 +181,8 @@ export async function fetchLocationQueue(
                 })),
             deliveryNotes: f.order.shippingDeliveryNotes,
             orderTotal: f.order.totalAmount,
+            orderEffectiveTotal: (Math.max(0, toCents(f.order.totalAmount) - f.order.refunds.reduce((s, r) => s + r.amountCents, 0)) / 100).toFixed(2),
+            hasModifications: f.order.refunds.length > 0 || f.items.some(i => i.orderItem.refundedQuantity > 0),
             orderSubtotal: f.order.subtotalAmount,
             orderTax: f.order.taxAmount,
             orderNotes: f.order.notes,
@@ -210,6 +223,11 @@ function composeDeliveryAddress(o: {
         return [street, o.shippingCity, region].filter(Boolean).join(', ');
     }
     return o.shippingAddress;
+}
+
+// Dollar-string → integer cents. Order money fields are unprefixed dollar strings.
+function toCents(s: string | null | undefined): number {
+    return Math.round((parseFloat(s ?? '') || 0) * 100);
 }
 
 export type MutationResult =
@@ -561,7 +579,12 @@ export async function requestCancelOrder(
 
         const f = await prisma.orderFulfillment.findUnique({
             where: { id: fulfillmentId },
-            select: { locationId: true, status: true, order: { select: { paymentStatus: true } } },
+            select: {
+                locationId: true,
+                status: true,
+                order: { select: { id: true, paymentStatus: true, totalAmount: true } },
+                location: { select: { name: true, notificationEmail: true } },
+            },
         });
         if (!f || f.locationId !== locationId) return { ok: false, error: 'Not found' };
         if (f.status === 'DELIVERED' || f.status === 'CANCELLED') {
@@ -578,15 +601,49 @@ export async function requestCancelOrder(
         if (pending) return { ok: false, error: 'A cancel request is already waiting for a manager' };
 
         const session = await getSession();
+        const requestedByName = session?.name || session?.email || 'Kitchen staff';
         await prisma.orderCancelRequest.create({
             data: {
                 fulfillmentId,
                 locationId,
                 requestedById: session?.userId ?? '',
-                requestedByName: session?.name || session?.email || 'Kitchen staff',
+                requestedByName,
                 reason: why,
             },
         });
+
+        // Best-effort manager alert — if nobody with refund rights is watching
+        // the queue the request sits while the cook-timer runs. Never fail the
+        // request over email.
+        try {
+            const managers = await prisma.userLocation.findMany({
+                where: { locationId, role: 'LOCATION_MANAGER', user: { isActive: true } },
+                select: { user: { select: { email: true } } },
+            });
+            const managerEmails = [...new Set(managers.map(m => m.user.email).filter(Boolean))];
+            // Same per-location alert convention as the new-order kitchen email:
+            // managers -> Location.notificationEmail -> global ops inbox.
+            const fallback = f.location.notificationEmail || process.env.BAKERY_NOTIFICATION_EMAIL;
+            const to = managerEmails.length > 0 ? managerEmails : fallback ? [fallback] : [];
+            if (to.length > 0) {
+                const sent = await sendCancelRequestManagerEmail({
+                    to,
+                    orderId: f.order.id,
+                    orderTotal: f.order.totalAmount,
+                    locationId,
+                    locationName: f.location.name,
+                    requestedByName,
+                    reason: why,
+                });
+                // sendCancelRequestManagerEmail catches internally — this email
+                // IS the notification, so a silent failure defeats its purpose.
+                if (!sent.success) {
+                    console.error('[requestCancelOrder] manager email failed:', sent.error);
+                }
+            }
+        } catch (e) {
+            console.error('[requestCancelOrder] manager email failed:', e);
+        }
         return { ok: true };
     } catch (e) {
         return { ok: false, error: e instanceof Error ? e.message : 'Unknown error' };

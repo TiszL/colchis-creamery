@@ -124,7 +124,10 @@ export default function BakeryPdpClient({
     // Such products cannot be ordered for online cart — only consumed at the bakery.
     const channelsForCart = customerEligibleChannels ?? offeredChannels;
     const dineInOnly = channelsForCart.length > 0 && cartEligibleChannels(channelsForCart).length === 0;
-    const cartDisabled = soldOut || dineInOnly;
+    // 86'd everywhere: no location has an enabled Stock row for this product, so
+    // nothing offers it. Catches MTO items, whose cap is Infinity → soldOut never trips.
+    const unavailable = offeredChannels.length === 0;
+    const cartDisabled = soldOut || dineInOnly || unavailable;
 
     const isHot = product.categorySlug === 'hot-pastries';
     const isFrozen = product.categorySlug === 'frozen-bake-off';
@@ -348,7 +351,7 @@ export default function BakeryPdpClient({
                             opacity: cartDisabled ? 0.6 : 1,
                         }}
                     >
-                        {soldOut ? 'Sold out' : justAdded ? (
+                        {unavailable ? 'Unavailable right now' : soldOut ? 'Sold out' : justAdded ? (
                             <><Check className="w-4 h-4" /> Added — going to cart…</>
                         ) : (
                             <><ShoppingBag className="w-4 h-4" /> {isHot ? 'Order hot' : 'Add to box'}</>

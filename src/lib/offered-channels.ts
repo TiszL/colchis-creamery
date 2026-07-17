@@ -8,9 +8,11 @@ import { DeliveryMethod, LocationType, type SalesChannel } from '@prisma/client'
  * of the LOCATION (LocationDeliveryMethod), not the product.
  *
  * "Offered" = the union of active delivery methods across active locations
- * that can serve the product: a location carries a product when it has an
- * enabled Stock row for it, or (made-to-order) when the product's salesChannel
- * is in the location's allowsChannels.
+ * that can serve the product: a location carries a product when the product's
+ * salesChannel is in its allowsChannels AND it has an enabled Stock row for it.
+ * Made-to-order products get quantity=null Stock rows (admin save creates them
+ * per offered location), so a disabled or missing row means the item is 86'd
+ * there — no MTO bypass.
  *
  * This is the address-agnostic superset the PDP renders as "How you can get
  * it"; the client then dims entries the customer's address can't reach using
@@ -57,8 +59,8 @@ export async function offeredChannelsByProduct(
         const set = new Set<DeliveryMethod>();
         for (const loc of locations) {
             const carries =
-                loc.stocks.some(s => s.productId === p.id) ||
-                (p.isMadeToOrder && loc.allowsChannels.includes(p.salesChannel));
+                loc.allowsChannels.includes(p.salesChannel) &&
+                loc.stocks.some(s => s.productId === p.id);
             if (!carries) continue;
             for (const ch of loc.channels) {
                 // Launch gate: NATIONAL_SHIP withheld until hardened (feature-flags.ts).

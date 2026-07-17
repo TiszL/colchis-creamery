@@ -26,6 +26,7 @@ import {
     sendAmendmentPaymentEmail,
     sendAmendmentPaidEmail,
     sendOrderItemsRemovedCustomerEmail,
+    sendOpsAlertEmail,
 } from '@/lib/email';
 
 const AMENDMENT_TTL_MINUTES = 35; // Stripe Checkout minimum expiry is 30 min
@@ -93,6 +94,13 @@ export async function createOrderEditRequest(opts: {
         select: { id: true },
     });
     if (pending) return { ok: false, error: 'A change request is already waiting for a manager.' };
+    // One live payment link at a time — concurrent amendments would race the
+    // totals math and confuse the customer with two links.
+    const liveLink = await prisma.orderAmendment.findFirst({
+        where: { orderId: f.order.id, status: 'PENDING_PAYMENT' },
+        select: { id: true },
+    });
+    if (liveLink) return { ok: false, error: 'A payment link is still outstanding for this order — wait for it or cancel it first.' };
 
     /* Validate REMOVE lines against effective quantities. */
     const effectiveByItem = new Map(
@@ -156,7 +164,9 @@ export async function createOrderEditRequest(opts: {
         }
     }
 
-    const request = await prisma.orderEditRequest.create({
+    let request;
+    try {
+        request = await prisma.orderEditRequest.create({
         data: {
             fulfillmentId: opts.fulfillmentId,
             locationId: opts.locationId,
@@ -179,7 +189,15 @@ export async function createOrderEditRequest(opts: {
             },
         },
         select: { id: true },
-    });
+        });
+    } catch (e) {
+        // Partial unique index (one PENDING per fulfillment) closes the
+        // findFirst-then-create race between two tablets.
+        if ((e as { code?: string })?.code === 'P2002') {
+            return { ok: false, error: 'A change request is already waiting for a manager.' };
+        }
+        throw e;
+    }
     return { ok: true, requestId: request.id };
 }
 
@@ -222,6 +240,23 @@ export async function approveOrderEditRequest(
         return { ok: false, error: 'Too late — the order already left the kitchen.' };
     }
 
+    // Idempotency gate: only ONE caller may execute a request. A concurrent
+    // double-click (or a retry racing a slow first attempt) loses this flip
+    // and is rejected instead of double-refunding the same lines.
+    const claimed = await prisma.orderEditRequest.updateMany({
+        where: { id: req.id, status: 'PENDING' },
+        data: { status: 'EXECUTING' },
+    });
+    if (claimed.count === 0) return { ok: false, error: 'This request is already being executed.' };
+    // On clean failure paths below we flip back to PENDING so the manager can
+    // retry; a crash mid-execution intentionally leaves EXECUTING (ops must
+    // check the refund history before anyone retries).
+    const releaseClaim = () =>
+        prisma.orderEditRequest.updateMany({
+            where: { id: req.id, status: 'EXECUTING' },
+            data: { status: 'PENDING' },
+        }).catch(() => undefined);
+
     const order = req.fulfillment.order;
     const removals = req.lines
         .filter(l => l.type === 'REMOVE' && l.orderItemId && l.removeQuantity)
@@ -230,10 +265,29 @@ export async function approveOrderEditRequest(
 
     /* ─── Adds first: create the amendment + Checkout Session. This has no
        side effects on the order itself, so a failure here leaves everything
-       untouched and the request PENDING (retryable). ─── */
+       untouched and the request retryable. ─── */
     let paymentUrl: string | null = null;
     let amendmentId: string | null = null;
     if (adds.length > 0) {
+        // Re-validate sellability NOW — a product 86'd or deactivated since the
+        // request was filed must not be charged to the customer.
+        const stillSellable = await prisma.product.findMany({
+            where: {
+                id: { in: adds.map(l => l.addProductId!) },
+                isActive: true,
+                isB2cVisible: true,
+                isCartOrderable: true,
+                status: 'ACTIVE',
+                stocks: { some: { ...sellableStockWhere(), locationId } },
+            },
+            select: { id: true },
+        });
+        const sellableIds = new Set(stillSellable.map(pr => pr.id));
+        const gone = adds.filter(l => !sellableIds.has(l.addProductId!));
+        if (gone.length > 0) {
+            await releaseClaim();
+            return { ok: false, error: 'An added product is no longer available at this location — decline and re-propose.' };
+        }
         const addProducts = await prisma.product.findMany({
             where: { id: { in: adds.map(l => l.addProductId!) } },
             select: { id: true, name: true },
@@ -286,6 +340,23 @@ export async function approveOrderEditRequest(
                 ? loc.stripeConnectAccountId
                 : null;
 
+        // A prior failed/crashed attempt may have left an amendment bound to
+        // this request (requestId is unique). Reuse a still-pending one's row;
+        // detach a dead one so the fresh create succeeds.
+        const prior = await prisma.orderAmendment.findUnique({
+            where: { requestId: req.id },
+            select: { id: true, status: true },
+        });
+        if (prior) {
+            if (prior.status === 'PAID') {
+                await releaseClaim();
+                return { ok: false, error: 'This request already has a paid amendment — check the order.' };
+            }
+            await prisma.orderAmendment.update({
+                where: { id: prior.id },
+                data: { requestId: null, status: prior.status === 'PENDING_PAYMENT' ? 'CANCELLED' : prior.status, resolvedAt: new Date() },
+            });
+        }
         const amendment = await prisma.orderAmendment.create({
             data: {
                 orderId: order.id,
@@ -304,6 +375,10 @@ export async function approveOrderEditRequest(
         try {
             const session = await stripe.checkout.sessions.create({
                 mode: 'payment',
+                // Synchronous methods only — an async debit (ACH) would fire
+                // checkout.session.completed with payment_status 'unpaid' and
+                // settle days later; a phone-call addition can't wait for that.
+                payment_method_types: ['card'],
                 line_items: [
                     ...adds.map(l => ({
                         price_data: {
@@ -334,12 +409,19 @@ export async function approveOrderEditRequest(
             paymentUrl = session.url ?? null;
             await prisma.orderAmendment.update({
                 where: { id: amendment.id },
-                data: { stripeCheckoutSessionId: session.id, paymentUrl },
+                // Mirror Stripe's ACTUAL session expiry so the sweep cron can
+                // never flip EXPIRED while the hosted page is still payable.
+                data: {
+                    stripeCheckoutSessionId: session.id,
+                    paymentUrl,
+                    ...(session.expires_at ? { expiresAt: new Date(session.expires_at * 1000) } : {}),
+                },
             });
         } catch (e) {
             // Roll the empty amendment back so a retry starts clean.
             await prisma.orderAmendment.delete({ where: { id: amendment.id } }).catch(() => undefined);
             console.error('[order-edit] Checkout session creation failed:', e);
+            await releaseClaim();
             return { ok: false, error: 'Could not create the payment link. Please try again.' };
         }
     }
@@ -351,10 +433,27 @@ export async function approveOrderEditRequest(
         const result = await kitchenRemoveItemsCore(order.id, removals, {
             initiatedByUserId: opts.resolvedById,
             reason: opts.note || req.reason,
+            // Stripe-side dedupe: a retried refund for the same request+PI
+            // returns the original refund instead of double-refunding.
+            idempotencyKeyBase: `edit-req:${req.id}`,
         });
         if (!result.ok) {
             if (amendmentId) {
                 await cancelPendingAmendment(amendmentId).catch(() => undefined);
+            }
+            if (result.partiallyRefunded) {
+                // Money moved for SOME lines — leave the request EXECUTING so a
+                // blind retry can't re-run everything, and alert ops.
+                await sendOpsAlertEmail({
+                    subject: 'Order-edit approval PARTIALLY executed — manual review needed',
+                    orderId: order.id,
+                    lines: [
+                        `Edit request ${req.id}: some removal refunds succeeded, then: ${result.error}`,
+                        'The request is locked in EXECUTING. Verify the refund history, finish or undo manually, then resolve the request in the DB.',
+                    ],
+                }).catch(() => undefined);
+            } else {
+                await releaseClaim();
             }
             return { ok: false, error: result.error };
         }
@@ -425,98 +524,167 @@ export async function approveOrderEditRequest(
 
 /* ─── 3. Webhook: the customer paid the amendment ─────────────────────── */
 
+/** Sentinel thrown inside the apply tx when another delivery already won —
+ *  aborts the transaction (rolling back stock decrements) without an error. */
+class AmendmentAlreadyApplied extends Error {}
+
 export async function applyPaidAmendment(
     sessionId: string,
     paymentIntentId: string | null,
 ): Promise<void> {
-    // Guarded flip — only the winner executes side effects, so Stripe retries
-    // and duplicate deliveries are no-ops beyond this point.
-    const won = await prisma.orderAmendment.updateMany({
-        where: { stripeCheckoutSessionId: sessionId, status: 'PENDING_PAYMENT' },
-        data: { status: 'PAID', stripePaymentIntentId: paymentIntentId, resolvedAt: new Date() },
-    });
-    if (won.count === 0) {
-        console.log('[order-edit] applyPaidAmendment: no pending amendment for session', sessionId, '(already applied or unknown)');
-        return;
-    }
-
     const amendment = await prisma.orderAmendment.findUnique({
         where: { stripeCheckoutSessionId: sessionId },
         include: {
-            request: { include: { lines: true, fulfillment: { select: { id: true, locationId: true } } } },
+            request: { include: { lines: true, fulfillment: { select: { id: true, locationId: true, status: true } } } },
             order: {
                 select: {
-                    id: true, subtotalAmount: true, taxAmount: true, totalAmount: true,
+                    id: true, paymentStatus: true,
                     guestEmail: true, user: { select: { email: true, name: true } },
                 },
             },
         },
     });
     if (!amendment?.request) {
-        console.error('[order-edit] PAID amendment has no request — cannot apply lines', sessionId);
+        console.error('[order-edit] completed session has no amendment/request — ignoring', sessionId);
         return;
     }
+
+    /* The customer's completed payment is authoritative over our own
+       bookkeeping races (cron-EXPIRED before the webhook arrived). But when
+       the money can no longer buy anything — manager cancelled the link, or
+       the order itself was refunded/cancelled — refund it immediately and
+       alert ops instead of silently keeping it. */
+    const orderDead =
+        amendment.order.paymentStatus !== 'PAID' ||
+        amendment.request.fulfillment.status === 'CANCELLED';
+    if (amendment.status === 'CANCELLED' || (orderDead && amendment.status !== 'PAID')) {
+        console.error('[order-edit] payment landed on a dead amendment/order — auto-refunding', sessionId);
+        if (paymentIntentId) {
+            try {
+                await stripe.refunds.create({
+                    payment_intent: paymentIntentId,
+                    metadata: { orderId: amendment.order.id, reason: 'amendment_after_cancel' },
+                });
+            } catch (e) {
+                console.error('[order-edit] auto-refund of dead amendment FAILED:', e);
+            }
+        }
+        await prisma.orderAmendment.updateMany({
+            where: { id: amendment.id, status: { in: ['PENDING_PAYMENT', 'EXPIRED', 'CANCELLED'] } },
+            data: { status: 'CANCELLED', stripePaymentIntentId: paymentIntentId, resolvedAt: new Date() },
+        });
+        await sendOpsAlertEmail({
+            subject: 'Amendment paid after cancel/refund — auto-refunded',
+            orderId: amendment.order.id,
+            lines: [
+                `Checkout session ${sessionId} completed after the amendment/order was cancelled.`,
+                paymentIntentId
+                    ? `An automatic refund of PaymentIntent ${paymentIntentId} was attempted — verify it in the Stripe dashboard.`
+                    : 'No PaymentIntent id was present on the session — refund manually from the Stripe dashboard.',
+            ],
+        }).catch(() => undefined);
+        return;
+    }
+    if (amendment.status === 'PAID') {
+        // The atomic apply below flips PAID together with line creation, so
+        // PAID here means a previous delivery fully applied — clean no-op.
+        console.log('[order-edit] amendment already applied:', amendment.id);
+        return;
+    }
+
     const adds = amendment.request.lines.filter(l => l.type === 'ADD' && l.addProductId && l.addQuantity);
     if (adds.length === 0) {
         console.error('[order-edit] PAID amendment has no ADD lines', amendment.id);
         return;
     }
     const fulfillment = amendment.request.fulfillment;
-    const order = amendment.order;
 
-    /* Per-line tax: pro-rate the amendment's aggregate by line value; the
-       last line takes the remainder so the sum is exact by construction. */
+    /* Per-line tax: floor-allocate, then hand out the remainder cent-by-cent
+       to the largest lines — sums exactly, never negative. */
     const lineValues = adds.map(l => toCents(l.addUnitPrice) * l.addQuantity!);
     const valueSum = lineValues.reduce((a, b) => a + b, 0) || 1;
-    const lineTax = lineValues.map(v => Math.round(amendment.taxCents * v / valueSum));
-    lineTax[lineTax.length - 1] = amendment.taxCents - lineTax.slice(0, -1).reduce((a, b) => a + b, 0);
+    const lineTax = lineValues.map(v => Math.floor(amendment.taxCents * v / valueSum));
+    let remainder = amendment.taxCents - lineTax.reduce((a, b) => a + b, 0);
+    const byValueDesc = lineValues.map((v, i) => ({ v, i })).sort((a, b) => b.v - a.v);
+    for (const { i } of byValueDesc) {
+        if (remainder <= 0) break;
+        lineTax[i] += 1;
+        remainder -= 1;
+    }
 
-    /* Stock commit + OrderItem/FulfillmentItem creation + totals bump — one
-       transaction, so a crash can't leave stock sold without the lines (or
-       vice versa). commitStock clamps reservedQuantity at 0 for unreserved
-       items and skips quantity/FIFO for MTO — exactly what additions need. */
-    await commitStock(
-        adds.map(l => ({ productId: l.addProductId!, locationId: fulfillment.locationId, quantity: l.addQuantity! })),
-        {
-            orderId: order.id,
-            onCommitted: async (tx) => {
-                for (let i = 0; i < adds.length; i++) {
-                    const l = adds[i];
-                    const item = await tx.orderItem.create({
+    /* Atomic apply: the PENDING_PAYMENT/EXPIRED→PAID flip is the FIRST write
+       INSIDE the same transaction as the stock decrement, line creation, and
+       totals bump. A crash anywhere rolls the whole thing back with the
+       amendment still un-applied, so Stripe's retry re-applies cleanly; a
+       duplicate delivery loses the flip and aborts via the sentinel. */
+    try {
+        await commitStock(
+            adds.map(l => ({ productId: l.addProductId!, locationId: fulfillment.locationId, quantity: l.addQuantity! })),
+            {
+                orderId: amendment.order.id,
+                onCommitted: async (tx) => {
+                    const won = await tx.orderAmendment.updateMany({
+                        // EXPIRED included: a completed payment beats our own
+                        // bookkeeping race with the expiry cron.
+                        where: { id: amendment.id, status: { in: ['PENDING_PAYMENT', 'EXPIRED'] } },
+                        data: { status: 'PAID', stripePaymentIntentId: paymentIntentId, resolvedAt: new Date() },
+                    });
+                    if (won.count === 0) throw new AmendmentAlreadyApplied();
+                    for (let i = 0; i < adds.length; i++) {
+                        const l = adds[i];
+                        const item = await tx.orderItem.create({
+                            data: {
+                                orderId: amendment.order.id,
+                                productId: l.addProductId!,
+                                quantity: l.addQuantity!,
+                                unitPrice: l.addUnitPrice!,
+                                taxCents: lineTax[i],
+                                amendmentId: amendment.id,
+                            },
+                            select: { id: true },
+                        });
+                        await tx.orderFulfillmentItem.create({
+                            data: { fulfillmentId: fulfillment.id, orderItemId: item.id, quantity: l.addQuantity! },
+                        });
+                    }
+                    // Totals RE-READ inside the tx (concurrent refunds/amendments
+                    // must not clobber each other), then grown by exactly what
+                    // the customer paid — every total-minus-refunds surface
+                    // stays truthful.
+                    const fresh = await tx.order.findUnique({
+                        where: { id: amendment.order.id },
+                        select: { subtotalAmount: true, taxAmount: true, totalAmount: true },
+                    });
+                    await tx.order.update({
+                        where: { id: amendment.order.id },
                         data: {
-                            orderId: order.id,
-                            productId: l.addProductId!,
-                            quantity: l.addQuantity!,
-                            unitPrice: l.addUnitPrice!,
-                            taxCents: lineTax[i],
-                            amendmentId: amendment.id,
+                            subtotalAmount: ((toCents(fresh?.subtotalAmount) + amendment.itemsCents) / 100).toFixed(2),
+                            taxAmount: ((toCents(fresh?.taxAmount) + amendment.taxCents) / 100).toFixed(2),
+                            totalAmount: ((toCents(fresh?.totalAmount) + amendment.itemsCents + amendment.taxCents) / 100).toFixed(2),
                         },
-                        select: { id: true },
                     });
-                    await tx.orderFulfillmentItem.create({
-                        data: { fulfillmentId: fulfillment.id, orderItemId: item.id, quantity: l.addQuantity! },
-                    });
-                }
-                // Totals grow by what the customer just paid, keeping every
-                // surface's "total minus refunds" math truthful.
-                await tx.order.update({
-                    where: { id: order.id },
-                    data: {
-                        subtotalAmount: ((toCents(order.subtotalAmount) + amendment.itemsCents) / 100).toFixed(2),
-                        taxAmount: ((toCents(order.taxAmount) + amendment.taxCents) / 100).toFixed(2),
-                        totalAmount: ((toCents(order.totalAmount) + amendment.itemsCents + amendment.taxCents) / 100).toFixed(2),
-                    },
-                });
+                },
             },
-        },
-    );
+        );
+    } catch (e) {
+        if (e instanceof AmendmentAlreadyApplied) {
+            console.log('[order-edit] duplicate delivery lost the apply race — no-op:', amendment.id);
+            return;
+        }
+        throw e; // webhook route 500s → claim released → Stripe retries → clean re-apply
+    }
 
-    /* Tax transaction — best-effort, mirrors the payment-sync convention. */
+    /* Tax transaction — best-effort; the id is persisted so a later full
+       refund can reverse it. */
     if (amendment.stripeTaxCalculationId) {
         try {
-            await stripe.tax.transactions.createFromCalculation({
+            const txn = await stripe.tax.transactions.createFromCalculation({
                 calculation: amendment.stripeTaxCalculationId,
-                reference: `${order.id}-amend-${amendment.id.slice(0, 8)}`,
+                reference: `${amendment.order.id}-amend-${amendment.id.slice(0, 8)}`,
+            });
+            await prisma.orderAmendment.update({
+                where: { id: amendment.id },
+                data: { stripeTaxTransactionId: txn.id },
             });
         } catch (e) {
             console.warn('[order-edit] Amendment tax transaction failed (reconcile manually):', e);
@@ -524,7 +692,7 @@ export async function applyPaidAmendment(
     }
 
     /* Confirmation email — best-effort. */
-    const to = order.guestEmail ?? order.user?.email;
+    const to = amendment.order.guestEmail ?? amendment.order.user?.email;
     if (to) {
         try {
             const names = await prisma.product.findMany({
@@ -533,10 +701,10 @@ export async function applyPaidAmendment(
             });
             await sendAmendmentPaidEmail({
                 to,
-                name: order.user?.name ?? null,
-                orderId: order.id,
+                name: amendment.order.user?.name ?? null,
+                orderId: amendment.order.id,
                 items: adds.map(l => ({
-                    name: names.find(p => p.id === l.addProductId)?.name ?? 'Item',
+                    name: names.find(pr => pr.id === l.addProductId)?.name ?? 'Item',
                     quantity: l.addQuantity!,
                 })),
                 amountDollars: ((amendment.itemsCents + amendment.taxCents) / 100).toFixed(2),
@@ -545,27 +713,53 @@ export async function applyPaidAmendment(
             console.error('[order-edit] amendment-paid email failed:', e);
         }
     }
-    console.log('[order-edit] Amendment applied:', amendment.id, 'order', order.id);
+    console.log('[order-edit] Amendment applied:', amendment.id, 'order', amendment.order.id);
 }
 
 /* ─── 4. Expiry + manager cancel ──────────────────────────────────────── */
 
 export async function cancelPendingAmendment(amendmentId: string): Promise<Result> {
+    const a = await prisma.orderAmendment.findUnique({
+        where: { id: amendmentId },
+        select: { status: true, stripeCheckoutSessionId: true },
+    });
+    if (!a || a.status !== 'PENDING_PAYMENT') return { ok: false, error: 'Payment link is no longer pending.' };
+
+    // Expire the hosted page FIRST — if the customer completed payment moments
+    // ago, expire fails on the complete session and the webhook must win, not
+    // our cancel. Only flip CANCELLED once the session is verifiably dead.
+    if (a.stripeCheckoutSessionId) {
+        try {
+            await stripe.checkout.sessions.expire(a.stripeCheckoutSessionId);
+        } catch (e) {
+            try {
+                const session = await stripe.checkout.sessions.retrieve(a.stripeCheckoutSessionId);
+                if (session.status === 'complete') {
+                    return { ok: false, error: 'The customer already paid this link — the items are being added.' };
+                }
+            } catch { /* fall through — session lookup failed, treat as dead */ }
+            console.warn('[order-edit] session expire failed (treating as dead):', e instanceof Error ? e.message : e);
+        }
+    }
     const flipped = await prisma.orderAmendment.updateMany({
         where: { id: amendmentId, status: 'PENDING_PAYMENT' },
         data: { status: 'CANCELLED', resolvedAt: new Date() },
     });
     if (flipped.count === 0) return { ok: false, error: 'Payment link is no longer pending.' };
-    const a = await prisma.orderAmendment.findUnique({
-        where: { id: amendmentId },
-        select: { stripeCheckoutSessionId: true },
-    });
-    if (a?.stripeCheckoutSessionId) {
-        // Best-effort: kill the hosted page so the customer can't pay a dead link.
-        await stripe.checkout.sessions.expire(a.stripeCheckoutSessionId).catch(e =>
-            console.warn('[order-edit] session expire failed (may already be expired):', e?.message ?? e));
-    }
     return { ok: true };
+}
+
+/** Cancel every live payment link on an order — full-refund/cancel flows call
+ *  this so a refunded order can't collect an amendment payment afterwards. */
+export async function cancelAllPendingAmendments(orderId: string): Promise<void> {
+    const pending = await prisma.orderAmendment.findMany({
+        where: { orderId, status: 'PENDING_PAYMENT' },
+        select: { id: true },
+    });
+    for (const a of pending) {
+        const res = await cancelPendingAmendment(a.id);
+        if (!res.ok) console.warn('[order-edit] could not cancel amendment', a.id, res.error);
+    }
 }
 
 /** Cron sweep: flip overdue PENDING_PAYMENT amendments to EXPIRED. Stripe

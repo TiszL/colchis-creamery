@@ -1369,6 +1369,10 @@ model OrderAmendment {
   stripeCheckoutSessionId String?           @unique
   stripePaymentIntentId   String?
   stripeTaxCalculationId  String?
+  // Set when the tax transaction is recorded on payment; a later full refund
+  // reverses it. (A partial unique index on OrderEditRequest(fulfillmentId)
+  // WHERE status='PENDING' also lives in SQL only — Prisma can't express it.)
+  stripeTaxTransactionId  String?
   paymentUrl              String?
   expiresAt               DateTime
   resolvedAt              DateTime?

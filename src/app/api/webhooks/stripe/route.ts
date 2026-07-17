@@ -105,10 +105,16 @@ export async function POST(req: Request) {
             case 'checkout.session.completed': {
                 const session = event.data.object as Stripe.Checkout.Session;
                 if (session.metadata?.kind === 'order_amendment') {
-                    await applyPaidAmendment(
-                        session.id,
-                        typeof session.payment_intent === 'string' ? session.payment_intent : session.payment_intent?.id ?? null,
-                    );
+                    // Sessions are card-only, but belt-and-braces: never apply
+                    // an amendment whose funds have not actually arrived.
+                    if (session.payment_status === 'paid') {
+                        await applyPaidAmendment(
+                            session.id,
+                            typeof session.payment_intent === 'string' ? session.payment_intent : session.payment_intent?.id ?? null,
+                        );
+                    } else {
+                        console.warn('[stripe-webhook] amendment session completed with payment_status', session.payment_status, '— not applying:', session.id);
+                    }
                 } else {
                     console.log('[stripe-webhook] checkout.session.completed (non-amendment) ignored:', session.id);
                 }

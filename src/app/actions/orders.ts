@@ -116,6 +116,12 @@ export async function cancelOrder(orderId: string): Promise<CancelOrderResult> {
 
     /* ─── Restore stock + flip statuses + audit ──────────────────────────── */
 
+    // Kill any live payment link — a cancelled order must not collect an
+    // amendment payment afterwards.
+    const { cancelAllPendingAmendments } = await import('@/lib/order-edit');
+    await cancelAllPendingAmendments(order.id).catch(e =>
+        console.warn('[cancelOrder] pending-amendment cancel failed:', e));
+
     // Net of any prior kitchen item-removal — those units were already
     // restored by kitchenRemoveItemsCore and must not be credited twice.
     const restoreItems = effectiveReservationItems(order.fulfillments);

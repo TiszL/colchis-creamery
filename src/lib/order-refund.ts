@@ -161,7 +161,7 @@ export async function refundOrderFullInternal(
             // full refund must also return.
             amendments: {
                 where: { status: 'PAID', stripePaymentIntentId: { not: null } },
-                select: { id: true, stripePaymentIntentId: true },
+                select: { id: true, stripePaymentIntentId: true, stripeTaxTransactionId: true },
             },
         },
     });
@@ -172,6 +172,13 @@ export async function refundOrderFullInternal(
     if (!order.stripePaymentIntentId) {
         return { ok: false, error: 'This order has no payment intent — nothing to refund.' };
     }
+
+    // Kill any live payment link first — a refunded order must not be able to
+    // collect an amendment payment afterwards. (Lazy import avoids a module
+    // cycle: order-edit imports kitchenRemoveItemsCore from this file.)
+    const { cancelAllPendingAmendments } = await import('@/lib/order-edit');
+    await cancelAllPendingAmendments(order.id).catch(e =>
+        console.warn('[refundOrderFullCore] pending-amendment cancel failed:', e));
 
     // Full refund of the remaining balance (= full total when no priors).
     const totalCents = Math.round((parseFloat(order.totalAmount) || 0) * 100);
@@ -230,7 +237,8 @@ export async function refundOrderFullInternal(
                     // "Charge already fully refunded" on one PI must not block
                     // refunding the others (e.g. a prior partial removal).
                     const msg = e instanceof Error ? e.message : String(e);
-                    if (/already.*refunded/i.test(msg)) {
+                    const code = (e as { code?: string })?.code;
+                    if (code === 'charge_already_refunded' || /already.*refunded/i.test(msg)) {
                         console.log('[refundOrderFullCore] PI already fully refunded, skipping:', pi);
                         continue;
                     }
@@ -244,6 +252,20 @@ export async function refundOrderFullInternal(
     } catch (e) {
         console.error('[refundOrderFullCore] Stripe refund failed:', e);
         return { ok: false, error: `Refund failed: ${e instanceof Error ? e.message : 'unknown error'}` };
+    }
+
+    /* ─── Amendment tax reversals (best-effort) ───────────────────────── */
+    for (const a of order.amendments) {
+        if (!a.stripeTaxTransactionId) continue;
+        try {
+            await stripe.tax.transactions.createReversal({
+                mode: 'full',
+                original_transaction: a.stripeTaxTransactionId,
+                reference: `${order.id}-amend-${a.id.slice(0, 8)}-refund-${Date.now()}`,
+            });
+        } catch (e) {
+            console.warn('[refundOrderFullCore] amendment tax reversal failed:', e instanceof Error ? e.message : e);
+        }
     }
 
     /* ─── Tax reversal (best-effort, first refund only) ───────────────── */
@@ -359,10 +381,10 @@ function toCents(s: string | null | undefined): number {
 export async function kitchenRemoveItemsCore(
     orderId: string,
     removals: { orderItemId: string; quantity: number }[],
-    opts: { initiatedByUserId: string | null; reason: string },
+    opts: { initiatedByUserId: string | null; reason: string; idempotencyKeyBase?: string },
 ): Promise<
     | { ok: true; amountRefunded: string; removed: { name: string; quantity: number }[] }
-    | { ok: false; error: string }
+    | { ok: false; error: string; partiallyRefunded?: boolean }
 > {
     if (!orderId) return { ok: false, error: 'Missing order id.' };
     if (removals.length === 0) return { ok: false, error: 'No items selected for removal.' };
@@ -474,12 +496,14 @@ export async function kitchenRemoveItemsCore(
                     reason: 'kitchen_item_removed',
                     ...(opts.initiatedByUserId ? { initiatedByUserId: opts.initiatedByUserId } : {}),
                 },
-            });
+            // Callers with a natural retry scope (edit-request approval) pass a
+            // key so a retried call returns the ORIGINAL refund, not a second one.
+            }, opts.idempotencyKeyBase ? { idempotencyKey: `${opts.idempotencyKeyBase}:${pi}` } : undefined);
             stripeRefundId = refund.id;
         } catch (e) {
             console.error('[kitchenRemoveItemsCore] Stripe refund failed on PI', pi, ':', e);
             if (refundedSoFarCents > 0) {
-                return { ok: false, error: `Partially done: $${(refundedSoFarCents / 100).toFixed(2)} was refunded, but the rest failed (${e instanceof Error ? e.message : 'unknown error'}). Check the order's refund history before retrying.` };
+                return { ok: false, partiallyRefunded: true, error: `Partially done: $${(refundedSoFarCents / 100).toFixed(2)} was refunded, but the rest failed (${e instanceof Error ? e.message : 'unknown error'}). Check the order's refund history before retrying.` };
             }
             return { ok: false, error: `Refund failed: ${e instanceof Error ? e.message : 'unknown error'}` };
         }

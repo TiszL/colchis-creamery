@@ -100,6 +100,15 @@ export type QueueItem = {
         resolutionNote: string | null;
         createdAt: string;
     } | null;
+    // Phase 2b — a live payment link on the ORDER (independent of which edit
+    // request is newest, so the Copy/Cancel controls can never be hidden).
+    orderPendingAmendment: {
+        id: string;
+        status: string;
+        paymentUrl: string | null;
+        expiresAt: string;
+        totalDollars: string;
+    } | null;
     // Phase 2b — latest order-EDIT request (remove/swap/add) + its payment
     // link when the approved change needs the customer to pay a delta.
     editRequest: {
@@ -152,6 +161,11 @@ export async function fetchLocationQueue(
                         shippingBuildingName: true, shippingAccessCode: true,
                         user: { select: { email: true, name: true, phone: true } },
                         refunds: { select: { amountCents: true } },
+                        amendments: {
+                            where: { status: 'PENDING_PAYMENT' },
+                            orderBy: { createdAt: 'desc' }, take: 1,
+                            select: { id: true, status: true, paymentUrl: true, expiresAt: true, itemsCents: true, taxCents: true },
+                        },
                     },
                 },
                 items: { include: { orderItem: { include: { product: { select: { name: true, sku: true, imageUrl: true } } } } } },
@@ -250,6 +264,15 @@ export async function fetchLocationQueue(
                       requestedByName: f.cancelRequests[0].requestedByName,
                       resolutionNote: f.cancelRequests[0].resolutionNote,
                       createdAt: f.cancelRequests[0].createdAt.toISOString(),
+                  }
+                : null,
+            orderPendingAmendment: f.order.amendments[0]
+                ? {
+                      id: f.order.amendments[0].id,
+                      status: f.order.amendments[0].status,
+                      paymentUrl: f.order.amendments[0].paymentUrl,
+                      expiresAt: f.order.amendments[0].expiresAt.toISOString(),
+                      totalDollars: ((f.order.amendments[0].itemsCents + f.order.amendments[0].taxCents) / 100).toFixed(2),
                   }
                 : null,
             editRequest: f.editRequests[0]

@@ -642,7 +642,9 @@ export default function OrdersQueueClient({
                     // Phase 2b — edit-request state (latest request wins).
                     const er = item.editRequest;
                     const erPending = er?.status === 'PENDING';
-                    const amendment = er?.amendment ?? null;
+                    // Prefer the order-level live link (a newer request must
+                    // not hide an older, still-payable link's controls).
+                    const amendment = item.orderPendingAmendment ?? er?.amendment ?? null;
                     const canProposeEdit =
                         !erPending &&
                         item.paymentStatus === 'PAID' &&
@@ -1119,6 +1121,7 @@ export default function OrdersQueueClient({
                                                 disabled={busy}
                                                 onClick={() => {
                                                     loadSellable();
+                                                    setChangeSuccess(prev => { const next = { ...prev }; delete next[item.id]; return next; });
                                                     setChangeOpenIds(prev => {
                                                         const next = new Set(prev);
                                                         if (next.has(item.id)) next.delete(item.id); else next.add(item.id);
@@ -1229,7 +1232,7 @@ export default function OrdersQueueClient({
                                             <div className="divide-y divide-[#ffffff0A]">
                                                 {item.items.map(line => {
                                                     const eff = line.quantity - line.refundedQuantity;
-                                                    const sel = removalsSel[line.orderItemId] ?? 0;
+                                                    const sel = Math.min(removalsSel[line.orderItemId] ?? 0, eff);
                                                     if (eff <= 0) return null;
                                                     return (
                                                         <div key={line.orderItemId} className="py-2 flex items-center justify-between gap-3">

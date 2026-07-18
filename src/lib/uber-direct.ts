@@ -279,6 +279,47 @@ export async function uberCreateDelivery(
     }
 }
 
+/* ─── Get delivery (polling fallback) ──────────────────────────────────── */
+
+/** Poll the live state of a delivery. Null on any failure — best-effort
+ *  fallback for missing webhooks, never a blocker. */
+export async function uberGetDelivery(deliveryId: string): Promise<{
+    status: string | null;
+    courierName: string | null;
+    courierPhone: string | null;
+    pickupEta: string | null;
+    dropoffEta: string | null;
+    trackingUrl: string | null;
+} | null> {
+    if (!isUberDirectConfigured()) return null;
+    if (!deliveryId) return null;
+    try {
+        const res = await uberRequest(`/deliveries/${encodeURIComponent(deliveryId)}`);
+        if (!res || !res.ok) {
+            console.warn('[uber-direct] getDelivery failed:', res?.status ?? 'no-response', deliveryId);
+            return null;
+        }
+        const data = await res.json() as {
+            status?: string;
+            courier?: { name?: string; phone_number?: string } | null;
+            pickup_eta?: string;
+            dropoff_eta?: string;
+            tracking_url?: string;
+        };
+        return {
+            status: typeof data.status === 'string' ? data.status : null,
+            courierName: data.courier?.name ?? null,
+            courierPhone: data.courier?.phone_number ?? null,
+            pickupEta: typeof data.pickup_eta === 'string' ? data.pickup_eta : null,
+            dropoffEta: typeof data.dropoff_eta === 'string' ? data.dropoff_eta : null,
+            trackingUrl: typeof data.tracking_url === 'string' ? data.tracking_url : null,
+        };
+    } catch (err) {
+        console.warn('[uber-direct] getDelivery error:', err instanceof Error ? err.message : err);
+        return null;
+    }
+}
+
 /* ─── Cancel delivery ──────────────────────────────────────────────────── */
 
 /**
@@ -315,7 +356,7 @@ export async function uberCancelDelivery(deliveryId: string): Promise<boolean> {
 export function mapUberDirectStatus(status: string):
     | 'PENDING' | 'CONFIRMED' | 'PREPARING' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'CANCELLED'
     | null {
-    switch (status) {
+    switch (status.toLowerCase()) {
         case 'pending':
         case 'pickup':
             return 'CONFIRMED';

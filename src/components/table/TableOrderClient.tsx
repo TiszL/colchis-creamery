@@ -180,7 +180,7 @@ export default function TableOrderClient({
                                 />
                             </div>
                             <p style={{ fontFamily: 'var(--font-sans)', fontSize: 10, color: '#F5F0E666', margin: '0 0 4px' }}>
-                                100% of the tip goes to the person serving your table.
+                                Your tip goes to the person serving your table.
                             </p>
                         <div style={{ display: 'flex', gap: 8 }}>
                             <input

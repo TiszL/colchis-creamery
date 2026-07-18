@@ -672,6 +672,10 @@ model Order {
   // the Stripe Tax calculation (voluntary tips are not taxable in OH) and
   // never corporate revenue — a pass-through to the assigned server.
   tipCents               Int         @default(0)
+  // Actual Stripe processing fee for the main charge (cents), captured from
+  // the balance transaction at payment time. Feeds the tips report's lawful
+  // card-fee deduction (the tip's pro-rata share of this fee).
+  stripeFeeCents         Int?
   guestEmail             String?
   guestPhone             String?
   // Phase 7a — scheduled fulfillment (earliest "ready" time across all fulfillments)

@@ -6,6 +6,7 @@ import { revalidatePath } from 'next/cache';
 import LocationsClient from '@/components/admin/LocationsClient';
 import { LocationType, DeliveryMethod, SalesChannel } from '@prisma/client';
 import { LocationConnectPanel } from '@/components/admin/LocationConnectPanel';
+import { getCourierWebhookDebug } from '@/lib/courier-status';
 
 export const dynamic = 'force-dynamic';
 
@@ -277,8 +278,43 @@ export default async function AdminLocationsPage({ params }: { params: Promise<{
         stripeOnboardingUpdatedAt: l.stripeOnboardingUpdatedAt ? l.stripeOnboardingUpdatedAt.toISOString() : null,
     }));
 
+    // Courier webhook health — proof of whether DD/Uber portal webhooks reach
+    // us at all (the #1 cause of "delivery status never updates" is portal
+    // config, which code can't see). The cron + KDS refresh poll as a fallback.
+    const webhookDebug = await getCourierWebhookDebug();
+
     return (
         <>
+            <section className="mb-6 bg-[#161616] border border-[#ffffff0A] p-5">
+                <h2 className="text-xs font-bold uppercase tracking-wider text-[#B96A3D] mb-1">Carrier webhook health</h2>
+                <p className="text-[11px] text-gray-500 mb-4 max-w-3xl">
+                    Live courier status flows in two ways: carrier webhooks (configure the URL + auth from the launch
+                    runbook in each carrier dashboard) and an automatic status poll every few minutes as a fallback.
+                    This shows the last webhook attempts we received — &ldquo;never received&rdquo; means the carrier
+                    dashboard isn&apos;t configured yet (delivery states still update via the poll, just slower).
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {([['doordash', 'DoorDash Drive'], ['uber', 'Uber Direct']] as const).map(([key, label]) => (
+                        <div key={key} className="border border-[#ffffff0A] p-4">
+                            <p className="text-[11px] font-mono uppercase tracking-wider text-gray-400 mb-2">{label}</p>
+                            {webhookDebug[key].length === 0 ? (
+                                <p className="text-[12px] font-mono text-amber-400">
+                                    Never received a webhook — configure it in the {label} dashboard (see LAUNCH_RUNBOOK).
+                                </p>
+                            ) : (
+                                <div className="space-y-1">
+                                    {webhookDebug[key].slice(0, 4).map((e, i) => (
+                                        <p key={i} className={`text-[11px] font-mono ${e.ok ? 'text-emerald-400/90' : 'text-red-400'}`}>
+                                            {new Date(e.at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                                            {e.event ? ` · ${e.event}` : ''} — {e.note}
+                                        </p>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    ))}
+                </div>
+            </section>
             <LocationConnectPanel locations={connectRows} />
             <LocationsClient
                 locations={serialized}

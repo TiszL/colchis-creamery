@@ -21,6 +21,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { mapDoorDashEvent, verifyDoorDashAuth } from '@/lib/doordash';
+import { recordCourierWebhookDebug } from '@/lib/courier-status';
 import { sendCourierIssueOpsEmail, sendDeliveryIssueCustomerEmail } from '@/lib/email';
 
 export const dynamic = 'force-dynamic';
@@ -72,6 +73,7 @@ export async function POST(req: Request) {
     if (process.env.DOORDASH_WEBHOOK_AUTH) {
         if (!verifyDoorDashAuth(authHeader)) {
             console.warn('[doordash-webhook] Invalid Authorization header');
+            await recordCourierWebhookDebug('doordash', { ok: false, note: 'AUTH FAILED — the auth value configured in the DD portal does not match DOORDASH_WEBHOOK_AUTH' });
             return new NextResponse('Invalid auth', { status: 401 });
         }
     } else if (process.env.NODE_ENV === 'production') {
@@ -89,9 +91,12 @@ export async function POST(req: Request) {
     }
 
     const externalDeliveryId = payload.delivery?.external_delivery_id;
-    const eventName = payload.event_name;
+    // DD Drive v2 sends UPPER_SNAKE event names — normalize once; every
+    // lookup below (mapping + substate tables) is lowercase.
+    const eventName = payload.event_name?.toLowerCase();
     if (!externalDeliveryId || !eventName) {
         console.warn('[doordash-webhook] Missing external_delivery_id or event_name in payload');
+        await recordCourierWebhookDebug('doordash', { ok: false, note: 'Payload missing external_delivery_id or event_name', event: payload.event_name });
         return new NextResponse('OK', { status: 200 });
     }
 
@@ -99,6 +104,7 @@ export async function POST(req: Request) {
     if (!targetStatus) {
         // Unmapped event (e.g. dasher_started_shopping) — just acknowledge.
         console.log('[doordash-webhook] Unmapped event:', eventName);
+        await recordCourierWebhookDebug('doordash', { ok: true, note: 'Received but unmapped event (ignored)', event: eventName, externalId: externalDeliveryId });
         return new NextResponse('OK', { status: 200 });
     }
 
@@ -111,8 +117,10 @@ export async function POST(req: Request) {
     });
     if (!fulfillment) {
         console.warn('[doordash-webhook] No fulfillment found for', externalDeliveryId);
+        await recordCourierWebhookDebug('doordash', { ok: false, note: 'No order matches this delivery id — if simulating, advance the delivery OUR system created (do not create a new one in the simulator)', event: eventName, externalId: externalDeliveryId });
         return new NextResponse('OK', { status: 200 });
     }
+    await recordCourierWebhookDebug('doordash', { ok: true, note: `Applied to order fulfillment ${fulfillment.id.slice(0, 8)}`, event: eventName, externalId: externalDeliveryId });
 
     // (b) Latest-wins live-info capture — dasher identity, ETAs, arrival
     // substate. Runs on EVERY mapped event for this fulfillment, even when the

@@ -17,6 +17,7 @@ import {
     advanceFulfillment,
     retryCourierDispatch,
     redispatchCourier,
+    refreshCourierStatus,
     kitchenCancelOrder,
     kitchenRemoveOrderItems,
     clearStaleFulfillment,
@@ -698,6 +699,19 @@ export default function OrdersQueueClient({
                                             <span className={`text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 ${courierChipClass(item.courierStatus)}`}>
                                                 {COURIER_LABELS[item.courierStatus] ?? item.courierStatus.replace(/_/g, ' ')}
                                             </span>
+                                        )}
+                                        {/* Live check with the carrier — safety net when portal
+                                            webhooks are missing (the cron also polls automatically). */}
+                                        {item.courierStatus && !['DELIVERED', 'CANCELLED'].includes(item.courierStatus) && item.status !== 'CANCELLED' && (
+                                            <button
+                                                type="button"
+                                                disabled={busy}
+                                                onClick={() => runAction(item.id, () => refreshCourierStatus(item.id, locationId))}
+                                                className="min-h-[28px] px-2 text-[10px] font-mono uppercase tracking-wider text-teal-400/80 border border-teal-800/40 hover:text-teal-300 hover:border-teal-700 transition-colors disabled:opacity-50"
+                                                title="Ask the carrier for the current delivery status"
+                                            >
+                                                ↻ Check courier
+                                            </button>
                                         )}
                                         <span className="text-[10px] text-gray-600 font-mono">{item.deliveryMethod.replace(/_/g, ' ')}</span>
                                         {item.tableNumber !== null && (

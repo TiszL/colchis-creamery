@@ -283,15 +283,52 @@ export async function doordashCancelDelivery(externalDeliveryId: string): Promis
 
 /** Map a DoorDash webhook event name to our OrderFulfillment.status enum.
  *  Returns null for unmapped events (we acknowledge but don't act on them). */
+/** Poll the live state of a delivery we created. Null on any failure —
+ *  polling is a best-effort fallback for missing webhooks, never a blocker. */
+export async function doordashGetDelivery(externalDeliveryId: string): Promise<{
+    deliveryStatus: string | null;
+    dasherName: string | null;
+    dasherPhone: string | null;
+    pickupTimeEstimated: string | null;
+    dropoffTimeEstimated: string | null;
+    trackingUrl: string | null;
+} | null> {
+    if (!isDoorDashConfigured()) return null;
+    try {
+        const res = await ddRequest(`/drive/v2/deliveries/${encodeURIComponent(externalDeliveryId)}`);
+        if (!res.ok) {
+            console.warn('[doordash] getDelivery failed:', res.status, externalDeliveryId);
+            return null;
+        }
+        const data = await res.json() as Record<string, unknown>;
+        return {
+            deliveryStatus: typeof data.delivery_status === 'string' ? data.delivery_status : null,
+            dasherName: typeof data.dasher_name === 'string' ? data.dasher_name : null,
+            dasherPhone: typeof data.dasher_phone_number_for_customer === 'string' ? data.dasher_phone_number_for_customer : null,
+            pickupTimeEstimated: typeof data.pickup_time_estimated === 'string' ? data.pickup_time_estimated : null,
+            dropoffTimeEstimated: typeof data.dropoff_time_estimated === 'string' ? data.dropoff_time_estimated : null,
+            trackingUrl: typeof data.tracking_url === 'string' ? data.tracking_url : null,
+        };
+    } catch (e) {
+        console.warn('[doordash] getDelivery error:', e instanceof Error ? e.message : e);
+        return null;
+    }
+}
+
 export function mapDoorDashEvent(eventName: string):
     | 'PENDING' | 'CONFIRMED' | 'PREPARING' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'CANCELLED'
     | null {
-    switch (eventName) {
+    // DD Drive v2 sends UPPER_SNAKE event names (DASHER_CONFIRMED, …). We
+    // normalize so either casing maps — the original lowercase table silently
+    // dropped every real webhook as "unmapped".
+    switch (eventName.toLowerCase()) {
         case 'delivery_created':
         case 'dasher_confirmed':
+        case 'dasher_enroute_to_pickup':
         case 'dasher_confirmed_pickup_arrival':
             return 'CONFIRMED';
         case 'dasher_picked_up':
+        case 'dasher_enroute_to_dropoff':
         case 'dasher_confirmed_dropoff_arrival':
             return 'OUT_FOR_DELIVERY';
         case 'dasher_dropped_off':
@@ -299,6 +336,35 @@ export function mapDoorDashEvent(eventName: string):
             return 'DELIVERED';
         case 'delivery_cancelled':
         case 'delivery_returned':
+            return 'CANCELLED';
+        default:
+            return null;
+    }
+}
+
+/** Map a GET /drive/v2/deliveries/{id} `delivery_status` value (different
+ *  vocabulary than webhook event names) onto our courierStatus enum. Used by
+ *  the polling fallback so delivery state stays fresh even when portal
+ *  webhooks are missing or misconfigured. */
+export function mapDoorDashDeliveryStatus(status: string):
+    | 'CONFIRMED' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'CANCELLED'
+    | null {
+    switch (status.toLowerCase()) {
+        case 'created':
+        case 'confirmed':
+        case 'dasher_confirmed':
+        case 'enroute_to_pickup':
+        case 'arrived_at_pickup':
+            return 'CONFIRMED';
+        case 'picked_up':
+        case 'enroute_to_dropoff':
+        case 'arrived_at_dropoff':
+            return 'OUT_FOR_DELIVERY';
+        case 'delivered':
+            return 'DELIVERED';
+        case 'cancelled':
+        case 'canceled':
+        case 'returned':
             return 'CANCELLED';
         default:
             return null;

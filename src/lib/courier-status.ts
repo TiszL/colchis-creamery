@@ -224,21 +224,37 @@ export async function pollCourierFulfillment(fulfillmentId: string): Promise<Pol
 }
 
 /**
- * Cron sweep: poll every ACTIVE courier leg that hasn't heard from its
- * carrier recently. Bounded so the cron stays fast.
+ * Sweep: poll ACTIVE courier legs that haven't heard from their carrier
+ * recently. Bounded so callers stay fast. Runs from three places so delivery
+ * state self-updates regardless of webhook config or cron frequency (Vercel
+ * Hobby crons fire only daily):
+ *   - the cron (org-wide),
+ *   - fetchLocationQueue via after() — every open KDS tablet keeps its own
+ *     location's board fresh,
+ *   - customer order pages via after() — each view refreshes that order.
  */
-export async function pollActiveCourierDeliveries(limit = 15): Promise<{ polled: number; advanced: number }> {
+export async function pollActiveCourierDeliveries(opts?: {
+    locationId?: string;
+    orderId?: string;
+    /** Skip rows the carrier answered about within this window. */
+    staleMs?: number;
+    limit?: number;
+}): Promise<{ polled: number; advanced: number }> {
+    const limit = opts?.limit ?? 15;
+    const staleMs = opts?.staleMs ?? 2 * 60 * 1000;
     const candidates = await prisma.orderFulfillment.findMany({
         where: {
+            ...(opts?.locationId ? { locationId: opts.locationId } : {}),
+            ...(opts?.orderId ? { orderId: opts.orderId } : {}),
             deliveryMethod: { in: ['DOORDASH_DRIVE', 'UBER_DIRECT'] },
             externalOrderId: { not: null },
             status: { notIn: ['DELIVERED', 'CANCELLED'] },
             OR: [{ courierStatus: null }, { courierStatus: { notIn: ['DELIVERED', 'CANCELLED'] } }],
             // Stop polling stale test/abandoned deliveries after 48h.
             createdAt: { gte: new Date(Date.now() - 48 * 60 * 60 * 1000) },
-            // Don't hammer the carrier: skip rows updated in the last 2 minutes
-            // (a webhook or another poll just touched them).
-            updatedAt: { lt: new Date(Date.now() - 2 * 60 * 1000) },
+            // Don't hammer the carrier: skip recently-touched rows
+            // (a webhook or another poll just handled them).
+            updatedAt: { lt: new Date(Date.now() - staleMs) },
         },
         select: { id: true },
         // Least-recently-touched FIRST: any poll that writes bumps updatedAt,

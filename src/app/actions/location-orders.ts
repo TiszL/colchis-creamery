@@ -17,6 +17,7 @@
 // Courier status (OrderFulfillment.courierStatus — carrier-driven) is written
 // by dispatchCourierForFulfillment + the DD/Uber webhooks, never by staff.
 
+import { after } from 'next/server';
 import { prisma } from '@/lib/db';
 import { getSession } from '@/lib/session';
 import { assertLocationRole } from '@/lib/location-rbac';
@@ -27,6 +28,7 @@ import { createOrderEditRequest, approveOrderEditRequest, cancelPendingAmendment
 import { sendEditRequestManagerEmail } from '@/lib/email';
 import { hasLocationRole } from '@/lib/location-rbac';
 import { sellableStockWhere } from '@/lib/stock-availability';
+import { pollActiveCourierDeliveries } from '@/lib/courier-status';
 import { BUSINESS_TIMEZONE } from '@/lib/timezone';
 
 const COURIER_METHODS = ['DOORDASH_DRIVE', 'UBER_DIRECT'] as const;
@@ -151,6 +153,15 @@ export async function fetchLocationQueue(
     // SERVER (waitstaff) reads the same queue — they claim + serve dine-in
     // tickets from it; mutations stay gated per-action below.
     await assertLocationRole(locationId, ['LOCATION_MANAGER', 'LOCATION_FULFILLMENT', 'SERVER']);
+
+    // Self-updating courier state: every open KDS tablet (10s poll) triggers a
+    // carrier status check for this location's stale active deliveries AFTER
+    // the response is sent — no added latency, no reliance on cron frequency
+    // (Vercel Hobby crons only fire daily) or portal webhook config. The 90s
+    // staleness window + updatedAt touch inside the sweep keep carrier API
+    // volume bounded even with several tablets polling.
+    after(() => pollActiveCourierDeliveries({ locationId, staleMs: 90_000, limit: 3 })
+        .catch(e => console.warn('[queue] courier poll failed:', e instanceof Error ? e.message : e)));
 
     // Kitchen must only ever see orders whose money is settled: fulfillments are
     // created (PENDING) BEFORE payment confirms, and delayed-settlement (ACH)

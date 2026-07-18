@@ -10,7 +10,10 @@
 
 import { prisma } from '@/lib/db';
 import { verifyOrderToken } from '@/lib/order-token';
+import { after } from 'next/server';
 import OrderDetailView from '@/components/account/OrderDetailView';
+import OrderAutoRefresh from '@/components/account/OrderAutoRefresh';
+import { pollActiveCourierDeliveries } from '@/lib/courier-status';
 import { productForCart } from '@/lib/cart-product';
 import Link from 'next/link';
 
@@ -84,17 +87,32 @@ export default async function GuestOrderLookupPage({ params }: PageProps) {
     const removedLineCount = order.orderItems.filter(oi => oi.quantity - oi.refundedQuantity <= 0).length;
     const reorderSkippedCount = Math.max(0, order.orderItems.length - removedLineCount - reorderItems.length);
 
+    // Live tracking: while any leg is still moving, (a) each render triggers a
+    // post-response courier status check with the carrier, and (b) the page
+    // re-renders itself every 30s — so "on the way / delivered" advances on
+    // the customer's screen without webhooks, cron, or a manual reload.
+    const orderLive =
+        order.paymentStatus === 'PAID' &&
+        order.fulfillments.some(f => !['DELIVERED', 'CANCELLED'].includes(f.status));
+    if (orderLive) {
+        after(() => pollActiveCourierDeliveries({ orderId: order.id, staleMs: 60_000, limit: 3 })
+            .catch(e => console.warn('[order-page] courier poll failed:', e instanceof Error ? e.message : e)));
+    }
+
     // No back link — guest may not have an account, so /account isn't a sensible
     // destination. The "Need help?" block + home links elsewhere in the layout
     // handle navigation.
     return (
-        <OrderDetailView
-            order={order}
-            backLink={null}
-            locale={locale}
-            reorderItems={reorderItems}
-            reorderSkippedCount={reorderSkippedCount}
-        />
+        <>
+            {orderLive && <OrderAutoRefresh />}
+            <OrderDetailView
+                order={order}
+                backLink={null}
+                locale={locale}
+                reorderItems={reorderItems}
+                reorderSkippedCount={reorderSkippedCount}
+            />
+        </>
     );
 }
 

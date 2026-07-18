@@ -41,13 +41,18 @@ export default async function AdminTipsPage({
     // One fulfillment per dine-in order (table orders are single-location), so
     // no double counting. paymentStatus PAID excludes both unpaid sessions and
     // fully-refunded orders; partial item refunds never touch the tip.
-    const fulfillments = await prisma.orderFulfillment.findMany({
+    // CANCELLED fulfillments are excluded from the payout — "Remove stale
+    // order" cancels WITHOUT refunding, and a tip for food never served is not
+    // payable; those orders surface separately below so the owner can decide
+    // (usually: refund the customer).
+    const allFulfillments = await prisma.orderFulfillment.findMany({
         where: {
             deliveryMethod: "IN_STORE_DINE_IN",
             createdAt: { gte: from },
             order: { tipCents: { gt: 0 }, paymentStatus: "PAID" },
         },
         select: {
+            status: true,
             serverId: true,
             serverName: true,
             createdAt: true,
@@ -56,6 +61,8 @@ export default async function AdminTipsPage({
         },
         orderBy: { createdAt: "desc" },
     });
+    const fulfillments = allFulfillments.filter(f => f.status !== "CANCELLED");
+    const cancelledTipped = allFulfillments.filter(f => f.status === "CANCELLED");
 
     type Row = { serverId: string | null; serverName: string; tipCents: number; orders: number; locations: Set<string> };
     const byServer = new Map<string, Row>();
@@ -175,6 +182,28 @@ export default async function AdminTipsPage({
                     </div>
                     <p className="text-[11px] text-gray-500 mt-3">
                         Tips stay attributable when servers tap “Claim table” on the order queue — remind the floor.
+                    </p>
+                </div>
+            )}
+
+            {cancelledTipped.length > 0 && (
+                <div className="bg-[#161616] border border-red-800/40 p-5">
+                    <p className="text-[11px] font-mono uppercase tracking-wider text-red-400 mb-3">
+                        Cancelled without refund — tip NOT payable; the customer paid for food never served
+                    </p>
+                    <div className="space-y-1.5">
+                        {cancelledTipped.map(f => (
+                            <p key={f.order.id} className="text-[12px] font-mono text-gray-400">
+                                #{f.order.id.slice(0, 8).toUpperCase()} · Table {f.order.tableNumber ?? "?"} ·{" "}
+                                {f.createdAt.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })} ·{" "}
+                                tip <span className="text-red-400">{fmtMoney(f.order.tipCents)}</span>
+                                {f.serverName ? ` · claimed by ${f.serverName}` : ""}
+                            </p>
+                        ))}
+                    </div>
+                    <p className="text-[11px] text-gray-500 mt-3">
+                        These orders were cleared off the board without a refund. The right move is usually a full
+                        refund from the admin order page — the customer's money (tip included) goes back to them.
                     </p>
                 </div>
             )}

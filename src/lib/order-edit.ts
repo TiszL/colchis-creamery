@@ -218,7 +218,8 @@ export async function approveOrderEditRequest(
                     locationId: true,
                     status: true,
                     courierStatus: true,
-                    location: { select: { name: true, stripeConnectAccountId: true, stripeOnboardingStatus: true, stripeAccountLivemode: true } },
+                    deliveryMethod: true,
+                    location: { select: { name: true, stripeConnectAccountId: true, stripeOnboardingStatus: true, stripeAccountLivemode: true, addressLine1: true, city: true, state: true, postalCode: true, country: true } },
                     order: {
                         select: {
                             id: true,
@@ -296,11 +297,34 @@ export async function approveOrderEditRequest(
         const itemsCents = adds.reduce((sum, l) => sum + toCents(l.addUnitPrice) * l.addQuantity!, 0);
         if (itemsCents <= 0) return { ok: false, error: 'Added items have no price — cannot charge.' };
 
-        /* Tax on the additions — same engine as checkout; address from the
-           order snapshot. Missing address (legacy rows) ⇒ tax 0 + loud log. */
+        /* Tax on the additions — same engine as checkout. Taxable situs:
+           the customer's structured address for delivery orders; dine-in has
+           no shipping columns — it's sold AT the store, so the location's
+           address applies (mirrors createTableOrder). Neither ⇒ tax 0 + loud
+           log (legacy rows only). */
         let taxCents = 0;
         let taxCalculationId: string | null = null;
-        if (order.shippingLine1 && order.shippingCity && order.shippingState && order.shippingPostalCode) {
+        const storeLoc = req.fulfillment.location;
+        const taxAddress =
+            order.shippingLine1 && order.shippingCity && order.shippingState && order.shippingPostalCode
+                ? {
+                      line1: order.shippingLine1,
+                      line2: order.shippingAddressLine2 || undefined,
+                      city: order.shippingCity,
+                      state: order.shippingState,
+                      postal_code: order.shippingPostalCode,
+                      country: 'US',
+                  }
+                : req.fulfillment.deliveryMethod === 'IN_STORE_DINE_IN' || req.fulfillment.deliveryMethod === 'IN_STORE_PICKUP'
+                    ? {
+                          line1: storeLoc.addressLine1,
+                          city: storeLoc.city,
+                          state: storeLoc.state,
+                          postal_code: storeLoc.postalCode,
+                          country: storeLoc.country || 'US',
+                      }
+                    : null;
+        if (taxAddress) {
             try {
                 const calc = await stripe.tax.calculations.create({
                     currency: 'usd',
@@ -311,14 +335,7 @@ export async function approveOrderEditRequest(
                         tax_behavior: 'exclusive' as const,
                     })),
                     customer_details: {
-                        address: {
-                            line1: order.shippingLine1,
-                            line2: order.shippingAddressLine2 || undefined,
-                            city: order.shippingCity,
-                            state: order.shippingState,
-                            postal_code: order.shippingPostalCode,
-                            country: 'US',
-                        },
+                        address: taxAddress,
                         address_source: 'shipping',
                     },
                 });

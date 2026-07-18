@@ -358,10 +358,16 @@ async function claimGuarded(fulfillmentId: string, userId: string): Promise<bool
     const user = await prisma.user.findUnique({ where: { id: userId }, select: { name: true, email: true } });
     const claimed = await prisma.orderFulfillment.updateMany({
         where: { id: fulfillmentId, serverId: null },
-        data: { serverId: userId, serverName: user?.name || user?.email || 'Server' },
+        data: { serverId: userId, serverName: user?.name || user?.email || 'Server', serverClaimedAt: new Date() },
     });
     return claimed.count === 1;
 }
+
+// A served (DELIVERED) table stays claimable briefly — "forgot to tap during
+// the rush" is real — but NOT indefinitely: tips steer payroll, and an open-
+// ended window would let anyone sweep old unattributed tips into their payout.
+// Mirrored in OrdersQueueClient's claim-button condition.
+const CLAIM_AFTER_SERVED_WINDOW_MS = 12 * 60 * 60 * 1000;
 
 /**
  * A server takes a table: tip attribution + "who brings the food" both key
@@ -373,11 +379,14 @@ export async function claimTableOrder(fulfillmentId: string, locationId: string)
         const caller = await assertLocationRole(locationId, ['SERVER', 'LOCATION_MANAGER']);
         const f = await prisma.orderFulfillment.findUnique({
             where: { id: fulfillmentId },
-            select: { locationId: true, deliveryMethod: true, serverId: true, serverName: true, status: true },
+            select: { locationId: true, deliveryMethod: true, serverId: true, serverName: true, status: true, createdAt: true },
         });
         if (!f || f.locationId !== locationId) return { ok: false, error: 'Not found' };
         if (f.deliveryMethod !== 'IN_STORE_DINE_IN') return { ok: false, error: 'Only table orders can be claimed' };
         if (f.status === 'CANCELLED') return { ok: false, error: 'Order is cancelled' };
+        if (f.status === 'DELIVERED' && Date.now() - f.createdAt.getTime() > CLAIM_AFTER_SERVED_WINDOW_MS) {
+            return { ok: false, error: 'Too late to claim a served table — ask a manager to attribute this tip' };
+        }
         if (f.serverId) return { ok: false, error: `Already claimed by ${f.serverName ?? 'another server'}` };
         const won = await claimGuarded(fulfillmentId, caller.userId);
         return won ? { ok: true } : { ok: false, error: 'Another server just claimed this table' };
@@ -399,7 +408,7 @@ export async function unclaimTableOrder(fulfillmentId: string, locationId: strin
         if (!f.serverId) return { ok: false, error: 'Not claimed' };
         await prisma.orderFulfillment.update({
             where: { id: fulfillmentId },
-            data: { serverId: null, serverName: null },
+            data: { serverId: null, serverName: null, serverClaimedAt: null },
         });
         return { ok: true };
     } catch (e) {

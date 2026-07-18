@@ -1289,9 +1289,12 @@ model OrderFulfillment {
   // ARRIVED_AT_PICKUP | ARRIVED_AT_DROPOFF — cleared when status advances past.
   courierSubstate     String?
   // QR table ordering — the server who claimed this table's order. Name is
-  // denormalized so tip attribution survives account deletion.
+  // denormalized so tip attribution survives account deletion. claimedAt is
+  // the audit stamp: tips steer payroll, so WHEN a claim happened must be
+  // reconstructable (late claims on served tables are bounded + visible).
   serverId          String?
   serverName        String?
+  serverClaimedAt   DateTime?
 
   // Kitchen timing metrics: when staff accepted the order and when they marked
   // it handoff-ready. Feed ops dashboards + prep-time tuning later.

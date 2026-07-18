@@ -853,8 +853,12 @@ export default function OrdersQueueClient({
                                         </button>
                                     )}
                                     {/* Table claim — the server taking this table. Tips
-                                        are attributed to whoever holds the claim. */}
-                                    {isDineIn && item.status !== 'CANCELLED' && !item.serverId && canClaim && (
+                                        are attributed to whoever holds the claim. Served
+                                        tables stay claimable 12h (mirrors the server-side
+                                        CLAIM_AFTER_SERVED_WINDOW_MS gate), then it's a
+                                        manager call — no retroactive tip sweeping. */}
+                                    {isDineIn && item.status !== 'CANCELLED' && !item.serverId && canClaim &&
+                                        !(item.status === 'DELIVERED' && ageMs > 12 * 60 * 60 * 1000) && (
                                         <button
                                             type="button"
                                             disabled={busy}

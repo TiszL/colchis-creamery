@@ -108,7 +108,7 @@ export async function pollCourierFulfillment(fulfillmentId: string): Promise<Pol
         return { ok: true, changed: false, courierStatus: f.courierStatus };
     }
 
-    let mapped: 'CONFIRMED' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'CANCELLED' | 'PENDING' | 'PREPARING' | null = null;
+    let mapped: 'REQUESTED' | 'CONFIRMED' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'CANCELLED' | 'PENDING' | 'PREPARING' | null = null;
     let rawStatus: string | null = null;
     const info: {
         courierName?: string; courierPhone?: string;

@@ -130,20 +130,25 @@ export async function hasLocationRole(
 /**
  * For server actions invoked by a logged-in user. Throws when the caller
  * lacks the role at the location. Master admin bypass.
+ *
+ * `roles` is ALL the caller's roles at this location (not just the matched
+ * ones) so callers can apply finer gates — e.g. a SERVER passing the shared
+ * queue gate but being limited to dine-in mutations. Empty for master admin.
  */
 export async function assertLocationRole(
     locationId: string,
     requiredRoles: LocationRole[],
-): Promise<{ userId: string; isMasterAdmin: boolean }> {
+): Promise<{ userId: string; isMasterAdmin: boolean; roles: LocationRole[] }> {
     const session = await getSession();
     if (!session) throw new Error("Not signed in");
     if (session.role === "MASTER_ADMIN") {
-        return { userId: session.userId, isMasterAdmin: true };
+        return { userId: session.userId, isMasterAdmin: true, roles: [] };
     }
-    const row = await prisma.userLocation.findFirst({
-        where: { userId: session.userId, locationId, role: { in: requiredRoles } },
-        select: { id: true },
+    const rows = await prisma.userLocation.findMany({
+        where: { userId: session.userId, locationId },
+        select: { role: true },
     });
-    if (!row) throw new Error("Forbidden: missing location role");
-    return { userId: session.userId, isMasterAdmin: false };
+    const roles = rows.map(r => r.role);
+    if (!roles.some(r => requiredRoles.includes(r))) throw new Error("Forbidden: missing location role");
+    return { userId: session.userId, isMasterAdmin: false, roles };
 }

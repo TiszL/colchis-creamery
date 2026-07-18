@@ -88,6 +88,11 @@ export type TableOrderInput = {
     table: number;
     items: { productId: string; quantity: number }[];
     contact: { name: string; email: string };
+    /** Voluntary tip for the serving staff, in cents. Separately stated and
+     *  NEVER fed to the tax calculation (voluntary tips are not taxable
+     *  sales in OH; a mandatory or taxed "service charge" would be). It rides
+     *  the SAME Checkout Session as the food, so no extra transaction fee. */
+    tipCents?: number;
     locale?: string;
 };
 
@@ -151,6 +156,13 @@ export async function createTableOrder(input: TableOrderInput): Promise<TableOrd
         (sum, it) => sum + Math.round(parseFloat(productMap.get(it.productId)!.priceB2c) * 100) * it.quantity, 0);
     if (subtotalCents <= 0) return { ok: false, error: 'Nothing to charge for.' };
 
+    // Tip bounds: an unauthenticated caller must not be able to build an
+    // absurd charge. 2× the food and $500 are both far above any real tip.
+    const tipCents = Number.isInteger(input.tipCents) && input.tipCents! > 0 ? input.tipCents! : 0;
+    if (tipCents > Math.min(subtotalCents * 2, 50_000)) {
+        return { ok: false, error: 'That tip looks too large — please re-enter it.' };
+    }
+
     /* Reserve stock (released by the reservation cron if the session expires
        unpaid, keyed off reservationExpiresAt — same machinery as checkout). */
     const reservationItems: ReservationItem[] = items.map(i => ({
@@ -202,7 +214,7 @@ export async function createTableOrder(input: TableOrderInput): Promise<TableOrd
                 ],
             }).catch(() => undefined);
         }
-        const totalCents = subtotalCents + taxCents;
+        const totalCents = subtotalCents + taxCents + tipCents;
 
         /* Order + items + dine-in fulfillment. Guest User row pattern matches
            checkout: find-or-create by (email, B2C_CUSTOMER). */
@@ -223,6 +235,7 @@ export async function createTableOrder(input: TableOrderInput): Promise<TableOrd
                     locale: ['en', 'ka', 'ru', 'es'].includes(input.locale ?? '') ? input.locale! : 'en',
                     guestEmail: email,
                     tableNumber: input.table,
+                    tipCents,
                     subtotalAmount: (subtotalCents / 100).toFixed(2),
                     shippingAmount: '0.00',
                     taxAmount: (taxCents / 100).toFixed(2),
@@ -287,6 +300,11 @@ export async function createTableOrder(input: TableOrderInput): Promise<TableOrd
                 })),
                 ...(taxCents > 0
                     ? [{ price_data: { currency: 'usd', product_data: { name: 'Sales tax' }, unit_amount: taxCents }, quantity: 1 }]
+                    : []),
+                // Separately-stated voluntary tip — deliberately NOT in the tax
+                // calculation above (see TableOrderInput.tipCents).
+                ...(tipCents > 0
+                    ? [{ price_data: { currency: 'usd', product_data: { name: 'Tip for your server' }, unit_amount: tipCents }, quantity: 1 }]
                     : []),
             ],
             ...(destination ? { payment_intent_data: { transfer_data: { destination }, metadata: { orderId: order.id } } } : { payment_intent_data: { metadata: { orderId: order.id } } }),

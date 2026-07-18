@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { requireLocationAccess } from "@/lib/location-rbac";
 import { receiveStockAction } from "@/app/actions/inventory";
 import { PackagePlus } from "lucide-react";
 
@@ -10,6 +11,8 @@ export default async function LocationInventoryPage({
     params: Promise<{ locale: string; locationId: string }>;
 }) {
     const { locationId } = await params;
+    // Kitchen surfaces only — waitstaff (SERVER role) have no business here.
+    await requireLocationAccess(locationId, ["LOCATION_MANAGER", "LOCATION_FULFILLMENT"]);
 
     const [stocks, batches, location] = await Promise.all([
         prisma.stock.findMany({

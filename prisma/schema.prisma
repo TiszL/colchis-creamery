@@ -86,6 +86,9 @@ enum LocationRole {
   LOCATION_MANAGER       // edit location's menu, set stock, all order fulfillment
   LOCATION_FULFILLMENT   // order queue access: mark prepping / ready / out / delivered
   B2B_SALES_MANAGER      // B2B order pipeline + partner ops for this warehouse
+  // QR table ordering — waitstaff: sees dine-in tickets, claims tables,
+  // marks orders served. No money powers.
+  SERVER
 }
 
 model UserLocation {
@@ -665,6 +668,10 @@ model Order {
   locale                 String      @default("en")
   // QR table ordering — dine-in orders carry the table the customer scanned.
   tableNumber            Int?
+  // Voluntary, separately-stated tip for the serving staff (cents). NEVER in
+  // the Stripe Tax calculation (voluntary tips are not taxable in OH) and
+  // never corporate revenue — a pass-through to the assigned server.
+  tipCents               Int         @default(0)
   guestEmail             String?
   guestPhone             String?
   // Phase 7a — scheduled fulfillment (earliest "ready" time across all fulfillments)
@@ -1281,6 +1288,14 @@ model OrderFulfillment {
   courierDropoffEtaAt DateTime?
   // ARRIVED_AT_PICKUP | ARRIVED_AT_DROPOFF — cleared when status advances past.
   courierSubstate     String?
+  // QR table ordering — the server who claimed this table's order. Name is
+  // denormalized so tip attribution survives account deletion. claimedAt is
+  // the audit stamp: tips steer payroll, so WHEN a claim happened must be
+  // reconstructable (late claims on served tables are bounded + visible).
+  serverId          String?
+  serverName        String?
+  serverClaimedAt   DateTime?
+
   // Kitchen timing metrics: when staff accepted the order and when they marked
   // it handoff-ready. Feed ops dashboards + prep-time tuning later.
   acceptedAt        DateTime?

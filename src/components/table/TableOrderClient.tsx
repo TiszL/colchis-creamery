@@ -33,6 +33,11 @@ export default function TableOrderClient({
     const [qty, setQty] = useState<Record<string, number>>({});
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
+    // Tip: preset percentage of the food subtotal, or a custom dollar amount.
+    // null percent + empty custom = no tip. 100% voluntary — it goes to the
+    // server who takes the table, never to the house.
+    const [tipPercent, setTipPercent] = useState<number | null>(null);
+    const [tipCustom, setTipCustom] = useState('');
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -48,6 +53,11 @@ export default function TableOrderClient({
 
     const cart = useMemo(() => items.filter(i => (qty[i.id] ?? 0) > 0), [items, qty]);
     const subtotalCents = cart.reduce((sum, i) => sum + Math.round(parseFloat(i.price) * 100) * (qty[i.id] ?? 0), 0);
+    const tipCents = tipCustom.trim() !== ''
+        ? Math.max(0, Math.min(50_000, Math.round(parseFloat(tipCustom) * 100) || 0))
+        : tipPercent
+            ? Math.round(subtotalCents * tipPercent / 100)
+            : 0;
     const bump = (id: string, delta: number) =>
         setQty(prev => ({ ...prev, [id]: Math.max(0, Math.min(20, (prev[id] ?? 0) + delta)) }));
 
@@ -63,6 +73,7 @@ export default function TableOrderClient({
                 table,
                 items: cart.map(i => ({ productId: i.id, quantity: qty[i.id] ?? 0 })),
                 contact: { name: name.trim(), email: email.trim() },
+                tipCents,
                 locale,
             });
             if (res.ok) {
@@ -144,6 +155,33 @@ export default function TableOrderClient({
             <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, background: '#1F3026', color: '#F5F0E6', padding: '16px 20px 20px', boxShadow: '0 -8px 24px #1F302633' }}>
                 <div style={{ maxWidth: 720, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 10 }}>
                     {cart.length > 0 && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.18em', color: '#F5F0E699', textTransform: 'uppercase', marginRight: 2 }}>
+                                    Tip your server
+                                </span>
+                                {[null, 10, 15, 20].map(p => {
+                                    const active = tipCustom.trim() === '' && tipPercent === p;
+                                    return (
+                                        <button
+                                            key={p ?? 'none'} type="button"
+                                            onClick={() => { setTipPercent(p); setTipCustom(''); }}
+                                            style={{ padding: '8px 12px', border: active ? '1px solid #B96A3D' : '1px solid #F5F0E633', background: active ? '#B96A3D' : '#F5F0E60D', color: '#F5F0E6', cursor: 'pointer', fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.1em' }}
+                                        >
+                                            {p === null ? 'No tip' : `${p}%`}
+                                        </button>
+                                    );
+                                })}
+                                <input
+                                    value={tipCustom}
+                                    onChange={e => setTipCustom(e.target.value.replace(/[^0-9.]/g, ''))}
+                                    placeholder="Custom $" inputMode="decimal"
+                                    style={{ width: 86, padding: '8px 10px', border: tipCustom.trim() !== '' ? '1px solid #B96A3D' : '1px solid #F5F0E633', background: '#F5F0E60D', color: '#F5F0E6', fontFamily: 'var(--font-mono)', fontSize: 12, outline: 'none' }}
+                                />
+                            </div>
+                            <p style={{ fontFamily: 'var(--font-sans)', fontSize: 10, color: '#F5F0E666', margin: '0 0 4px' }}>
+                                100% of the tip goes to the person serving your table.
+                            </p>
                         <div style={{ display: 'flex', gap: 8 }}>
                             <input
                                 value={name} onChange={e => setName(e.target.value)} placeholder="Your name"
@@ -155,6 +193,7 @@ export default function TableOrderClient({
                                 type="email" autoComplete="email"
                                 style={{ flex: 1.2, minWidth: 0, padding: '12px 14px', border: '1px solid #F5F0E633', background: '#F5F0E60D', color: '#F5F0E6', fontFamily: 'var(--font-sans)', fontSize: 14, outline: 'none' }}
                             />
+                        </div>
                         </div>
                     )}
                     {error && (
@@ -171,7 +210,7 @@ export default function TableOrderClient({
                             ? 'Opening secure payment…'
                             : cart.length === 0
                                 ? 'Add something to order'
-                                : `Pay $${(subtotalCents / 100).toFixed(2)} + tax · Table ${table}`}
+                                : `Pay $${((subtotalCents + tipCents) / 100).toFixed(2)}${tipCents > 0 ? ` (incl. $${(tipCents / 100).toFixed(2)} tip)` : ''} + tax · Table ${table}`}
                     </button>
                     <p style={{ fontFamily: 'var(--font-sans)', fontSize: 11, color: '#F5F0E699', margin: 0, textAlign: 'center' }}>
                         Secure card payment by Stripe. Exact total incl. tax shows before you pay.

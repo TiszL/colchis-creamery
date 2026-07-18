@@ -28,12 +28,26 @@ export default async function LocationPortalLayout({
     const prefix = locale === "en" ? "" : `/${locale}`;
     const base = `${prefix}/location-portal/${locationId}`;
 
-    const navItems = [
-        { href: base, label: "Overview", icon: Home },
-        { href: `${base}/orders`, label: "Orders", icon: ClipboardList },
-        { href: `${base}/menu`, label: "Menu", icon: ListChecks },
-        { href: `${base}/inventory`, label: "Inventory", icon: Package },
-    ];
+    // Waitstaff (SERVER-only) live on the order queue — hide the menu/inventory
+    // surfaces they can't use (their pages gate on kitchen roles anyway).
+    const roles = matchedLocation?.roles ?? [];
+    const serverOnly =
+        !ctx.isMasterAdmin &&
+        roles.includes("SERVER") &&
+        !roles.includes("LOCATION_MANAGER") &&
+        !roles.includes("LOCATION_FULFILLMENT");
+
+    const navItems = serverOnly
+        ? [
+              { href: base, label: "Overview", icon: Home },
+              { href: `${base}/orders`, label: "Orders", icon: ClipboardList },
+          ]
+        : [
+              { href: base, label: "Overview", icon: Home },
+              { href: `${base}/orders`, label: "Orders", icon: ClipboardList },
+              { href: `${base}/menu`, label: "Menu", icon: ListChecks },
+              { href: `${base}/inventory`, label: "Inventory", icon: Package },
+          ];
 
     const roleLabel = ctx.isMasterAdmin
         ? "MASTER ADMIN"

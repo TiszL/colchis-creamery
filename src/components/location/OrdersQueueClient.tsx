@@ -25,6 +25,8 @@ import {
     requestOrderEdit,
     resolveOrderEdit,
     cancelAmendment,
+    claimTableOrder,
+    unclaimTableOrder,
     fetchLocationSellableProducts,
     type QueueItem,
     type QueueSnapshot,
@@ -180,10 +182,16 @@ export default function OrdersQueueClient({
     locationId,
     initial,
     canRefund,
+    canClaim = false,
+    serverOnly = false,
 }: {
     locationId: string;
     initial: QueueSnapshot;
     canRefund: boolean;
+    /** SERVER or LOCATION_MANAGER (or master admin) — may claim dine-in tables. */
+    canClaim?: boolean;
+    /** Viewer holds ONLY the SERVER role — dine-in tickets only; no money UI. */
+    serverOnly?: boolean;
 }) {
     const [view, setView] = useState<'active' | 'done'>('active');
     const [snapshot, setSnapshot] = useState<QueueSnapshot>(initial);
@@ -581,6 +589,10 @@ export default function OrdersQueueClient({
                     // recall on a refunded order also leaves courierStatus CANCELLED).
                     const courierCancelled = item.courierStatus === 'CANCELLED' && item.status !== 'CANCELLED';
                     const isUrl = item.trackingUrl?.startsWith('http');
+                    // Server-only viewers: dine-in tickets are theirs to act on;
+                    // everything else is read-only (enforced server-side too).
+                    const isDineIn = item.deliveryMethod === 'IN_STORE_DINE_IN';
+                    const canTouch = !serverOnly || isDineIn;
                     const canProblem =
                         canRefund &&
                         item.paymentStatus === 'PAID' &&
@@ -631,6 +643,7 @@ export default function OrdersQueueClient({
                     const crPending = cr?.status === 'PENDING';
                     const canRequest =
                         !canRefund &&
+                        !serverOnly &&
                         !crPending &&
                         item.paymentStatus === 'PAID' &&
                         item.status !== 'DELIVERED' &&
@@ -647,6 +660,7 @@ export default function OrdersQueueClient({
                     const amendment = item.orderPendingAmendment ?? er?.amendment ?? null;
                     const canProposeEdit =
                         !erPending &&
+                        !serverOnly &&
                         item.paymentStatus === 'PAID' &&
                         editableWindow &&
                         !(amendment && amendment.status === 'PENDING_PAYMENT');
@@ -689,6 +703,16 @@ export default function OrdersQueueClient({
                                         {item.tableNumber !== null && (
                                             <span className="px-2 py-0.5 text-[11px] font-mono font-bold uppercase tracking-wider bg-violet-900/40 text-violet-300 border border-violet-700/60">
                                                 Table {item.tableNumber}
+                                            </span>
+                                        )}
+                                        {item.tipCents > 0 && (
+                                            <span className="px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider bg-emerald-900/30 text-emerald-400">
+                                                Tip ${(item.tipCents / 100).toFixed(2)}
+                                            </span>
+                                        )}
+                                        {item.serverName && (
+                                            <span className="px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider bg-teal-900/30 text-teal-300">
+                                                Server: {item.serverName}
                                             </span>
                                         )}
                                         {item.packagingType && (
@@ -804,7 +828,7 @@ export default function OrdersQueueClient({
                                         <div className="text-sm text-white font-mono">{formatClock(item.createdAt)}</div>
                                         <div className={`text-[10px] font-mono ${ageClass}`}>{formatRelAge(ageMs)}</div>
                                     </div>
-                                    {item.status === 'PENDING' && (
+                                    {item.status === 'PENDING' && canTouch && (
                                         <button
                                             type="button"
                                             disabled={busy}
@@ -814,7 +838,7 @@ export default function OrdersQueueClient({
                                             {busy ? 'Accepting…' : 'Accept order'}
                                         </button>
                                     )}
-                                    {label && (
+                                    {label && canTouch && (
                                         <button
                                             type="button"
                                             disabled={busy}
@@ -826,6 +850,32 @@ export default function OrdersQueueClient({
                                             className="min-h-[44px] px-5 text-[11px] font-mono uppercase tracking-wider bg-[#B96A3D] text-black hover:bg-[#a85d35] transition-colors disabled:opacity-50 disabled:cursor-wait"
                                         >
                                             {busy ? '…' : `→ ${label}`}
+                                        </button>
+                                    )}
+                                    {/* Table claim — the server taking this table. Tips
+                                        are attributed to whoever holds the claim. Served
+                                        tables stay claimable 12h (mirrors the server-side
+                                        CLAIM_AFTER_SERVED_WINDOW_MS gate), then it's a
+                                        manager call — no retroactive tip sweeping. */}
+                                    {isDineIn && item.status !== 'CANCELLED' && !item.serverId && canClaim &&
+                                        !(item.status === 'DELIVERED' && ageMs > 12 * 60 * 60 * 1000) && (
+                                        <button
+                                            type="button"
+                                            disabled={busy}
+                                            onClick={() => runAction(item.id, () => claimTableOrder(item.id, locationId))}
+                                            className="min-h-[44px] px-5 text-[11px] font-mono uppercase tracking-wider bg-teal-700 text-white hover:bg-teal-600 transition-colors disabled:opacity-50 disabled:cursor-wait"
+                                        >
+                                            {busy ? '…' : `Claim table ${item.tableNumber ?? ''}`}
+                                        </button>
+                                    )}
+                                    {isDineIn && item.serverId && canRefund && (
+                                        <button
+                                            type="button"
+                                            disabled={busy}
+                                            onClick={() => runAction(item.id, () => unclaimTableOrder(item.id, locationId))}
+                                            className="min-h-[36px] px-4 text-[10px] font-mono uppercase tracking-wider text-gray-400 border border-[#ffffff1A] hover:text-white hover:border-[#ffffff33] transition-colors disabled:opacity-50 disabled:cursor-wait"
+                                        >
+                                            {busy ? '…' : 'Unclaim server'}
                                         </button>
                                     )}
                                 </div>

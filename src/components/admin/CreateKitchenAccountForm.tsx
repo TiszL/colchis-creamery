@@ -120,6 +120,7 @@ export default function CreateKitchenAccountForm({ locations }: { locations: Loc
                     <select name="locationRole" required defaultValue="LOCATION_FULFILLMENT"
                         className="bg-[#0C0C0C] border border-[#B96A3D22] text-white py-1.5 px-3 focus:outline-none focus:border-[#B96A3D] text-sm">
                         <option value="LOCATION_FULFILLMENT">Fulfillment — order queue only</option>
+                        <option value="SERVER">Server — claims tables, receives tips</option>
                         <option value="LOCATION_MANAGER">Location manager — full location control</option>
                     </select>
                 </div>

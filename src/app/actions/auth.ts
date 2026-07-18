@@ -1105,7 +1105,7 @@ export async function createLocationStaffAction(formData: FormData) {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
         return { error: "Please enter a real email address — sign-in verification codes are delivered there." };
     }
-    if (!["LOCATION_MANAGER", "LOCATION_FULFILLMENT"].includes(locationRole)) {
+    if (!["LOCATION_MANAGER", "LOCATION_FULFILLMENT", "SERVER"].includes(locationRole)) {
         return { error: "Invalid location role." };
     }
     if (password && password.length < 8) {
@@ -1361,7 +1361,7 @@ export async function assignLocationRoleAction(formData: FormData) {
     const role = formData.get("role") as string;
     if (!userId || !locationId || !role) return { error: "Missing fields." };
 
-    const validRoles = ["LOCATION_MANAGER", "LOCATION_FULFILLMENT", "B2B_SALES_MANAGER"];
+    const validRoles = ["LOCATION_MANAGER", "LOCATION_FULFILLMENT", "SERVER", "B2B_SALES_MANAGER"];
     if (!validRoles.includes(role)) return { error: "Invalid location role." };
 
     try {

@@ -344,6 +344,9 @@ export default async function AdminOrderDetailPage({ params }: PageProps) {
                             <Row label="Subtotal" value={fmtMoney(order.subtotalAmount)} />
                             <Row label="Shipping" value={fmtMoney(order.shippingAmount)} />
                             <Row label="Tax" value={fmtMoney(order.taxAmount)} />
+                            {order.tipCents > 0 && (
+                                <Row label="Tip (server pass-through)" value={`$${(order.tipCents / 100).toFixed(2)}`} />
+                            )}
                             <div className="pt-3 border-t border-gray-200 flex justify-between items-baseline">
                                 <span className="text-xs font-bold uppercase tracking-wider text-[#B96A3D]">Total</span>
                                 <span className="text-xl font-serif text-[#2C2A29]">{fmtMoney(order.totalAmount)}</span>

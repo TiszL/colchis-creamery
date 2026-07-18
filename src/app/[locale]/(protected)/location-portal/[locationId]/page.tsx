@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
+import { requireLocationAccess } from "@/lib/location-rbac";
 import { ClipboardList, AlertTriangle, Package, ArrowRight, CalendarClock, DollarSign, TrendingUp } from "lucide-react";
 import { getRevenueSummary, getTopSkus } from "@/lib/analytics";
 
@@ -16,6 +17,16 @@ export default async function LocationPortalOverview({
     const { locale, locationId } = await params;
     const prefix = locale === "en" ? "" : `/${locale}`;
     const base = `${prefix}/location-portal/${locationId}`;
+
+    // Waitstaff (SERVER-only) get the order tiles, not the money/stock ones —
+    // revenue is the owner's business, not the floor's.
+    const { ctx, matchedLocation } = await requireLocationAccess(locationId);
+    const roles = matchedLocation?.roles ?? [];
+    const serverOnly =
+        !ctx.isMasterAdmin &&
+        roles.includes("SERVER") &&
+        !roles.includes("LOCATION_MANAGER") &&
+        !roles.includes("LOCATION_FULFILLMENT");
 
     const today = new Date();
     const expiryHorizon = new Date(today.getTime() + EXPIRY_WINDOW_DAYS * 24 * 60 * 60 * 1000);
@@ -54,7 +65,13 @@ export default async function LocationPortalOverview({
 
     const salesValue = `$${(salesSummary.totalCents / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-    const tiles = [
+    const tiles = serverOnly
+        ? [
+              { label: "Pending orders",   value: String(pendingCount),        href: `${base}/orders?status=PENDING`,          tone: "amber", icon: ClipboardList },
+              { label: "Preparing",        value: String(preparingCount),      href: `${base}/orders?status=PREPARING`,        tone: "blue",  icon: ClipboardList },
+              { label: "Out for delivery", value: String(outForDeliveryCount), href: `${base}/orders?status=OUT_FOR_DELIVERY`, tone: "green", icon: ClipboardList },
+          ]
+        : [
         { label: "Pending orders",       value: String(pendingCount),         href: `${base}/orders?status=PENDING`,         tone: "amber",  icon: ClipboardList },
         { label: "Preparing",            value: String(preparingCount),       href: `${base}/orders?status=PREPARING`,       tone: "blue",   icon: ClipboardList },
         { label: "Out for delivery",     value: String(outForDeliveryCount),  href: `${base}/orders?status=OUT_FOR_DELIVERY`, tone: "green", icon: ClipboardList },

@@ -76,11 +76,12 @@ export async function getRevenueSummary(opts?: AnalyticsWindow & { locationId?: 
 
     const orders = await prisma.order.findMany({
         where: { createdAt: { gte: from, lt: to } },
-        select: { totalAmount: true, orderType: true, paymentStatus: true },
+        select: { totalAmount: true, tipCents: true, orderType: true, paymentStatus: true },
     });
     let total = 0, b2c = 0, b2b = 0, paid = 0, unpaid = 0;
     for (const o of orders) {
-        const cents = parseMoneyCents(o.totalAmount);
+        // Tips are the servers' pass-through money, not company revenue.
+        const cents = Math.max(0, parseMoneyCents(o.totalAmount) - o.tipCents);
         total += cents;
         if (o.orderType === "B2B") b2b += cents; else b2c += cents;
         if (o.paymentStatus === "PAID") paid += cents; else unpaid += cents;

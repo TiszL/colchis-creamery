@@ -755,6 +755,9 @@ export type OrderForEmail = {
   subtotalAmount: string | null;
   shippingAmount: string | null;
   taxAmount: string | null;
+  /** Voluntary tip in cents (QR table orders). Optional so pre-tip call
+   *  sites keep compiling; absent/0 renders no row. */
+  tipCents?: number;
   guestEmail: string | null;
   shippingAddress: string | null;
   createdAt: Date;
@@ -984,6 +987,11 @@ export async function sendOrderConfirmation(order: OrderForEmail) {
                   <td style="padding:5px 0;font-family:'Courier New',monospace;font-size:10px;letter-spacing:2px;color:${C.muted};text-transform:uppercase;">Sales tax</td>
                   <td style="padding:5px 0;font-family:'Georgia',serif;font-size:15px;color:${C.forest};text-align:right;">${fmtMoney(order.taxAmount)}</td>
                 </tr>
+                ${(order.tipCents ?? 0) > 0 ? `
+                <tr>
+                  <td style="padding:5px 0;font-family:'Courier New',monospace;font-size:10px;letter-spacing:2px;color:${C.muted};text-transform:uppercase;">Tip for your server</td>
+                  <td style="padding:5px 0;font-family:'Georgia',serif;font-size:15px;color:${C.forest};text-align:right;">$${((order.tipCents ?? 0) / 100).toFixed(2)}</td>
+                </tr>` : ''}
                 <tr>
                   <td style="padding:16px 0 0;border-top:1px solid ${C.forest};font-family:'Courier New',monospace;font-size:11px;letter-spacing:3px;color:${C.accent2};text-transform:uppercase;">Total</td>
                   <td style="padding:16px 0 0;border-top:1px solid ${C.forest};font-family:'Georgia',serif;font-size:32px;font-weight:400;color:${C.forest};text-align:right;letter-spacing:-0.5px;line-height:1;">${fmtMoney(order.totalAmount)}</td>

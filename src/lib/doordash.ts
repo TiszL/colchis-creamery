@@ -316,13 +316,15 @@ export async function doordashGetDelivery(externalDeliveryId: string): Promise<{
 }
 
 export function mapDoorDashEvent(eventName: string):
-    | 'PENDING' | 'CONFIRMED' | 'PREPARING' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'CANCELLED'
+    | 'REQUESTED' | 'PENDING' | 'CONFIRMED' | 'PREPARING' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'CANCELLED'
     | null {
     // DD Drive v2 sends UPPER_SNAKE event names (DASHER_CONFIRMED, …). We
     // normalize so either casing maps — the original lowercase table silently
     // dropped every real webhook as "unmapped".
     switch (eventName.toLowerCase()) {
         case 'delivery_created':
+            // Created ≠ driver assigned — keep the honest "Courier requested".
+            return 'REQUESTED';
         case 'dasher_confirmed':
         case 'dasher_enroute_to_pickup':
         case 'dasher_confirmed_pickup_arrival':
@@ -347,10 +349,12 @@ export function mapDoorDashEvent(eventName: string):
  *  the polling fallback so delivery state stays fresh even when portal
  *  webhooks are missing or misconfigured. */
 export function mapDoorDashDeliveryStatus(status: string):
-    | 'CONFIRMED' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'CANCELLED'
+    | 'REQUESTED' | 'CONFIRMED' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'CANCELLED'
     | null {
     switch (status.toLowerCase()) {
         case 'created':
+            // Created ≠ driver assigned — keep the honest "Courier requested".
+            return 'REQUESTED';
         case 'confirmed':
         case 'dasher_confirmed':
         case 'enroute_to_pickup':

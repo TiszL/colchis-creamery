@@ -17,6 +17,7 @@
 // return null so callers degrade to flat-fee + log a warning.
 
 import { createHmac, timingSafeEqual } from 'crypto';
+import { isStripeLiveMode } from './stripe';
 
 const API_BASE = process.env.UBER_DIRECT_API_BASE || 'https://api.uber.com';
 const TOKEN_URL = process.env.UBER_DIRECT_TOKEN_URL || 'https://login.uber.com/oauth/v2/token';
@@ -252,6 +253,13 @@ export async function uberCreateDelivery(
             // KDS: kitchen-readiness time — courier arrival converges with this.
             ...(req.pickupReadyAt ? { pickup_ready_dt: req.pickupReadyAt.toISOString() } : {}),
             ...(req.undeliverableAction ? { undeliverable_action: req.undeliverableAction } : {}),
+            // Sandbox: without Robo Courier a test delivery sits at "pending"
+            // (courier requesting) FOREVER — Uber has no manual assign-driver
+            // flow like DD's simulator. auto mode simulates the whole courier
+            // lifecycle. Gated on Stripe test mode (the whole site's
+            // test/live switch), so the keys-only go-live swap drops this
+            // flag automatically with no code change.
+            ...(!isStripeLiveMode() ? { test_specifications: { robo_courier_specification: { mode: 'auto' } } } : {}),
         };
         const res = await uberRequest('/deliveries', {
             method: 'POST',
@@ -354,11 +362,16 @@ export async function uberCancelDelivery(deliveryId: string): Promise<boolean> {
 /** Map an Uber Direct webhook status string → our OrderFulfillment.status enum.
  *  Returns null for unmapped statuses (we acknowledge but don't act on them). */
 export function mapUberDirectStatus(status: string):
-    | 'PENDING' | 'CONFIRMED' | 'PREPARING' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'CANCELLED'
+    | 'REQUESTED' | 'PENDING' | 'CONFIRMED' | 'PREPARING' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'CANCELLED'
     | null {
     switch (status.toLowerCase()) {
         case 'pending':
+            // Delivery created, Uber still SEARCHING for a courier — no driver
+            // yet. Mapping this to CONFIRMED made the KDS claim "Driver
+            // assigned" while Uber's dashboard truthfully said "requesting".
+            return 'REQUESTED';
         case 'pickup':
+            // Courier assigned, en route to the store.
             return 'CONFIRMED';
         case 'pickup_complete':
             return 'OUT_FOR_DELIVERY';

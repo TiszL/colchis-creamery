@@ -48,11 +48,13 @@ export type CustomerAddressInfo = {
 /* ─── Own-delivery (catering) pricing knobs ────────────────────────────── */
 
 // The house fleet is for CATERING orders: it only shows above this cart
-// subtotal, and it always prices above the couriers (see planFulfillment).
-// Owner-tunable — a per-location LocationDeliveryMethod.flatFee that is
-// HIGHER than the courier floor also wins.
+// subtotal, and it always prices above the couriers (see planFulfillment) —
+// except big catering orders, where delivery is free. Owner-tunable — a
+// per-location LocationDeliveryMethod.flatFee HIGHER than the courier floor
+// also wins (below the free threshold).
 export const OWN_DELIVERY_MIN_SUBTOTAL_CENTS = 15_000;   // $150 minimum order
 export const OWN_DELIVERY_COURIER_PREMIUM_CENTS = 1_500; // $15 above the priciest courier quote
+export const OWN_DELIVERY_FREE_SUBTOTAL_CENTS = 30_000;  // $300+ orders: own delivery is free
 
 /* ─── Types ─────────────────────────────────────────────────────────────── */
 
@@ -761,6 +763,11 @@ export async function planFulfillment(
         if (ownIdx >= 0) {
             if (orderValueCents < OWN_DELIVERY_MIN_SUBTOTAL_CENTS) {
                 quotes.splice(ownIdx, 1);
+            } else if (orderValueCents >= OWN_DELIVERY_FREE_SUBTOTAL_CENTS) {
+                // $300+ catering orders: the house delivers free.
+                quotes[ownIdx].shippingCost = 0;
+                quotes[ownIdx].baseShippingCost = 0;
+                quotes[ownIdx].isFreeShipping = true;
             } else {
                 const courierMax = quotes
                     .filter(q => q.deliveryMethod === 'DOORDASH_DRIVE' || q.deliveryMethod === 'UBER_DIRECT')

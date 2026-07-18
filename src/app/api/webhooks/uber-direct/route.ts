@@ -20,6 +20,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { mapUberDirectStatus, verifyUberDirectSignature } from '@/lib/uber-direct';
 import { sendCourierIssueOpsEmail, sendDeliveryIssueCustomerEmail } from '@/lib/email';
+import { recordCourierWebhookDebug } from '@/lib/courier-status';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -72,6 +73,7 @@ export async function POST(req: Request) {
     if (process.env.UBER_DIRECT_WEBHOOK_SECRET) {
         if (!verifyUberDirectSignature(rawBody, signatureHeader)) {
             console.warn('[uber-direct-webhook] Invalid signature');
+            await recordCourierWebhookDebug('uber', { ok: false, note: 'SIGNATURE FAILED — x-uber-signature does not match UBER_DIRECT_WEBHOOK_SECRET (check the signing key in the Uber dashboard)' });
             return new NextResponse('Invalid signature', { status: 401 });
         }
     } else if (process.env.NODE_ENV === 'production') {
@@ -99,6 +101,7 @@ export async function POST(req: Request) {
     const targetStatus = mapUberDirectStatus(status);
     if (!targetStatus) {
         console.log('[uber-direct-webhook] Unmapped status:', status);
+        await recordCourierWebhookDebug('uber', { ok: true, note: 'Received but unmapped status (ignored)', event: status, externalId: deliveryId });
         return new NextResponse('OK', { status: 200 });
     }
 
@@ -111,8 +114,10 @@ export async function POST(req: Request) {
     });
     if (!fulfillment) {
         console.warn('[uber-direct-webhook] No fulfillment found for delivery', deliveryId);
+        await recordCourierWebhookDebug('uber', { ok: false, note: 'No order matches this delivery id', event: status, externalId: deliveryId });
         return new NextResponse('OK', { status: 200 });
     }
+    await recordCourierWebhookDebug('uber', { ok: true, note: `Applied to order fulfillment ${fulfillment.id.slice(0, 8)}`, event: status, externalId: deliveryId });
 
     // (b) Latest-wins live-info capture — courier identity, ETAs, arrival
     // substate. Runs on EVERY mapped event for this fulfillment, even when the

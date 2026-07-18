@@ -57,31 +57,51 @@ export default async function AdminTipsPage({
             serverName: true,
             createdAt: true,
             location: { select: { name: true } },
-            order: { select: { id: true, tipCents: true, tableNumber: true } },
+            order: { select: { id: true, tipCents: true, tableNumber: true, totalAmount: true, stripeFeeCents: true } },
         },
         orderBy: { createdAt: "desc" },
     });
     const fulfillments = allFulfillments.filter(f => f.status !== "CANCELLED");
     const cancelledTipped = allFulfillments.filter(f => f.status === "CANCELLED");
 
-    type Row = { serverId: string | null; serverName: string; tipCents: number; orders: number; locations: Set<string> };
+    // Lawful card-fee deduction: the tip's pro-rata share of the REAL Stripe
+    // processing fee for its charge (captured at payment time). Rows paid
+    // before fee capture existed fall back to the standard 2.9% + 30¢
+    // estimate and the report says so. Nothing else may be deducted from
+    // tips (employer payroll taxes are the company's own obligation).
+    const feeShareOf = (f: (typeof fulfillments)[number]): { cents: number; estimated: boolean } => {
+        const orderTotalCents = Math.round((parseFloat(f.order.totalAmount) || 0) * 100);
+        if (orderTotalCents <= 0) return { cents: 0, estimated: false };
+        const realFee = f.order.stripeFeeCents;
+        const fee = realFee ?? Math.round(orderTotalCents * 0.029 + 30);
+        return { cents: Math.round(fee * f.order.tipCents / orderTotalCents), estimated: realFee === null };
+    };
+
+    type Row = { serverId: string | null; serverName: string; tipCents: number; feeCents: number; orders: number; locations: Set<string> };
     const byServer = new Map<string, Row>();
+    let anyEstimated = false;
     for (const f of fulfillments) {
         const key = f.serverId ?? "__unassigned__";
         const row = byServer.get(key) ?? {
             serverId: f.serverId,
             serverName: f.serverId ? (f.serverName ?? "Server") : "Unassigned — no server claimed the table",
             tipCents: 0,
+            feeCents: 0,
             orders: 0,
             locations: new Set<string>(),
         };
+        const share = feeShareOf(f);
+        if (share.estimated) anyEstimated = true;
         row.tipCents += f.order.tipCents;
+        row.feeCents += share.cents;
         row.orders += 1;
         row.locations.add(f.location.name);
         byServer.set(key, row);
     }
     const rows = [...byServer.values()].sort((a, b) => b.tipCents - a.tipCents);
     const totalCents = rows.reduce((s, r) => s + r.tipCents, 0);
+    const totalFeeCents = rows.reduce((s, r) => s + r.feeCents, 0);
+    const totalNetCents = totalCents - totalFeeCents;
     const unassigned = fulfillments.filter(f => !f.serverId);
     const prefix = locale === "en" ? "" : `/${locale}`;
 
@@ -94,7 +114,8 @@ export default async function AdminTipsPage({
                     </h1>
                     <p className="text-sm text-gray-500 max-w-2xl">
                         Card tips from QR table ordering, attributed to the server who claimed each table.
-                        100% pass-through — pay these out via payroll. Fully-refunded orders are excluded.
+                        Pass-through to your servers, net of each tip&apos;s card-processing share — pay the
+                        net amounts via payroll. Fully-refunded orders are excluded.
                     </p>
                 </div>
                 <div className="flex gap-1.5">
@@ -114,14 +135,18 @@ export default async function AdminTipsPage({
                 </div>
             </header>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
                 <div className="bg-[#161616] border border-[#ffffff0A] p-5">
                     <div className="text-3xl font-light text-white">{fmtMoney(totalCents)}</div>
-                    <div className="text-[10px] text-gray-500 mt-1 uppercase tracking-wider">Total tips · {period.label}</div>
+                    <div className="text-[10px] text-gray-500 mt-1 uppercase tracking-wider">Tips (gross) · {period.label}</div>
                 </div>
                 <div className="bg-[#161616] border border-[#ffffff0A] p-5">
-                    <div className="text-3xl font-light text-white">{rows.filter(r => r.serverId).length}</div>
-                    <div className="text-[10px] text-gray-500 mt-1 uppercase tracking-wider">Servers with tips</div>
+                    <div className="text-3xl font-light text-gray-400">−{fmtMoney(totalFeeCents)}</div>
+                    <div className="text-[10px] text-gray-500 mt-1 uppercase tracking-wider">Card-fee share{anyEstimated ? " (partly est.)" : ""}</div>
+                </div>
+                <div className="bg-[#161616] border border-[#ffffff0A] p-5">
+                    <div className="text-3xl font-light text-emerald-400">{fmtMoney(totalNetCents)}</div>
+                    <div className="text-[10px] text-gray-500 mt-1 uppercase tracking-wider">Net to pay out</div>
                 </div>
                 <div className="bg-[#161616] border border-[#ffffff0A] p-5">
                     <div className={`text-3xl font-light ${unassigned.length > 0 ? "text-amber-400" : "text-white"}`}>
@@ -143,7 +168,9 @@ export default async function AdminTipsPage({
                                 <th className="px-5 py-3">Server</th>
                                 <th className="px-5 py-3">Location(s)</th>
                                 <th className="px-5 py-3 text-right">Tipped orders</th>
-                                <th className="px-5 py-3 text-right">Tips to pay out</th>
+                                <th className="px-5 py-3 text-right">Tips (gross)</th>
+                                <th className="px-5 py-3 text-right">Card-fee share</th>
+                                <th className="px-5 py-3 text-right">Net payout</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-[#ffffff0A]">
@@ -158,7 +185,9 @@ export default async function AdminTipsPage({
                                     </td>
                                     <td className="px-5 py-3 text-gray-400">{[...r.locations].join(", ")}</td>
                                     <td className="px-5 py-3 text-right font-mono text-gray-300">{r.orders}</td>
-                                    <td className="px-5 py-3 text-right font-mono text-emerald-400">{fmtMoney(r.tipCents)}</td>
+                                    <td className="px-5 py-3 text-right font-mono text-gray-300">{fmtMoney(r.tipCents)}</td>
+                                    <td className="px-5 py-3 text-right font-mono text-gray-500">−{fmtMoney(r.feeCents)}</td>
+                                    <td className="px-5 py-3 text-right font-mono text-emerald-400">{fmtMoney(r.tipCents - r.feeCents)}</td>
                                 </tr>
                             ))}
                         </tbody>
@@ -209,9 +238,11 @@ export default async function AdminTipsPage({
             )}
 
             <p className="text-[11px] text-gray-600 max-w-3xl">
-                Bookkeeping note: these amounts are pass-through employee tips, not revenue — run them through
+                Bookkeeping note: these amounts are pass-through employee tips, not revenue — run the NET amount through
                 payroll (withholding applies) and ask your accountant about the §45B FICA tip credit, which
-                offsets the employer share of Social Security/Medicare on reported tips.
+                offsets the employer share of Social Security/Medicare on reported tips. The card-fee share is the
+                tip&apos;s exact pro-rata slice of the real Stripe fee for its charge{anyEstimated ? " (older orders: 2.9% + 30¢ estimate)" : ""} —
+                the only cost that may lawfully come out of tips. Employer payroll taxes may NOT be deducted from tips.
             </p>
         </div>
     );

@@ -201,6 +201,24 @@ async function commitPaidOrder(order: OrderForSync, pi: Stripe.PaymentIntent): P
         },
     });
 
+    // Capture the ACTUAL Stripe processing fee (balance transaction) so the
+    // tips report can deduct the tip's exact pro-rata card-fee share (the
+    // only company cost lawfully deductible from tips). Best-effort — a miss
+    // just leaves the report on its estimated-rate fallback.
+    try {
+        const expanded = await stripe.paymentIntents.retrieve(pi.id, { expand: ['latest_charge.balance_transaction'] });
+        const charge = expanded.latest_charge as Stripe.Charge | null;
+        const bt = charge && typeof charge.balance_transaction === 'object' ? charge.balance_transaction : null;
+        if (bt && typeof bt.fee === 'number') {
+            await prisma.order.updateMany({
+                where: { id: order.id, stripeFeeCents: null },
+                data: { stripeFeeCents: bt.fee },
+            });
+        }
+    } catch (e) {
+        console.warn('[payment-sync] fee capture failed for Order', order.id, ':', e instanceof Error ? e.message : e);
+    }
+
     // Record the Stripe Tax transaction for compliance reporting. Idempotent:
     // skipped when a transaction is already recorded for this order. The PI
     // metadata fallback covers orders whose post-PI update never landed.

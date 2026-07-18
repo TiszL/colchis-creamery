@@ -24,6 +24,7 @@ import { stripe } from '@/lib/stripe';
 import { releaseStock } from '@/lib/stock-reservation';
 import { processPaymentSucceeded, markPaymentProcessing, reconcileOrderFromStripe } from '@/lib/stripe-payment-sync';
 import { sendOpsAlertEmail } from '@/lib/email';
+import { pollActiveCourierDeliveries } from '@/lib/courier-status';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -312,9 +313,21 @@ export async function GET(req: Request) {
         return 0;
     });
 
+    // Courier status poll — safety net for missing/misconfigured portal
+    // webhooks: asks DD/Uber directly for the live state of active deliveries
+    // so the KDS shows real courier progress no matter what.
+    const courierPoll = await pollActiveCourierDeliveries().catch(e => {
+        console.error('[cron/release-reservations] courier poll failed:', e);
+        return { polled: 0, advanced: 0 };
+    });
+    if (courierPoll.advanced > 0) {
+        console.log(`[cron/release-reservations] courier poll advanced ${courierPoll.advanced}/${courierPoll.polled} deliveries`);
+    }
+
     return NextResponse.json({
         ok: true,
         timestamp: now.toISOString(),
+        courierPoll,
         expiredAmendments,
         scanned: expiredOrders.length,
         released,

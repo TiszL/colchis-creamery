@@ -526,6 +526,27 @@ export async function advanceFulfillment(fulfillmentId: string, locationId: stri
     }
 }
 
+/**
+ * Ask the carrier for the CURRENT state of this delivery and apply it (same
+ * monotonic rules as the webhooks). Staff's manual safety net for missing
+ * portal webhooks — the cron polls automatically every few minutes too.
+ */
+export async function refreshCourierStatus(fulfillmentId: string, locationId: string): Promise<MutationResult> {
+    try {
+        await assertLocationRole(locationId, ['LOCATION_MANAGER', 'LOCATION_FULFILLMENT']);
+        const f = await prisma.orderFulfillment.findUnique({
+            where: { id: fulfillmentId },
+            select: { locationId: true },
+        });
+        if (!f || f.locationId !== locationId) return { ok: false, error: 'Not found' };
+        const { pollCourierFulfillment } = await import('@/lib/courier-status');
+        const r = await pollCourierFulfillment(fulfillmentId);
+        return r.ok ? { ok: true } : { ok: false, error: r.error };
+    } catch (e) {
+        return { ok: false, error: e instanceof Error ? e.message : 'Unknown error' };
+    }
+}
+
 /** Retry a failed courier dispatch (DISPATCH_FAILED → new create attempt). */
 export async function retryCourierDispatch(fulfillmentId: string, locationId: string): Promise<MutationResult> {
     try {

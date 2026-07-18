@@ -16,7 +16,7 @@
 import { prisma } from '@/lib/db';
 import { doordashGetDelivery, mapDoorDashDeliveryStatus } from '@/lib/doordash';
 import { uberGetDelivery, mapUberDirectStatus } from '@/lib/uber-direct';
-import { sendCourierIssueOpsEmail } from '@/lib/email';
+import { sendCourierIssueOpsEmail, sendDeliveryIssueCustomerEmail } from '@/lib/email';
 
 /* ─── Webhook debug ring buffer ────────────────────────────────────────── */
 
@@ -30,6 +30,12 @@ export type WebhookDebugEntry = {
 
 const DEBUG_RING_SIZE = 8;
 
+// Repeated identical outcomes (e.g. a scanner hammering the endpoint with bad
+// auth) collapse into one entry per window: without this, 8 junk requests
+// would flush the ring's genuine entries AND every unauthenticated POST would
+// buy 2 DB round-trips — a free write-amplification lever on a public route.
+const DEBUG_DEDUPE_WINDOW_MS = 10 * 60 * 1000;
+
 export async function recordCourierWebhookDebug(
     carrier: 'doordash' | 'uber',
     entry: Omit<WebhookDebugEntry, 'at'>,
@@ -40,6 +46,15 @@ export async function recordCourierWebhookDebug(
         let events: WebhookDebugEntry[] = [];
         if (row) {
             try { events = (JSON.parse(row.value).events ?? []) as WebhookDebugEntry[]; } catch { /* reset */ }
+        }
+        const newest = events[0];
+        if (
+            newest &&
+            newest.note === entry.note &&
+            newest.event === entry.event &&
+            Date.now() - new Date(newest.at).getTime() < DEBUG_DEDUPE_WINDOW_MS
+        ) {
+            return; // identical recent outcome — skip the write entirely
         }
         events.unshift({ at: new Date().toISOString(), ...entry });
         const value = JSON.stringify({ events: events.slice(0, DEBUG_RING_SIZE) });
@@ -84,6 +99,7 @@ export async function pollCourierFulfillment(fulfillmentId: string): Promise<Pol
             id: true, orderId: true, locationId: true, deliveryMethod: true, status: true,
             courierStatus: true, externalOrderId: true,
             location: { select: { name: true, notificationEmail: true } },
+            order: { select: { guestEmail: true, user: { select: { name: true, email: true } } } },
         },
     });
     if (!f) return { ok: false, error: 'Not found' };
@@ -124,6 +140,12 @@ export async function pollCourierFulfillment(fulfillmentId: string): Promise<Pol
         return { ok: false, error: 'Not a courier delivery' };
     }
 
+    // Info fields (courier identity, ETAs, tracking): latest-wins, unguarded —
+    // same contract as the webhooks' info capture.
+    if (Object.keys(info).length > 0) {
+        await prisma.orderFulfillment.update({ where: { id: f.id }, data: info });
+    }
+
     // Monotonic advance (mirrors the webhook guard).
     const current = f.courierStatus;
     let advance = false;
@@ -132,20 +154,47 @@ export async function pollCourierFulfillment(fulfillmentId: string): Promise<Pol
     } else if (mapped && COURIER_RANK[mapped] !== undefined) {
         advance = current === null || COURIER_RANK[mapped] > (COURIER_RANK[current] ?? -1);
     }
-
-    const data = {
-        ...info,
-        ...(advance && mapped ? {
-            courierStatus: mapped,
-            ...(mapped === 'DELIVERED' ? { status: 'DELIVERED' as const } : {}),
-        } : {}),
-    };
-    if (Object.keys(data).length === 0) {
+    if (!advance || !mapped) {
         return { ok: true, changed: false, courierStatus: current };
     }
-    await prisma.orderFulfillment.update({ where: { id: f.id }, data });
 
-    if (advance && mapped === 'CANCELLED') {
+    // COMPARE-AND-SET, not read-then-write: the carrier GET sits between our
+    // snapshot and this write, and a webhook can land inside that window. Only
+    // the caller whose snapshot still holds may advance — the loser becomes a
+    // silent no-op (no status write, NO side effects: no duplicate ops or
+    // customer emails, no resurrecting a CANCELLED/DELIVERED written by the
+    // webhook). Same flipped.count pattern as stripe-payment-sync.
+    const won = await prisma.orderFulfillment.updateMany({
+        where: { id: f.id, courierStatus: current },
+        data: {
+            courierStatus: mapped,
+            // Terminal states complete the kitchen flow / clear stale
+            // arrival substates — parity with the webhook writes.
+            ...(mapped === 'DELIVERED' ? { status: 'DELIVERED' as const, courierSubstate: null } : {}),
+            ...(mapped === 'CANCELLED' ? { courierSubstate: null } : {}),
+        },
+    });
+    if (won.count === 0) {
+        return { ok: true, changed: false, courierStatus: current };
+    }
+
+    if (mapped === 'DELIVERED') {
+        // Roll up: if every fulfillment on the order is now DELIVERED, the
+        // order itself is delivered (parity with the webhook routes — without
+        // this, orders completed via poll sat CONFIRMED in the admin forever).
+        const remaining = await prisma.orderFulfillment.count({
+            where: { orderId: f.orderId, status: { not: 'DELIVERED' } },
+        });
+        if (remaining === 0) {
+            await prisma.order.update({
+                where: { id: f.orderId },
+                data: { orderStatus: 'DELIVERED' },
+            });
+        }
+    }
+
+    if (mapped === 'CANCELLED') {
+        const returned = (rawStatus ?? '').toLowerCase().includes('return');
         const opsTo = f.location.notificationEmail ?? process.env.BAKERY_NOTIFICATION_EMAIL;
         if (opsTo) {
             sendCourierIssueOpsEmail({
@@ -155,14 +204,23 @@ export async function pollCourierFulfillment(fulfillmentId: string): Promise<Pol
                 locationName: f.location.name,
                 carrier: f.deliveryMethod === 'DOORDASH_DRIVE' ? 'DoorDash Drive' : 'Uber Direct',
                 issue: `Carrier reports "${rawStatus}" (found by status poll) — this delivery will not be completed.`,
-                kind: 'CANCELLED',
+                kind: returned ? 'RETURNED' : 'CANCELLED',
             }).catch(e => console.warn('[courier-poll] ops email failed:', e instanceof Error ? e.message : e));
         }
+        // The customer must hear about a dead delivery even when webhooks are
+        // down — parity with the webhook routes.
+        const customerTo = f.order.guestEmail ?? f.order.user?.email;
+        if (customerTo) {
+            sendDeliveryIssueCustomerEmail({
+                to: customerTo,
+                name: f.order.user?.name ?? null,
+                orderId: f.orderId,
+            }).catch(e => console.warn('[courier-poll] customer email failed:', e instanceof Error ? e.message : e));
+        }
     }
-    if (advance && mapped) {
-        console.log('[courier-poll] Fulfillment', f.id, `courierStatus ${current ?? '(none)'} → ${mapped} (raw: ${rawStatus})`);
-    }
-    return { ok: true, changed: advance, courierStatus: advance && mapped ? mapped : current };
+
+    console.log('[courier-poll] Fulfillment', f.id, `courierStatus ${current ?? '(none)'} → ${mapped} (raw: ${rawStatus})`);
+    return { ok: true, changed: true, courierStatus: mapped };
 }
 
 /**
@@ -183,13 +241,23 @@ export async function pollActiveCourierDeliveries(limit = 15): Promise<{ polled:
             updatedAt: { lt: new Date(Date.now() - 2 * 60 * 1000) },
         },
         select: { id: true },
-        orderBy: { createdAt: 'desc' },
+        // Least-recently-touched FIRST: any poll that writes bumps updatedAt,
+        // so the sweep round-robins through the active set instead of pinning
+        // the newest 15 and starving older deliveries during a rush.
+        orderBy: { updatedAt: 'asc' },
         take: limit,
     });
     let advanced = 0;
     for (const c of candidates) {
         const r = await pollCourierFulfillment(c.id).catch(() => null);
         if (r && r.ok && r.changed) advanced++;
+        if (!r || !r.ok || !r.changed) {
+            // Touch updatedAt even when nothing changed (or the carrier call
+            // failed) — without this a quiet or dead row would stay at the
+            // head of the updatedAt-asc queue and hog the sweep forever.
+            // (Prisma skips empty-data updates entirely, so set it explicitly.)
+            await prisma.orderFulfillment.update({ where: { id: c.id }, data: { updatedAt: new Date() } }).catch(() => undefined);
+        }
     }
     return { polled: candidates.length, advanced };
 }

@@ -23,10 +23,11 @@ const GLOBAL_ROLE_CONFIG: Record<string, { label: string; icon: any; color: stri
 const LOCATION_ROLE_LABEL: Record<string, string> = {
     LOCATION_MANAGER:     "Manager",
     LOCATION_FULFILLMENT: "Fulfillment",
+    SERVER:               "Server",
     B2B_SALES_MANAGER:    "B2B Sales",
 };
 
-const LOCATION_ROLES = ["LOCATION_MANAGER", "LOCATION_FULFILLMENT", "B2B_SALES_MANAGER"];
+const LOCATION_ROLES = ["LOCATION_MANAGER", "LOCATION_FULFILLMENT", "SERVER", "B2B_SALES_MANAGER"];
 
 interface LocationRef { id: string; name: string; city: string; state: string; type?: string; }
 interface LocationAssignment {

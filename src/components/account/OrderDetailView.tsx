@@ -29,6 +29,8 @@ export type OrderDetailViewData = {
     subtotalAmount: string | null;
     shippingAmount: string | null;
     taxAmount: string | null;
+    // Voluntary tip (cents) — QR table orders only; 0 elsewhere.
+    tipCents: number;
     totalAmount: string;
     shippingAddress: string | null;
     orderItems: {
@@ -518,6 +520,9 @@ export default function OrderDetailView({
                             <SumRow label="Subtotal" value={fmtMoney(order.subtotalAmount)} />
                             <SumRow label="Shipping" value={fmtMoney(order.shippingAmount)} />
                             <SumRow label="Sales tax" value={fmtMoney(order.taxAmount)} />
+                            {order.tipCents > 0 && (
+                                <SumRow label="Tip for your server" value={formatCurrency(order.tipCents / 100)} />
+                            )}
                             {order.amendments.filter(a => a.status === 'PENDING_PAYMENT').map(a => (
                                 <div key={a.id} style={{ padding: '10px 12px', background: '#EAE2D2', border: '1px solid #B96A3D44', fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.16em', color: '#8A4F2D', textTransform: 'uppercase' }}>
                                     Payment link sent — ${((a.itemsCents + a.taxCents) / 100).toFixed(2)} for added items. They appear here once paid.

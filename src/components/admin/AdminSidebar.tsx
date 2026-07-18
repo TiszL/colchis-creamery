@@ -3,7 +3,7 @@
 import { useState, useTransition, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Menu, X, LogOut, LayoutDashboard, Package, FileText, ShoppingCart, Users, KeyRound, BarChart3, Settings, Shield, Globe, Inbox, MessageSquare, Tags, MessageCircle, MapPin, QrCode } from 'lucide-react';
+import { Menu, X, LogOut, LayoutDashboard, Package, FileText, ShoppingCart, Users, KeyRound, BarChart3, Settings, Shield, Globe, Inbox, MessageSquare, Tags, MessageCircle, MapPin, QrCode, HandCoins } from 'lucide-react';
 import { ColchisSeal } from '@/components/brand/ColchisSeal';
 
 const NAV_ITEMS = [
@@ -13,6 +13,7 @@ const NAV_ITEMS = [
     { label: 'Categories', href: '/admin/categories', icon: Tags },
     { label: 'Live Chat', href: '/admin/chat', icon: MessageCircle },
     { label: 'QR Table Ordering', href: '/admin/qr-ordering', icon: QrCode },
+    { label: '  ↳ Server Tips', href: '/admin/tips', icon: HandCoins },
     { label: 'Orders', href: '/admin/orders', icon: ShoppingCart },
     { label: 'Requests', href: '/admin/requests', icon: Inbox },
     { label: 'Reviews', href: '/admin/reviews', icon: MessageSquare },

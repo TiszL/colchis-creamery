@@ -64,6 +64,12 @@ export type QueueItem = {
     customerPhone: string | null;
     // QR table ordering — dine-in tickets show which table to bring it to.
     tableNumber: number | null;
+    // Voluntary tip (cents) — belongs to the server who claims the table,
+    // never the house. Shown on dine-in cards + summed in the tips report.
+    tipCents: number;
+    // The server who claimed this table (null = unclaimed).
+    serverId: string | null;
+    serverName: string | null;
     // Lines with effective (quantity - refundedQuantity) <= 0 are excluded.
     items: {
         orderItemId: string;
@@ -142,7 +148,9 @@ export async function fetchLocationQueue(
     locationId: string,
     view: 'active' | 'done' | 'all' = 'active',
 ): Promise<QueueSnapshot> {
-    await assertLocationRole(locationId, ['LOCATION_MANAGER', 'LOCATION_FULFILLMENT']);
+    // SERVER (waitstaff) reads the same queue — they claim + serve dine-in
+    // tickets from it; mutations stay gated per-action below.
+    await assertLocationRole(locationId, ['LOCATION_MANAGER', 'LOCATION_FULFILLMENT', 'SERVER']);
 
     // Kitchen must only ever see orders whose money is settled: fulfillments are
     // created (PENDING) BEFORE payment confirms, and delayed-settlement (ACH)
@@ -159,7 +167,7 @@ export async function fetchLocationQueue(
             include: {
                 order: {
                     select: {
-                        id: true, paymentStatus: true, guestEmail: true, guestPhone: true, shippingDeliveryNotes: true, tableNumber: true,
+                        id: true, paymentStatus: true, guestEmail: true, guestPhone: true, shippingDeliveryNotes: true, tableNumber: true, tipCents: true,
                         totalAmount: true, subtotalAmount: true, taxAmount: true, notes: true,
                         shippingAddress: true, shippingLine1: true, shippingAddressLine2: true,
                         shippingCity: true, shippingState: true, shippingPostalCode: true,
@@ -235,6 +243,9 @@ export async function fetchLocationQueue(
             createdAt: f.createdAt.toISOString(),
             customerName: f.order.user?.name ?? f.order.user?.email ?? f.order.guestEmail ?? 'Guest',
             tableNumber: f.order.tableNumber,
+            tipCents: f.order.tipCents,
+            serverId: f.serverId,
+            serverName: f.serverName,
             customerPhone: f.order.guestPhone ?? f.order.user?.phone ?? null,
             items: f.items
                 .filter(i => i.quantity - i.orderItem.refundedQuantity > 0)
@@ -332,6 +343,70 @@ export type MutationResult =
     | { ok: true; courierError?: string; amountRefunded?: string }
     | { ok: false; error: string };
 
+// Waitstaff with ONLY the SERVER role are scoped to dine-in tickets; anyone
+// also holding a kitchen role (or master admin) keeps full queue powers.
+function isServerOnly(caller: { isMasterAdmin: boolean; roles: string[] }): boolean {
+    return !caller.isMasterAdmin
+        && caller.roles.includes('SERVER')
+        && !caller.roles.includes('LOCATION_MANAGER')
+        && !caller.roles.includes('LOCATION_FULFILLMENT');
+}
+
+// Guarded claim: first server wins; a concurrent claim is a silent no-op for
+// the loser (the queue poll shows them who has the table).
+async function claimGuarded(fulfillmentId: string, userId: string): Promise<boolean> {
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { name: true, email: true } });
+    const claimed = await prisma.orderFulfillment.updateMany({
+        where: { id: fulfillmentId, serverId: null },
+        data: { serverId: userId, serverName: user?.name || user?.email || 'Server' },
+    });
+    return claimed.count === 1;
+}
+
+/**
+ * A server takes a table: tip attribution + "who brings the food" both key
+ * off this. SERVER + LOCATION_MANAGER (+ master admin) may claim; first
+ * claim wins — a manager can Unclaim first to fix a mistake.
+ */
+export async function claimTableOrder(fulfillmentId: string, locationId: string): Promise<MutationResult> {
+    try {
+        const caller = await assertLocationRole(locationId, ['SERVER', 'LOCATION_MANAGER']);
+        const f = await prisma.orderFulfillment.findUnique({
+            where: { id: fulfillmentId },
+            select: { locationId: true, deliveryMethod: true, serverId: true, serverName: true, status: true },
+        });
+        if (!f || f.locationId !== locationId) return { ok: false, error: 'Not found' };
+        if (f.deliveryMethod !== 'IN_STORE_DINE_IN') return { ok: false, error: 'Only table orders can be claimed' };
+        if (f.status === 'CANCELLED') return { ok: false, error: 'Order is cancelled' };
+        if (f.serverId) return { ok: false, error: `Already claimed by ${f.serverName ?? 'another server'}` };
+        const won = await claimGuarded(fulfillmentId, caller.userId);
+        return won ? { ok: true } : { ok: false, error: 'Another server just claimed this table' };
+    } catch (e) {
+        return { ok: false, error: e instanceof Error ? e.message : 'Unknown error' };
+    }
+}
+
+/** Manager-only: clear a wrong claim so the right server can take the table.
+ *  Tip attribution follows the claim, so only managers may move it. */
+export async function unclaimTableOrder(fulfillmentId: string, locationId: string): Promise<MutationResult> {
+    try {
+        await assertLocationRole(locationId, ['LOCATION_MANAGER']);
+        const f = await prisma.orderFulfillment.findUnique({
+            where: { id: fulfillmentId },
+            select: { locationId: true, serverId: true },
+        });
+        if (!f || f.locationId !== locationId) return { ok: false, error: 'Not found' };
+        if (!f.serverId) return { ok: false, error: 'Not claimed' };
+        await prisma.orderFulfillment.update({
+            where: { id: fulfillmentId },
+            data: { serverId: null, serverName: null },
+        });
+        return { ok: true };
+    } catch (e) {
+        return { ok: false, error: e instanceof Error ? e.message : 'Unknown error' };
+    }
+}
+
 /**
  * Staff ACCEPT — the kitchen commits to the order. Sets CONFIRMED + acceptedAt,
  * and for courier legs books the driver with pickup_ready = now + prepMinutes
@@ -339,12 +414,15 @@ export type MutationResult =
  */
 export async function acceptFulfillment(fulfillmentId: string, locationId: string): Promise<MutationResult> {
     try {
-        await assertLocationRole(locationId, ['LOCATION_MANAGER', 'LOCATION_FULFILLMENT']);
+        const caller = await assertLocationRole(locationId, ['LOCATION_MANAGER', 'LOCATION_FULFILLMENT', 'SERVER']);
         const f = await prisma.orderFulfillment.findUnique({
             where: { id: fulfillmentId },
-            select: { status: true, locationId: true, deliveryMethod: true, externalOrderId: true, location: { select: { prepMinutes: true } }, order: { select: { paymentStatus: true } } },
+            select: { status: true, locationId: true, deliveryMethod: true, externalOrderId: true, serverId: true, location: { select: { prepMinutes: true } }, order: { select: { paymentStatus: true } } },
         });
         if (!f || f.locationId !== locationId) return { ok: false, error: 'Not found' };
+        if (isServerOnly(caller) && f.deliveryMethod !== 'IN_STORE_DINE_IN') {
+            return { ok: false, error: 'Servers handle table orders — the kitchen accepts this one' };
+        }
         if (f.status !== 'PENDING') return { ok: false, error: `Already ${f.status.toLowerCase()}` };
         // Defense in depth (the queue already filters unpaid orders out): never
         // let staff commit to cooking — or book a courier for — an order whose
@@ -357,6 +435,12 @@ export async function acceptFulfillment(fulfillmentId: string, locationId: strin
             where: { id: fulfillmentId },
             data: { status: 'CONFIRMED', acceptedAt: new Date() },
         });
+
+        // A SERVER accepting a table ticket IS taking the table — auto-claim
+        // (only if still unclaimed; a colleague's existing claim wins).
+        if (f.deliveryMethod === 'IN_STORE_DINE_IN' && !f.serverId && !caller.isMasterAdmin && caller.roles.includes('SERVER')) {
+            await claimGuarded(fulfillmentId, caller.userId);
+        }
 
         // Courier legs: book the driver now, timed to kitchen readiness.
         if ((COURIER_METHODS as readonly string[]).includes(f.deliveryMethod) && !f.externalOrderId) {
@@ -377,7 +461,7 @@ export async function acceptFulfillment(fulfillmentId: string, locationId: strin
 /** Staff advance — one step along the method-aware kitchen flow. */
 export async function advanceFulfillment(fulfillmentId: string, locationId: string): Promise<MutationResult> {
     try {
-        await assertLocationRole(locationId, ['LOCATION_MANAGER', 'LOCATION_FULFILLMENT']);
+        const caller = await assertLocationRole(locationId, ['LOCATION_MANAGER', 'LOCATION_FULFILLMENT', 'SERVER']);
         const f = await prisma.orderFulfillment.findUnique({
             where: { id: fulfillmentId },
             select: {
@@ -387,6 +471,9 @@ export async function advanceFulfillment(fulfillmentId: string, locationId: stri
             },
         });
         if (!f || f.locationId !== locationId) return { ok: false, error: 'Not found' };
+        if (isServerOnly(caller) && f.deliveryMethod !== 'IN_STORE_DINE_IN') {
+            return { ok: false, error: 'Servers handle table orders — the kitchen advances this one' };
+        }
         // Accepting is its own action (it books the courier) — don't allow the
         // generic advance to skip it.
         if (f.status === 'PENDING') return { ok: false, error: 'Use Accept first' };

@@ -8,7 +8,10 @@
 import { getSession } from '@/lib/session';
 import { prisma } from '@/lib/db';
 import { redirect, notFound } from 'next/navigation';
+import { after } from 'next/server';
 import OrderDetailView from '@/components/account/OrderDetailView';
+import OrderAutoRefresh from '@/components/account/OrderAutoRefresh';
+import { pollActiveCourierDeliveries } from '@/lib/courier-status';
 import { productForCart } from '@/lib/cart-product';
 import { CANCEL_WINDOW_MS, PAST_CONFIRMED_FULFILLMENT_STATUSES } from '@/lib/order-policy';
 
@@ -81,14 +84,27 @@ export default async function CustomerOrderDetailPage({ params }: PageProps) {
         ? { orderId: order.id, minutesRemaining: Math.max(1, Math.ceil((CANCEL_WINDOW_MS - ageMs) / 60000)) }
         : null;
 
+    // Live tracking — same mechanism as the guest token page: post-response
+    // courier check with the carrier + 30s self-refresh while legs are moving.
+    const orderLive =
+        order.paymentStatus === 'PAID' &&
+        order.fulfillments.some(f => !['DELIVERED', 'CANCELLED'].includes(f.status));
+    if (orderLive) {
+        after(() => pollActiveCourierDeliveries({ orderId: order.id, staleMs: 60_000, limit: 3 })
+            .catch(e => console.warn('[order-page] courier poll failed:', e instanceof Error ? e.message : e)));
+    }
+
     return (
-        <OrderDetailView
-            order={order}
-            backLink={{ href: `${prefix}/account`, label: 'My account' }}
-            locale={locale}
-            reorderItems={reorderItems}
-            reorderSkippedCount={reorderSkippedCount}
-            cancelInfo={cancelInfo}
-        />
+        <>
+            {orderLive && <OrderAutoRefresh />}
+            <OrderDetailView
+                order={order}
+                backLink={{ href: `${prefix}/account`, label: 'My account' }}
+                locale={locale}
+                reorderItems={reorderItems}
+                reorderSkippedCount={reorderSkippedCount}
+                cancelInfo={cancelInfo}
+            />
+        </>
     );
 }

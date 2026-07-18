@@ -117,3 +117,49 @@ confirmed) and the four hardening PRs (#20 payments, #21 timezone, #22 anti-abus
   Ops-alert emails cover the money paths either way.
 - Tax-inclusive total display at checkout + footer legal links (polish PR).
 - B2B `OrderItem.unitPrice` stored with `$` prefix (cosmetic, cleanup pass).
+
+## Carrier delivery — simulate the FULL lifecycle in test mode
+
+The sandboxes never assign real drivers; you play the driver once per carrier
+to prove the whole chain (webhook → KDS → customer page → DELIVERED).
+
+**One-time webhook setup (both portals, ~5 min):**
+
+| Carrier | Where | Webhook URL | Auth |
+|---|---|---|---|
+| DoorDash Drive | developer.doordash.com → your app → Webhooks | `https://colchisfood.com/api/webhooks/doordash` | Header `Authorization` = the exact value of `DOORDASH_WEBHOOK_AUTH` in Vercel env |
+| Uber Direct | Uber Direct dashboard → Developer → Webhooks | `https://colchisfood.com/api/webhooks/uber-direct` | Signing secret = `UBER_DIRECT_WEBHOOK_SECRET` in Vercel env (sent as `x-uber-signature`) |
+
+Both endpoints are live and fail closed (unsigned POSTs get 401 — verified).
+
+**Then simulate:**
+1. **DoorDash**: developer portal → **Drive Simulator** → find the delivery by
+   its external id (the KDS/DB `externalOrderId`, e.g. `<orderId>-dd-…`) →
+   advance: Dasher assigned → Picked up → Delivered. Each click fires a real
+   webhook; watch the KDS card and the customer tracking page move.
+2. **Uber**: dashboard → test settings → enable **Robo Courier** (pick a short
+   delay) → dispatch any new Uber order from the KDS; it auto-advances to
+   DELIVERED, firing webhooks along the way.
+
+## Carrier go-live — keys-only swap (verified: no code changes needed)
+
+Both carrier clients use the SAME API base in sandbox and production — the
+credentials alone select the environment (`doordash.ts` explicitly;
+`api.uber.com` likewise). Stripe mode is picked by the key prefix, and
+Connect routing already refuses mode-mismatched accounts. So going live is
+exactly an env swap in Vercel:
+
+| # | Vercel env var | Swap to |
+|---|---|---|
+| 1 | `DOORDASH_DEVELOPER_ID` / `DOORDASH_KEY_ID` / `DOORDASH_SIGNING_SECRET` | Production credentials (after Drive production approval) |
+| 2 | `DOORDASH_WEBHOOK_AUTH` | New value; update the portal webhook header to match |
+| 3 | `UBER_DIRECT_CLIENT_ID` / `UBER_DIRECT_CLIENT_SECRET` / `UBER_DIRECT_CUSTOMER_ID` | Production credentials |
+| 4 | `UBER_DIRECT_WEBHOOK_SECRET` | New value; update the Uber webhook config to match |
+| 5 | `STRIPE_SECRET_KEY` / `STRIPE_PUBLISHABLE_KEY` / `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | `sk_live_…` / `pk_live_…` |
+| 6 | `STRIPE_WEBHOOK_SECRET` | The LIVE endpoint's signing secret (create the live webhook endpoint in Stripe first, same URL) |
+| 7 | `EASYPOST_API_KEY` | `EZAK…` production key (only when NATIONAL_SHIP goes live) |
+
+After the swap: re-run Connect onboarding for the location in live mode
+(test-mode `acct_…` ids don't exist in live — checkout falls back to platform
+charges until then, by design), run the test-order cleanup script, turn off
+the testing banner (`site.testingMode`), and do the Phase C $1 rehearsal.
